@@ -26,6 +26,13 @@
 
 <p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
 
+<p align="center">
+  <a href="https://kevrojo.github.io/Falcon/"><b>🌐 Visit the Falcon website →</b></a><br>
+  <sub>The site covers features, demos, and details not documented in this README.</sub>
+</p>
+
+<p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
+
 ## What is this
 
 Falcon is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
