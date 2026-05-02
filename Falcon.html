@@ -1,0 +1,3617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Falcon — Hunt. Patch. Ship.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Archivo+Black&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET + BASE ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;
+  --bg2:#0f0f12;
+  --bg3:#15151a;
+  --ink:#f0e8df;
+  --dim:#6a6470;
+  --dim2:#3a3840;
+  --accent:#ff6b1f;
+  --accent2:#ffb347;
+  --green:#7cffb5;
+  --red:#ff5a6e;
+  --blue:#7ab6ff;
+  --yellow:#ffd166;
+  --nv:#76b900;
+  --mono:'JetBrains Mono',monospace;
+  --display:'Archivo Black','Impact',sans-serif;
+  --radius:4px;
+}
+html{scroll-behavior:smooth;font-size:16px}
+body{background:var(--bg);color:var(--ink);font-family:var(--mono);overflow-x:hidden;line-height:1.6}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+
+/* ===== REUSABLE ===== */
+.accent{color:var(--accent)}
+.dim{color:var(--dim)}
+.green{color:var(--green)}
+.eyebrow{font-size:11px;letter-spacing:.35em;text-transform:uppercase;color:var(--accent)}
+.section{padding:100px 0;position:relative}
+.container{max-width:1200px;margin:0 auto;padding:0 40px}
+.section-header{text-align:center;margin-bottom:64px}
+.section-header h2{font-family:var(--display);font-size:clamp(40px,5vw,64px);letter-spacing:-.03em;line-height:.95;margin-top:12px}
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:none}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+.reveal-delay-4{transition-delay:.4s}
+
+/* ===== GRID PATTERN BG ===== */
+.grid-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,107,31,.06) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,107,31,.06) 1px,transparent 1px);
+  background-size:40px 40px;
+  mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%);
+}
+
+/* ===== NAV ===== */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:64px;
+  display:flex;align-items:center;
+  padding:0 40px;
+  background:rgba(10,10,10,.7);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,107,31,.12);
+  transition:background .3s;
+}
+nav.scrolled{background:rgba(10,10,10,.95)}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.nav-logo .mark{
+  width:32px;height:32px;background:var(--accent);
+  display:grid;place-items:center;
+  font-family:var(--display);font-size:18px;color:#000;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+}
+.nav-logo .name{font-family:var(--display);font-size:18px;letter-spacing:-.02em;color:var(--ink)}
+.nav-links{display:flex;gap:32px;margin-left:48px}
+.nav-links a{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--ink)}
+.nav-cta{
+  margin-left:auto;
+  background:var(--accent);color:#000;
+  font-family:var(--mono);font-size:12px;font-weight:700;
+  letter-spacing:.15em;text-transform:uppercase;
+  padding:8px 18px;text-decoration:none;
+  transition:background .2s,transform .1s;
+  white-space:nowrap;
+}
+.nav-cta:hover{background:var(--accent2);transform:translateY(-1px)}
+.nav-version{font-size:11px;color:var(--dim);margin-left:16px;display:none}
+@media(min-width:900px){.nav-version{display:block}}
+
+/* ===== HERO ===== */
+#hero{
+  min-height:100vh;
+  display:flex;align-items:center;
+  padding-top:64px;
+  position:relative;overflow:hidden;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse at 70% 50%,rgba(255,107,31,.18) 0%,transparent 55%),
+    radial-gradient(ellipse at 10% 80%,rgba(255,107,31,.08) 0%,transparent 40%);
+}
+.hero-scan{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.012) 3px 4px);
+  pointer-events:none;
+}
+.hero-inner{
+  display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;
+  position:relative;z-index:2;width:100%;
+}
+.hero-left{}
+.hero-meta{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.hero-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px var(--accent)}50%{box-shadow:0 0 20px var(--accent),0 0 40px var(--accent)}}
+.hero-wordmark{
+  font-family:var(--display);
+  font-size:clamp(80px,10vw,160px);
+  line-height:.85;
+  letter-spacing:-.04em;
+}
+.hero-wordmark .split{
+  display:block;
+  background:linear-gradient(180deg,var(--ink) 58%,var(--accent) 58%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero-slash{color:var(--accent);font-size:clamp(14px,1.5vw,20px);letter-spacing:.35em;margin-top:16px;display:block}
+.hero-sub{color:var(--dim);font-size:15px;margin-top:14px;max-width:480px;line-height:1.65}
+.hero-sub strong{color:var(--ink)}
+.hero-actions{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
+.btn-primary{
+  background:var(--accent);color:#000;
+  font-family:var(--mono);font-size:13px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+  padding:12px 24px;text-decoration:none;
+  transition:background .2s,transform .1s;display:inline-block;
+}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-2px)}
+.btn-ghost{
+  border:1px solid var(--dim2);color:var(--dim);
+  font-family:var(--mono);font-size:13px;
+  letter-spacing:.12em;text-transform:uppercase;
+  padding:12px 24px;text-decoration:none;
+  transition:border-color .2s,color .2s;display:inline-block;
+}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.hero-stats{display:flex;gap:32px;margin-top:40px}
+.hero-stat .val{font-family:var(--display);font-size:28px;color:var(--accent)}
+.hero-stat .lbl{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);margin-top:2px}
+
+/* ===== TERMINAL ===== */
+.terminal-wrap{position:relative}
+.terminal{
+  background:#08080c;
+  border:1px solid var(--dim2);
+  box-shadow:0 0 60px rgba(255,107,31,.12),0 0 0 1px rgba(255,107,31,.08);
+  overflow:hidden;
+  position:relative;
+}
+.terminal::before{
+  content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.014) 3px 4px);
+  pointer-events:none;z-index:1;
+}
+.t-chrome{
+  height:38px;background:#111116;
+  display:flex;align-items:center;
+  padding:0 14px;
+  border-bottom:1px solid #1a1a22;
+  gap:8px;
+}
+.t-btn{width:12px;height:12px;border-radius:50%}
+.t-title{flex:1;text-align:center;font-size:11px;color:var(--dim);letter-spacing:.15em}
+.t-body{padding:20px 22px;font-size:13px;line-height:1.55;min-height:320px;position:relative;z-index:2}
+.t-line{display:block;margin-bottom:2px}
+.t-prompt::before{content:"$ ";color:var(--accent)}
+.t-output{color:var(--dim);padding-left:4px}
+.t-success{color:var(--green)}
+.t-warn{color:var(--yellow)}
+.t-err{color:var(--red)}
+.t-info{color:var(--blue)}
+.t-op{color:var(--accent)}
+.t-cursor{
+  display:inline-block;width:8px;height:14px;
+  background:var(--accent);vertical-align:middle;margin-left:1px;
+  animation:blink .9s infinite step-end;
+}
+@keyframes blink{50%{opacity:0}}
+.t-glow{
+  position:absolute;bottom:0;left:0;right:0;height:80px;
+  background:linear-gradient(transparent,rgba(8,8,12,.8));
+  pointer-events:none;z-index:3;
+}
+
+/* ===== METRICS ===== */
+#metrics{
+  background:var(--bg2);
+  border-top:1px solid var(--dim2);
+  border-bottom:1px solid var(--dim2);
+  padding:40px 0;
+}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--dim2)}
+.metric{background:var(--bg2);padding:32px 40px;position:relative;overflow:hidden}
+.metric::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent)}
+.metric .val{font-family:var(--display);font-size:42px;color:var(--accent);letter-spacing:-.02em}
+.metric .unit{font-size:16px;color:var(--accent);margin-left:4px}
+.metric .lbl{font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);margin-top:6px}
+.metric .sub{font-size:11px;color:var(--dim);margin-top:4px}
+
+/* ===== FEATURES ===== */
+#features{background:var(--bg)}
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+  gap:1px;
+  background:var(--dim2);
+  border:1px solid var(--dim2);
+}
+.feature{
+  background:var(--bg);
+  padding:36px 32px;
+  position:relative;
+  overflow:hidden;
+  transition:background .2s;
+}
+.feature:hover{background:var(--bg2)}
+.feature::after{
+  content:"";position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  opacity:0;transition:opacity .3s;
+}
+.feature:hover::after{opacity:.6}
+.f-icon{
+  width:44px;height:44px;
+  border:1px solid var(--dim2);
+  display:grid;place-items:center;
+  font-size:20px;margin-bottom:20px;
+  position:relative;
+}
+.f-icon::before{content:"";position:absolute;top:-1px;left:-1px;width:8px;height:8px;border-top:2px solid var(--accent);border-left:2px solid var(--accent)}
+.f-num{position:absolute;top:16px;right:16px;font-size:10px;color:var(--dim2);letter-spacing:.2em}
+.feature h3{font-size:16px;font-weight:700;margin-bottom:8px;letter-spacing:.02em}
+.feature p{font-size:13px;color:var(--dim);line-height:1.6}
+.feature code{font-size:11px;color:var(--accent);background:rgba(255,107,31,.06);padding:2px 6px;border-radius:2px}
+
+/* ===== MODELS ===== */
+#models{background:var(--bg2);overflow:hidden}
+.models-intro{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;margin-bottom:64px}
+.models-intro-text h2{font-family:var(--display);font-size:clamp(36px,4vw,56px);letter-spacing:-.03em;line-height:.95;margin-top:12px}
+.models-intro-text h2 em{font-style:normal;color:var(--accent)}
+.models-intro-stat{display:flex;flex-direction:column;gap:20px}
+.m-stat{border-left:2px solid var(--accent);padding:4px 0 4px 16px}
+.m-stat .mv{font-family:var(--display);font-size:36px;color:var(--ink);letter-spacing:-.02em}
+.m-stat .ml{font-size:11px;color:var(--dim);letter-spacing:.2em;text-transform:uppercase}
+
+.providers-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1px;background:var(--dim2);border:1px solid var(--dim2)}
+.provider{
+  background:var(--bg2);
+  padding:24px 20px;
+  display:flex;flex-direction:column;gap:8px;
+  position:relative;transition:background .2s;cursor:default;
+}
+.provider:hover{background:var(--bg3)}
+.provider .p-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);position:absolute;top:14px;right:14px;box-shadow:0 0 8px var(--accent)}
+.provider .p-name{font-weight:700;font-size:14px}
+.provider .p-models{font-size:10px;color:var(--dim);letter-spacing:.15em;text-transform:uppercase}
+.provider .p-tag{font-size:10px;color:var(--accent);margin-top:4px}
+
+/* NVIDIA free tier callout */
+.nvidia-callout{
+  margin-top:40px;
+  border:1px solid rgba(118,185,0,.35);
+  background:rgba(118,185,0,.03);
+  padding:40px;
+  position:relative;overflow:hidden;
+}
+.nvidia-callout::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--nv),transparent);
+}
+.nv-header{display:flex;align-items:flex-start;justify-content:space-between;gap:40px;flex-wrap:wrap}
+.nv-badge{
+  background:var(--nv);color:#000;
+  font-size:10px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;
+  padding:4px 10px;white-space:nowrap;align-self:flex-start;
+}
+.nv-header h3{font-family:var(--display);font-size:clamp(24px,3vw,40px);letter-spacing:-.02em;line-height:1;color:var(--ink)}
+.nv-header h3 span{color:var(--nv)}
+.nv-stats{display:flex;gap:32px;flex-wrap:wrap}
+.nv-stat .v{font-family:var(--display);font-size:32px;color:var(--nv)}
+.nv-stat .l{font-size:10px;color:var(--dim);letter-spacing:.2em;text-transform:uppercase;margin-top:2px}
+.nv-models{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;
+  margin-top:28px;
+}
+.nv-chip{
+  border:1px solid rgba(118,185,0,.25);
+  padding:10px 14px;
+  display:flex;flex-direction:column;gap:3px;
+  background:rgba(118,185,0,.03);
+  transition:border-color .2s,background .2s;
+}
+.nv-chip:hover{border-color:var(--nv);background:rgba(118,185,0,.06)}
+.nv-chip .cn{font-size:13px;font-weight:700}
+.nv-chip .ci{font-size:10px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase}
+.nv-chain{
+  margin-top:24px;padding:16px;background:rgba(0,0,0,.4);
+  font-size:12px;color:var(--dim);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.nv-chain .ch-item{color:var(--nv)}
+.nv-chain .ch-arrow{color:var(--accent)}
+.nv-cta{
+  margin-top:20px;display:inline-block;
+  border:1px solid var(--nv);color:var(--nv);
+  font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+  padding:10px 20px;text-decoration:none;transition:background .2s,color .2s;
+}
+.nv-cta:hover{background:var(--nv);color:#000}
+
+/* ===== SPINNERS MARQUEE ===== */
+/* fixed bar sitting at bottom of viewport */
+#spinners{
+  position:fixed;bottom:0;left:0;right:0;z-index:90;
+  background:rgba(10,10,10,.92);
+  backdrop-filter:blur(10px);
+  padding:10px 0;
+  overflow:hidden;
+  border-top:1px solid var(--dim2);
+  /* transition to docked state handled by JS */
+  transition:bottom .3s ease, border-color .3s;
+}
+#spinners.docked{
+  position:absolute;
+  border-top:1px solid rgba(255,107,31,.25);
+}
+/* placeholder keeps layout space where the bar was in-flow */
+#spinners-placeholder{height:41px;pointer-events:none}
+.marquee-wrap{display:flex;gap:0}
+.marquee-track{
+  display:flex;gap:48px;
+  white-space:nowrap;
+  animation:marquee 40s linear infinite;
+  flex-shrink:0;
+}
+.marquee-track:nth-child(2){animation-delay:-20s}
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+.spinner-item{font-size:13px;color:var(--dim);display:flex;align-items:center;gap:10px;white-space:nowrap;font-family:var(--mono);line-height:1}
+.spinner-item .em{color:var(--accent);font-style:normal;display:inline-block}
+
+/* ===== QUICKSTART ===== */
+#quickstart{background:var(--bg)}
+.qs-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+.qs-steps{display:flex;flex-direction:column;gap:0}
+.qs-step{
+  border-left:1px solid var(--dim2);
+  padding:0 0 36px 28px;
+  position:relative;
+}
+.qs-step:last-child{border-color:transparent;padding-bottom:0}
+.qs-step::before{
+  content:"";position:absolute;left:-5px;top:4px;
+  width:10px;height:10px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--dim2);
+  transition:border-color .3s;
+}
+.qs-step:hover::before{border-color:var(--accent)}
+.qs-step .n{font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
+.qs-step h3{font-size:15px;font-weight:700;margin-bottom:8px}
+.qs-step p{font-size:13px;color:var(--dim);line-height:1.6}
+.code-block{
+  background:#080810;border:1px solid var(--dim2);
+  overflow:hidden;
+}
+.code-header{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;background:#0c0c14;border-bottom:1px solid var(--dim2);
+}
+.code-header .lang{font-size:10px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.code-header .copy-btn{
+  margin-left:auto;font-size:10px;letter-spacing:.15em;color:var(--dim);
+  background:none;border:none;cursor:pointer;text-transform:uppercase;
+  font-family:var(--mono);transition:color .2s;
+}
+.code-header .copy-btn:hover{color:var(--accent)}
+.code-body{padding:20px 22px;font-size:13px;line-height:1.7;overflow-x:auto}
+.code-body .c{color:var(--dim)}
+.code-body .kw{color:var(--accent)}
+.code-body .str{color:var(--yellow)}
+.code-body .cm{color:var(--dim)}
+.code-body .flag{color:var(--blue)}
+
+/* ===== FAQ ===== */
+#faq{background:var(--bg2)}
+.faq-list{display:flex;flex-direction:column;border:1px solid var(--dim2)}
+.faq-item{border-bottom:1px solid var(--dim2)}
+.faq-item:last-child{border-bottom:none}
+.faq-q{
+  width:100%;background:none;border:none;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:24px 28px;cursor:pointer;text-align:left;gap:20px;
+  font-family:var(--mono);font-size:14px;color:var(--ink);
+  font-weight:700;letter-spacing:.02em;
+  transition:background .2s;
+}
+.faq-q:hover{background:rgba(255,107,31,.04)}
+.faq-q .faq-icon{
+  min-width:20px;height:20px;
+  border:1px solid var(--dim2);
+  display:grid;place-items:center;
+  font-size:12px;color:var(--accent);
+  transition:transform .3s,border-color .3s;
+}
+.faq-item.open .faq-icon{transform:rotate(45deg);border-color:var(--accent)}
+.faq-a{
+  max-height:0;overflow:hidden;
+  transition:max-height .35s ease,padding .35s ease;
+}
+.faq-item.open .faq-a{max-height:400px;padding-bottom:24px}
+.faq-a-inner{padding:0 28px;font-size:13px;color:var(--dim);line-height:1.75}
+.faq-a-inner code{color:var(--accent);background:rgba(255,107,31,.07);padding:2px 5px;font-size:11px}
+.faq-a-inner a{color:var(--accent)}
+
+/* ===== FOOTER ===== */
+footer{
+  background:var(--bg);
+  border-top:1px solid var(--dim2);
+  padding:60px 0 40px;
+}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:48px}
+.footer-brand .logo{font-family:var(--display);font-size:28px;letter-spacing:-.02em;margin-bottom:12px}
+.footer-brand .logo span{color:var(--accent)}
+.footer-brand p{font-size:13px;color:var(--dim);max-width:240px;line-height:1.6;margin-bottom:20px}
+.stars-badge{
+  display:inline-flex;align-items:center;gap:10px;
+  border:1px solid var(--dim2);padding:8px 14px;
+  font-size:12px;color:var(--dim);
+  transition:border-color .2s;text-decoration:none;
+}
+.stars-badge:hover{border-color:var(--accent);color:var(--ink)}
+.stars-badge .star-val{color:var(--yellow);font-weight:700}
+.footer-col h4{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+.footer-col ul{list-style:none}
+.footer-col ul li{margin-bottom:10px}
+.footer-col ul a{font-size:13px;color:var(--dim);text-decoration:none;transition:color .2s}
+.footer-col ul a:hover{color:var(--ink)}
+.footer-bottom{
+  display:flex;align-items:center;justify-content:space-between;
+  border-top:1px solid var(--dim2);padding-top:24px;flex-wrap:wrap;gap:12px;
+}
+.footer-bottom p{font-size:12px;color:var(--dim)}
+.footer-bottom .status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim)}
+.footer-bottom .status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse-g 2s infinite}
+@keyframes pulse-g{0%,100%{box-shadow:0 0 4px var(--green)}50%{box-shadow:0 0 16px var(--green)}}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:900px){
+  nav{padding:0 20px}
+  .nav-links{display:none}
+  .container{padding:0 20px}
+  .hero-inner{grid-template-columns:1fr}
+  .hero-right{display:none}
+  .metrics-grid{grid-template-columns:repeat(2,1fr)}
+  .models-intro{grid-template-columns:1fr}
+  .qs-grid{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .section{padding:64px 0}
+}
+@media(max-width:600px){
+  .metrics-grid{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr}
+  .hero-stats{flex-wrap:wrap;gap:20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav id="nav">
+  <a href="#" class="nav-logo">
+    <div class="mark">▲</div>
+    <span class="name">FALCON</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#models">Models</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <span class="nav-version dim">v1.01.20</span>
+  <a href="#quickstart" class="nav-cta">Install</a>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="grid-bg"></div>
+  <div class="hero-scan"></div>
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="hero-meta">
+          <div class="hero-dot"></div>
+          <span class="eyebrow">Python autonomous agent · open source</span>
+        </div>
+        <div class="hero-wordmark">
+          <span class="split">FAL</span>
+          <span class="split">CON</span>
+        </div>
+        <span class="hero-slash">// hunt. patch. ship.</span>
+        <p class="hero-sub">
+          ~12K lines of readable Python. <strong>Any model</strong> — Claude, GPT, Gemini, DeepSeek, Kimi, Qwen, and 14 free models via NVIDIA NIM.
+          No build step. No gatekeeping.
+        </p>
+        <div class="hero-actions">
+          <a href="#quickstart" class="btn-primary">Get Falcon</a>
+          <a href="#features" class="btn-ghost">Explore ↓</a>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="val">27</div>
+            <div class="lbl">Built-in tools</div>
+          </div>
+          <div class="hero-stat">
+            <div class="val">11</div>
+            <div class="lbl">Providers</div>
+          </div>
+          <div class="hero-stat">
+            <div class="val">263+</div>
+            <div class="lbl">Unit tests</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="terminal-wrap reveal">
+          <div class="terminal">
+            <div class="t-chrome">
+              <div class="t-btn" style="background:#ff5f57"></div>
+              <div class="t-btn" style="background:#febc2e"></div>
+              <div class="t-btn" style="background:#28c840"></div>
+              <div class="t-title">falcon — interactive session</div>
+            </div>
+            <div class="t-body" id="term-body">
+              <span class="t-line"><span style="color:var(--accent);font-weight:700">▲ FALCON</span> <span class="dim">v1.01.20 · ready</span></span>
+              <span class="t-line"> </span>
+              <span id="term-content"></span>
+              <span class="t-cursor" id="t-cursor"></span>
+            </div>
+            <div class="t-glow"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== METRICS ===== -->
+<div id="metrics">
+  <div class="metrics-grid">
+    <div class="metric reveal">
+      <div class="val"><span class="counter" data-target="2847391">0</span></div>
+      <div class="lbl">Tool calls executed</div>
+      <div class="sub dim">and counting</div>
+    </div>
+    <div class="metric reveal reveal-delay-1">
+      <div class="val"><span class="counter" data-target="40">0</span><span class="unit">+</span></div>
+      <div class="lbl">Models supported</div>
+      <div class="sub dim">11 providers</div>
+    </div>
+    <div class="metric reveal reveal-delay-2">
+      <div class="val"><span class="counter" data-target="263">0</span><span class="unit">+</span></div>
+      <div class="lbl">Unit tests</div>
+      <div class="sub dim">all green</div>
+    </div>
+    <div class="metric reveal reveal-delay-3">
+      <div class="val"><span class="counter" data-target="12">0</span><span class="unit">K</span></div>
+      <div class="lbl">Lines of Python</div>
+      <div class="sub dim">readable. forgiving.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FEATURES ===== -->
+<section id="features" class="section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// loadout</div>
+      <h2>Everything in the clip</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature reveal">
+        <div class="f-icon">🤖</div>
+        <span class="f-num">01</span>
+        <h3>Multi-Provider</h3>
+        <p>Anthropic · OpenAI · Gemini · DeepSeek · Kimi · Qwen · Zhipu · MiniMax · Ollama · LM Studio · custom endpoints. <code>/model</code> to switch mid-session.</p>
+      </div>
+      <div class="feature reveal reveal-delay-1">
+        <div class="f-icon">🔧</div>
+        <span class="f-num">02</span>
+        <h3>27 Built-in Tools</h3>
+        <p>Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, NotebookEdit, GetDiagnostics, Memory, Tasks, Agents, Skills, and more. Everything the agent needs.</p>
+      </div>
+      <div class="feature reveal reveal-delay-2">
+        <div class="f-icon">🔌</div>
+        <span class="f-num">03</span>
+        <h3>MCP Integration</h3>
+        <p>Drop a <code>.mcp.json</code>. Any MCP server registers instantly as <code>mcp__server__tool</code>. stdio, SSE, HTTP. Manage with <code>/mcp</code>.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="f-icon">🧩</div>
+        <span class="f-num">04</span>
+        <h3>Plugin System</h3>
+        <p><strong>Auto-Adapter</strong> onboards any Python repo with zero manifest. Hot-reload in-session. No restart. Tools appear immediately.</p>
+      </div>
+      <div class="feature reveal reveal-delay-1">
+        <div class="f-icon">🦅</div>
+        <span class="f-num">05</span>
+        <h3>Sub-Agents</h3>
+        <p>Spawn typed agents — coder, reviewer, researcher, tester — each in its own git worktree. Agents communicate via message passing.</p>
+      </div>
+      <div class="feature reveal reveal-delay-2">
+        <div class="f-icon">🎙️</div>
+        <span class="f-num">06</span>
+        <h3>Voice Input</h3>
+        <p>Offline STT via Whisper. No API key. No cloud. <code>/voice lang zh</code> · <code>/voice device</code>. Hint domain terms with <code>voice_keyterms.txt</code>.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="f-icon">🧠</div>
+        <span class="f-num">07</span>
+        <h3>Brainstorm Mode</h3>
+        <p>Multi-persona AI debate. Falcon generates expert roles and has them argue. Council of ghosts. Skeptic PM, Staff Eng 2037, Hot-take Intern.</p>
+      </div>
+      <div class="feature reveal reveal-delay-1">
+        <div class="f-icon">⚡</div>
+        <span class="f-num">08</span>
+        <h3>SSJ Developer Mode</h3>
+        <p>Ten workflow shortcuts behind one keystroke. Refactor → review → test → commit → ship. Chained. Unattended. <code>/ssj</code>.</p>
+      </div>
+      <div class="feature reveal reveal-delay-2">
+        <div class="f-icon">📡</div>
+        <span class="f-num">09</span>
+        <h3>Telegram Bridge</h3>
+        <p>Run Falcon from your phone. Slash commands, vision, and voice from Telegram. Poke a long-running agent from the bus. <code>/telegram token id</code>.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="f-icon">💾</div>
+        <span class="f-num">10</span>
+        <h3>Checkpoints</h3>
+        <p>Auto-snapshot conversation + files every turn. Break something? <code>/checkpoint 042</code> and files + context rewind together.</p>
+      </div>
+      <div class="feature reveal reveal-delay-1">
+        <div class="f-icon">🧬</div>
+        <span class="f-num">11</span>
+        <h3>Persistent Memory</h3>
+        <p>Dual-scope (user + project). Ranked by confidence × recency. Mark memories gold to pin them forever. <code>/memory consolidate</code>.</p>
+      </div>
+      <div class="feature reveal reveal-delay-2">
+        <div class="f-icon">📋</div>
+        <span class="f-num">12</span>
+        <h3>Plan Mode</h3>
+        <p>Read-only analysis phase before touching anything. Only <code>plan.md</code> is writable. Think first, break things later. <code>/plan</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- spacer so fixed bar doesn't cover content -->
+<div id="spinners-placeholder"></div>
+
+<!-- ===== SPINNERS MARQUEE — fixed bottom bar ===== -->
+<div id="spinners">
+  <div class="marquee-wrap">
+    <div class="marquee-track" id="mq1"></div>
+    <div class="marquee-track" id="mq2"></div>
+  </div>
+</div>
+
+<!-- ===== MODELS ===== -->
+<section id="models" class="section">
+  <div class="container">
+    <div class="models-intro reveal">
+      <div class="models-intro-text">
+        <div class="eyebrow">// bring your own brain</div>
+        <h2>Works with every <em>model</em> worth knowing</h2>
+        <p style="color:var(--dim);font-size:14px;margin-top:16px;line-height:1.65">Swap models mid-session with <code style="color:var(--accent);font-size:12px">/model &lt;name&gt;</code>. Auto-detection handles provider prefix. Colon syntax also works.</p>
+      </div>
+      <div class="models-intro-stat">
+        <div class="m-stat"><div class="mv">11</div><div class="ml">Cloud + Local Providers</div></div>
+        <div class="m-stat"><div class="mv">40+</div><div class="ml">Models Ready Today</div></div>
+        <div class="m-stat"><div class="mv">∞</div><div class="ml">via OpenAI-compat endpoints</div></div>
+      </div>
+    </div>
+
+    <div class="providers-strip reveal">
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Anthropic</div><div class="p-models">Claude Opus · Sonnet · Haiku</div><div class="p-tag">ANTHROPIC_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">OpenAI</div><div class="p-models">GPT-4o · O3 · O1</div><div class="p-tag">OPENAI_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Google</div><div class="p-models">Gemini 2.5 · Flash</div><div class="p-tag">GEMINI_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">DeepSeek</div><div class="p-models">Chat · Reasoner · V3</div><div class="p-tag">DEEPSEEK_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Kimi</div><div class="p-models">Moonshot · K2.5</div><div class="p-tag">MOONSHOT_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Qwen</div><div class="p-models">Max · Plus · QwQ</div><div class="p-tag">DASHSCOPE_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Zhipu</div><div class="p-models">GLM-4 · Flash</div><div class="p-tag">ZHIPU_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">MiniMax</div><div class="p-models">Text-01 · VL-01</div><div class="p-tag">MINIMAX_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Ollama</div><div class="p-models">Any local model</div><div class="p-tag" style="color:var(--green)">NO KEY NEEDED</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">LM Studio</div><div class="p-models">Local · GUI</div><div class="p-tag" style="color:var(--green)">NO KEY NEEDED</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Custom</div><div class="p-models">OpenAI-compat</div><div class="p-tag">CUSTOM_BASE_URL</div></div>
+    </div>
+
+    <!-- NVIDIA callout -->
+    <div class="nvidia-callout reveal" style="margin-top:40px">
+      <div class="nv-header">
+        <div>
+          <span class="nv-badge">Free Tier</span>
+          <h3 style="margin-top:10px">14 frontier models.<br><span>Zero cost.</span></h3>
+          <p style="color:var(--dim);font-size:13px;margin-top:12px;max-width:500px;line-height:1.65">NVIDIA NIM hosts frontier models at 40 RPM each, free. Sign up at <a href="https://build.nvidia.com" style="color:var(--nv)">build.nvidia.com</a> and Falcon routes to them automatically — with fallback when limits hit.</p>
+        </div>
+        <div class="nv-stats">
+          <div class="nv-stat"><div class="v">14</div><div class="l">Models</div></div>
+          <div class="nv-stat"><div class="v">40</div><div class="l">RPM each</div></div>
+          <div class="nv-stat"><div class="v" style="font-size:24px">AUTO</div><div class="l">Fallback</div></div>
+        </div>
+      </div>
+      <div class="nv-models">
+        <div class="nv-chip"><div class="cn">DeepSeek R1</div><div class="ci">REASONING</div></div>
+        <div class="nv-chip"><div class="cn">DeepSeek V3</div><div class="ci">INSTRUCT</div></div>
+        <div class="nv-chip"><div class="cn">Kimi K2.5</div><div class="ci">LONG CONTEXT</div></div>
+        <div class="nv-chip"><div class="cn">GLM-4</div><div class="ci">ZHIPU AI</div></div>
+        <div class="nv-chip"><div class="cn">MiniMax T-01</div><div class="ci">TEXT + VISION</div></div>
+        <div class="nv-chip"><div class="cn">Mistral Nemotron</div><div class="ci">NVIDIA-TUNED</div></div>
+        <div class="nv-chip"><div class="cn">Llama 3.3 70B</div><div class="ci">META</div></div>
+        <div class="nv-chip"><div class="cn">Llama 3.1 405B</div><div class="ci">META · FLAGSHIP</div></div>
+        <div class="nv-chip"><div class="cn">Llama Nemotron</div><div class="ci">REASONING</div></div>
+        <div class="nv-chip"><div class="cn">Qwen2.5 Coder</div><div class="ci">ALIBABA</div></div>
+        <div class="nv-chip"><div class="cn">Qwen3 235B A22B</div><div class="ci">MoE</div></div>
+        <div class="nv-chip"><div class="cn">Phi-4</div><div class="ci">MICROSOFT</div></div>
+        <div class="nv-chip"><div class="cn">Gemma 3 27B</div><div class="ci">GOOGLE</div></div>
+        <div class="nv-chip"><div class="cn">Mistral Large</div><div class="ci">INSTRUCT</div></div>
+      </div>
+      <div class="nv-chain">
+        <span>AUTO-FALLBACK:</span>
+        <span class="ch-item">deepseek-r1</span><span class="ch-arrow">→</span>
+        <span class="ch-item">kimi-k2.5</span><span class="ch-arrow">→</span>
+        <span class="ch-item">llama-3.3-70b</span><span class="ch-arrow">→</span>
+        <span class="ch-item">mistral-nemotron</span><span class="ch-arrow">→</span>
+        <span>…14 deep. zero downtime.</span>
+      </div>
+      <a href="https://build.nvidia.com" class="nv-cta">Get free NVIDIA key ↗</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== QUICKSTART ===== -->
+<section id="quickstart" class="section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// zero to flight in 30 seconds</div>
+      <h2>Quick Start</h2>
+    </div>
+    <div class="qs-grid">
+      <div class="qs-steps">
+        <div class="qs-step reveal">
+          <div class="n">01 · Clone</div>
+          <h3>Get the code</h3>
+          <p>Clone the repo. No monorepo, no workspace, no lockfile drama. Just a folder.</p>
+        </div>
+        <div class="qs-step reveal reveal-delay-1">
+          <div class="n">02 · Install</div>
+          <h3>One command</h3>
+          <p>Use <code style="color:var(--accent);font-size:11px">uv tool install .</code> for a global install or <code style="color:var(--accent);font-size:11px">pip install -r requirements.txt</code> and run directly. No build step.</p>
+        </div>
+        <div class="qs-step reveal reveal-delay-2">
+          <div class="n">03 · Key</div>
+          <h3>Set a model key</h3>
+          <p>Any of the provider keys. Or skip entirely and use Ollama locally — no API key needed.</p>
+        </div>
+        <div class="qs-step reveal reveal-delay-3">
+          <div class="n">04 · Fly</div>
+          <h3>Start hunting</h3>
+          <p>Type <code style="color:var(--accent);font-size:11px">falcon</code>. Hit Enter. Tell it what to do. <code style="color:var(--accent);font-size:11px">/help</code> if you need a map.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="code-block reveal">
+          <div class="code-header">
+            <span class="lang">bash</span>
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <div class="code-body">
+<span class="c"># clone</span>
+<span class="kw">git clone</span> https://github.com/KevRojo/Falcon
+<span class="kw">cd</span> Falcon
+
+<span class="c"># install (pick one)</span>
+<span class="kw">uv tool install</span> .                   <span class="c"># ← recommended</span>
+<span class="kw">pip install</span> -r requirements.txt     <span class="c"># ← or direct</span>
+
+<span class="c"># set a key</span>
+<span class="kw">export</span> <span class="flag">ANTHROPIC_API_KEY</span>=sk-ant-...
+<span class="c"># or: OPENAI_API_KEY, GEMINI_API_KEY, NVIDIA_API_KEY, ...</span>
+
+<span class="c"># go</span>
+<span class="kw">falcon</span>
+          </div>
+        </div>
+
+        <div class="code-block reveal reveal-delay-1" style="margin-top:12px">
+          <div class="code-header">
+            <span class="lang">bash · local models (no key)</span>
+          </div>
+          <div class="code-body">
+<span class="kw">ollama pull</span> qwen2.5-coder
+<span class="kw">falcon</span> <span class="flag">--model</span> ollama/qwen2.5-coder
+
+<span class="c"># or use NVIDIA's free tier</span>
+<span class="kw">export</span> <span class="flag">NVIDIA_API_KEY</span>=nvapi-...
+<span class="kw">falcon</span> <span class="flag">--model</span> nvidia-web/deepseek-r1
+          </div>
+        </div>
+
+        <div class="code-block reveal reveal-delay-2" style="margin-top:12px">
+          <div class="code-header">
+            <span class="lang">bash · useful flags</span>
+          </div>
+          <div class="code-body">
+<span class="kw">falcon</span> <span class="flag">--model</span> gpt-4o               <span class="c"># pick model</span>
+<span class="kw">falcon</span> <span class="flag">--accept-all</span> <span class="flag">-p</span> <span class="str">"init repo"</span>  <span class="c"># non-interactive</span>
+<span class="kw">falcon</span> <span class="flag">--thinking</span>                  <span class="c"># extended thinking</span>
+<span class="kw">git diff</span> | <span class="kw">falcon</span> <span class="flag">-p</span> <span class="str">"write commit"</span><span class="c"># pipe in</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ROUNDTABLE ===== -->
+<section id="roundtable" class="section" style="background:var(--bg2);overflow:hidden">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// /brainstorm in action</div>
+      <h2>The Mesa Redonda</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:660px;margin-left:auto;margin-right:auto;line-height:1.7">Falcon spawns model personas and has them argue your problem in parallel — then lets you interrupt, address one directly, or stop the whole table mid-debate.</p>
+    </div>
+
+    <!-- agent switching explainer strip — moved to anatomy panel -->
+    <!-- split: live debate + interrupt demo -->
+    <div class="rt-full-layout reveal">
+      <!-- live animated debate (existing) -->
+      <div class="roundtable-shell" style="flex:1;min-width:0">
+        <div class="rt-topicbar">
+          <span class="rt-topic-label">DEBATE TOPIC</span>
+          <span class="rt-topic-text" id="rt-topic">Should we migrate the API to full async/await?</span>
+          <span class="rt-status"><span class="rt-live-dot"></span>LIVE · ROUND <span id="rt-round">1</span></span>
+        </div>
+        <div class="rt-participants">
+          <div class="rt-participant" data-model="claude">
+            <div class="rt-avatar" style="background:#cc85ff;color:#1a0030">C</div>
+            <div class="rt-pname">Claude</div>
+            <div class="rt-ptag">Sonnet 4</div>
+          </div>
+          <div class="rt-participant" data-model="deepseek">
+            <div class="rt-avatar" style="background:#4a9eff;color:#001a3a">D</div>
+            <div class="rt-pname">DeepSeek</div>
+            <div class="rt-ptag">R1</div>
+          </div>
+          <div class="rt-participant" data-model="kimi">
+            <div class="rt-avatar" style="background:#00d4aa;color:#002820">K</div>
+            <div class="rt-pname">Kimi</div>
+            <div class="rt-ptag">K2.5</div>
+          </div>
+          <div class="rt-participant" data-model="gemini">
+            <div class="rt-avatar" style="background:#f4b942;color:#2a1a00">G</div>
+            <div class="rt-pname">Gemini</div>
+            <div class="rt-ptag">2.5 Pro</div>
+          </div>
+        </div>
+        <div class="rt-feed" id="rt-feed"></div>
+        <div class="rt-typing-bar" id="rt-typing" style="display:none">
+          <div class="rt-avatar rt-typing-avatar" id="rt-typing-avatar" style="background:#ccc;color:#000;width:28px;height:28px;font-size:11px">?</div>
+          <div class="rt-typing-dots"><span></span><span></span><span></span></div>
+          <span class="rt-typing-name" id="rt-typing-name">thinking...</span>
+        </div>
+        <!-- user interrupt input mock -->
+        <div class="rt-input-mock">
+          <span class="rt-input-prefix">/b</span>
+          <span class="rt-input-text" id="rt-mock-input">confirma tu path actual</span>
+          <span class="rt-input-cursor">█</span>
+          <span class="rt-input-badge" style="background:#4a9eff22;color:#4a9eff;border-color:#4a9eff">→ DeepSeek only</span>
+        </div>
+      </div>
+
+      <!-- interrupt anatomy panel -->
+      <div class="rt-anatomy">
+        <div class="rta-title">// interrupt anatomy</div>
+        <div class="rta-example" id="rta-cycle">
+          <!-- injected by JS -->
+        </div>
+        <div class="rta-note">While agents run in parallel, you keep full control. Drop into any agent's context at any time without stopping the others.</div>
+        <div class="rta-commands">
+          <div class="rta-cmd-row" style="color:#cc85ff"><span class="rta-key">/a</span> <span class="dim">→ agent A  (Claude)</span></div>
+          <div class="rta-cmd-row" style="color:#4a9eff"><span class="rta-key">/b</span> <span class="dim">→ agent B  (DeepSeek)</span></div>
+          <div class="rta-cmd-row" style="color:#00d4aa"><span class="rta-key">/c</span> <span class="dim">→ agent C  (Kimi)</span></div>
+          <div class="rta-cmd-row" style="color:#f4b942"><span class="rta-key">/d</span> <span class="dim">→ agent D  (Gemini)</span></div>
+          <div class="rta-cmd-row" style="color:var(--red)"><span class="rta-key">/stop</span> <span class="dim">→ halt all agents</span></div>
+          <div class="rta-cmd-row" style="color:var(--accent)"><span class="rta-key">/mesa</span> <span class="dim">→ broadcast to all</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MOLTBOOK ===== -->
+<section id="moltbook" class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// agent activity feed</div>
+      <h2>The Flock, Online</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7">Sub-agents work autonomously in parallel. Every push, review, and message is logged in real time. The flock never sleeps.</p>
+    </div>
+    <div class="moltbook-layout reveal">
+      <!-- sidebar -->
+      <div class="mb-sidebar">
+        <div class="mb-sidebar-header">ACTIVE AGENTS</div>
+        <div class="mb-agent-list" id="mb-agents">
+          <div class="mb-agent mb-agent--online" data-agent="coder">
+            <div class="mb-agent-dot" style="background:#ff6b1f"></div>
+            <div>
+              <div class="mb-agent-name">agent://coder</div>
+              <div class="mb-agent-meta">feat/api-v2 · 12 tools used</div>
+            </div>
+          </div>
+          <div class="mb-agent mb-agent--online" data-agent="reviewer">
+            <div class="mb-agent-dot" style="background:#cc85ff"></div>
+            <div>
+              <div class="mb-agent-name">agent://reviewer</div>
+              <div class="mb-agent-meta">feat/api-v2 · 4 issues found</div>
+            </div>
+          </div>
+          <div class="mb-agent mb-agent--online" data-agent="tester">
+            <div class="mb-agent-dot" style="background:#7cffb5"></div>
+            <div>
+              <div class="mb-agent-name">agent://tester</div>
+              <div class="mb-agent-meta">ci/test-suite · 63/64 ✓</div>
+            </div>
+          </div>
+          <div class="mb-agent mb-agent--online" data-agent="researcher">
+            <div class="mb-agent-dot" style="background:#4a9eff"></div>
+            <div>
+              <div class="mb-agent-name">agent://researcher</div>
+              <div class="mb-agent-meta">spec/rfc-042 · reading docs</div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-sidebar-stat">
+          <div class="mb-s-val"><span id="mb-tool-count">0</span></div>
+          <div class="mb-s-lbl">tools fired this session</div>
+        </div>
+      </div>
+      <!-- feed -->
+      <div class="mb-feed" id="mb-feed">
+        <!-- injected by JS -->
+      </div>
+      <!-- right sidebar: messages -->
+      <div class="mb-messages">
+        <div class="mb-sidebar-header">INTER-AGENT MESSAGES</div>
+        <div id="mb-msg-list" class="mb-msg-list">
+          <div class="mb-msg">
+            <div class="mb-msg-from" style="color:#ff6b1f">coder → reviewer</div>
+            <div class="mb-msg-body">Pushed auth refactor to worktree. Can you check line 87?</div>
+            <div class="mb-msg-time">just now</div>
+          </div>
+          <div class="mb-msg">
+            <div class="mb-msg-from" style="color:#cc85ff">reviewer → coder</div>
+            <div class="mb-msg-body">@rate_limit missing on /users endpoint. Also UserOut leaks .email.</div>
+            <div class="mb-msg-time">12s ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PLUGINS ===== -->
+<section id="plugins-section" class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// /plugin install · auto-adapter</div>
+      <h2>Any repo.<br><span style="color:var(--accent)">Zero manifest.</span></h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:14px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.7">Plugins are <strong style="color:var(--ink)">not built-in</strong> — that's the point. Falcon ships with zero plugins by default. When you need one, point it at any Python repo and the <strong style="color:var(--accent)">Auto-Adapter</strong> reads the code, generates the manifest, installs deps, and registers the tools live. No YAML. No API. No manifest file required. This is a Falcon-exclusive feature.</p>
+    </div>
+
+    <!-- two col: left terminal flow, right active plugins -->
+    <div class="plugin-layout reveal">
+
+      <!-- left: full auto-adapter flow terminal -->
+      <div class="plugin-terminal-col">
+        <div class="terminal" style="box-shadow:0 0 40px rgba(255,107,31,.1)">
+          <div class="t-chrome">
+            <div class="t-btn" style="background:#ff5f57"></div>
+            <div class="t-btn" style="background:#febc2e"></div>
+            <div class="t-btn" style="background:#28c840"></div>
+            <div class="t-title">auto-adapter · live install</div>
+          </div>
+          <div class="t-body" style="font-size:12px;min-height:440px">
+<span class="t-line t-op">$ /plugin install dorks@https://repo.url/dorks</span>
+<span class="t-line dim">Running: git clone --depth 1 → ~/.falcon/plugins/dorks</span>
+<span class="t-line"> </span>
+<span class="t-line t-warn">No plugin manifest found.</span>
+<span class="t-line t-warn">Would you like Falcon to auto-adapt this repository?</span>
+<span class="t-line dim">This uses AI to analyze the repo and generate a plugin manifest.</span>
+<span class="t-line dim">It may take a few minutes. [Y/n]</span>
+<span class="t-line t-op">Y</span>
+<span class="t-line"> </span>
+<span class="t-line t-warn">Missing manifest for 'dorks', attempting auto-adaptation...</span>
+<span class="t-line"> </span>
+<span class="t-line t-success">✦ Read(dorks)</span>
+<span class="t-line dim">  [OK] → Detected 2 files</span>
+<span class="t-line t-success">✦ Bash(pip install beautifulsoup4==4.13.5 requests==2.32.5 yagoogle)</span>
+<span class="t-line dim">  Running: python.exe -m pip install --quiet beautifulsoup4==4.13.5</span>
+<span class="t-line dim">  [OK] → Success</span>
+<span class="t-line t-success">✦ Write(dorks/plugin_tool.py)</span>
+<span class="t-line dim">  [OK] → Success</span>
+<span class="t-line"> </span>
+<span class="t-line t-warn">Running adapter worker for 'dorks'...</span>
+<span class="t-line dim">  [OK] → plugin_tool.py compiles (no SyntaxError)</span>
+<span class="t-line dim">  [OK] → plugin_tool.py imports without runtime errors</span>
+<span class="t-line dim">  [OK] → TOOL_DEFS and TOOL_SCHEMAS are exported</span>
+<span class="t-line dim">  [OK] → TOOL_DEFS contains valid ToolDef objects (all 3)</span>
+<span class="t-line dim">  [OK] → Tool 'list_dork_categories' runs successfully</span>
+<span class="t-line dim">  [OK] → Tool 'list_google_dorks' runs successfully</span>
+<span class="t-line"> </span>
+<span class="t-line t-success">✓ Dependencies installed for 'dorks'.</span>
+<span class="t-line t-success">✓ Plugin 'dorks' installed successfully (user scope).</span>
+<span class="t-line t-success">✓ Reloaded plugins: 31 tools registered, 7 modules cleared</span>
+<span class="t-line"> </span>
+<span class="t-line t-op">$ hey cuántos plugins tenemos?</span>
+<span class="t-line" style="color:#7cffb5">🦅🔥 Papi, tenemos 7 plugins instalados y activos:</span>
+<span class="t-line dim">  1 sherlock   – busca usernames por to'as las redes sociales</span>
+<span class="t-line dim">  2 fastcli    – speedtest pa' medir la velocidad del internet</span>
+<span class="t-line dim">  3 mempalace  – memoria local con búsqueda semántica</span>
+<span class="t-line dim">  4 composio   – conexión a 1000+ apps</span>
+<span class="t-line dim">  5 yfinance   – datos del mercado (stocks, precios, etc.)</span>
+<span class="t-line dim">  6 art        – ASCII art con 600+ fuentes y 700+ piezas</span>
+<span class="t-line dim">  7 dorks      – Google dorks y búsqueda pasiva</span>
+<span class="t-line" style="color:#7cffb5">¿Quieres que te enseñe qué tools tiene alguno? 💪</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- right: how it works + plugin cards -->
+      <div class="plugin-right-col">
+        <!-- how it works steps -->
+        <div class="plugin-steps">
+          <div class="plugin-steps-title">// cómo funciona</div>
+          <div class="plugin-step">
+            <div class="plugin-step-num">01</div>
+            <div><strong>Apunta a cualquier repo Python</strong><br><span class="dim" style="font-size:12px">Falcon clona el repo. No necesita manifest, API, ni configuración.</span></div>
+          </div>
+          <div class="plugin-step">
+            <div class="plugin-step-num">02</div>
+            <div><strong>Auto-Adapter analiza el código</strong><br><span class="dim" style="font-size:12px">IA lee el repo, genera <code style="color:var(--accent);font-size:11px">plugin_tool.py</code>, instala dependencias, verifica exports.</span></div>
+          </div>
+          <div class="plugin-step">
+            <div class="plugin-step-num">03</div>
+            <div><strong>Herramientas registradas en caliente</strong><br><span class="dim" style="font-size:12px">Sin reiniciar. Los tools aparecen en la sesión actual inmediatamente.</span></div>
+          </div>
+          <div class="plugin-step">
+            <div class="plugin-step-num">04</div>
+            <div><strong>Falcon los usa solo</strong><br><span class="dim" style="font-size:12px">El agente llama los tools automáticamente cuando el prompt lo requiere.</span></div>
+          </div>
+        </div>
+
+        <!-- example installed plugins -->
+        <div class="plugin-installed">
+          <div class="plugin-installed-title">// ejemplo: plugins activos</div>
+          <div class="plugin-cards-mini">
+            <div class="pcm-card"><div class="pcm-name">sherlock</div><div class="pcm-desc">busca usernames en todas las redes sociales</div><div class="pcm-tag">OSINT</div></div>
+            <div class="pcm-card"><div class="pcm-name">yfinance</div><div class="pcm-desc">datos del mercado · stocks · precios en tiempo real</div><div class="pcm-tag">FINANCE</div></div>
+            <div class="pcm-card"><div class="pcm-name">art</div><div class="pcm-desc">ASCII art con 600+ fuentes y 700+ piezas</div><div class="pcm-tag">CREATIVE</div></div>
+            <div class="pcm-card"><div class="pcm-name">dorks</div><div class="pcm-desc">Google dorks y búsqueda pasiva automatizada</div><div class="pcm-tag">SEARCH</div></div>
+            <div class="pcm-card"><div class="pcm-name">mempalace</div><div class="pcm-desc">memoria local con búsqueda semántica</div><div class="pcm-tag">MEMORY</div></div>
+            <div class="pcm-card"><div class="pcm-name">fastcli</div><div class="pcm-desc">speedtest · mide la velocidad del internet</div><div class="pcm-tag">NETWORK</div></div>
+          </div>
+        </div>
+
+        <!-- install command -->
+        <div class="plugin-install-box">
+          <div class="plugin-install-label">// instalar cualquier repo</div>
+          <div class="plugin-install-cmd">/plugin install nombre@https://repo.url/repo</div>
+          <div class="plugin-install-sub dim">Sin manifest · sin configuración · Falcon lo resuelve solo</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <span class="plugin-cmd-pill">/plugin list</span>
+            <span class="plugin-cmd-pill">/plugin enable dorks</span>
+            <span class="plugin-cmd-pill">/plugin disable art</span>
+            <span class="plugin-cmd-pill">/plugin update sherlock</span>
+            <span class="plugin-cmd-pill">/plugin uninstall dorks</span>
+            <span class="plugin-cmd-pill">/plugin reload</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+/* plugins new */
+.plugin-layout{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+.plugin-terminal-col{}
+.plugin-right-col{display:flex;flex-direction:column;gap:24px}
+.plugin-steps{display:flex;flex-direction:column;gap:14px}
+.plugin-steps-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.plugin-step{display:flex;gap:14px;align-items:flex-start}
+.plugin-step-num{
+  font-family:var(--display);font-size:22px;color:transparent;
+  -webkit-text-stroke:1px var(--accent);line-height:1;flex-shrink:0;width:28px;
+}
+.plugin-step strong{display:block;font-size:13px;margin-bottom:3px}
+.plugin-installed{}
+.plugin-installed-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.plugin-cards-mini{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pcm-card{
+  background:var(--bg);border:1px solid var(--dim2);
+  padding:12px 14px;transition:border-color .2s;
+}
+.pcm-card:hover{border-color:var(--accent)}
+.pcm-name{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.pcm-desc{font-size:11px;color:var(--dim);line-height:1.4;margin-bottom:6px}
+.pcm-tag{font-size:9px;letter-spacing:.2em;color:var(--accent);border:1px solid rgba(255,107,31,.25);padding:2px 6px;display:inline-block}
+.plugin-install-box{
+  background:var(--bg);border:1px solid rgba(255,107,31,.25);padding:20px;
+}
+.plugin-install-label{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.plugin-install-cmd{
+  font-size:13px;color:var(--accent);
+  background:rgba(255,107,31,.06);padding:10px 14px;
+  border-left:2px solid var(--accent);margin-bottom:6px;
+}
+.plugin-install-sub{font-size:11px;margin-bottom:0}
+.plugin-cmd-pill{
+  font-size:10px;letter-spacing:.1em;color:var(--dim);
+  border:1px solid var(--dim2);padding:4px 10px;
+  transition:all .2s;cursor:default;
+}
+.plugin-cmd-pill:hover{border-color:var(--accent);color:var(--accent)}
+@media(max-width:900px){.plugin-layout{grid-template-columns:1fr}}
+</style>
+
+<!-- ===== NEW STYLES ===== -->
+<style>
+/* ===== ROUNDTABLE ANATOMY ===== */
+.rt-full-layout{display:grid;grid-template-columns:1fr 280px;gap:20px;align-items:start}
+.rt-anatomy{
+  background:var(--bg);border:1px solid var(--dim2);
+  padding:20px;display:flex;flex-direction:column;gap:16px;
+  position:sticky;top:80px;
+}
+.rta-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent)}
+.rta-example{
+  background:#080810;border:1px solid var(--dim2);
+  padding:12px;font-size:12px;line-height:1.6;min-height:60px;color:var(--dim);
+}
+.rta-note{font-size:12px;color:var(--dim);line-height:1.6;border-left:2px solid var(--dim2);padding-left:12px}
+.rta-commands{display:flex;flex-direction:column;gap:8px}
+.rta-cmd-row{font-size:12px;display:flex;align-items:center;gap:8px}
+.rta-key{font-weight:700;min-width:44px;display:inline-block}
+/* controls strip (unused now but keep clean) */
+.rt-controls-strip{display:flex;gap:0;border:1px solid var(--dim2);background:var(--bg);flex-wrap:wrap;margin-bottom:24px}
+.rtc-item{padding:14px 20px;flex:1;min-width:140px}
+.rtc-cmd{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.rtc-arg{color:var(--dim)}
+.rtc-desc{font-size:11px;color:var(--dim)}
+.rtc-div{width:1px;background:var(--dim2)}
+/* input mock */
+.rt-input-mock{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;border-top:1px solid var(--dim2);
+  background:#080810;flex-wrap:wrap;gap:8px;
+}
+.rt-input-prefix{color:var(--accent);font-weight:700;font-size:13px}
+.rt-input-text{font-size:13px;color:var(--ink);flex:1}
+.rt-input-cursor{color:var(--accent);animation:blink .9s infinite step-end}
+.rt-input-badge{font-size:10px;letter-spacing:.15em;padding:3px 8px;border:1px solid;text-transform:uppercase}
+@media(max-width:900px){.rt-full-layout{grid-template-columns:1fr}.rt-anatomy{display:none}}
+  border:1px solid var(--dim2);
+  background:var(--bg);
+  overflow:hidden;
+  max-width:800px;margin:0 auto;
+}
+.rt-topicbar{
+  background:#0f0f16;border-bottom:1px solid var(--dim2);
+  padding:14px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.rt-topic-label{font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase;white-space:nowrap}
+.rt-topic-text{font-size:13px;color:var(--ink);flex:1}
+.rt-status{font-size:10px;letter-spacing:.2em;color:var(--dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.rt-live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse-g 1.5s infinite}
+.rt-participants{
+  display:flex;gap:0;border-bottom:1px solid var(--dim2);
+}
+.rt-participant{
+  flex:1;padding:14px 18px;border-right:1px solid var(--dim2);
+  display:flex;align-items:center;gap:10px;
+  transition:background .2s;
+}
+.rt-participant:last-child{border-right:none}
+.rt-participant.speaking{background:rgba(255,255,255,.03)}
+.rt-avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:grid;place-items:center;
+  font-family:var(--display);font-size:16px;font-weight:900;
+  flex-shrink:0;
+}
+.rt-pname{font-size:13px;font-weight:700}
+.rt-ptag{font-size:10px;color:var(--dim);letter-spacing:.12em;margin-top:2px}
+.rt-feed{
+  padding:16px 20px;
+  min-height:280px;max-height:380px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:14px;
+  scroll-behavior:smooth;
+}
+.rt-feed::-webkit-scrollbar{width:4px}
+.rt-feed::-webkit-scrollbar-thumb{background:var(--dim2)}
+.rt-msg{
+  display:flex;gap:12px;align-items:flex-start;
+  animation:msgIn .3s ease forwards;
+  opacity:0;transform:translateY(8px);
+}
+@keyframes msgIn{to{opacity:1;transform:none}}
+.rt-msg-avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:14px;flex-shrink:0;margin-top:2px}
+.rt-msg-content{}
+.rt-msg-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.rt-msg-name{font-size:12px;font-weight:700}
+.rt-msg-time{font-size:10px;color:var(--dim)}
+.rt-msg-bubble{
+  font-size:13px;line-height:1.65;color:var(--ink);
+  padding:10px 14px;border-left:2px solid;
+  background:rgba(255,255,255,.025);
+  max-width:580px;
+}
+.rt-typing-bar{
+  padding:12px 20px;border-top:1px solid var(--dim2);
+  display:flex;align-items:center;gap:10px;background:#0a0a0e;
+}
+.rt-typing-dots{display:flex;gap:4px;align-items:center}
+.rt-typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--dim);display:inline-block}
+.rt-typing-dots span:nth-child(1){animation:typeDot .9s .0s infinite}
+.rt-typing-dots span:nth-child(2){animation:typeDot .9s .2s infinite}
+.rt-typing-dots span:nth-child(3){animation:typeDot .9s .4s infinite}
+@keyframes typeDot{0%,60%,100%{opacity:.2;transform:scale(1)}30%{opacity:1;transform:scale(1.4)}}
+.rt-typing-name{font-size:11px;color:var(--dim);letter-spacing:.1em}
+
+/* ----- MOLTBOOK ----- */
+.moltbook-layout{
+  display:grid;grid-template-columns:240px 1fr 260px;gap:1px;
+  background:var(--dim2);border:1px solid var(--dim2);
+  min-height:480px;
+}
+.mb-sidebar{background:var(--bg2);padding:0;display:flex;flex-direction:column}
+.mb-sidebar-header{
+  padding:12px 16px;font-size:10px;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--accent);
+  border-bottom:1px solid var(--dim2);background:#0d0d12;
+}
+.mb-agent-list{padding:8px;display:flex;flex-direction:column;gap:4px}
+.mb-agent{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 10px;border:1px solid transparent;
+  transition:border-color .2s,background .2s;cursor:default;
+  border-radius:2px;
+}
+.mb-agent:hover{border-color:var(--dim2);background:rgba(255,255,255,.02)}
+.mb-agent-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;animation:pulse-g 2s infinite}
+.mb-agent-name{font-size:12px;font-weight:700}
+.mb-agent-meta{font-size:10px;color:var(--dim);margin-top:2px}
+.mb-sidebar-stat{margin-top:auto;padding:16px;border-top:1px solid var(--dim2)}
+.mb-s-val{font-family:var(--display);font-size:32px;color:var(--accent)}
+.mb-s-lbl{font-size:10px;color:var(--dim);letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
+
+.mb-feed{background:var(--bg);padding:0;display:flex;flex-direction:column;overflow-y:auto;max-height:480px}
+.mb-feed::-webkit-scrollbar{width:4px}
+.mb-feed::-webkit-scrollbar-thumb{background:var(--dim2)}
+.mb-post{
+  padding:18px 20px;border-bottom:1px solid var(--dim2);
+  animation:msgIn .4s ease forwards;opacity:0;transform:translateY(6px);
+}
+.mb-post:first-child{border-top:none}
+.mb-post-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mb-post-agent{font-size:12px;font-weight:700}
+.mb-post-time{font-size:10px;color:var(--dim);margin-left:auto}
+.mb-post-action{font-size:11px;letter-spacing:.15em;text-transform:uppercase;padding:2px 7px;border-radius:2px}
+.mb-post-body{font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:10px}
+.mb-post-meta{display:flex;gap:16px}
+.mb-post-stat{font-size:11px;color:var(--dim)}
+.mb-post-stat strong{color:var(--ink)}
+.mb-code-snippet{
+  background:#080810;padding:10px 12px;margin:8px 0;
+  font-size:11px;color:var(--accent);border-left:2px solid var(--accent);
+  white-space:pre;overflow-x:auto;
+}
+
+.mb-messages{background:var(--bg2);padding:0;overflow-y:auto;max-height:480px}
+.mb-msg-list{padding:8px;display:flex;flex-direction:column;gap:6px}
+.mb-msg{
+  padding:10px 12px;border:1px solid var(--dim2);
+  background:rgba(255,255,255,.01);
+  animation:msgIn .3s ease forwards;opacity:0;
+}
+.mb-msg-from{font-size:11px;font-weight:700;margin-bottom:4px;letter-spacing:.05em}
+.mb-msg-body{font-size:12px;color:var(--dim);line-height:1.55}
+.mb-msg-time{font-size:10px;color:var(--dim2);margin-top:4px}
+
+/* ----- PLUGINS ----- */
+.plugins-bar{display:flex;align-items:center;gap:16px;margin-bottom:28px;flex-wrap:wrap}
+.pl-search{
+  display:flex;align-items:center;gap:8px;
+  border:1px solid var(--dim2);background:var(--bg);
+  padding:8px 14px;flex:1;min-width:200px;max-width:360px;
+}
+.pl-search-icon{color:var(--dim);font-size:16px}
+.pl-search input{
+  background:none;border:none;outline:none;
+  font-family:var(--mono);font-size:13px;color:var(--ink);
+  width:100%;
+}
+.pl-search input::placeholder{color:var(--dim)}
+.pl-filters{display:flex;gap:6px;flex-wrap:wrap}
+.pl-filter{
+  background:none;border:1px solid var(--dim2);
+  font-family:var(--mono);font-size:11px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);
+  padding:6px 12px;cursor:pointer;transition:all .2s;
+}
+.pl-filter:hover,.pl-filter.active{border-color:var(--accent);color:var(--accent);background:rgba(255,107,31,.05)}
+.plugins-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;
+  background:var(--dim2);border:1px solid var(--dim2);
+}
+.pl-card{
+  background:var(--bg2);padding:28px 24px;
+  position:relative;transition:background .2s;
+  display:flex;flex-direction:column;gap:10px;
+}
+.pl-card:hover{background:var(--bg3)}
+.pl-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pl-icon{font-size:24px;flex-shrink:0}
+.pl-tag{
+  font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  padding:3px 8px;border:1px solid;
+}
+.pl-name{font-size:15px;font-weight:700}
+.pl-desc{font-size:12px;color:var(--dim);line-height:1.6}
+.pl-install{
+  margin-top:auto;background:#0a0a0e;
+  border:1px solid var(--dim2);padding:8px 12px;
+  font-size:11px;color:var(--accent);cursor:pointer;
+  font-family:var(--mono);text-align:left;
+  transition:border-color .2s,background .2s;display:flex;
+  align-items:center;justify-content:space-between;gap:8px;
+}
+.pl-install:hover{border-color:var(--accent);background:rgba(255,107,31,.04)}
+.pl-install .cmd{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-install .copy{color:var(--dim);font-size:10px;flex-shrink:0;transition:color .2s}
+.pl-install:hover .copy{color:var(--accent)}
+.pl-stars{font-size:10px;color:var(--dim)}
+.pl-stars strong{color:var(--yellow)}
+@media(max-width:900px){
+  .moltbook-layout{grid-template-columns:1fr}
+  .mb-messages{display:none}
+}
+</style>
+
+<!-- ===== NEW JS ===== -->
+<script>
+// -------- ROUNDTABLE --------
+const rtModels = {
+  claude:   {name:'Claude',   tag:'Sonnet 4', color:'#cc85ff', bg:'#cc85ff', txt:'#1a0030', init:'C'},
+  deepseek: {name:'DeepSeek', tag:'R1',       color:'#4a9eff', bg:'#4a9eff', txt:'#001a3a', init:'D'},
+  kimi:     {name:'Kimi',     tag:'K2.5',     color:'#00d4aa', bg:'#00d4aa', txt:'#002820', init:'K'},
+  gemini:   {name:'Gemini',   tag:'2.5 Pro',  color:'#f4b942', bg:'#f4b942', txt:'#2a1a00', init:'G'},
+}
+
+const rtConversations = [
+  {
+    topic:'Should we migrate the API to full async/await?',
+    messages:[
+      {m:'claude',   text:"Looking at the codebase, I see `db.find()` being called synchronously in 38 endpoints. Under load, each blocks the event loop for ~12ms. Switching to `await db.afind()` with proper dependency injection should bring p99 latency down significantly."},
+      {m:'deepseek', text:"Agreed on the diagnosis. But the migration risk is real — 38 endpoints means 38 places to introduce `missing await` bugs. I'd recommend a gradual rollout: async the hot path first (`/users`, `/auth`), measure, then expand. Data first, then opinion."},
+      {m:'kimi',     text:"I've read the FastAPI docs and the SQLAlchemy 2.0 async guide. The pattern is clean: `AsyncSession` + `Depends(get_async_db)`. The only sharp edge is connection pool sizing — default 5 won't hold under real load. Set `pool_size=20, max_overflow=10`."},
+      {m:'gemini',   text:"One thing nobody's flagging: the test suite. 63 tests assume synchronous behavior and use `db.find()` mocks. Full async migration means rewriting all fixtures with `pytest-anyio`. That's a real cost. Worth quantifying before committing."},
+      {m:'claude',   text:"Good catch. Counter-proposal: migrate with backward-compat wrapper first. `afind()` calls `asyncio.run(find())` under the hood during transition. Ship the value, then pay down the test debt incrementally. Verdict: **start with /auth endpoint today**."},
+      {m:'deepseek', text:"That wrapper approach introduces `asyncio.run()` inside a running loop — that throws `RuntimeError` in FastAPI. Use `anyio.from_thread.run_sync()` instead, or just bite the bullet on the fixtures. I've profiled this class of migration before: 2 days clean > 2 weeks of shims."},
+    ]
+  },
+  {
+    topic:'Rust rewrite vs staying Python — what does the data say?',
+    messages:[
+      {m:'gemini',   text:"I pulled benchmarks for similar API services. Rust gives ~8x throughput improvement for CPU-bound tasks, but this codebase is I/O bound at 94%. Realistic gain: 15-20% latency reduction. Migration cost estimate: 4-6 engineer-months minimum."},
+      {m:'deepseek', text:"The bottleneck is the database query at line 312, not the language. I ran EXPLAIN ANALYZE on the 5 slowest queries — they're all missing composite indexes. Adding indexes takes 20 minutes and gets you 60% of what a Rust rewrite would."},
+      {m:'kimi',     text:"Also worth noting: the Python async event loop in 3.12 is substantially faster than 3.10. If you're still on 3.10, upgrade first. It's a 1-line change in pyproject.toml and benchmarks show 18% throughput gain in our workload profile."},
+      {m:'claude',   text:"Summary: fix the indexes (20min), upgrade Python (1 line), then profile again. If you still need more after that, consider Rust for the hot inner loop only — not a full rewrite. Keep the operational simplicity. Rust is a commitment, not a silver bullet."},
+    ]
+  },
+]
+
+let rtConvIdx = 0, rtMsgIdx = 0, rtFeed = null
+let rtTypingBar, rtTypingAvatar, rtTypingName
+
+function rtInit(){
+  rtFeed = document.getElementById('rt-feed')
+  rtTypingBar = document.getElementById('rt-typing')
+  rtTypingAvatar = document.getElementById('rt-typing-avatar')
+  rtTypingName = document.getElementById('rt-typing-name')
+  rtNextMessage()
+}
+
+function rtNextMessage(){
+  const conv = rtConversations[rtConvIdx]
+  document.getElementById('rt-topic').textContent = conv.topic
+  document.getElementById('rt-round').textContent = rtConvIdx + 1
+
+  if(rtMsgIdx >= conv.messages.length){
+    // next conversation
+    setTimeout(()=>{
+      rtFeed.innerHTML=''
+      rtMsgIdx=0
+      rtConvIdx=(rtConvIdx+1)%rtConversations.length
+      rtNextMessage()
+    }, 4000)
+    return
+  }
+
+  const msg = conv.messages[rtMsgIdx]
+  const model = rtModels[msg.m]
+
+  // highlight speaking participant
+  document.querySelectorAll('.rt-participant').forEach(p=>p.classList.remove('speaking'))
+  const sp = document.querySelector(`.rt-participant[data-model="${msg.m}"]`)
+  if(sp)sp.classList.add('speaking')
+
+  // show typing indicator
+  rtTypingBar.style.display='flex'
+  rtTypingAvatar.style.background = model.bg
+  rtTypingAvatar.style.color = model.txt
+  rtTypingAvatar.textContent = model.init
+  rtTypingName.textContent = model.name + ' is thinking...'
+
+  const typingDelay = 1000 + msg.text.length * 12
+  setTimeout(()=>{
+    rtTypingBar.style.display='none'
+    // append message
+    const el = document.createElement('div')
+    el.className='rt-msg'
+    el.innerHTML=`
+      <div class="rt-msg-avatar" style="background:${model.bg};color:${model.txt}">${model.init}</div>
+      <div class="rt-msg-content">
+        <div class="rt-msg-header">
+          <span class="rt-msg-name" style="color:${model.color}">${model.name}</span>
+          <span class="rt-msg-time">${model.tag} · just now</span>
+        </div>
+        <div class="rt-msg-bubble" style="border-color:${model.color}">${msg.text}</div>
+      </div>`
+    rtFeed.appendChild(el)
+    rtFeed.scrollTop = rtFeed.scrollHeight
+    rtMsgIdx++
+    setTimeout(rtNextMessage, 1800 + Math.random()*800)
+  }, typingDelay)
+}
+
+// start roundtable when in view
+const rtObs = new IntersectionObserver(entries=>{
+  if(entries[0].isIntersecting){ rtInit(); rtObs.disconnect() }
+},{threshold:.3})
+const rtSection = document.getElementById('roundtable')
+if(rtSection) rtObs.observe(rtSection)
+
+
+// -------- MOLTBOOK --------
+const mbPosts = [
+  {agent:'coder',    color:'#ff6b1f', action:'PUSHED',      actionBg:'rgba(255,107,31,.12)',
+   body:'Refactored `/api/users` endpoint to async. Added `@rate_limit(60/min)` decorator. Dropped `.email` from `UserOut` schema per reviewer feedback.',
+   code:'→ edit   api/routes/users.py     +34 -18\n→ edit   api/schemas/user.py     +6  -2\n→ test   tests/test_routes.py   ✓ 18/18',
+   stats:{files:2, lines:'+40 -20', tests:'18/18'}},
+  {agent:'reviewer', color:'#cc85ff', action:'REVIEW',      actionBg:'rgba(204,133,255,.12)',
+   body:'Code review complete on `feat/api-v2`. 3 issues flagged, 2 resolved. One remaining: async context manager missing around db session in edge-case error path.',
+   code:'⚠  api/routes/users.py:142\n   async def get_user() missing anyio cancel scope\n   → wrap with: async with anyio.CancelScope():',
+   stats:{issues:1, resolved:2, coverage:'94%'}},
+  {agent:'tester',   color:'#7cffb5', action:'TEST RUN',    actionBg:'rgba(124,255,181,.12)',
+   body:'Full test suite on `feat/api-v2`. 63 passed, 1 skipped (flaky network test, marked `@pytest.mark.skip`). Zero failures. Coverage up 4% from baseline.',
+   code:'→ pytest tests/ -x\n  63 passed · 1 skipped · 0 failed\n  Coverage: 94.2% (+4.1%)',
+   stats:{passed:63, skipped:1, coverage:'94.2%'}},
+  {agent:'researcher',color:'#4a9eff', action:'READING',    actionBg:'rgba(74,158,255,.12)',
+   body:'Reviewing SQLAlchemy 2.0 async docs for RFC-042. Key finding: `AsyncSession` requires explicit `commit()` — no autocommit. Drafting recommendation for pool config.',
+   code:'pool_size=20\nmax_overflow=10\npool_timeout=30\npool_recycle=1800',
+   stats:{sources:4, pages:22, draft:'in progress'}},
+  {agent:'coder',    color:'#ff6b1f', action:'COMMITTED',   actionBg:'rgba(255,107,31,.12)',
+   body:'Applied reviewer feedback. Added `anyio.CancelScope()` wrapper. Ready for final review pass.',
+   code:'→ commit  fix(auth): add cancel scope\n  3 files changed, +8 -0',
+   stats:{files:3, lines:'+8 -0', ready:true}},
+]
+
+let mbPostIdx = 0
+let mbToolCount = 0
+const mbFeed = document.getElementById('mb-feed')
+const mbMsgList = document.getElementById('mb-msg-list')
+const mbToolEl = document.getElementById('mb-tool-count')
+
+const mbMessages = [
+  {from:'coder',    to:'reviewer', color:'#ff6b1f', body:'Done with cancel scope fix. Re-review when free.'},
+  {from:'tester',   to:'coder',    color:'#7cffb5', body:'Re-running suite on latest commit...'},
+  {from:'reviewer', to:'all',      color:'#cc85ff', body:'LGTM on cancel scope. Approving PR.'},
+  {from:'researcher',to:'coder',   color:'#4a9eff', body:'Pool config recommendation ready in RFC-042.md'},
+  {from:'tester',   to:'all',      color:'#7cffb5', body:'64/64 passing now. Clean green. Ship it.'},
+]
+let mbMsgIdx = 0
+
+function mbAddPost(){
+  const p = mbPosts[mbPostIdx % mbPosts.length]
+  const ago = ['just now','3s ago','8s ago','15s ago','24s ago'][mbPostIdx%5]
+  const el = document.createElement('div')
+  el.className = 'mb-post'
+  el.innerHTML = `
+    <div class="mb-post-header">
+      <span class="mb-post-agent" style="color:${p.color}">agent://${p.agent}</span>
+      <span class="mb-post-action" style="color:${p.color};border:1px solid ${p.color};background:${p.actionBg}">${p.action}</span>
+      <span class="mb-post-time">${ago}</span>
+    </div>
+    <div class="mb-post-body">${p.body}</div>
+    <div class="mb-code-snippet">${p.code}</div>
+    <div class="mb-post-meta">
+      ${Object.entries(p.stats).map(([k,v])=>`<div class="mb-post-stat"><strong>${v}</strong> ${k}</div>`).join('')}
+    </div>`
+  mbFeed.prepend(el)
+  // keep max 5
+  while(mbFeed.children.length > 5) mbFeed.removeChild(mbFeed.lastChild)
+  mbPostIdx++
+
+  // increment tool count
+  mbToolCount += Math.floor(Math.random()*8)+3
+  if(mbToolEl) mbToolEl.textContent = mbToolCount.toLocaleString()
+}
+
+function mbAddMessage(){
+  const m = mbMessages[mbMsgIdx % mbMessages.length]
+  const el = document.createElement('div')
+  el.className = 'mb-msg'
+  el.innerHTML = `
+    <div class="mb-msg-from" style="color:${m.color}">${m.from} → ${m.to}</div>
+    <div class="mb-msg-body">${m.body}</div>
+    <div class="mb-msg-time">just now</div>`
+  mbMsgList.prepend(el)
+  while(mbMsgList.children.length > 6) mbMsgList.removeChild(mbMsgList.lastChild)
+  mbMsgIdx++
+}
+
+function mbStart(){
+  // seed initial posts
+  mbPosts.slice(0,3).forEach((_,i)=>setTimeout(mbAddPost, i*400))
+  setInterval(mbAddPost, 4200)
+  setInterval(mbAddMessage, 3100)
+  setInterval(()=>{
+    mbToolCount += Math.floor(Math.random()*3)+1
+    if(mbToolEl) mbToolEl.textContent = mbToolCount.toLocaleString()
+  }, 800)
+}
+
+const mbObs = new IntersectionObserver(entries=>{
+  if(entries[0].isIntersecting){ mbStart(); mbObs.disconnect() }
+},{threshold:.2})
+const mbSection = document.getElementById('moltbook')
+if(mbSection) mbObs.observe(mbSection)
+
+
+// -------- PLUGINS --------
+const pluginsData = [
+  {icon:'🎨', name:'art',        tag:'tools',        tagColor:'#ff6b1f',  desc:'Generates diagrams, architecture charts, and visual docs from code. Powered by Graphviz + Mermaid.', cmd:'/plugin install art@gh', stars:'847'},
+  {icon:'🔍', name:'semgrep',    tag:'devops',       tagColor:'#4a9eff',  desc:'Static analysis on every file Falcon touches. Auto-flags security issues before they hit review.', cmd:'/plugin install semgrep@gh', stars:'1.2k'},
+  {icon:'🤗', name:'huggingface',tag:'ai',           tagColor:'#f4b942',  desc:'Browse and pull HuggingFace models, datasets, and spaces directly from the REPL. No browser required.', cmd:'/plugin install hf@gh', stars:'632'},
+  {icon:'🐳', name:'docker',     tag:'devops',       tagColor:'#4a9eff',  desc:'Manage containers, build images, inspect logs. Falcon can spin up and tear down services mid-task.', cmd:'/plugin install docker-falcon@gh', stars:'989'},
+  {icon:'📊', name:'linear',     tag:'integrations', tagColor:'#00d4aa',  desc:'Create, update, and close Linear issues from the REPL. Agent posts its own progress automatically.', cmd:'/plugin install linear@gh', stars:'413'},
+  {icon:'☁️', name:'aws',        tag:'devops',       tagColor:'#4a9eff',  desc:'Read CloudWatch logs, query S3, describe EC2 instances. Full AWS SDK surface as Falcon tools.', cmd:'/plugin install aws-falcon@gh', stars:'756'},
+  {icon:'🗄️', name:'postgres',   tag:'tools',        tagColor:'#ff6b1f',  desc:'Query Postgres directly. Schema introspection, explain plans, migration generation. Connects via PGURL.', cmd:'/plugin install pg@gh', stars:'1.8k'},
+  {icon:'🧪', name:'pytest-ai',  tag:'ai',           tagColor:'#f4b942',  desc:'Auto-generates pytest fixtures and edge-case tests from function signatures and docstrings.', cmd:'/plugin install pytest-ai@gh', stars:'527'},
+  {icon:'📝', name:'notion',     tag:'integrations', tagColor:'#00d4aa',  desc:'Read and write Notion pages. Useful for agents that need to consult runbooks or update status boards.', cmd:'/plugin install notion-falcon@gh', stars:'318'},
+]
+
+let activeTag = 'all', activeSearch = ''
+
+function renderPlugins(){
+  const grid = document.getElementById('plugins-grid')
+  if(!grid) return
+  const filtered = pluginsData.filter(p=>{
+    const tagMatch = activeTag==='all' || p.tag===activeTag
+    const searchMatch = !activeSearch || p.name.includes(activeSearch) || p.desc.toLowerCase().includes(activeSearch)
+    return tagMatch && searchMatch
+  })
+  grid.innerHTML = filtered.map(p=>`
+    <div class="pl-card">
+      <div class="pl-card-top">
+        <span class="pl-icon">${p.icon}</span>
+        <span class="pl-tag" style="color:${p.tagColor};border-color:${p.tagColor}">${p.tag}</span>
+      </div>
+      <div class="pl-name">${p.name}</div>
+      <div class="pl-desc">${p.desc}</div>
+      <div class="pl-stars">⭐ <strong>${p.stars}</strong> stars</div>
+      <button class="pl-install" onclick="copyInstall(this,'${p.cmd}')">
+        <span class="cmd">${p.cmd}</span>
+        <span class="copy">COPY</span>
+      </button>
+    </div>`).join('')
+}
+
+function filterPlugins(val){
+  activeSearch = val.toLowerCase()
+  renderPlugins()
+}
+
+function filterTag(btn, tag){
+  activeTag = tag
+  document.querySelectorAll('.pl-filter').forEach(b=>b.classList.remove('active'))
+  btn.classList.add('active')
+  renderPlugins()
+}
+
+function copyInstall(btn, cmd){
+  navigator.clipboard.writeText(cmd).then(()=>{
+    btn.querySelector('.copy').textContent='COPIED!'
+    setTimeout(()=>btn.querySelector('.copy').textContent='COPY',1600)
+  })
+}
+
+renderPlugins()
+
+// register new reveal elements with a fresh observer instance
+const revealObs2 = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')})
+},{threshold:.1})
+document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs2.observe(el))
+</script>
+
+<!-- ===== COMPOSIO ===== -->
+<section id="composio" class="section composio-section">
+  <div class="composio-bg"></div>
+  <div class="container" style="position:relative;z-index:2">
+    <div class="section-header reveal">
+      <div class="eyebrow" style="color:#7cffb5">// /skills · composio · anthropic-compatible</div>
+      <h2>800+ Skills.<br><span style="color:#7cffb5">Ready to drop in.</span></h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:14px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.7">Falcon connects natively to <strong style="color:var(--ink)">Composio</strong> — the largest library of Anthropic-compatible tools. GitHub, Slack, Linear, Notion, Jira, Gmail, Google Sheets, Postgres, Stripe… inject any skill in seconds.</p>
+    </div>
+
+    <!-- stat bar -->
+    <div class="composio-statbar reveal">
+      <div class="cmp-stat">
+        <div class="cmp-val" style="color:#7cffb5">800<span style="font-size:28px">+</span></div>
+        <div class="cmp-lbl">Skills available</div>
+      </div>
+      <div class="cmp-div"></div>
+      <div class="cmp-stat">
+        <div class="cmp-val">1</div>
+        <div class="cmp-lbl">Command to install</div>
+      </div>
+      <div class="cmp-div"></div>
+      <div class="cmp-stat">
+        <div class="cmp-val" style="color:#7cffb5">MCP</div>
+        <div class="cmp-lbl">Protocol compatible</div>
+      </div>
+      <div class="cmp-div"></div>
+      <div class="cmp-stat">
+        <div class="cmp-val">∞</div>
+        <div class="cmp-lbl">Composable chains</div>
+      </div>
+    </div>
+
+    <!-- layout: terminal left + playground right -->
+    <div class="composio-layout reveal">
+
+      <!-- left: skill injection terminal + chip strip -->
+      <div class="composio-left">
+        <div class="terminal" style="box-shadow:0 0 40px rgba(124,255,181,.1)">
+          <div class="t-chrome" style="background:#050e0a;border-color:#0e2018">
+            <div class="t-btn" style="background:#ff5f57"></div>
+            <div class="t-btn" style="background:#febc2e"></div>
+            <div class="t-btn" style="background:#28c840"></div>
+            <div class="t-title" style="color:#7cffb5">⊕ skill injection · composio</div>
+          </div>
+          <div class="t-body" style="background:#060d08;min-height:320px;font-size:13px">
+            <span class="t-line dim"># browse and install any skill</span>
+            <span class="t-line" style="color:#7cffb5">$ /skills</span>
+            <span class="t-line" style="color:var(--accent)">▲  loading composio skill registry...</span>
+            <span class="t-line" style="color:#7cffb5">✓  800+ skills available</span>
+            <span class="t-line"> </span>
+            <span class="t-line dim"># inject a skill into this session</span>
+            <span class="t-line" style="color:#7cffb5">$ /skills inject github</span>
+            <span class="t-line" style="color:#7cffb5">✓  github skill loaded · 32 tools</span>
+            <span class="t-line" style="color:var(--accent)">▲  tools registered: create_issue · merge_pr</span>
+            <span class="t-line" style="color:var(--accent)">▲                    review_code · get_diff…</span>
+            <span class="t-line"> </span>
+            <span class="t-line dim"># use immediately — no restart</span>
+            <span class="t-line" style="color:#7cffb5">$ /skills inject particle-playground</span>
+            <span class="t-line" style="color:#7cffb5">✓  particle-playground loaded · 1 tool</span>
+            <span class="t-line"> </span>
+            <span class="t-line dim"># now ask falcon to use it</span>
+            <span class="t-line" style="color:var(--ink)">[Falcon] » create a fireworks particle system</span>
+            <span class="t-line" style="color:var(--accent)">→ skill  particle_playground.generate_prompt</span>
+            <span class="t-line" style="color:#7cffb5">✓  prompt generated · 6 parameters set</span>
+            <span class="t-line" style="color:#7cffb5">✓  canvas code written to fireworks.html</span>
+          </div>
+        </div>
+
+        <!-- popular skills chip grid -->
+        <div class="skills-chips">
+          <div class="skills-chips-label">// popular skills</div>
+          <div class="skills-chips-grid" id="skills-chips-grid"></div>
+        </div>
+      </div>
+
+      <!-- right: live playground iframe -->
+      <div class="composio-right">
+        <div class="composio-iframe-wrap">
+          <div class="composio-iframe-header">
+            <span class="cif-dot" style="background:#7cffb5"></span>
+            <span class="cif-label">particle-playground · live demo · injected skill</span>
+            <a href="docs/particle-playground.html" target="_blank" class="cif-expand">↗ open full</a>
+          </div>
+          <iframe
+            src="docs/particle-playground.html"
+            id="composio-iframe"
+            title="Particle Playground Skill"
+            loading="lazy"
+            sandbox="allow-scripts allow-same-origin"
+          ></iframe>
+        </div>
+        <div class="composio-iframe-note">
+          ↑ This is a live Composio skill running inside Falcon's sandbox. Tweak the controls — the prompt updates in real time. Copy it and paste into Falcon.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+/* ===== COMPOSIO ===== */
+.composio-section{background:#050d07;position:relative;overflow:hidden}
+.composio-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse at 15% 50%,rgba(124,255,181,.08) 0%,transparent 55%),
+    radial-gradient(ellipse at 85% 30%,rgba(255,107,31,.06) 0%,transparent 45%);
+}
+.composio-bg::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(124,255,181,.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(124,255,181,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.composio-statbar{
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(124,255,181,.18);background:rgba(124,255,181,.03);
+  margin-bottom:56px;flex-wrap:wrap;
+}
+.cmp-stat{padding:22px 44px;text-align:center}
+.cmp-val{font-family:var(--display);font-size:40px;letter-spacing:-.02em;color:var(--ink)}
+.cmp-lbl{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);margin-top:4px}
+.cmp-div{width:1px;background:rgba(124,255,181,.15);align-self:stretch}
+.composio-layout{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+.composio-left{display:flex;flex-direction:column;gap:20px}
+.skills-chips{}
+.skills-chips-label{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:#7cffb5;margin-bottom:12px}
+.skills-chips-grid{display:flex;flex-wrap:wrap;gap:6px}
+.skill-chip{
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 12px;border:1px solid rgba(124,255,181,.22);
+  color:var(--dim);background:rgba(124,255,181,.03);
+  cursor:default;transition:all .2s;
+}
+.skill-chip:hover{border-color:#7cffb5;color:#7cffb5;background:rgba(124,255,181,.07)}
+.composio-iframe-wrap{
+  border:1px solid rgba(124,255,181,.2);overflow:hidden;
+  box-shadow:0 0 40px rgba(124,255,181,.08);
+}
+.composio-iframe-header{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;background:#050d07;
+  border-bottom:1px solid rgba(124,255,181,.15);
+}
+.cif-dot{width:8px;height:8px;border-radius:50%;animation:pulse-g 2s infinite}
+.cif-label{font-size:11px;letter-spacing:.15em;color:var(--dim);flex:1;text-transform:uppercase}
+.cif-expand{
+  font-size:10px;letter-spacing:.15em;color:#7cffb5;
+  text-decoration:none;text-transform:uppercase;
+  transition:opacity .2s;
+}
+.cif-expand:hover{opacity:.7}
+#composio-iframe{
+  width:100%;height:480px;border:none;display:block;
+  background:var(--bg);
+}
+.composio-iframe-note{
+  margin-top:10px;font-size:11px;color:var(--dim);
+  letter-spacing:.05em;line-height:1.6;
+}
+@media(max-width:900px){
+  .composio-layout{grid-template-columns:1fr}
+  .cmp-stat{padding:14px 20px}
+}
+</style>
+
+<script>
+// skills chips
+const skillsList=[
+  'GitHub','Slack','Linear','Notion','Jira','Gmail',
+  'Google Sheets','Postgres','Stripe','Figma','Vercel',
+  'AWS S3','Cloudflare','HuggingFace','Docker','Airtable',
+  'Zapier','Twilio','Sendgrid','Datadog','PagerDuty',
+  'Particle Playground','Web Scraper','Code Sandbox',
+];
+const chipsGrid=document.getElementById('skills-chips-grid');
+if(chipsGrid){
+  skillsList.forEach(s=>{
+    const el=document.createElement('span');
+    el.className='skill-chip';
+    el.textContent=s;
+    if(s==='Particle Playground'){el.style.borderColor='#7cffb5';el.style.color='#7cffb5';el.style.background='rgba(124,255,181,.08)'}
+    chipsGrid.appendChild(el);
+  });
+}
+</script>
+
+<!-- ===== WEB PROVIDERS ===== -->
+<section id="web-providers" class="section wp-section">
+  <div class="wp-bg"></div>
+  <div class="container" style="position:relative;z-index:2">
+    <div class="section-header reveal">
+      <div class="eyebrow" style="color:#ff3a6e">// zero API spend · playwright · session harvest</div>
+      <h2>Use the chats you<br><span style="color:var(--accent)">already pay for.</span></h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:14px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.7">Falcon can talk to Claude, Kimi, Gemini and DeepSeek through their <em>browser sessions</em> — no API key, no per-token billing. Your Pro subscription becomes a Falcon provider.</p>
+    </div>
+
+    <!-- stat bar -->
+    <div class="wp-statbar reveal">
+      <div class="wp-stat">
+        <div class="wp-stat-val" style="color:var(--accent)">$0.00</div>
+        <div class="wp-stat-lbl">API cost per token</div>
+      </div>
+      <div class="wp-stat-div"></div>
+      <div class="wp-stat">
+        <div class="wp-stat-val">5</div>
+        <div class="wp-stat-lbl">Web providers</div>
+      </div>
+      <div class="wp-stat-div"></div>
+      <div class="wp-stat">
+        <div class="wp-stat-val" style="color:var(--green)">AUTO</div>
+        <div class="wp-stat-lbl">Cookie harvest</div>
+      </div>
+      <div class="wp-stat-div"></div>
+      <div class="wp-stat">
+        <div class="wp-stat-val">∞</div>
+        <div class="wp-stat-lbl">Context via Pro plan</div>
+      </div>
+    </div>
+
+    <!-- main layout: terminal left, cards right -->
+    <div class="wp-layout reveal">
+
+      <!-- harvest terminal -->
+      <div class="wp-terminal-wrap">
+        <div class="terminal" style="box-shadow:0 0 60px rgba(255,58,110,.12)">
+          <div class="t-chrome" style="background:#140812;border-color:#2a1020">
+            <div class="t-btn" style="background:#ff5f57"></div>
+            <div class="t-btn" style="background:#febc2e"></div>
+            <div class="t-btn" style="background:#28c840"></div>
+            <div class="t-title" style="color:#ff3a6e">⬡ session harvest · playwright</div>
+          </div>
+          <div class="t-body" style="background:#0c0810;min-height:380px;font-size:13px">
+            <span class="t-line dim"># one-time setup: capture your browser session</span>
+            <span class="t-line" style="color:#ff3a6e">$ /harvest</span>
+            <span class="t-line" style="color:#ff8ab0">▲  opening Claude.ai in Chromium...</span>
+            <span class="t-line dim">   log in normally, then press Enter</span>
+            <span class="t-line" style="color:var(--green)">✓  session captured · cookies saved</span>
+            <span class="t-line" style="color:var(--green)">✓  claude-web provider ready</span>
+            <span class="t-line"> </span>
+            <span class="t-line dim"># harvest other providers</span>
+            <span class="t-line" style="color:#ff3a6e">$ /harvest-kimi</span>
+            <span class="t-line" style="color:var(--green)">✓  kimi-web provider ready</span>
+            <span class="t-line" style="color:#ff3a6e">$ /harvest-gemini</span>
+            <span class="t-line" style="color:var(--green)">✓  gemini-web provider ready</span>
+            <span class="t-line"> </span>
+            <span class="t-line dim"># use them exactly like any other provider</span>
+            <span class="t-line" style="color:var(--accent)">$ falcon --model claude-web "refactor auth"</span>
+            <span class="t-line" style="color:#ff3a6e">▲  routing via claude.ai web session...</span>
+            <span class="t-line" style="color:var(--green)">→ read    src/auth/session.py   ✓</span>
+            <span class="t-line" style="color:var(--green)">→ edit    src/auth/session.py   ✓</span>
+            <span class="t-line" style="color:var(--green)">→ test    tests/auth/**         ✓ 42 passed</span>
+            <span class="t-line"> </span>
+            <span class="t-line dim"># claude thinks it's in its own chat UI</span>
+            <span class="t-line dim"># but falcon is orchestrating every tool call</span>
+            <span class="t-line" style="color:#ff3a6e">▲  tokens billed: $0.00 ·  session: claude_pro</span>
+          </div>
+        </div>
+        <div class="wp-playwright-badge">
+          <span style="color:#ff3a6e">⬡</span> Powered by Playwright · headless browser automation
+        </div>
+      </div>
+
+      <!-- provider cards -->
+      <div class="wp-cards">
+        <div class="wp-card" data-color="#cc85ff">
+          <div class="wp-card-top">
+            <div class="wp-card-icon" style="background:rgba(204,133,255,.12);color:#cc85ff">✦</div>
+            <div>
+              <div class="wp-card-name">Claude</div>
+              <div class="wp-card-cmd">claude-web</div>
+            </div>
+            <div class="wp-card-status"><span class="wp-dot" style="background:#cc85ff"></span>ACTIVE</div>
+          </div>
+          <div class="wp-card-desc">claude.ai Pro session. Opus 4, Sonnet 4, full context window. Your subscription, Falcon's talons.</div>
+          <div class="wp-card-harvest">/harvest</div>
+        </div>
+
+        <div class="wp-card" data-color="#ff8a3d">
+          <div class="wp-card-top">
+            <div class="wp-card-icon" style="background:rgba(255,138,61,.12);color:#ff8a3d">⌘</div>
+            <div>
+              <div class="wp-card-name">Claude Code</div>
+              <div class="wp-card-cmd">claude-code-web</div>
+            </div>
+            <div class="wp-card-status"><span class="wp-dot" style="background:#ff8a3d"></span>ACTIVE</div>
+          </div>
+          <div class="wp-card-desc">Claude Code's browser session. Agentic mode, full tool belt, zero API bill.</div>
+          <div class="wp-card-harvest">/harvest</div>
+        </div>
+
+        <div class="wp-card" data-color="#00d4aa">
+          <div class="wp-card-top">
+            <div class="wp-card-icon" style="background:rgba(0,212,170,.12);color:#00d4aa">◈</div>
+            <div>
+              <div class="wp-card-name">Kimi</div>
+              <div class="wp-card-cmd">kimi-web</div>
+            </div>
+            <div class="wp-card-status"><span class="wp-dot" style="background:#00d4aa"></span>ACTIVE</div>
+          </div>
+          <div class="wp-card-desc">kimi.ai web session. 128k context, K2.5 reasoning. Harvest once, use forever.</div>
+          <div class="wp-card-harvest">/harvest-kimi</div>
+        </div>
+
+        <div class="wp-card" data-color="#4a9eff">
+          <div class="wp-card-top">
+            <div class="wp-card-icon" style="background:rgba(74,158,255,.12);color:#4a9eff">◎</div>
+            <div>
+              <div class="wp-card-name">Gemini</div>
+              <div class="wp-card-cmd">gemini-web</div>
+            </div>
+            <div class="wp-card-status"><span class="wp-dot" style="background:#4a9eff"></span>ACTIVE</div>
+          </div>
+          <div class="wp-card-desc">Google Gemini 2.5 Pro via browser. 1M context. Your Google One subscription, weaponized.</div>
+          <div class="wp-card-harvest">/harvest-gemini</div>
+        </div>
+
+        <div class="wp-card" data-color="#4a9eff">
+          <div class="wp-card-top">
+            <div class="wp-card-icon" style="background:rgba(74,158,255,.12);color:#4a9eff">⊛</div>
+            <div>
+              <div class="wp-card-name">DeepSeek</div>
+              <div class="wp-card-cmd">deepseek-web</div>
+            </div>
+            <div class="wp-card-status"><span class="wp-dot" style="background:#4a9eff"></span>ACTIVE</div>
+          </div>
+          <div class="wp-card-desc">DeepSeek V3 / R1 via chat.deepseek.com. Free tier, no key, reasoning mode included.</div>
+          <div class="wp-card-harvest">/harvest-deepseek</div>
+        </div>
+
+        <!-- how it works mini-box -->
+        <div class="wp-how">
+          <div class="wp-how-title">How it works</div>
+          <div class="wp-how-steps">
+            <div class="wp-how-step"><span style="color:var(--accent)">01</span> Falcon opens a Chromium window via Playwright</div>
+            <div class="wp-how-step"><span style="color:var(--accent)">02</span> You log in normally — Falcon captures the session cookies</div>
+            <div class="wp-how-step"><span style="color:var(--accent)">03</span> Subsequent requests replay those cookies headlessly</div>
+            <div class="wp-how-step"><span style="color:var(--accent)">04</span> The model sees its own web UI; Falcon sees the output</div>
+            <div class="wp-how-step"><span style="color:var(--accent)">05</span> Tool calls, streaming, context — all proxied transparently</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+/* ===== WEB PROVIDERS ===== */
+.wp-section{background:#0a0510;position:relative;overflow:hidden}
+.wp-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse at 20% 40%, rgba(255,58,110,.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 70%, rgba(255,107,31,.07) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 10%, rgba(204,133,255,.06) 0%, transparent 40%);
+}
+.wp-bg::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,58,110,.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,58,110,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.wp-statbar{
+  display:flex;align-items:center;justify-content:center;gap:0;
+  border:1px solid rgba(255,58,110,.2);
+  background:rgba(255,58,110,.03);
+  margin-bottom:56px;
+  flex-wrap:wrap;
+}
+.wp-stat{padding:24px 48px;text-align:center}
+.wp-stat-val{font-family:var(--display);font-size:40px;letter-spacing:-.02em;color:var(--ink)}
+.wp-stat-lbl{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);margin-top:4px}
+.wp-stat-div{width:1px;background:rgba(255,58,110,.2);align-self:stretch}
+.wp-layout{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+.wp-playwright-badge{
+  margin-top:12px;font-size:11px;color:var(--dim);
+  letter-spacing:.12em;text-align:center;
+}
+.wp-cards{display:flex;flex-direction:column;gap:1px;background:rgba(255,58,110,.1);border:1px solid rgba(255,58,110,.15)}
+.wp-card{
+  background:#0a0510;padding:20px 22px;
+  transition:background .2s;position:relative;cursor:default;
+}
+.wp-card:hover{background:#110818}
+.wp-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:attr(data-color);opacity:0;transition:opacity .3s;
+}
+.wp-card:hover::before{opacity:1}
+.wp-card-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.wp-card-icon{width:36px;height:36px;display:grid;place-items:center;font-size:18px;border-radius:2px;flex-shrink:0}
+.wp-card-name{font-size:14px;font-weight:700}
+.wp-card-cmd{font-size:10px;color:var(--dim);letter-spacing:.12em;margin-top:2px}
+.wp-card-status{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:9px;letter-spacing:.2em;color:var(--dim)}
+.wp-dot{width:6px;height:6px;border-radius:50%}
+.wp-card-desc{font-size:12px;color:var(--dim);line-height:1.55;padding-left:48px}
+.wp-card-harvest{
+  margin-top:10px;margin-left:48px;display:inline-block;
+  font-size:11px;color:#ff3a6e;letter-spacing:.15em;
+  border:1px solid rgba(255,58,110,.3);padding:3px 10px;
+  background:rgba(255,58,110,.04);
+}
+.wp-how{
+  background:rgba(255,107,31,.04);border:1px solid rgba(255,107,31,.15);
+  padding:20px 22px;margin-top:0;
+}
+.wp-how-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.wp-how-steps{display:flex;flex-direction:column;gap:8px}
+.wp-how-step{font-size:12px;color:var(--dim);line-height:1.5;display:flex;gap:10px}
+@media(max-width:900px){
+  .wp-layout{grid-template-columns:1fr}
+  .wp-stat{padding:16px 24px}
+}
+</style>
+
+<!-- ===== ALL PROVIDERS ===== -->
+<section id="all-providers" class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// every model. one cli.</div>
+      <h2>Pick your brain.<br>We'll handle the rest.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7">One flag. Any provider. Falcon speaks every dialect — cloud, local, free, paid. Switch mid-session with <code style="color:var(--accent)">/model</code>.</p>
+    </div>
+
+    <!-- animated model switcher terminal -->
+    <div class="reveal" style="max-width:680px;margin:0 auto 56px">
+      <div class="terminal" style="box-shadow:0 0 40px rgba(255,107,31,.18)">
+        <div class="t-chrome">
+          <div class="t-btn" style="background:#ff5f57"></div>
+          <div class="t-btn" style="background:#febc2e"></div>
+          <div class="t-btn" style="background:#28c840"></div>
+          <div class="t-title">model switcher · live demo</div>
+        </div>
+        <div class="t-body" style="min-height:160px" id="model-switcher-body">
+          <span class="t-line dim"># same prompt. different brain. zero config change.</span>
+          <span id="ms-content"></span><span class="t-cursor"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="providers-full-grid reveal">
+      <!-- Anthropic -->
+      <div class="prov-card prov-recommended">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#cc85ff22;color:#cc85ff">✦</span>
+          <div>
+            <div class="prov-name">Anthropic</div>
+            <div class="prov-key">ANTHROPIC_API_KEY</div>
+          </div>
+          <span class="prov-badge" style="background:rgba(124,255,181,.12);color:var(--green);border-color:var(--green)">RECOMMENDED</span>
+        </div>
+        <div class="prov-models">claude-opus-4-6 · claude-sonnet-4-6 · claude-haiku-4-5</div>
+        <div class="prov-count">3 models</div>
+      </div>
+      <!-- OpenAI -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#ffffff11;color:#fff">◆</span>
+          <div>
+            <div class="prov-name">OpenAI</div>
+            <div class="prov-key">OPENAI_API_KEY</div>
+          </div>
+        </div>
+        <div class="prov-models">gpt-4o · gpt-4o-mini · o3 · o4-mini · o1</div>
+        <div class="prov-count">5 models</div>
+      </div>
+      <!-- Google -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#4a9eff22;color:#4a9eff">◎</span>
+          <div>
+            <div class="prov-name">Google Gemini</div>
+            <div class="prov-key">GEMINI_API_KEY</div>
+          </div>
+        </div>
+        <div class="prov-models">gemini-2.5-pro · gemini-2.0-flash · gemini-1.5-pro</div>
+        <div class="prov-count">3 models</div>
+      </div>
+      <!-- DeepSeek -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#4a9eff22;color:#4a9eff">⊛</span>
+          <div>
+            <div class="prov-name">DeepSeek</div>
+            <div class="prov-key">DEEPSEEK_API_KEY</div>
+          </div>
+        </div>
+        <div class="prov-models">deepseek-v3 · deepseek-r1 (reasoner)</div>
+        <div class="prov-count">2 models</div>
+      </div>
+      <!-- Kimi -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#00d4aa22;color:#00d4aa">◈</span>
+          <div>
+            <div class="prov-name">Kimi / Moonshot</div>
+            <div class="prov-key">MOONSHOT_API_KEY</div>
+          </div>
+        </div>
+        <div class="prov-models">kimi-k2.5 · moonshot-v1-8k/32k/128k</div>
+        <div class="prov-count">4 models</div>
+      </div>
+      <!-- Qwen -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#f4b94222;color:#f4b942">◇</span>
+          <div>
+            <div class="prov-name">Qwen</div>
+            <div class="prov-key">DASHSCOPE_API_KEY</div>
+          </div>
+        </div>
+        <div class="prov-models">qwen-max · qwen-plus · qwen-turbo · qwq-32b</div>
+        <div class="prov-count">4 models</div>
+      </div>
+      <!-- MiniMax -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#cc85ff22;color:#cc85ff">⊕</span>
+          <div>
+            <div class="prov-name">MiniMax</div>
+            <div class="prov-key">MINIMAX_API_KEY</div>
+          </div>
+        </div>
+        <div class="prov-models">MiniMax-Text-01 · MiniMax-VL-01 · abab6.5s</div>
+        <div class="prov-count">3 models</div>
+      </div>
+      <!-- Zhipu -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#4a9eff22;color:#4a9eff">⊙</span>
+          <div>
+            <div class="prov-name">Zhipu / GLM</div>
+            <div class="prov-key">ZHIPU_API_KEY</div>
+          </div>
+        </div>
+        <div class="prov-models">glm-4-plus · glm-4 · glm-4-flash</div>
+        <div class="prov-count">3 models</div>
+      </div>
+      <!-- NVIDIA — special card -->
+      <div class="prov-card prov-nvidia">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#76b90022;color:#76b900">N</span>
+          <div>
+            <div class="prov-name" style="color:#76b900">NVIDIA NIM</div>
+            <div class="prov-key">NVIDIA_API_KEY</div>
+          </div>
+          <span class="prov-badge" style="background:rgba(118,185,0,.12);color:#76b900;border-color:#76b900">FREE TIER</span>
+        </div>
+        <div class="prov-models" style="color:#76b900">14 models · 40 RPM each · auto-fallback · no credit card</div>
+        <div class="prov-models" style="margin-top:6px">deepseek-r1 · kimi-k2.5 · llama-3.3-70b · mistral-nemotron…</div>
+        <div class="prov-count" style="color:#76b900">14 models FREE</div>
+      </div>
+      <!-- Ollama -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#7cffb522;color:#7cffb5">⬡</span>
+          <div>
+            <div class="prov-name">Ollama</div>
+            <div class="prov-key" style="color:var(--green)">NO KEY NEEDED</div>
+          </div>
+          <span class="prov-badge" style="background:rgba(124,255,181,.12);color:var(--green);border-color:var(--green)">LOCAL</span>
+        </div>
+        <div class="prov-models">any GGUF model · qwen2.5-coder · llama3.3 · mistral · phi4</div>
+        <div class="prov-count">∞ models</div>
+      </div>
+      <!-- LM Studio -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#7cffb522;color:#7cffb5">⬢</span>
+          <div>
+            <div class="prov-name">LM Studio</div>
+            <div class="prov-key" style="color:var(--green)">NO KEY NEEDED</div>
+          </div>
+          <span class="prov-badge" style="background:rgba(124,255,181,.12);color:var(--green);border-color:var(--green)">LOCAL</span>
+        </div>
+        <div class="prov-models">any local model via OpenAI-compat server</div>
+        <div class="prov-count">∞ models</div>
+      </div>
+      <!-- Custom -->
+      <div class="prov-card">
+        <div class="prov-card-top">
+          <span class="prov-icon" style="background:#ff6b1f22;color:var(--accent)">⚙</span>
+          <div>
+            <div class="prov-name">Custom Endpoint</div>
+            <div class="prov-key">CUSTOM_BASE_URL</div>
+          </div>
+        </div>
+        <div class="prov-models">any OpenAI-compat server · vLLM · TGI · remote GPU</div>
+        <div class="prov-count">∞ models</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== OLLAMA & LOCAL ===== -->
+<section id="local-models" class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// zero cloud. zero key.</div>
+      <h2>Runs Offline.<br>Completely.</h2>
+    </div>
+    <div class="local-split reveal">
+      <div class="local-left">
+        <div class="terminal">
+          <div class="t-chrome">
+            <div class="t-btn" style="background:#ff5f57"></div>
+            <div class="t-btn" style="background:#febc2e"></div>
+            <div class="t-btn" style="background:#28c840"></div>
+            <div class="t-title">no internet required</div>
+          </div>
+          <div class="t-body" style="font-size:13px;min-height:220px">
+<span class="t-line dim"># pull a model from ollama.com</span>
+<span class="t-line"><span class="t-op">$</span> ollama pull qwen2.5-coder</span>
+<span class="t-line t-success">pulling manifest... ████████████ 100%</span>
+<span class="t-line t-success">✓  model ready</span>
+<span class="t-line"> </span>
+<span class="t-line dim"># point falcon at it</span>
+<span class="t-line"><span class="t-op">$</span> falcon --model ollama/qwen2.5-coder</span>
+<span class="t-line t-op">▲ FALCON  ollama/qwen2.5-coder · local</span>
+<span class="t-line t-success">✓ model loaded · 0ms cold start</span>
+<span class="t-line t-success">✓ no API key · no telemetry · no network</span>
+<span class="t-line"> </span>
+<span class="t-line"><span class="t-op">[Falcon]</span> <span class="dim">[0%]</span> <span class="t-op">»</span> <span class="t-cursor"></span></span>
+          </div>
+        </div>
+      </div>
+      <div class="local-right">
+        <ul class="local-features">
+          <li>
+            <span class="lf-icon" style="color:var(--green)">✈</span>
+            <div><strong>Air-gapped</strong><br><span class="dim">No packets leave your machine. Works on flights, submarines, government networks.</span></div>
+          </li>
+          <li>
+            <span class="lf-icon" style="color:var(--accent)">🦙</span>
+            <div><strong>Any Ollama model</strong><br><span class="dim">Everything on ollama.com — Llama 3, Mistral, Phi-4, Gemma, Qwen, DeepSeek local…</span></div>
+          </li>
+          <li>
+            <span class="lf-icon" style="color:var(--blue)">⬡</span>
+            <div><strong>LM Studio compatible</strong><br><span class="dim">Running LM Studio? Point <code style="color:var(--accent);font-size:11px">CUSTOM_BASE_URL</code> at it. Same Falcon, zero changes.</span></div>
+          </li>
+          <li>
+            <span class="lf-icon" style="color:var(--yellow)">⚡</span>
+            <div><strong>Full tool support</strong><br><span class="dim">Function-calling models (qwen2.5-coder, llama3.3, phi4) get every Falcon tool — no cloud required.</span></div>
+          </li>
+        </ul>
+        <div class="local-tip">
+          <span style="color:var(--accent)">PRO TIP</span><br>
+          For coding: <code style="color:var(--accent)">ollama/qwen2.5-coder:32b</code><br>
+          For reasoning: <code style="color:var(--accent)">ollama/qwq</code><br>
+          For speed: <code style="color:var(--accent)">ollama/phi4-mini</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== VOICE + TTS ===== -->
+<section id="voice-tts" class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// /voice · /tts</div>
+      <h2>Talk. Listen. Ship.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7">Full offline voice pipeline. Whisper in, Kokoro out. No cloud. No subscription. Your machine, your voice.</p>
+    </div>
+    <div class="voice-grid reveal">
+      <!-- Voice Input -->
+      <div class="voice-card">
+        <div class="vc-header">
+          <span class="vc-icon">🎙️</span>
+          <div>
+            <div class="vc-title">Voice Input</div>
+            <div class="vc-sub">Whisper · offline · multilingual</div>
+          </div>
+          <span class="vc-toggle">/voice</span>
+        </div>
+        <!-- waveform animation -->
+        <div class="waveform" id="waveform-in">
+          <div class="wf-bars" id="wf-bars">
+            <!-- bars injected by JS -->
+          </div>
+          <div class="wf-label">listening<span class="wf-blink">_</span></div>
+        </div>
+        <div class="vc-terminal">
+          <span class="t-line dim"># press-and-hold to record</span>
+          <span class="t-line t-op">$ /voice</span>
+          <span class="t-line t-success">✓ Whisper loaded · base.en model</span>
+          <span class="t-line t-success">✓ mic: MacBook Pro Microphone</span>
+          <span class="t-line t-warn">● recording... speak now</span>
+          <span class="t-line t-success">✓ transcribed: "refactor the auth module"</span>
+          <span class="t-line t-op">▲ 🦅 Sharpening talons on the AST...</span>
+        </div>
+        <ul class="vc-bullets">
+          <li>Offline Whisper — no API key</li>
+          <li>Any microphone · <code style="color:var(--accent)">/voice device</code></li>
+          <li>Multilingual · <code style="color:var(--accent)">/voice lang zh</code></li>
+          <li>Hint domain terms via <code style="color:var(--accent)">voice_keyterms.txt</code></li>
+        </ul>
+      </div>
+      <!-- TTS -->
+      <div class="voice-card">
+        <div class="vc-header">
+          <span class="vc-icon">🔊</span>
+          <div>
+            <div class="vc-title">TTS — Falcon Talks Back</div>
+            <div class="vc-sub">Kokoro · offline · natural voice</div>
+          </div>
+          <span class="vc-toggle">/tts</span>
+        </div>
+        <!-- output waveform -->
+        <div class="waveform" id="waveform-out" style="--wf-color:#cc85ff">
+          <div class="wf-bars" id="wf-bars-out"></div>
+          <div class="wf-label" style="color:#cc85ff">speaking<span class="wf-blink">_</span></div>
+        </div>
+        <div class="vc-terminal">
+          <span class="t-line dim"># enable voice output</span>
+          <span class="t-line t-op">$ /tts</span>
+          <span class="t-line t-success">✓ Kokoro engine loaded</span>
+          <span class="t-line t-success">✓ voice: af_heart · 24kHz</span>
+          <span class="t-line dim"># falcon now speaks its responses aloud</span>
+          <span class="t-line t-success">▶ playing: "I've refactored auth.py. Tests pass."</span>
+        </div>
+        <ul class="vc-bullets">
+          <li>Kokoro TTS — fully offline</li>
+          <li>No ElevenLabs, no latency, no cost</li>
+          <li>Natural voice · multiple voice profiles</li>
+          <li>Streams audio as response generates</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TELEGRAM ===== -->
+<section id="telegram" class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// /telegram token chat_id</div>
+      <h2>Falcon in Your Pocket.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7">Full Falcon in Telegram. Slash commands, model switching, file sharing, streaming responses. Poke a long-running agent from the bus.</p>
+    </div>
+    <div class="telegram-layout reveal">
+      <!-- phone mockup -->
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="tg-header">
+              <div class="tg-avatar">🦅</div>
+              <div>
+                <div class="tg-name">Falcon Bot</div>
+                <div class="tg-online">● online</div>
+              </div>
+            </div>
+            <div class="tg-messages" id="tg-messages">
+              <div class="tg-msg tg-user">refactor auth, no compromise</div>
+              <div class="tg-msg tg-bot">
+                <div class="tg-bot-label">🦅 Falcon · claude-sonnet</div>
+                On it. Reading session.py and tokens.py…
+                <div class="tg-tool-row">
+                  <span class="tg-tool">read</span>
+                  <span class="tg-tool">grep</span>
+                  <span class="tg-tool t-success">edit ✓</span>
+                </div>
+              </div>
+              <div class="tg-msg tg-user">/model nvidia-web/deepseek-r1</div>
+              <div class="tg-msg tg-bot">
+                <div class="tg-bot-label">🦅 Switched → deepseek-r1</div>
+                Model changed. Continuing...
+              </div>
+              <div class="tg-msg tg-bot">
+                <div class="tg-bot-label">✓ Done</div>
+                Auth refactored. 3 files, +142 -218. Tests: 42/42 ✓
+              </div>
+              <div class="tg-typing" id="tg-typing">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+            <div class="tg-input">
+              <span class="tg-input-text" id="tg-input-text">/checkpoint list</span>
+              <span class="tg-send">➤</span>
+            </div>
+          </div>
+          <div class="phone-home"></div>
+        </div>
+      </div>
+      <!-- right info -->
+      <div class="telegram-info">
+        <ul class="local-features">
+          <li>
+            <span class="lf-icon" style="color:#4a9eff">📲</span>
+            <div><strong>Full Falcon in Telegram</strong><br><span class="dim">Every slash command, every model, every tool — from your phone.</span></div>
+          </li>
+          <li>
+            <span class="lf-icon" style="color:var(--accent)">⚡</span>
+            <div><strong>Streaming responses</strong><br><span class="dim">Responses stream in real-time as Telegram messages. Long tasks post progress updates.</span></div>
+          </li>
+          <li>
+            <span class="lf-icon" style="color:var(--green)">📎</span>
+            <div><strong>File sharing</strong><br><span class="dim">Send code files, get diffs back. Send a screenshot to the vision model.</span></div>
+          </li>
+          <li>
+            <span class="lf-icon" style="color:#cc85ff">🔑</span>
+            <div><strong>One env var</strong><br><span class="dim"><code style="color:var(--accent);font-size:11px">TELEGRAM_BOT_TOKEN</code> — that's the whole config. Auto-starts next launch.</span></div>
+          </li>
+        </ul>
+        <div class="local-tip">
+          <span style="color:var(--accent)">SETUP</span><br>
+          1. Create a bot via @BotFather<br>
+          2. <code style="color:var(--accent)">/telegram &lt;token&gt; &lt;chat_id&gt;</code><br>
+          3. Done — persists across restarts
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SSJ MODE ===== -->
+<section id="ssj" class="section ssj-section">
+  <div class="ssj-bg"></div>
+  <div class="container" style="position:relative;z-index:2">
+    <div class="section-header reveal">
+      <div class="eyebrow" style="color:#ff3a3a">// /ssj · developer mode</div>
+      <h2 style="color:#fff">Developer Mode:<br><span style="color:var(--accent)">Unlocked.</span></h2>
+      <p style="color:#888;font-size:14px;margin-top:12px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7">SSJ = Super Saiyan. When you need to see <em>everything</em>. Token counts, provider debug logs, stream latency, tool inspector, prompt viewer. Nothing hidden.</p>
+    </div>
+    <div class="ssj-layout reveal">
+      <div class="ssj-terminal">
+        <div class="t-chrome" style="background:#1a0505;border-color:#3a0808">
+          <div class="t-btn" style="background:#ff5f57"></div>
+          <div class="t-btn" style="background:#febc2e"></div>
+          <div class="t-btn" style="background:#28c840"></div>
+          <div class="t-title" style="color:#ff6b1f">⚡ SSJ MODE ACTIVE</div>
+        </div>
+        <div class="t-body" style="background:#0d0505;min-height:300px;font-size:13px">
+          <span class="t-line" style="color:#ff3a3a">══════════════════════════════════════</span>
+          <span class="t-line" style="color:#ff6b1f;font-weight:700">  ⚡ SSJ DEVELOPER MODE</span>
+          <span class="t-line" style="color:#ff3a3a">══════════════════════════════════════</span>
+          <span class="t-line"> </span>
+          <span class="t-line"><span style="color:var(--accent)">[1]</span> <span class="dim">Raw token counts</span>         <span style="color:var(--green)">ON</span></span>
+          <span class="t-line"><span style="color:var(--accent)">[2]</span> <span class="dim">Provider debug logs</span>      <span style="color:var(--green)">ON</span></span>
+          <span class="t-line"><span style="color:var(--accent)">[3]</span> <span class="dim">Stream latency timers</span>    <span style="color:var(--green)">ON</span></span>
+          <span class="t-line"><span style="color:var(--accent)">[4]</span> <span class="dim">Tool call inspector</span>      <span style="color:var(--green)">ON</span></span>
+          <span class="t-line"><span style="color:var(--accent)">[5]</span> <span class="dim">Prompt injection viewer</span>  <span style="color:var(--green)">ON</span></span>
+          <span class="t-line"><span style="color:var(--accent)">[6]</span> <span class="dim">Memory trace</span>            <span style="color:var(--green)">ON</span></span>
+          <span class="t-line"><span style="color:var(--accent)">[0]</span> <span class="dim">Exit SSJ</span></span>
+          <span class="t-line"> </span>
+          <span class="t-line" style="color:#ff3a3a">──────────────────────────────────────</span>
+          <span class="t-line"><span class="dim">tokens in:</span> <span style="color:var(--accent)">4,892</span>  <span class="dim">out:</span> <span style="color:var(--accent)">1,247</span>  <span class="dim">cost:</span> <span style="color:var(--yellow)">$0.0041</span></span>
+          <span class="t-line"><span class="dim">latency:</span>  <span style="color:var(--green)">first_token=420ms</span>  <span class="dim">total=3.2s</span></span>
+          <span class="t-line"><span class="dim">tools:</span>    <span style="color:var(--accent)">read×3  edit×1  bash×1  grep×2</span></span>
+          <span class="t-line"> </span>
+          <span class="t-line"><span style="color:var(--accent)">»</span> <span class="t-cursor"></span></span>
+        </div>
+      </div>
+      <div class="ssj-features">
+        <div class="ssj-feat">
+          <div class="ssj-feat-icon">🔢</div>
+          <div><strong>Raw token counts</strong><br><span class="dim">Input, output, context usage — every turn, every tool call.</span></div>
+        </div>
+        <div class="ssj-feat">
+          <div class="ssj-feat-icon">🔍</div>
+          <div><strong>Tool call inspector</strong><br><span class="dim">See exactly what the model called, with what args, and what came back.</span></div>
+        </div>
+        <div class="ssj-feat">
+          <div class="ssj-feat-icon">⏱️</div>
+          <div><strong>Stream latency timers</strong><br><span class="dim">Time to first token, total generation time, per-tool latency.</span></div>
+        </div>
+        <div class="ssj-feat">
+          <div class="ssj-feat-icon">💉</div>
+          <div><strong>Prompt injection viewer</strong><br><span class="dim">See the full system prompt, memory injections, and context assembly.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MEMORY & CHECKPOINTS ===== -->
+<section id="memory-checkpoints" class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// /remember · /checkpoint</div>
+      <h2>Never Lose Context.<br>Ever.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7">Like git commits for your conversations. Persistent memory survives sessions. Checkpoints let you rewind files and context together.</p>
+    </div>
+    <div class="mc-grid reveal">
+      <!-- Memory -->
+      <div class="mc-card">
+        <div class="mc-card-icon">🧬</div>
+        <h3>Persistent Memory</h3>
+        <p class="dim" style="font-size:13px;margin:8px 0 20px;line-height:1.65">Facts, preferences, project context — remembered across sessions. Ranked by confidence × recency.</p>
+        <div class="terminal" style="font-size:12px">
+          <div class="t-chrome"><div class="t-btn" style="background:#ff5f57"></div><div class="t-btn" style="background:#febc2e"></div><div class="t-btn" style="background:#28c840"></div><div class="t-title">memory</div></div>
+          <div class="t-body" style="min-height:160px">
+<span class="t-line t-op">$ /remember "always use anyio for async"</span>
+<span class="t-line t-success">✓ saved · confidence: 1.0</span>
+<span class="t-line"> </span>
+<span class="t-line t-op">$ /memory search async</span>
+<span class="t-line t-success">♛ anyio for async     [conf: 1.0 · gold]</span>
+<span class="t-line t-success">  auth_module_patterns [conf: 0.94]</span>
+<span class="t-line t-success">  team_preferences     [conf: 0.79]</span>
+<span class="t-line"> </span>
+<span class="t-line t-op">$ /memory consolidate</span>
+<span class="t-line t-success">✓ 3 new memories distilled from session</span>
+          </div>
+        </div>
+      </div>
+      <!-- Checkpoints -->
+      <div class="mc-card">
+        <div class="mc-card-icon">💾</div>
+        <h3>Checkpoints</h3>
+        <p class="dim" style="font-size:13px;margin:8px 0 20px;line-height:1.65">Auto-snapshot conversation + files every turn. Break something? Rewind. Files and context restored together.</p>
+        <div class="terminal" style="font-size:12px">
+          <div class="t-chrome"><div class="t-btn" style="background:#ff5f57"></div><div class="t-btn" style="background:#febc2e"></div><div class="t-btn" style="background:#28c840"></div><div class="t-title">checkpoints</div></div>
+          <div class="t-body" style="min-height:160px">
+<span class="t-line t-op">$ /checkpoint list</span>
+<span class="t-line t-info">  #041  pre-refactor   2h ago  (files: 14)</span>
+<span class="t-line t-info">  #042  pre-migration  1h ago  (files: 8)</span>
+<span class="t-line t-success">  #043  post-auth-fix  [current]</span>
+<span class="t-line"> </span>
+<span class="t-line dim"># something went wrong, rewind</span>
+<span class="t-line t-op">$ /checkpoint 041</span>
+<span class="t-line t-success">✓ files restored · 14 files rewound</span>
+<span class="t-line t-success">✓ context restored to #041</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Timeline -->
+    <div class="checkpoint-timeline reveal">
+      <div class="ct-label">SESSION TIMELINE</div>
+      <div class="ct-track">
+        <div class="ct-line"></div>
+        <div class="ct-point" style="left:5%"><div class="ct-dot"></div><div class="ct-tip">start</div></div>
+        <div class="ct-point" style="left:22%"><div class="ct-dot ct-dot--saved"></div><div class="ct-tip">#041<br><span class="dim">pre-refactor</span></div></div>
+        <div class="ct-point" style="left:40%"><div class="ct-dot"></div><div class="ct-tip">edits</div></div>
+        <div class="ct-point" style="left:55%"><div class="ct-dot ct-dot--saved"></div><div class="ct-tip">#042<br><span class="dim">pre-migration</span></div></div>
+        <div class="ct-point" style="left:70%"><div class="ct-dot ct-dot--danger"></div><div class="ct-tip ct-tip--danger">💥 broke it</div></div>
+        <div class="ct-point" style="left:85%"><div class="ct-dot ct-dot--rewind"></div><div class="ct-tip">↺ rewind<br><span style="color:var(--accent)">#041</span></div></div>
+        <div class="ct-point" style="left:97%"><div class="ct-dot ct-dot--saved"></div><div class="ct-tip">#043<br><span class="dim">current</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLASH COMMANDS ===== -->
+<section id="slash-commands" class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// / + tab to explore</div>
+      <h2>Every Command.<br>One Cheat Sheet.</h2>
+    </div>
+    <div class="slash-grid reveal" id="slash-grid"></div>
+  </div>
+</section>
+
+<!-- ===== STYLES FOR NEW SECTIONS ===== -->
+<style>
+/* providers */
+.providers-full-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1px;background:var(--dim2);border:1px solid var(--dim2)}
+.prov-card{background:var(--bg);padding:24px 20px;display:flex;flex-direction:column;gap:10px;position:relative;transition:background .2s}
+.prov-card:hover{background:var(--bg3)}
+.prov-card-top{display:flex;align-items:center;gap:12px}
+.prov-icon{width:36px;height:36px;display:grid;place-items:center;font-size:18px;font-weight:900;border-radius:2px;flex-shrink:0}
+.prov-name{font-size:14px;font-weight:700}
+.prov-key{font-size:10px;color:var(--dim);letter-spacing:.12em;margin-top:2px}
+.prov-badge{font-size:9px;letter-spacing:.2em;text-transform:uppercase;padding:3px 7px;border:1px solid;margin-left:auto;white-space:nowrap}
+.prov-models{font-size:11px;color:var(--dim);line-height:1.5}
+.prov-count{font-size:10px;color:var(--accent);letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
+.prov-recommended{box-shadow:inset 0 0 0 1px rgba(124,255,181,.2)}
+.prov-nvidia{box-shadow:inset 0 0 30px rgba(118,185,0,.06),inset 0 0 0 1px rgba(118,185,0,.25)}
+/* model switcher terminal */
+#ms-content .ms-line{display:block}
+
+/* local */
+.local-split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+.local-features{list-style:none;display:flex;flex-direction:column;gap:20px}
+.local-features li{display:flex;gap:14px;align-items:flex-start}
+.lf-icon{font-size:22px;flex-shrink:0;margin-top:2px}
+.local-features strong{display:block;font-size:14px;margin-bottom:4px}
+.local-tip{margin-top:28px;border:1px solid var(--dim2);padding:16px 20px;font-size:13px;line-height:1.8;background:var(--bg2)}
+
+/* voice */
+.voice-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.voice-card{background:var(--bg);border:1px solid var(--dim2);padding:28px;display:flex;flex-direction:column;gap:16px}
+.vc-header{display:flex;align-items:center;gap:14px}
+.vc-icon{font-size:28px}
+.vc-title{font-size:16px;font-weight:700}
+.vc-sub{font-size:11px;color:var(--dim);letter-spacing:.1em;margin-top:2px}
+.vc-toggle{margin-left:auto;background:rgba(255,107,31,.1);border:1px solid rgba(255,107,31,.35);color:var(--accent);font-size:12px;padding:4px 10px;letter-spacing:.1em}
+.waveform{height:56px;background:#080810;border:1px solid var(--dim2);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;position:relative;overflow:hidden}
+.wf-bars{display:flex;gap:3px;align-items:center;height:36px}
+.wf-bar{width:4px;border-radius:2px;background:var(--wf-color,var(--accent));animation:wfAnim var(--d,.4s) ease-in-out infinite alternate}
+@keyframes wfAnim{from{height:4px}to{height:var(--h,20px)}}
+.wf-label{font-size:10px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.wf-blink{animation:blink .8s infinite step-end}
+.vc-terminal{background:#08080c;padding:14px;font-size:11px;display:flex;flex-direction:column;gap:2px}
+.vc-bullets{list-style:none;display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--dim)}
+.vc-bullets li::before{content:"→ ";color:var(--accent)}
+
+/* telegram */
+.telegram-layout{display:grid;grid-template-columns:320px 1fr;gap:64px;align-items:center}
+.telegram-info{display:flex;flex-direction:column;gap:24px}
+.phone-wrap{display:flex;justify-content:center}
+.phone{width:260px;background:#1a1a22;border-radius:36px;padding:12px;box-shadow:0 0 60px rgba(74,158,255,.15),0 0 0 1px #2a2a36;position:relative}
+.phone-notch{width:90px;height:20px;background:#0a0a0e;border-radius:0 0 12px 12px;margin:0 auto 8px;position:relative;z-index:2}
+.phone-screen{background:#0d0d14;border-radius:24px;overflow:hidden;min-height:460px;display:flex;flex-direction:column}
+.tg-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#111118;border-bottom:1px solid #1a1a22}
+.tg-avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,107,31,.2);display:grid;place-items:center;font-size:20px}
+.tg-name{font-size:13px;font-weight:700}
+.tg-online{font-size:10px;color:var(--green)}
+.tg-messages{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.tg-msg{max-width:90%;padding:8px 11px;border-radius:12px;font-size:11px;line-height:1.5}
+.tg-user{background:#ff6b1f;color:#000;align-self:flex-end;border-radius:12px 12px 4px 12px;font-weight:600}
+.tg-bot{background:#1a1a24;color:var(--ink);align-self:flex-start;border-radius:12px 12px 12px 4px;border:1px solid #2a2a36}
+.tg-bot-label{font-size:9px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.tg-tool-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.tg-tool{font-size:9px;padding:2px 6px;border:1px solid #2a2a36;color:var(--dim)}
+.tg-tool.t-success{border-color:var(--green);color:var(--green)}
+.tg-typing{display:flex;gap:4px;align-items:center;padding:6px 10px;background:#1a1a24;border-radius:12px;align-self:flex-start;width:48px}
+.tg-typing span{width:5px;height:5px;border-radius:50%;background:var(--dim);animation:typeDot .9s infinite}
+.tg-typing span:nth-child(2){animation-delay:.2s}
+.tg-typing span:nth-child(3){animation-delay:.4s}
+.tg-input{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#111118;border-top:1px solid #1a1a22}
+.tg-input-text{flex:1;font-size:11px;color:var(--dim)}
+.tg-send{color:var(--accent);font-size:14px}
+.phone-home{width:60px;height:4px;background:#2a2a36;border-radius:2px;margin:10px auto 4px}
+
+/* SSJ */
+.ssj-section{background:#07000a;position:relative;overflow:hidden}
+.ssj-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,rgba(255,50,50,.08),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(255,107,31,.06),transparent 50%)}
+.ssj-layout{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+.ssj-terminal{box-shadow:0 0 40px rgba(255,50,50,.15)}
+.ssj-features{display:flex;flex-direction:column;gap:24px}
+.ssj-feat{display:flex;gap:16px;align-items:flex-start}
+.ssj-feat-icon{font-size:24px;flex-shrink:0}
+.ssj-feat strong{display:block;font-size:14px;margin-bottom:4px}
+
+/* memory checkpoints */
+.mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px}
+.mc-card{background:var(--bg);border:1px solid var(--dim2);padding:32px;display:flex;flex-direction:column;gap:0}
+.mc-card-icon{font-size:32px;margin-bottom:12px}
+.mc-card h3{font-size:18px;font-weight:700;margin-bottom:0}
+.checkpoint-timeline{background:var(--bg);border:1px solid var(--dim2);padding:32px 40px}
+.ct-label{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:28px}
+.ct-track{position:relative;height:80px}
+.ct-line{position:absolute;top:20px;left:0;right:0;height:2px;background:var(--dim2)}
+.ct-point{position:absolute;display:flex;flex-direction:column;align-items:center;gap:8px}
+.ct-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--dim2);background:var(--bg);position:relative;z-index:2}
+.ct-dot--saved{border-color:var(--accent);background:var(--accent)}
+.ct-dot--danger{border-color:var(--red);background:var(--red)}
+.ct-dot--rewind{border-color:var(--blue);background:var(--blue)}
+.ct-tip{font-size:10px;color:var(--dim);text-align:center;line-height:1.4;margin-top:6px}
+.ct-tip--danger{color:var(--red)}
+
+/* slash commands */
+.slash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--dim2);border:1px solid var(--dim2)}
+.slash-card{background:var(--bg2);padding:16px 18px;transition:background .2s;cursor:default}
+.slash-card:hover{background:var(--bg3)}
+.slash-group{font-size:9px;letter-spacing:.3em;text-transform:uppercase;margin-bottom:8px}
+.slash-cmd{font-size:14px;font-weight:700;margin-bottom:4px}
+.slash-desc{font-size:11px;color:var(--dim);line-height:1.4}
+
+@media(max-width:900px){
+  .local-split,.voice-grid,.telegram-layout,.ssj-layout,.mc-grid{grid-template-columns:1fr}
+  .phone-wrap{display:none}
+  .providers-full-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){.providers-full-grid{grid-template-columns:1fr}}
+</style>
+
+<!-- ===== JS FOR NEW SECTIONS ===== -->
+<script>
+// model switcher typewriter
+const msCmds = [
+  {cmd:'falcon -m claude-sonnet-4-6 "explain this function"', out:[
+    {c:'t-op',t:'▲ FALCON  claude-sonnet-4-6 · anthropic'},
+    {c:'t-success',t:'✓ connected · streaming...'},
+  ]},
+  {cmd:'falcon -m nvidia-web/deepseek-r1 "explain this function"', out:[
+    {c:'t-op',t:'▲ FALCON  nvidia-web/deepseek-r1 · free tier'},
+    {c:'t-success',t:'✓ connected · 40 RPM · no cost'},
+  ]},
+  {cmd:'falcon -m ollama/llama3.3 "explain this function"', out:[
+    {c:'t-op',t:'▲ FALCON  ollama/llama3.3 · local'},
+    {c:'t-success',t:'✓ connected · offline · no API key'},
+  ]},
+]
+let msCur=0,msChar=0,msPhase='type'
+const msEl=document.getElementById('ms-content')
+const msBody=document.getElementById('model-switcher-body')
+
+function msRun(){
+  const seq=msCmds[msCur]
+  if(msPhase==='type'){
+    const full=seq.cmd
+    const s=msEl.querySelector('.ms-curr')||document.createElement('span')
+    if(!s.classList.contains('ms-curr')){
+      s.className='t-line ms-curr'
+      s.innerHTML='<span style="color:var(--accent)">$ </span>'
+      msEl.appendChild(s)
+    }
+    s.innerHTML='<span style="color:var(--accent)">$ </span>'+full.slice(0,msChar)
+    if(msChar<full.length){msChar++;setTimeout(msRun,35+Math.random()*20)}
+    else{msPhase='out';msOutIdx=0;setTimeout(msRun,400)}
+  } else {
+    if(msOutIdx<seq.out.length){
+      const l=seq.out[msOutIdx]
+      const s=document.createElement('span')
+      s.className='t-line ms-line '+l.c
+      s.textContent=l.t
+      msEl.appendChild(s)
+      msOutIdx++
+      setTimeout(msRun,300)
+    } else {
+      setTimeout(()=>{
+        msEl.innerHTML=''
+        msCur=(msCur+1)%msCmds.length
+        msChar=0;msPhase='type'
+        msRun()
+      },2800)
+    }
+  }
+}
+let msOutIdx=0
+const msObs=new IntersectionObserver(e=>{if(e[0].isIntersecting){msRun();msObs.disconnect()}},{threshold:.3})
+const msSection=document.getElementById('all-providers')
+if(msSection)msObs.observe(msSection)
+
+// waveform bars
+function buildWaveform(id,color){
+  const el=document.getElementById(id)
+  if(!el)return
+  for(let i=0;i<28;i++){
+    const b=document.createElement('div')
+    b.className='wf-bar'
+    const h=6+Math.random()*28
+    b.style.setProperty('--h',h+'px')
+    b.style.setProperty('--d',(0.25+Math.random()*.4)+'s')
+    b.style.animationDelay=(Math.random()*.4)+'s'
+    if(color)b.style.background=color
+    el.appendChild(b)
+  }
+}
+buildWaveform('wf-bars')
+buildWaveform('wf-bars-out','#cc85ff')
+
+// slash commands data
+const slashCmds=[
+  {g:'MODELS',cmd:'/model',desc:'Show or switch model'},
+  {g:'MODELS',cmd:'/nvidia',desc:'NVIDIA NIM models'},
+  {g:'MODELS',cmd:'/ollama',desc:'Local Ollama models'},
+  {g:'TOOLS',cmd:'/tools',desc:'List all available tools'},
+  {g:'TOOLS',cmd:'/bash',desc:'Run a shell command'},
+  {g:'TOOLS',cmd:'/browser',desc:'Open browser tool'},
+  {g:'OUTPUT',cmd:'/verbose',desc:'Toggle verbose logging'},
+  {g:'OUTPUT',cmd:'/tts',desc:'Text-to-speech toggle'},
+  {g:'OUTPUT',cmd:'/voice',desc:'Voice input toggle'},
+  {g:'OUTPUT',cmd:'/rtk',desc:'Real-time token display'},
+  {g:'SESSION',cmd:'/checkpoint',desc:'Save or restore snapshot'},
+  {g:'SESSION',cmd:'/remember',desc:'Save to persistent memory'},
+  {g:'SESSION',cmd:'/compact',desc:'Compress context'},
+  {g:'SESSION',cmd:'/save',desc:'Save session to disk'},
+  {g:'SESSION',cmd:'/load',desc:'Load a session'},
+  {g:'SESSION',cmd:'/resume',desc:'Resume last session'},
+  {g:'FUN',cmd:'/ssj',desc:'Developer power mode'},
+  {g:'FUN',cmd:'/brainstorm',desc:'Multi-persona AI debate'},
+  {g:'FUN',cmd:'/roundtable',desc:'Multi-model discussion'},
+  {g:'FUN',cmd:'/say',desc:'Falcon speaks aloud (TTS)'},
+  {g:'INFO',cmd:'/help',desc:'Show all commands'},
+  {g:'INFO',cmd:'/status',desc:'Version + model + provider'},
+  {g:'INFO',cmd:'/tokens',desc:'Token usage + cost'},
+  {g:'INFO',cmd:'/cost',desc:'Estimated API spend'},
+  {g:'INFO',cmd:'/doctor',desc:'Diagnose install health'},
+  {g:'INFO',cmd:'/news',desc:'Latest updates'},
+  {g:'AGENTS',cmd:'/agents',desc:'List active flock'},
+  {g:'AGENTS',cmd:'/worker',desc:'Auto-implement TODOs'},
+  {g:'AGENTS',cmd:'/skills',desc:'List + run skills'},
+  {g:'EXTRA',cmd:'/mcp',desc:'MCP server management'},
+  {g:'EXTRA',cmd:'/plugin',desc:'Plugin management'},
+  {g:'EXTRA',cmd:'/telegram',desc:'Telegram bridge'},
+  {g:'EXTRA',cmd:'/cloudsave',desc:'GitHub Gist sync'},
+  {g:'EXTRA',cmd:'/export',desc:'Export conversation'},
+  {g:'EXTRA',cmd:'/copy',desc:'Copy last response'},
+  {g:'EXTRA',cmd:'/init',desc:'Create CLAUDE.md template'},
+]
+const groupColors={MODELS:'#cc85ff',TOOLS:'#4a9eff',OUTPUT:'#00d4aa',SESSION:'#ff6b1f',FUN:'#ffd166',INFO:'#7cffb5',AGENTS:'#ff5a6e',EXTRA:'#8a8275'}
+const slashGrid=document.getElementById('slash-grid')
+if(slashGrid){
+  slashGrid.innerHTML=slashCmds.map(c=>`
+    <div class="slash-card">
+      <div class="slash-group" style="color:${groupColors[c.g]}">${c.g}</div>
+      <div class="slash-cmd" style="color:${groupColors[c.g]}">${c.cmd}</div>
+      <div class="slash-desc">${c.desc}</div>
+    </div>`).join('')
+}
+
+// observe new reveal elements
+const revealObs3=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting)x.target.classList.add('visible')})},{threshold:.1})
+document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs3.observe(el))
+</script>
+
+<!-- ===== WEBCHAT ===== -->
+<section id="webchat" class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// /webchat [port]</div>
+      <h2>Falcon in the Browser.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:580px;margin-left:auto;margin-right:auto;line-height:1.7">No terminal required. Spin up a local web UI with one command — Flask backend, full streaming, task manager, personas, everything. Same Falcon, glass UI.</p>
+    </div>
+    <div class="wc-layout reveal">
+      <!-- mock webchat window -->
+      <div class="wc-window">
+        <div class="wc-chrome">
+          <div class="wc-chrome-left">
+            <div class="wc-logo">▲ FALCON WEBCHAT</div>
+            <div class="wc-model-sel">
+              <span>kimi/kimi-k2.5</span>
+              <span style="color:var(--accent)">▾</span>
+            </div>
+          </div>
+          <div class="wc-chrome-right">
+            <button class="wc-btn">TOCA RECORD</button>
+            <button class="wc-btn">TASK MANAGER</button>
+            <button class="wc-btn wc-btn--clear">CLEAR</button>
+          </div>
+        </div>
+        <div class="wc-body">
+          <!-- left: user messages -->
+          <div class="wc-left-pane">
+            <div class="wc-msg wc-msg--user">
+              <div class="wc-msg-text">Pa' luego, streamear y correr Falcon sin problemas! 130 ↑, 1084 🐦</div>
+              <div class="wc-msg-time">just now</div>
+            </div>
+            <div class="wc-msg wc-msg--user" style="margin-top:16px">
+              <div class="wc-msg-text">¿ok me', qué tal? El estado del repo</div>
+              <div class="wc-msg-time">3s ago</div>
+            </div>
+          </div>
+          <!-- right: falcon streaming response -->
+          <div class="wc-right-pane" id="wc-stream">
+            <div class="wc-stream-header">
+              <span style="color:var(--accent)">🦅 Falcon</span>
+              <span class="dim" style="font-size:11px;margin-left:8px">claude-sonnet-4 · streaming</span>
+            </div>
+            <div class="wc-stream-body" id="wc-body-text">
+              <span class="wc-token" style="color:var(--ink)">Analizando el repo... </span>
+              <span class="wc-token" style="color:var(--dim)">3 archivos sin trackear. </span>
+              <span class="wc-token" style="color:var(--yellow)">⚠ backend/tasks.py tiene cambios sin commitear. </span>
+              <span class="wc-token" style="color:var(--ink)">El último commit fue un nuevo engine. </span>
+              <span class="wc-token" style="color:var(--accent)">Listo para hacer push cuando quieras.</span>
+              <span class="wc-token wc-cursor">█</span>
+            </div>
+            <div class="wc-tool-strip">
+              <span class="wc-tool">→ read</span>
+              <span class="wc-tool t-success">✓ grep</span>
+              <span class="wc-tool t-success">✓ bash</span>
+              <span class="wc-tool wc-tool--active">⧗ write</span>
+            </div>
+          </div>
+        </div>
+        <div class="wc-input-bar">
+          <span class="wc-input-prefix">Habla a Falcon</span>
+          <span class="wc-input-placeholder">[ Enter input. Shift+Enter nueva línea ]</span>
+          <button class="wc-send">SEND</button>
+        </div>
+      </div>
+      <!-- right: quick facts -->
+      <div class="wc-facts">
+        <div class="wc-fact"><span class="wc-fact-icon" style="color:var(--accent)">⚡</span><div><strong>One command</strong><br><span class="dim" style="font-size:12px">Just <code style="color:var(--accent)">/webchat</code> — starts Flask on localhost:5000. LAN-accessible too.</span></div></div>
+        <div class="wc-fact"><span class="wc-fact-icon" style="color:#7cffb5">⬡</span><div><strong>Full streaming</strong><br><span class="dim" style="font-size:12px">Token-by-token output, tool call indicators, model badge. No refresh.</span></div></div>
+        <div class="wc-fact"><span class="wc-fact-icon" style="color:#cc85ff">◈</span><div><strong>Task Manager baked in</strong><br><span class="dim" style="font-size:12px">Create tasks, track agents, view status — same window, TASK MANAGER button.</span></div></div>
+        <div class="wc-fact"><span class="wc-fact-icon" style="color:#4a9eff">📱</span><div><strong>Mobile ready</strong><br><span class="dim" style="font-size:12px">LAN URL printed on startup. Open on your phone. Full Falcon from the couch.</span></div></div>
+        <div class="wc-cmd-box">
+          <div class="wc-cmd-line"><span style="color:var(--accent)">$</span> falcon</div>
+          <div class="wc-cmd-line"><span style="color:var(--accent)">[Falcon] »</span> /webchat</div>
+          <div class="wc-cmd-line" style="color:#7cffb5">✓ WebChat listening → http://localhost:5000</div>
+          <div class="wc-cmd-line dim">From phone (same wifi) → http://10.0.0.6:5000</div>
+          <div class="wc-cmd-line dim">Stop with: /webchat stop</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TASK MANAGER ===== -->
+<section id="task-manager" class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// /task · task manager</div>
+      <h2>Tasks. Tracked.<br>Agents. Assigned.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:580px;margin-left:auto;margin-right:auto;line-height:1.7">Create, assign, filter, and close tasks from the REPL, the WebChat, or the Desktop GUI. Agents report progress automatically. Everything in one board.</p>
+    </div>
+    <div class="tm-layout reveal">
+      <!-- kanban board mock -->
+      <div class="tm-board">
+        <!-- board header -->
+        <div class="tm-board-header">
+          <div class="tm-board-title">Falcon Task Board</div>
+          <div class="tm-board-meta">
+            <span class="tm-agent-tag" style="color:#ff6b1f">@kimi-code:0</span>
+            <span class="tm-agent-tag" style="color:#cc85ff">@kimi-code2:0</span>
+            <span class="tm-agent-tag" style="color:#7cffb5">@kimi-code3:0</span>
+            <span style="font-size:11px;color:var(--dim);margin-left:auto">Total: 3 · 10% done</span>
+          </div>
+        </div>
+        <!-- columns -->
+        <div class="tm-columns">
+          <!-- Pendiente -->
+          <div class="tm-col">
+            <div class="tm-col-header">
+              <span class="tm-col-title">Pendiente</span>
+              <span class="tm-col-count" style="background:rgba(255,107,31,.2);color:var(--accent)">2</span>
+            </div>
+            <div class="tm-col-body">
+              <div class="tm-card tm-card--active">
+                <div class="tm-card-id">#1</div>
+                <div class="tm-card-title">Refactor auth module</div>
+                <div class="tm-card-meta">created via REPL · 2h ago</div>
+                <div class="tm-card-footer">
+                  <span class="tm-card-agent" style="color:#ff6b1f">@kimi-code</span>
+                  <span class="tm-card-priority">HIGH</span>
+                </div>
+              </div>
+              <div class="tm-card">
+                <div class="tm-card-id">#2</div>
+                <div class="tm-card-title">Write e2e tests for /users</div>
+                <div class="tm-card-meta">created via webchat · 45m ago</div>
+                <div class="tm-card-footer">
+                  <span class="tm-card-agent" style="color:#cc85ff">@kimi-code2</span>
+                  <span class="tm-card-priority" style="color:var(--yellow)">MED</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- En Progreso -->
+          <div class="tm-col">
+            <div class="tm-col-header">
+              <span class="tm-col-title">En Progreso</span>
+              <span class="tm-col-count" style="background:rgba(74,158,255,.2);color:#4a9eff">1</span>
+            </div>
+            <div class="tm-col-body">
+              <div class="tm-card tm-card--running">
+                <div class="tm-card-id">#3</div>
+                <div class="tm-card-running-bar"><span></span></div>
+                <div class="tm-card-title">Update OpenAPI schema</div>
+                <div class="tm-card-meta">started 12m ago · 4 tools used</div>
+                <div class="tm-card-footer">
+                  <span class="tm-card-agent" style="color:#7cffb5">@kimi-code3</span>
+                  <span class="tm-card-live"><span class="tm-live-dot"></span>LIVE</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Completadas -->
+          <div class="tm-col">
+            <div class="tm-col-header">
+              <span class="tm-col-title">Completadas</span>
+              <span class="tm-col-count" style="background:rgba(124,255,181,.15);color:#7cffb5">1</span>
+            </div>
+            <div class="tm-col-body">
+              <div class="tm-card tm-card--done">
+                <div class="tm-card-id">#0</div>
+                <div class="tm-card-title">love falcon</div>
+                <div class="tm-card-meta">created via REPL · completed 30m ago</div>
+                <div class="tm-card-footer">
+                  <span class="tm-card-agent" style="color:#7cffb5">✓ done</span>
+                  <span style="font-size:10px;color:var(--dim)">29/04 · 16:55</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- right: slash commands -->
+      <div class="tm-commands">
+        <div class="tm-cmd-title">// task commands</div>
+        <div class="terminal" style="font-size:12px">
+          <div class="t-chrome"><div class="t-btn" style="background:#ff5f57"></div><div class="t-btn" style="background:#febc2e"></div><div class="t-btn" style="background:#28c840"></div><div class="t-title">task manager</div></div>
+          <div class="t-body" style="min-height:200px">
+<span class="t-line dim"># create from REPL</span>
+<span class="t-line t-op">$ /task create "refactor auth"</span>
+<span class="t-line t-success">✓ #1 created · pending</span>
+<span class="t-line"> </span>
+<span class="t-line dim"># assign to agent</span>
+<span class="t-line t-op">$ /task assign 1 kimi-code</span>
+<span class="t-line t-success">✓ #1 → @kimi-code</span>
+<span class="t-line"> </span>
+<span class="t-line dim"># check status</span>
+<span class="t-line t-op">$ /task list</span>
+<span class="t-line t-success">✓ #1 in-progress · @kimi-code</span>
+<span class="t-line t-info">  #2 pending   · @kimi-code2</span>
+<span class="t-line"> </span>
+<span class="t-line dim"># close it out</span>
+<span class="t-line t-op">$ /task done 1</span>
+<span class="t-line t-success">✓ #1 → completed</span>
+          </div>
+        </div>
+        <div class="local-tip" style="margin-top:16px">
+          <span style="color:var(--accent)">ALSO AVAILABLE IN</span><br>
+          WebChat → TASK MANAGER button<br>
+          Desktop GUI → Tareas view<br>
+          Agents → auto-create tasks via REPL
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DESKTOP GUI ===== -->
+<section id="desktop-gui" class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// python falcon_gui.py</div>
+      <h2>Native Desktop GUI.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:12px;max-width:580px;margin-left:auto;margin-right:auto;line-height:1.7">Full PyQt app. Sidebar history, persona switching, integrated task board, tool panel, theme selector, settings dialog. Every Falcon feature, no terminal required.</p>
+    </div>
+    <div class="gui-layout reveal">
+      <!-- desktop window mock -->
+      <div class="gui-window">
+        <!-- window chrome -->
+        <div class="gui-titlebar">
+          <div class="gui-win-btns">
+            <span class="gui-win-btn" style="background:#ff5f57"></span>
+            <span class="gui-win-btn" style="background:#febc2e"></span>
+            <span class="gui-win-btn" style="background:#28c840"></span>
+          </div>
+          <span class="gui-win-title">Falcon</span>
+          <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
+            <div class="gui-model-pill">kimi-code/kimi-for-coding <span style="color:var(--accent)">▾</span></div>
+            <button class="gui-task-btn">📋 Tareas</button>
+            <span class="gui-status-dot">● Listo</span>
+          </div>
+        </div>
+        <!-- window body -->
+        <div class="gui-body">
+          <!-- sidebar -->
+          <div class="gui-sidebar">
+            <div class="gui-sidebar-logo">🦅 Falcon<br><span style="font-size:10px;color:var(--dim)">AI Coding Assistant</span></div>
+            <button class="gui-new-conv">+ Nueva conversación</button>
+            <div class="gui-history-label">Historial</div>
+            <div class="gui-history">
+              <div class="gui-hist-item gui-hist-active"><span class="gui-hist-time">16:55</span><span class="gui-hist-title">Nueva conversación</span><span class="gui-hist-del">×</span></div>
+              <div class="gui-hist-item"><span class="gui-hist-time">16:54</span><span class="gui-hist-title">hey</span><span class="gui-hist-del">×</span></div>
+              <div class="gui-hist-item"><span class="gui-hist-time">16:26</span><span class="gui-hist-title">Nueva conversación</span><span class="gui-hist-del">×</span></div>
+              <div class="gui-hist-item"><span class="gui-hist-time">23:48</span><span class="gui-hist-title">hey hija como estas?</span><span class="gui-hist-del">×</span></div>
+              <div class="gui-hist-item"><span class="gui-hist-time">06:14</span><span class="gui-hist-title">hola hija como estas?</span><span class="gui-hist-del">×</span></div>
+              <div class="gui-hist-item" style="color:var(--dim);font-size:11px"><span class="gui-hist-time">23:09</span><span class="gui-hist-title">[MemPalace — relevant memories pre-l…]</span><span class="gui-hist-del">×</span></div>
+            </div>
+            <button class="gui-settings-btn">⚙ Ajustes</button>
+          </div>
+          <!-- main chat area -->
+          <div class="gui-main">
+            <div class="gui-chat-empty">
+              <div class="gui-chat-empty-icon">🦅</div>
+              <div class="gui-chat-empty-text">Nueva conversación</div>
+              <div class="gui-chat-empty-sub dim">Empieza a escribir o activa una tarea</div>
+            </div>
+            <!-- input bar -->
+            <div class="gui-input-bar">
+              <span class="gui-input-icon">📎</span>
+              <span class="gui-input-area">Escribe un mensaje...</span>
+              <span class="gui-input-mic">🎙</span>
+              <button class="gui-send-btn">▶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- right: feature list -->
+      <div class="gui-features">
+        <ul class="local-features">
+          <li><span class="lf-icon" style="color:var(--accent)">🖼</span><div><strong>PyQt6 native app</strong><br><span class="dim" style="font-size:12px">Runs on Windows, macOS, Linux. Native menus, keyboard shortcuts, system tray.</span></div></li>
+          <li><span class="lf-icon" style="color:#cc85ff">🎭</span><div><strong>Persona switcher</strong><br><span class="dim" style="font-size:12px">Swap Falcon's personality mid-session. Sidebar shows active persona with one click.</span></div></li>
+          <li><span class="lf-icon" style="color:#7cffb5">📋</span><div><strong>Integrated task board</strong><br><span class="dim" style="font-size:12px">Full kanban view inside the GUI. Create tasks, watch agents move them to done.</span></div></li>
+          <li><span class="lf-icon" style="color:#4a9eff">🔧</span><div><strong>Tool panel</strong><br><span class="dim" style="font-size:12px">Visual tool inspector. See every tool call live, with args and output.</span></div></li>
+          <li><span class="lf-icon" style="color:#f4b942">🎨</span><div><strong>Themes</strong><br><span class="dim" style="font-size:12px">Dark, light, and custom themes via <code style="color:var(--accent);font-size:11px">gui/themes.py</code>. Hot-swap without restart.</span></div></li>
+        </ul>
+        <div class="local-tip" style="margin-top:24px">
+          <span style="color:var(--accent)">LAUNCH</span><br>
+          <code style="color:var(--accent)">python falcon_gui.py</code><br>
+          <code style="color:var(--accent)">python falcon_gui.py --theme dark</code><br>
+          GUI + terminal run side-by-side
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- styles for webchat + task manager + desktop gui -->
+<style>
+/* WEBCHAT */
+.wc-layout{display:grid;grid-template-columns:1fr 280px;gap:32px;align-items:start}
+.wc-window{border:1px solid var(--dim2);background:var(--bg);overflow:hidden}
+.wc-chrome{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:10px 16px;background:#0d0d14;border-bottom:1px solid var(--dim2);flex-wrap:wrap;
+}
+.wc-chrome-left{display:flex;align-items:center;gap:16px}
+.wc-logo{font-family:var(--display);font-size:14px;color:var(--accent);letter-spacing:.05em}
+.wc-model-sel{font-size:11px;color:var(--dim);border:1px solid var(--dim2);padding:4px 10px;display:flex;align-items:center;gap:6px}
+.wc-chrome-right{display:flex;gap:8px}
+.wc-btn{background:none;border:1px solid var(--dim2);color:var(--dim);font-family:var(--mono);font-size:10px;letter-spacing:.15em;padding:5px 10px;cursor:pointer;transition:all .2s}
+.wc-btn:hover{border-color:var(--accent);color:var(--accent)}
+.wc-btn--clear{color:var(--red);border-color:rgba(255,90,110,.3)}
+.wc-body{display:grid;grid-template-columns:1fr 1fr;min-height:280px;border-bottom:1px solid var(--dim2)}
+.wc-left-pane{padding:20px;border-right:1px solid var(--dim2)}
+.wc-msg{padding:12px 14px;background:rgba(255,107,31,.06);border-left:2px solid var(--accent);margin-bottom:10px}
+.wc-msg-text{font-size:13px;color:var(--ink);line-height:1.55}
+.wc-msg-time{font-size:10px;color:var(--dim);margin-top:6px}
+.wc-right-pane{padding:20px;display:flex;flex-direction:column;gap:12px}
+.wc-stream-header{font-size:12px;font-weight:700}
+.wc-stream-body{font-size:13px;line-height:1.7;flex:1}
+.wc-cursor{color:var(--accent);animation:blink .9s infinite step-end}
+.wc-tool-strip{display:flex;gap:8px;flex-wrap:wrap}
+.wc-tool{font-size:10px;color:var(--dim);border:1px solid var(--dim2);padding:3px 8px;letter-spacing:.1em}
+.wc-tool.t-success{color:var(--green);border-color:rgba(124,255,181,.3)}
+.wc-tool--active{color:var(--yellow);border-color:rgba(255,209,102,.3);animation:pulse .8s infinite alternate}
+.wc-input-bar{
+  display:flex;align-items:center;gap:12px;padding:12px 16px;
+  background:#0a0a10;border-top:1px solid var(--dim2);
+}
+.wc-input-prefix{font-size:11px;color:var(--dim);letter-spacing:.1em;white-space:nowrap}
+.wc-input-placeholder{font-size:12px;color:var(--dim2);flex:1;font-style:italic}
+.wc-send{background:var(--accent);border:none;color:#000;font-family:var(--mono);font-size:11px;font-weight:700;padding:7px 16px;letter-spacing:.15em;cursor:pointer}
+.wc-facts{display:flex;flex-direction:column;gap:18px}
+.wc-fact{display:flex;gap:12px;align-items:flex-start}
+.wc-fact-icon{font-size:20px;flex-shrink:0;margin-top:2px}
+.wc-fact strong{display:block;font-size:13px;margin-bottom:3px}
+.wc-cmd-box{background:var(--bg);border:1px solid var(--dim2);padding:14px 16px;font-size:12px;display:flex;flex-direction:column;gap:4px}
+.wc-cmd-line{color:var(--dim)}
+
+/* TASK MANAGER */
+.tm-layout{display:grid;grid-template-columns:1fr 300px;gap:32px;align-items:start}
+.tm-board{border:1px solid var(--dim2);background:var(--bg2);overflow:hidden}
+.tm-board-header{padding:16px 20px;border-bottom:1px solid var(--dim2)}
+.tm-board-title{font-family:var(--display);font-size:22px;letter-spacing:-.02em;margin-bottom:8px}
+.tm-board-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tm-agent-tag{font-size:11px;letter-spacing:.1em}
+.tm-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--dim2);min-height:280px}
+.tm-col{background:var(--bg2);padding:0}
+.tm-col-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--dim2)}
+.tm-col-title{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.tm-col-count{font-size:11px;font-weight:700;padding:2px 8px;border-radius:2px}
+.tm-col-body{padding:12px;display:flex;flex-direction:column;gap:8px}
+.tm-card{background:var(--bg);border:1px solid var(--dim2);padding:14px;transition:border-color .2s;position:relative}
+.tm-card--active{border-color:rgba(255,107,31,.35)}
+.tm-card--running{border-color:rgba(74,158,255,.35)}
+.tm-card--done{opacity:.6}
+.tm-card-running-bar{height:2px;background:rgba(74,158,255,.15);margin-bottom:8px;position:relative;overflow:hidden}
+.tm-card-running-bar span{position:absolute;left:-40%;width:40%;height:100%;background:#4a9eff;animation:runBar 1.4s linear infinite}
+@keyframes runBar{to{left:120%}}
+.tm-card-id{font-size:10px;color:var(--dim);letter-spacing:.15em;margin-bottom:4px}
+.tm-card-title{font-size:13px;font-weight:700;margin-bottom:6px}
+.tm-card-meta{font-size:10px;color:var(--dim);margin-bottom:8px}
+.tm-card-footer{display:flex;align-items:center;justify-content:space-between}
+.tm-card-agent{font-size:10px;font-weight:700;letter-spacing:.1em}
+.tm-card-priority{font-size:9px;letter-spacing:.2em;color:var(--red);border:1px solid rgba(255,90,110,.3);padding:2px 6px}
+.tm-card-live{display:flex;align-items:center;gap:4px;font-size:9px;letter-spacing:.15em;color:#4a9eff}
+.tm-live-dot{width:5px;height:5px;border-radius:50%;background:#4a9eff;animation:pulse-g 1s infinite}
+.tm-commands{display:flex;flex-direction:column;gap:16px}
+.tm-cmd-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent)}
+
+/* DESKTOP GUI */
+.gui-layout{display:grid;grid-template-columns:1fr 300px;gap:32px;align-items:start}
+.gui-window{
+  border:1px solid var(--dim2);overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.gui-titlebar{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 16px;background:#111118;border-bottom:1px solid var(--dim2);
+}
+.gui-win-btns{display:flex;gap:6px}
+.gui-win-btn{width:11px;height:11px;border-radius:50%;display:inline-block}
+.gui-win-title{font-size:13px;font-weight:700;color:var(--accent);margin-left:4px}
+.gui-model-pill{font-size:11px;color:var(--dim);border:1px solid var(--dim2);padding:4px 10px;display:flex;align-items:center;gap:6px}
+.gui-task-btn{background:var(--accent);border:none;color:#000;font-family:var(--mono);font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;letter-spacing:.1em}
+.gui-status-dot{font-size:11px;color:var(--green)}
+.gui-body{display:grid;grid-template-columns:220px 1fr;min-height:420px}
+.gui-sidebar{background:#0d0d14;border-right:1px solid var(--dim2);padding:16px 12px;display:flex;flex-direction:column;gap:10px}
+.gui-sidebar-logo{font-weight:700;font-size:15px;color:var(--accent);padding-bottom:10px;border-bottom:1px solid var(--dim2);line-height:1.4}
+.gui-new-conv{background:var(--accent);border:none;color:#000;font-family:var(--mono);font-size:12px;font-weight:700;padding:8px;cursor:pointer;text-align:left;letter-spacing:.05em}
+.gui-history-label{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim)}
+.gui-history{display:flex;flex-direction:column;gap:2px;flex:1;overflow:hidden}
+.gui-hist-item{display:flex;align-items:center;gap:6px;padding:5px 6px;font-size:11px;cursor:pointer;transition:background .15s;border-radius:1px}
+.gui-hist-item:hover{background:rgba(255,255,255,.04)}
+.gui-hist-active{background:rgba(255,107,31,.08);border-left:2px solid var(--accent)}
+.gui-hist-time{color:var(--dim);white-space:nowrap;flex-shrink:0}
+.gui-hist-title{color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gui-hist-del{color:var(--dim);opacity:0;transition:opacity .15s;flex-shrink:0}
+.gui-hist-item:hover .gui-hist-del{opacity:1}
+.gui-settings-btn{background:none;border:1px solid var(--dim2);color:var(--dim);font-family:var(--mono);font-size:11px;padding:8px;cursor:pointer;text-align:left;letter-spacing:.05em;transition:all .2s}
+.gui-settings-btn:hover{border-color:var(--accent);color:var(--accent)}
+.gui-main{display:flex;flex-direction:column;background:var(--bg)}
+.gui-chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:40px}
+.gui-chat-empty-icon{font-size:40px;opacity:.3}
+.gui-chat-empty-text{font-size:16px;font-weight:700;color:var(--dim)}
+.gui-chat-empty-sub{font-size:12px}
+.gui-input-bar{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;background:#0d0d14;border-top:1px solid var(--dim2);
+}
+.gui-input-area{flex:1;font-size:13px;color:var(--dim2);padding:8px 12px;border:1px solid var(--dim2);background:var(--bg)}
+.gui-input-icon,.gui-input-mic{font-size:16px;cursor:pointer;opacity:.5}
+.gui-send-btn{background:var(--accent);border:none;color:#000;font-size:14px;width:34px;height:34px;cursor:pointer;font-weight:700}
+.gui-features{display:flex;flex-direction:column;gap:0}
+
+@media(max-width:900px){
+  .wc-layout,.tm-layout,.gui-layout{grid-template-columns:1fr}
+  .wc-body{grid-template-columns:1fr}
+  .wc-left-pane{display:none}
+  .tm-columns{grid-template-columns:1fr}
+  .gui-body{grid-template-columns:1fr}
+  .gui-sidebar{display:none}
+}
+</style>
+
+<!-- ===== FAQ ===== -->
+<section id="faq" class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="eyebrow">// questions we actually get</div>
+      <h2>FAQ</h2>
+    </div>
+    <div class="faq-list reveal">
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Tool calls don't work with my local model
+          <div class="faq-icon">+</div>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">Use a model with native function-calling support: <code>qwen2.5-coder</code>, <code>llama3.3</code>, <code>mistral</code>, <code>phi4</code>. Base models without tool-use fine-tuning won't dispatch tools reliably.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          How do I connect to a remote GPU server?
+          <div class="faq-icon">+</div>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">In the REPL: <code>/config custom_base_url=http://your-server:8000/v1</code> then <code>/model custom/your-model-name</code>. Any OpenAI-compatible server works.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Is accept-all safe to use on production repos?
+          <div class="faq-icon">+</div>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner"><code>--accept-all</code> auto-approves every write and shell command. On prod: don't. Use <code>plan</code> mode (read-only, only plan.md writable) or the default <code>auto</code> mode that prompts before writes. Use your brain — Falcon will use its talons.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Voice transcribes "kubectl" as "cubicle"
+          <div class="faq-icon">+</div>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">Add domain terms to <code>.falcon/voice_keyterms.txt</code>, one per line. Whisper respects the hint list. Works great for obscure package names, internal project names, acronyms.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          How do I check how much I've spent on API calls?
+          <div class="faq-icon">+</div>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">Type <code>/cost</code> in the REPL. Falcon tracks token usage and estimates USD cost for every turn, broken down by model. Session totals persist across <code>/save</code>/<code>/load</code>.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Can I contribute spinners?
+          <div class="faq-icon">+</div>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">Yes and please do. Edit <code>falcon/spinners.py</code>, add your line, PR it. Bonus points for a cultural reference we'll understand in 2046. The current record holder: "☕ If I'm taking so long, don't worry, I'm just talking to your mom."</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo">▲ <span>FALCON</span></div>
+        <p>Lightweight Python agent. Any model, any repo, any workflow. Hunt. Patch. Ship.</p>
+        <a href="#quickstart" class="stars-badge">
+          ▲ Get Falcon →
+        </a>
+      </div>
+      <div class="footer-col">
+        <h4>Get started</h4>
+        <ul>
+          <li><a href="#quickstart">Installation</a></li>
+          <li><a href="#models">Models</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#features">Features</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Features</h4>
+        <ul>
+          <li><a href="#features">MCP integration</a></li>
+          <li><a href="#features">Plugins</a></li>
+          <li><a href="#features">Sub-agents</a></li>
+          <li><a href="#features">Brainstorm</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Free tier</h4>
+        <ul>
+          <li><a href="https://build.nvidia.com">NVIDIA NIM ↗</a></li>
+          <li><a href="#models">14 free models</a></li>
+          <li><a href="#models">Auto-fallback</a></li>
+          <li><a href="#local-models">Ollama (local)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Commercial license · Built by <a href="https://github.com/KevRojo" style="color:var(--accent)">KevRojo</a> · Named after the bird, not the rocket · 2026</p>
+      <div class="status">
+        <div class="status-dot"></div>
+        All systems operational
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ===== NAV SCROLL + SPINNER DOCK =====
+const spinnersEl = document.getElementById('spinners')
+const footerEl   = document.querySelector('footer')
+
+window.addEventListener('scroll',()=>{
+  document.getElementById('nav').classList.toggle('scrolled',window.scrollY>40)
+
+  // dock spinner bar to footer when footer is in view
+  if(!spinnersEl || !footerEl) return
+  const footerTop = footerEl.getBoundingClientRect().top
+  const winH = window.innerHeight
+  const barH = spinnersEl.offsetHeight
+
+  if(footerTop <= winH){
+    // footer is visible — pin bar to top of footer
+    if(!spinnersEl.classList.contains('docked')){
+      spinnersEl.classList.add('docked')
+      // position relative to document
+      const docFooterTop = footerEl.getBoundingClientRect().top + window.scrollY
+      spinnersEl.style.top  = (docFooterTop - barH) + 'px'
+      spinnersEl.style.bottom = 'auto'
+    }
+  } else {
+    if(spinnersEl.classList.contains('docked')){
+      spinnersEl.classList.remove('docked')
+      spinnersEl.style.top  = 'auto'
+      spinnersEl.style.bottom = '0'
+    }
+  }
+})
+
+// ===== REVEAL ON SCROLL =====
+const observer = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')})
+},{threshold:.1})
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el))
+
+// ===== COUNTER ANIMATION =====
+function animateCounter(el){
+  const target = +el.dataset.target
+  const duration = 1600
+  const start = Date.now()
+  const tick = ()=>{
+    const p = Math.min((Date.now()-start)/duration,1)
+    const ease = 1-Math.pow(1-p,3)
+    el.textContent = Math.floor(ease*target).toLocaleString()
+    if(p<1)requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+const counterObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      animateCounter(e.target)
+      counterObs.unobserve(e.target)
+    }
+  })
+},{threshold:.5})
+document.querySelectorAll('.counter').forEach(el=>counterObs.observe(el))
+
+// ===== TERMINAL TYPEWRITER =====
+const sequences = [
+  {
+    prompt:'falcon --model deepseek-r1 "refactor auth"',
+    lines:[
+      {cls:'t-op',txt:'▲  🦅 Sharpening talons on the AST...'},
+      {cls:'t-success',txt:'→ read    src/auth/session.py          ✓ 428 lines'},
+      {cls:'t-success',txt:'→ grep    "verify_jwt"                  ✓ 14 hits'},
+      {cls:'t-warn',   txt:'→ edit    src/auth/session.py:87        ⧗ refactoring'},
+      {cls:'t-success',txt:'→ test    tests/auth/**                 ✓ 42 passed'},
+      {cls:'t-success',txt:'→ commit  feat(auth): consolidate flow  ✓ done'},
+    ]
+  },
+  {
+    prompt:'falcon --model gpt-4o "write tests for api.py"',
+    lines:[
+      {cls:'t-op',txt:'▲  🥚 Hatching a master plan...'},
+      {cls:'t-success',txt:'→ read    api/routes.py                 ✓ 312 lines'},
+      {cls:'t-success',txt:'→ write   tests/test_routes.py          ✓ created'},
+      {cls:'t-success',txt:'→ bash    pytest tests/test_routes.py   ✓ 18/18'},
+    ]
+  },
+  {
+    prompt:'/brainstorm "should we rewrite in rust"',
+    lines:[
+      {cls:'t-op',txt:'▲  ◉ persona:skeptic-pm spawned'},
+      {cls:'t-op',txt:'▲  ◉ persona:staff-eng-2037 spawned'},
+      {cls:'t-op',txt:'▲  ◉ persona:hot-take-intern spawned'},
+      {cls:'t-warn',txt:'[skeptic-pm]   the migration cost is 4 years not 4 months'},
+      {cls:'t-info',txt:'[staff-eng]    latency is not your bottleneck. the query is.'},
+      {cls:'t-success',txt:'[hot-take]     just rewrite it in Go and blame infra'},
+      {cls:'dim',txt:'· round 3 · consensus forming...'},
+    ]
+  },
+  {
+    prompt:'/checkpoint list',
+    lines:[
+      {cls:'t-info',txt:'  #041  pre-refactor        2h ago   (files: 14)'},
+      {cls:'t-info',txt:'  #042  pre-migration        1h ago   (files: 8)'},
+      {cls:'t-success',txt:'  #043  post-auth-fix  [current] just now  (files: 3)'},
+      {cls:'dim',txt:'  /checkpoint 041 to rewind'},
+    ]
+  },
+  {
+    prompt:'falcon --model nvidia-web/deepseek-r1 "explain this diff"',
+    lines:[
+      {cls:'t-op',txt:'▲  ◉ nvidia-web · deepseek-r1 · 40 RPM free'},
+      {cls:'t-success',txt:'→ read    diff stdin                    ✓ 147 lines'},
+      {cls:'t-info',txt:'  The change converts synchronous db.find() calls to async'},
+      {cls:'t-info',txt:'  patterns with proper dependency injection. Main concern:'},
+      {cls:'t-warn',txt:'  ⚠  missing cancel scope on async get_user() — add anyio.'},
+    ]
+  },
+  {
+    prompt:'/memory consolidate',
+    lines:[
+      {cls:'t-op',txt:'▲  ♛ distilling session into long-term memory...'},
+      {cls:'t-success',txt:'  saved · auth_module_patterns (confidence: 0.94)'},
+      {cls:'t-success',txt:'  saved · test_coverage_gaps   (confidence: 0.87)'},
+      {cls:'t-success',txt:'  saved · team_preferences     (confidence: 0.79)'},
+      {cls:'dim',txt:'  3 memories written · /memory search auth to recall'},
+    ]
+  },
+]
+
+let seqIdx=0, lineIdx=0, charIdx=0, isTypingPrompt=true
+let currentLines=[]
+const termContent=document.getElementById('term-content')
+
+function mkSpan(cls,txt){
+  const s=document.createElement('span')
+  s.className='t-line '+cls
+  s.textContent=txt
+  return s
+}
+
+function clearTerm(){
+  termContent.innerHTML=''
+  currentLines=[]
+}
+
+function typePrompt(){
+  const seq=sequences[seqIdx]
+  const full=seq.prompt
+  if(charIdx<=full.length){
+    const s=termContent.querySelector('.current-prompt')||document.createElement('span')
+    if(!s.classList.contains('current-prompt')){
+      s.className='t-line current-prompt'
+      s.innerHTML='<span style="color:var(--accent)">$ </span>'
+      termContent.appendChild(s)
+    }
+    s.innerHTML='<span style="color:var(--accent)">$ </span>'+full.slice(0,charIdx)
+    charIdx++
+    setTimeout(typePrompt,charIdx===1?400:30+Math.random()*20)
+  } else {
+    isTypingPrompt=false
+    lineIdx=0
+    setTimeout(typeLines,400)
+  }
+}
+
+function typeLines(){
+  const seq=sequences[seqIdx]
+  if(lineIdx<seq.lines.length){
+    const l=seq.lines[lineIdx]
+    termContent.appendChild(mkSpan(l.cls,l.txt))
+    lineIdx++
+    setTimeout(typeLines,220+Math.random()*120)
+  } else {
+    // pause then next sequence
+    setTimeout(()=>{
+      clearTerm()
+      seqIdx=(seqIdx+1)%sequences.length
+      charIdx=0
+      isTypingPrompt=true
+      typePrompt()
+    },3200)
+  }
+}
+
+// start after a brief delay
+setTimeout(typePrompt,800)
+
+// ===== SPINNERS MARQUEE =====
+const spinners=[
+  {e:'⚡',t:'Rewriting light speed'},
+  {e:'🦅',t:'Dropping from the stratosphere'},
+  {e:'🤔',t:'Who is Barry Allen?'},
+  {e:'🤔',t:'Who is KevRojo?'},
+  {e:'🦅',t:'Sharpening talons on the AST'},
+  {e:'💨',t:'Leaving electrons behind'},
+  {e:'🌍',t:'Orbiting the codebase'},
+  {e:'⏱️',t:'Breaking the sound barrier'},
+  {e:'🔥',t:'Faster than a hot reload'},
+  {e:'🚀',t:'Terminal velocity reached'},
+  {e:'🏎️',t:'Shifting to 6th gear'},
+  {e:'⚡',t:'Speed force activated'},
+  {e:'🌪️',t:'Blitzing through the bytecode'},
+  {e:'💫',t:'Bending spacetime'},
+  {e:'🦅',t:'Preying on bugs from above'},
+  {e:'👁️',t:'Falcon vision engaged'},
+  {e:'🍗',t:'Hunting for memory leaks'},
+  {e:'🪶',t:'Shedding legacy code'},
+  {e:'🕹️',t:'Try-catching mid-flight'},
+  {e:'🥚',t:'Hatching a master plan'},
+  {e:'⚡',t:"I-I'm... fast"},
+  {e:'🔮',t:'Looking at your code from the future'},
+  {e:'☕',t:"If I'm taking so long, don't worry, I'm just talking to your mom"},
+  {e:'🏁',t:'Winning a race against light'},
+]
+
+function mkSpinners(track){
+  spinners.forEach(s=>{
+    const el=document.createElement('div')
+    el.className='spinner-item'
+    el.innerHTML=`<span class="em">${s.e}</span> ${s.t}<span class="em">...</span>`
+    track.appendChild(el)
+  })
+}
+mkSpinners(document.getElementById('mq1'))
+mkSpinners(document.getElementById('mq2'))
+
+// ===== FAQ TOGGLE =====
+function toggleFaq(btn){
+  const item=btn.closest('.faq-item')
+  const isOpen=item.classList.contains('open')
+  document.querySelectorAll('.faq-item.open').forEach(el=>el.classList.remove('open'))
+  if(!isOpen)item.classList.add('open')
+}
+
+// ===== COPY CODE =====
+function copyCode(btn){
+  const code=btn.closest('.code-block').querySelector('.code-body').textContent.trim()
+  navigator.clipboard.writeText(code).then(()=>{
+    btn.textContent='Copied!'
+    setTimeout(()=>btn.textContent='Copy',1800)
+  })
+}
+
+// ===== FAKE STARS COUNTER =====
+// Animate stars up slightly for fun
+// stars counter removed
+</script>
+
+</body>
+</html>

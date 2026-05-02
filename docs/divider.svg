@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 80" width="1600" height="80" font-family="&#39;JetBrains Mono&#39;,monospace">
+  <rect width="1600" height="80" fill="#07070a"></rect>
+  <g font-size="14" letter-spacing="5" fill="#ff6b1f">
+    <text x="40" y="48">◉ MULTI-PROVIDER    ·    ◉ MCP    ·    ◉ PLUGINS    ·    ◉ SUB-AGENTS    ·    ◉ VOICE    ·    ◉ TELEGRAM    ·    ◉ CHECKPOINTS    ·    ◉ BRAINSTORM    ·    ◉ SSJ MODE    ·    ◉ MEMORY</text>
+  </g>
+  <line x1="0" y1="1" x2="1600" y2="1" stroke="#ff6b1f" stroke-opacity="0.3"></line>
+  <line x1="0" y1="79" x2="1600" y2="79" stroke="#ff6b1f" stroke-opacity="0.3"></line>
+</svg>

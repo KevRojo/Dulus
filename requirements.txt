@@ -1,0 +1,34 @@
+anthropic>=0.40.0
+openai>=1.30.0
+httpx>=0.27.0
+requests>=2.31.0
+rich>=13.0.0
+prompt_toolkit>=3.0.0
+
+sounddevice
+
+# ── Voice input (optional — install whichever STT backend you prefer) ──────
+# Recording backend (choose one):
+#   pip install sounddevice        # cross-platform mic capture (recommended)
+#   sudo apt install alsa-utils    # Linux arecord fallback
+#   sudo apt install sox / brew install sox  # SoX rec fallback
+#
+# STT backend (choose one — listed in priority order):
+#   pip install nvidia-riva-client # cloud whisper-large-v3 via NVCF gRPC
+#                                  # set NVIDIA_API_KEY (optional FALCON_RIVA_SERVER /
+#                                  # FALCON_RIVA_FUNCTION_ID overrides)
+#   pip install faster-whisper     # local Whisper, fastest  (recommended offline)
+#   pip install openai-whisper     # local Whisper, original
+#   # or set OPENAI_API_KEY to use the OpenAI Whisper cloud API
+#
+# numpy is needed by the local Whisper backends and the arecord RMS detector:
+#   pip install numpy
+#
+# Model size can be overridden: export FALCON_WHISPER_MODEL=small
+
+# ── Chat bubbles (optional — requires NerdFont in terminal) ───────────────
+bubblewrap-cli>=1.0.0
+
+# ── Desktop GUI (optional) ────────────────────────────────────────────────
+customtkinter>=5.2.0
+Pillow>=10.0.0

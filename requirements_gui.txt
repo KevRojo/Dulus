@@ -1,0 +1,5 @@
+# Dependencias para la GUI profesional de Falcon
+# Instalar con: pip install -r requirements_gui.txt
+
+customtkinter>=5.2.2
+Pillow>=10.0.0

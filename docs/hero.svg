@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 640" width="1600" height="640" font-family="&#39;JetBrains Mono&#39;,&#39;Menlo&#39;,monospace">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0a0f"></stop>
+      <stop offset="100%" stop-color="#05050a"></stop>
+    </linearGradient>
+    <radialGradient id="glow" cx="78%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff6b1f" stop-opacity="0.28"></stop>
+      <stop offset="100%" stop-color="#ff6b1f" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="typeFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4ede4"></stop>
+      <stop offset="58%" stop-color="#f4ede4"></stop>
+      <stop offset="58%" stop-color="#ff6b1f"></stop>
+      <stop offset="100%" stop-color="#ff6b1f"></stop>
+    </linearGradient>
+    <linearGradient id="fgrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffcb7a"></stop>
+      <stop offset="45%" stop-color="#ff7a2a"></stop>
+      <stop offset="100%" stop-color="#b8340a"></stop>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ff6b1f" stroke-opacity="0.08"></path>
+    </pattern>
+    <pattern id="scan" width="1" height="4" patternUnits="userSpaceOnUse">
+      <rect width="1" height="1" fill="#fff" fill-opacity="0.025"></rect>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="640" fill="url(#sky)"></rect>
+  <rect width="1600" height="640" fill="url(#grid)"></rect>
+  <rect width="1600" height="640" fill="url(#glow)"></rect>
+  <rect width="1600" height="640" fill="url(#scan)"></rect>
+
+  <g stroke="#ff6b1f" stroke-width="2" fill="none">
+    <path d="M 14 42 L 14 14 L 42 14"></path>
+    <path d="M 1558 14 L 1586 14 L 1586 42"></path>
+    <path d="M 14 598 L 14 626 L 42 626"></path>
+    <path d="M 1558 626 L 1586 626 L 1586 598"></path>
+  </g>
+
+  <g font-size="11" letter-spacing="2.2" fill="#8a8275">
+    <text x="30" y="34">SYS://FALCON.CORE</text>
+    <text x="1570" y="34" text-anchor="end">BUILD v1.01.20 · STABLE</text>
+    <text x="30" y="622">MULTIPROVIDER · MCP · PLUGINS · AGENTS · VOICE</text>
+    <text x="1570" y="622" text-anchor="end" fill="#ff6b1f">◉ ONLINE</text>
+  </g>
+
+  <g transform="translate(80,86)">
+    <circle cx="0" cy="-4" r="5" fill="#ff6b1f"></circle>
+    <circle cx="0" cy="-4" r="9" fill="none" stroke="#ff6b1f" stroke-opacity="0.4"></circle>
+    <text x="18" y="0" font-size="12" letter-spacing="2.4" fill="#8a8275">PYTHON AUTONOMOUS AGENT · OPEN SOURCE</text>
+  </g>
+
+  <g font-family="&#39;Archivo Black&#39;,&#39;Impact&#39;,&#39;Helvetica&#39;,sans-serif" font-weight="900" letter-spacing="-6">
+    <text x="80" y="300" font-size="200" fill="url(#typeFill)">FAL</text>
+    <text x="80" y="470" font-size="200" fill="url(#typeFill)">CON</text>
+  </g>
+  <text x="82" y="510" font-size="16" letter-spacing="4.5" fill="#ff6b1f">// HUNT. PATCH. SHIP.</text>
+
+  <g font-size="15" fill="#9a9286">
+    <text x="82" y="542">~12K lines of readable Python. Any model. Any repo.</text>
+    <text x="82" y="564">No build step, no gatekeeping, no fluff.</text>
+    <text x="82" y="586" fill="#f4ede4">Just talons.</text>
+  </g>
+
+  <g transform="translate(450,555)">
+    <rect x="0" y="-22" width="340" height="34" fill="#ff6b1f" fill-opacity="0.06" stroke="#ff6b1f" stroke-opacity="0.45"></rect>
+    <text x="14" y="0" font-size="14" fill="#ff6b1f">$</text>
+    <text x="30" y="0" font-size="14" fill="#f4ede4">pip install falcon &amp;&amp; falcon</text>
+    <rect x="308" y="-14" width="9" height="16" fill="#ff6b1f"></rect>
+  </g>
+
+  
+  <g transform="translate(1200,320)">
+    
+    <g stroke="#ff6b1f" fill="none" opacity="0.4">
+      <circle r="280" stroke-width="1"></circle>
+      <circle r="220" stroke-width="1" stroke-dasharray="4 8"></circle>
+      <circle r="150" stroke-width="1" stroke-dasharray="2 14"></circle>
+      <line x1="-300" y1="0" x2="-260" y2="0"></line>
+      <line x1="260" y1="0" x2="300" y2="0"></line>
+      <line x1="0" y1="-300" x2="0" y2="-260"></line>
+      <line x1="0" y1="260" x2="0" y2="300"></line>
+    </g>
+    <g font-size="9" fill="#ff6b1f" opacity="0.65" letter-spacing="1.5">
+      <text x="-258" y="-265">N 00°</text>
+      <text x="258" y="-265" text-anchor="end">E 90°</text>
+      <text x="-258" y="275">W 270°</text>
+      <text x="258" y="275" text-anchor="end">S 180°</text>
+    </g>
+
+    
+    <g>
+      
+      <path d="M -15 120 L -50 250 L -30 240 L -20 260 L -5 235 L 5 260 L 20 235 L 30 260 L 50 250 L 15 120 Z" fill="url(#fgrad)"></path>
+      <g stroke="#07070a" stroke-width="1" opacity="0.35" fill="none">
+        <path d="M -20 150 L -20 240"></path>
+        <path d="M 0 150 L 0 240"></path>
+        <path d="M 20 150 L 20 240"></path>
+      </g>
+
+      
+      <path d="M -70 -30&#xA;               Q -90 40 -60 100&#xA;               Q -40 140 0 145&#xA;               Q 40 140 60 100&#xA;               Q 90 40 70 -30&#xA;               Q 50 -70 0 -75&#xA;               Q -50 -70 -70 -30 Z" fill="url(#fgrad)"></path>
+
+      
+      <g fill="#07070a" opacity="0.55">
+        <path d="M -30 20 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M 0 15 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M 30 25 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M -15 45 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M 15 50 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M -35 70 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M 0 80 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M 30 75 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M -20 100 l 3 0 l -1.5 2.5 z"></path>
+        <path d="M 20 105 l 3 0 l -1.5 2.5 z"></path>
+      </g>
+
+      
+      <path d="M -70 -20&#xA;               Q -95 30 -80 90&#xA;               Q -70 120 -45 130&#xA;               L -30 125&#xA;               L -25 90&#xA;               L -30 40&#xA;               L -50 0&#xA;               Z" fill="#8f2a08" opacity="0.95"></path>
+      
+      <g stroke="#07070a" stroke-width="1.2" fill="none" opacity="0.6">
+        <path d="M -80 20 Q -65 60 -40 110"></path>
+        <path d="M -85 40 Q -70 75 -45 120"></path>
+        <path d="M -78 0 Q -58 45 -35 100"></path>
+      </g>
+      
+      <path d="M -45 130 L -55 155 L -40 145 L -35 160 L -25 140 Z" fill="#5c1a04"></path>
+
+      
+      <g>
+        
+        <path d="M -35 -50 Q 0 -55 35 -50 Q 40 -30 20 -20 Q -20 -20 -40 -30 Z" fill="#8f2a08" opacity="0.6"></path>
+        
+        <path d="M -40 -60&#xA;                 Q -45 -110 -5 -125&#xA;                 Q 35 -130 55 -110&#xA;                 Q 65 -90 60 -65&#xA;                 Q 50 -45 20 -45&#xA;                 Q -20 -48 -40 -60 Z" fill="url(#fgrad)"></path>
+        
+        <path d="M -35 -80&#xA;                 Q -30 -120 0 -125&#xA;                 Q 35 -125 50 -100&#xA;                 Q 40 -90 20 -85&#xA;                 Q -15 -85 -35 -80 Z" fill="#1a1a1e"></path>
+        
+        <path d="M 28 -72 Q 32 -55 26 -48 Q 20 -55 22 -70 Z" fill="#1a1a1e"></path>
+        
+        <circle cx="32" cy="-80" r="4.5" fill="#ffd166"></circle>
+        <circle cx="33" cy="-80" r="2.2" fill="#07070a"></circle>
+        
+        <path d="M 55 -75 L 78 -68 L 82 -62 L 72 -60 L 58 -62 Z" fill="#f4ede4"></path>
+        <path d="M 68 -62 L 78 -58 L 70 -55 Z" fill="#1a1a1e"></path>
+        
+        <path d="M 50 -70 Q 58 -73 62 -68 Q 55 -65 50 -70 Z" fill="#ffb347"></path>
+      </g>
+
+      
+      <g>
+        <path d="M -80 150 L 80 150 L 75 165 L -75 165 Z" fill="#1a1a1e"></path>
+        <path d="M -80 150 L -120 155 L -75 160 Z" fill="#1a1a1e"></path>
+        <g stroke="#ff6b1f" stroke-width="0.8" opacity="0.6" fill="none">
+          <path d="M -70 157 L 70 157"></path>
+        </g>
+        
+        <path d="M -35 145 L -38 175 L -30 170 L -28 180 L -22 170 L -20 180 L -15 168 L -20 145 Z" fill="#0a0a0a"></path>
+        <path d="M 35 145 L 38 175 L 30 170 L 28 180 L 22 170 L 20 180 L 15 168 L 20 145 Z" fill="#0a0a0a"></path>
+      </g>
+    </g>
+
+    
+    <g font-size="9" fill="#ff6b1f" letter-spacing="1.5" opacity="0.9">
+      <line x1="80" y1="-65" x2="200" y2="-140" stroke="#ff6b1f" stroke-width="0.8"></line>
+      <circle cx="80" cy="-65" r="2" fill="#ff6b1f"></circle>
+      <text x="204" y="-142">BEAK · TOOL_CALL()</text>
+
+      <line x1="33" y1="-80" x2="220" y2="-60" stroke="#ff6b1f" stroke-width="0.8"></line>
+      <circle cx="33" cy="-80" r="2" fill="#ff6b1f"></circle>
+      <text x="224" y="-58">OPTIC · CONTEXT</text>
+
+      <line x1="-75" y1="80" x2="-230" y2="140" stroke="#ff6b1f" stroke-width="0.8"></line>
+      <circle cx="-75" cy="80" r="2" fill="#ff6b1f"></circle>
+      <text x="-234" y="142" text-anchor="end">WING · MULTI-AGENT</text>
+
+      <line x1="-30" y1="175" x2="-200" y2="230" stroke="#ff6b1f" stroke-width="0.8"></line>
+      <circle cx="-30" cy="175" r="2" fill="#ff6b1f"></circle>
+      <text x="-204" y="232" text-anchor="end">TALON · EDIT()</text>
+
+      <line x1="35" y1="130" x2="220" y2="180" stroke="#ff6b1f" stroke-width="0.8"></line>
+      <circle cx="35" cy="130" r="2" fill="#ff6b1f"></circle>
+      <text x="224" y="182">PLUMAGE · PLUGINS</text>
+    </g>
+  </g>
+</svg>

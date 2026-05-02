@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 480" width="1600" height="480" font-family="&#39;JetBrains Mono&#39;,&#39;Menlo&#39;,monospace">
+  <defs>
+    <pattern id="sg" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ff6b1f" stroke-opacity="0.05"></path></pattern>
+    <radialGradient id="sgl" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#ff6b1f" stop-opacity="0.12"></stop><stop offset="100%" stop-color="#ff6b1f" stop-opacity="0"></stop></radialGradient>
+  </defs>
+  <rect width="1600" height="480" fill="#07070a"></rect>
+  <rect width="1600" height="480" fill="url(#sg)"></rect>
+  <rect width="1600" height="480" fill="url(#sgl)"></rect>
+  <g stroke="#ff6b1f" stroke-width="2" fill="none">
+    <path d="M 14 42 L 14 14 L 42 14"></path>
+    <path d="M 1558 14 L 1586 14 L 1586 42"></path>
+    <path d="M 14 438 L 14 466 L 42 466"></path>
+    <path d="M 1558 466 L 1586 466 L 1586 438"></path>
+  </g>
+
+  <text x="72" y="58" font-size="11" letter-spacing="4" fill="#ff6b1f">// LOADING MESSAGES · PICK YOUR FAVORITE</text>
+  <text x="1528" y="58" text-anchor="end" font-size="11" letter-spacing="3" fill="#8a8275">24 SPINNERS SHIPPED · PR YOUR OWN</text>
+
+  <g font-size="20" fill="#f4ede4">
+    <text x="72" y="110"><tspan fill="#ff6b1f">⚡</tspan>  Rewriting light speed<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="146"><tspan fill="#ff6b1f">🦅</tspan>  Dropping from the stratosphere<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="182"><tspan fill="#ff6b1f">🤔</tspan>  Who is Barry Allen<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="218"><tspan fill="#ff6b1f">🦅</tspan>  Sharpening talons on the AST<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="254"><tspan fill="#ff6b1f">🍗</tspan>  Hunting for memory leaks<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="290"><tspan fill="#ff6b1f">🏎️</tspan>  Shifting to 6th gear<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="326"><tspan fill="#ff6b1f">🥚</tspan>  Hatching a master plan<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="362"><tspan fill="#ff6b1f">🪶</tspan>  Shedding legacy code<tspan fill="#ff6b1f">...</tspan></text>
+    <text x="72" y="398"><tspan fill="#ff6b1f">☕</tspan>  If I&#39;m taking so long, don&#39;t worry, I&#39;m just talking to your mom<tspan fill="#ff6b1f">...</tspan></text>
+  </g>
+
+  <g font-size="12" fill="#8a8275" letter-spacing="2">
+    <text x="900" y="110">// stratosphere-tier</text>
+    <text x="900" y="146">// signature move</text>
+    <text x="900" y="182">// flash fan service</text>
+    <text x="900" y="218">// compiler-pilled</text>
+    <text x="900" y="254">// devops mode</text>
+    <text x="900" y="290">// turbo engaged</text>
+    <text x="900" y="326">// strategist mode</text>
+    <text x="900" y="362">// refactor mood</text>
+    <text x="900" y="398">// iykyk</text>
+  </g>
+</svg>

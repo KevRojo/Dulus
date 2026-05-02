@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 500" width="1600" height="500" font-family="&#39;JetBrains Mono&#39;,&#39;Menlo&#39;,monospace">
+  <defs>
+    <pattern id="gnv" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#76b900" stroke-opacity="0.07"></path>
+    </pattern>
+    <radialGradient id="glnv" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#76b900" stop-opacity="0.10"></stop>
+      <stop offset="100%" stop-color="#76b900" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+
+  <rect width="1600" height="500" fill="#07070a"></rect>
+  <rect width="1600" height="500" fill="url(#gnv)"></rect>
+  <rect width="1600" height="500" fill="url(#glnv)"></rect>
+
+  
+  <g stroke="#76b900" stroke-width="2" fill="none">
+    <path d="M 14 42 L 14 14 L 42 14"></path>
+    <path d="M 1558 14 L 1586 14 L 1586 42"></path>
+    <path d="M 14 458 L 14 486 L 42 486"></path>
+    <path d="M 1558 486 L 1586 486 L 1586 458"></path>
+  </g>
+
+  <text x="72" y="58" font-size="11" letter-spacing="4" fill="#76b900">// NVIDIA NIM · 14 FRONTIER MODELS · NVIDIA-WEB PROVIDER</text>
+  <text x="1528" y="58" text-anchor="end" font-size="11" letter-spacing="3" fill="#8a8275">40 RPM PER MODEL · AUTO-FALLBACK</text>
+
+  
+  
+  <g font-size="13">
+
+    
+    
+    <g transform="translate(72,90)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">DeepSeek R1</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">REASONING</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/deepseek-r1</text>
+    </g>
+
+    
+    <g transform="translate(288,90)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Kimi K2.5</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">LONG CONTEXT</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/kimi-k2.5</text>
+    </g>
+
+    
+    <g transform="translate(504,90)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">GLM-4</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">ZHIPU AI</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/glm-4</text>
+    </g>
+
+    
+    <g transform="translate(720,90)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">MiniMax T-01</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">TEXT + VISION</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/minimax-text-01</text>
+    </g>
+
+    
+    <g transform="translate(936,90)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Mistral Nemo</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">NEMOTRON</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/mistral-nemotron</text>
+    </g>
+
+    
+    <g transform="translate(1152,90)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Llama 3.3 70B</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">META</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/llama-3.3-70b</text>
+    </g>
+
+    
+    <g transform="translate(1368,90)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Qwen2.5 Coder</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">ALIBABA</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/qwen2.5-coder</text>
+    </g>
+
+    
+
+    
+    <g transform="translate(72,200)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">DeepSeek V3</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">INSTRUCT</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/deepseek-v3</text>
+    </g>
+
+    
+    <g transform="translate(288,200)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Llama 3.1 405B</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">META · FLAGSHIP</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/llama-3.1-405b</text>
+    </g>
+
+    
+    <g transform="translate(504,200)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Mistral Large</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">INSTRUCT</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/mistral-large</text>
+    </g>
+
+    
+    <g transform="translate(720,200)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Phi-4</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">MICROSOFT</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/phi-4</text>
+    </g>
+
+    
+    <g transform="translate(936,200)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Gemma 3 27B</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">GOOGLE</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/gemma-3-27b</text>
+    </g>
+
+    
+    <g transform="translate(1152,200)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.05" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      <text x="16" y="36" fill="#f4ede4" font-weight="700" font-size="14">Qwen3 235B</text>
+      <text x="16" y="56" fill="#8a8275" font-size="10" letter-spacing="1.5">ALIBABA · A22B MoE</text>
+      <text x="16" y="74" fill="#76b900" font-size="10">nvidia-web/qwen3-235b-a22b</text>
+    </g>
+
+    
+    <g transform="translate(1368,200)">
+      <rect width="200" height="90" fill="#76b900" fill-opacity="0.08" stroke="#76b900" stroke-opacity="0.7" stroke-width="1.5"></rect>
+      <circle cx="186" cy="14" r="3.5" fill="#76b900"></circle>
+      
+      <text x="12" y="20" font-size="9" fill="#76b900" letter-spacing="1.5">★ FEATURED</text>
+      <text x="16" y="42" fill="#f4ede4" font-weight="700" font-size="13">Llama Nemotron</text>
+      <text x="16" y="60" fill="#8a8275" font-size="10" letter-spacing="1.5">NVIDIA · REASONING</text>
+      <text x="16" y="78" fill="#76b900" font-size="10">nvidia-web/llama-nemotron</text>
+    </g>
+  </g>
+
+  
+  <g transform="translate(72,330)" font-size="13">
+    <text x="0" y="0" fill="#ff6b1f" letter-spacing="2">AUTO-FALLBACK CHAIN</text>
+    <line x1="0" y1="14" x2="1456" y2="14" stroke="#ff6b1f" stroke-opacity="0.25" stroke-width="1"></line>
+    <text x="0" y="40" fill="#9a9286">When a model hits its 40 RPM ceiling, Falcon automatically routes to the next available model in the chain.</text>
+    <text x="0" y="60" fill="#9a9286">Zero downtime. Zero manual switching. The flock keeps flying.</text>
+    
+    <g transform="translate(0,82)" font-size="12">
+      <rect width="160" height="30" fill="#76b900" fill-opacity="0.08" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <text x="14" y="20" fill="#76b900">deepseek-r1</text>
+      <text x="172" y="20" fill="#ff6b1f">→</text>
+      <rect x="192" width="160" height="30" fill="#76b900" fill-opacity="0.08" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <text x="206" y="20" fill="#76b900">kimi-k2.5</text>
+      <text x="364" y="20" fill="#ff6b1f">→</text>
+      <rect x="384" width="160" height="30" fill="#76b900" fill-opacity="0.08" stroke="#76b900" stroke-opacity="0.4"></rect>
+      <text x="398" y="20" fill="#76b900">llama-3.3-70b</text>
+      <text x="556" y="20" fill="#ff6b1f">→  …</text>
+      <text x="620" y="20" fill="#8a8275">  14 models deep · automatic</text>
+    </g>
+  </g>
+
+  <text x="800" y="478" text-anchor="middle" font-size="11" letter-spacing="4" fill="#8a8275">◉ NVIDIA_API_KEY · build.nvidia.com/free · 1000 FREE CREDITS ON SIGNUP</text>
+</svg>

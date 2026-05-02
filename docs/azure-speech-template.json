@@ -1,0 +1,266 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "name": { "type": "String" },
+        "location": { "type": "String" },
+        "resourceGroupId": { "type": "String" },
+        "resourceGroupName": { "type": "String" },
+        "sku": { "type": "String" },
+        "tagValues": { "type": "Object" },
+        "virtualNetworkType": { "type": "String" },
+        "vnet": { "type": "Object" },
+        "ipRules": { "type": "Array" },
+        "identity": { "type": "Object" },
+        "privateEndpoints": { "type": "Array" },
+        "privateDnsZone": { "type": "String" },
+        "isCommitmentPlanForDisconnectedContainerEnabledForSTT": { "type": "Bool" },
+        "commitmentPlanForDisconnectedContainerForSTT": { "type": "Object" },
+        "isCommitmentPlanForDisconnectedContainerEnabledForNeuralTTS": { "type": "Bool" },
+        "commitmentPlanForDisconnectedContainerForNeuralTTS": { "type": "Object" },
+        "isCommitmentPlanForDisconnectedContainerEnabledForCustomSTT": { "type": "Bool" },
+        "commitmentPlanForDisconnectedContainerForCustomSTT": { "type": "Object" },
+        "isCommitmentPlanForDisconnectedContainerEnabledForAddOn": { "type": "Bool" },
+        "commitmentPlanForDisconnectedContainerForAddOn": { "type": "Object" },
+        "uniqueId": { "defaultValue": "[newGuid()]", "type": "String" }
+    },
+    "variables": {
+        "defaultVNetName": "speechCSDefaultVNet9901",
+        "defaultSubnetName": "speechCSDefaultSubnet9901",
+        "defaultAddressPrefix": "13.41.6.0/26",
+        "vnetProperties": {
+            "publicNetworkAccess": "[if(equals(parameters('virtualNetworkType'), 'Internal'), 'Disabled', 'Enabled')]",
+            "networkAcls": {
+                "defaultAction": "[if(equals(parameters('virtualNetworkType'), 'External'), 'Deny', 'Allow')]",
+                "virtualNetworkRules": "[if(equals(parameters('virtualNetworkType'), 'External'), json(concat('[{\"id\": \"', concat(subscription().id, '/resourceGroups/', parameters('vnet').resourceGroup, '/providers/Microsoft.Network/virtualNetworks/', parameters('vnet').name, '/subnets/', parameters('vnet').subnets.subnet.name), '\"}]')), json('[]'))]",
+                "ipRules": "[if(or(empty(parameters('ipRules')), empty(parameters('ipRules')[0].value)), json('[]'), parameters('ipRules'))]"
+            }
+        },
+        "vnetPropertiesWithCustomDomain": {
+            "customSubDomainName": "[toLower(parameters('name'))]",
+            "publicNetworkAccess": "[if(equals(parameters('virtualNetworkType'), 'Internal'), 'Disabled', 'Enabled')]",
+            "networkAcls": {
+                "defaultAction": "[if(equals(parameters('virtualNetworkType'), 'External'), 'Deny', 'Allow')]",
+                "virtualNetworkRules": "[if(equals(parameters('virtualNetworkType'), 'External'), json(concat('[{\"id\": \"', concat(subscription().id, '/resourceGroups/', parameters('vnet').resourceGroup, '/providers/Microsoft.Network/virtualNetworks/', parameters('vnet').name, '/subnets/', parameters('vnet').subnets.subnet.name), '\"}]')), json('[]'))]",
+                "ipRules": "[if(or(empty(parameters('ipRules')), empty(parameters('ipRules')[0].value)), json('[]'), parameters('ipRules'))]"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2017-05-10",
+            "name": "deployVnet",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "variables": {},
+                    "resources": [
+                        {
+                            "type": "Microsoft.Network/virtualNetworks",
+                            "apiVersion": "2020-04-01",
+                            "name": "[if(equals(parameters('virtualNetworkType'), 'External'), parameters('vnet').name, variables('defaultVNetName'))]",
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "addressSpace": {
+                                    "addressPrefixes": "[if(equals(parameters('virtualNetworkType'), 'External'), parameters('vnet').addressPrefixes, json(concat('[{\"', variables('defaultAddressPrefix'),'\"}]')))]"
+                                },
+                                "subnets": [
+                                    {
+                                        "name": "[if(equals(parameters('virtualNetworkType'), 'External'), parameters('vnet').subnets.subnet.name, variables('defaultSubnetName'))]",
+                                        "properties": {
+                                            "serviceEndpoints": [
+                                                {
+                                                    "service": "Microsoft.CognitiveServices",
+                                                    "locations": [ "[parameters('location')]" ]
+                                                }
+                                            ],
+                                            "addressPrefix": "[if(equals(parameters('virtualNetworkType'), 'External'), parameters('vnet').subnets.subnet.addressPrefix, variables('defaultAddressPrefix'))]"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "parameters": {}
+            },
+            "condition": "[and(and(not(empty(parameters('vnet'))), equals(parameters('vnet').newOrExisting, 'new')), equals(parameters('virtualNetworkType'), 'External'))]"
+        },
+        {
+            "type": "Microsoft.CognitiveServices/accounts",
+            "apiVersion": "2024-10-01",
+            "name": "[parameters('name')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [ "[concat('Microsoft.Resources/deployments/', 'deployVnet')]" ],
+            "tags": "[if(contains(parameters('tagValues'), 'Microsoft.CognitiveServices/accounts'), parameters('tagValues')['Microsoft.CognitiveServices/accounts'], json('{}'))]",
+            "sku": { "name": "[parameters('sku')]" },
+            "kind": "SpeechServices",
+            "identity": "[parameters('identity')]",
+            "properties": "[if(not(equals(parameters('virtualNetworkType'), 'None')), variables('vnetPropertiesWithCustomDomain'), variables('vnetProperties'))]",
+            "resources": [
+                {
+                    "type": "commitmentPlans",
+                    "apiVersion": "2021-10-01",
+                    "name": "DisconnectedContainer-STT-1",
+                    "dependsOn": [ "[parameters('name')]" ],
+                    "properties": "[parameters('commitmentPlanForDisconnectedContainerForSTT')]",
+                    "condition": "[parameters('isCommitmentPlanForDisconnectedContainerEnabledForSTT')]"
+                },
+                {
+                    "type": "commitmentPlans",
+                    "apiVersion": "2021-10-01",
+                    "name": "DisconnectedContainer-NeuralTTS-1",
+                    "dependsOn": [ "[parameters('name')]" ],
+                    "properties": "[parameters('commitmentPlanForDisconnectedContainerForNeuralTTS')]",
+                    "condition": "[parameters('isCommitmentPlanForDisconnectedContainerEnabledForNeuralTTS')]"
+                },
+                {
+                    "type": "commitmentPlans",
+                    "apiVersion": "2021-10-01",
+                    "name": "DisconnectedContainer-CustomSTT-1",
+                    "dependsOn": [ "[parameters('name')]" ],
+                    "properties": "[parameters('commitmentPlanForDisconnectedContainerForCustomSTT')]",
+                    "condition": "[parameters('isCommitmentPlanForDisconnectedContainerEnabledForCustomSTT')]"
+                },
+                {
+                    "type": "commitmentPlans",
+                    "apiVersion": "2021-10-01",
+                    "name": "DisconnectedContainer-AddOn-1",
+                    "dependsOn": [ "[parameters('name')]" ],
+                    "properties": "[parameters('commitmentPlanForDisconnectedContainerForAddOn')]",
+                    "condition": "[parameters('isCommitmentPlanForDisconnectedContainerEnabledForAddOn')]"
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2018-05-01",
+            "name": "[concat('deployPrivateEndpoint-', parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name)]",
+            "dependsOn": [ "[concat('Microsoft.CognitiveServices/accounts/', parameters('name'))]" ],
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "resources": [
+                        {
+                            "location": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.location]",
+                            "name": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name]",
+                            "type": "Microsoft.Network/privateEndpoints",
+                            "apiVersion": "2021-05-01",
+                            "properties": {
+                                "subnet": {
+                                    "id": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.properties.subnet.id]"
+                                },
+                                "privateLinkServiceConnections": [
+                                    {
+                                        "name": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name]",
+                                        "properties": {
+                                            "privateLinkServiceId": "[concat(parameters('resourceGroupId'), '/providers/Microsoft.CognitiveServices/accounts/', parameters('name'))]",
+                                            "groupIds": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.properties.privateLinkServiceConnections[0].properties.groupIds]"
+                                        }
+                                    }
+                                ],
+                                "customNetworkInterfaceName": "[concat(parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name, '-nic')]"
+                            },
+                            "tags": {}
+                        }
+                    ]
+                }
+            },
+            "subscriptionId": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.subscription.subscriptionId]",
+            "resourceGroup": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.resourceGroup.value.name]",
+            "copy": {
+                "name": "privateendpointscopy",
+                "count": "[length(parameters('privateEndpoints'))]"
+            },
+            "condition": "[equals(parameters('virtualNetworkType'), 'Internal')]"
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2018-05-01",
+            "name": "[concat('deployDnsZoneGroup-', parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name)]",
+            "dependsOn": [ "[concat('deployPrivateEndpoint-', parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name)]" ],
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "resources": [
+                        {
+                            "type": "Microsoft.Network/privateDnsZones",
+                            "apiVersion": "2018-09-01",
+                            "name": "[parameters('privateDnsZone')]",
+                            "location": "global",
+                            "tags": {},
+                            "properties": {}
+                        },
+                        {
+                            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+                            "apiVersion": "2018-09-01",
+                            "name": "[concat(parameters('privateDnsZone'), '/', replace(uniqueString(parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.properties.subnet.id), '/subnets/default', ''))]",
+                            "location": "global",
+                            "dependsOn": [ "[parameters('privateDnsZone')]" ],
+                            "properties": {
+                                "virtualNetwork": {
+                                    "id": "[split(parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.properties.subnet.id, '/subnets/')[0]]"
+                                },
+                                "registrationEnabled": false
+                            }
+                        },
+                        {
+                            "apiVersion": "2017-05-10",
+                            "name": "[concat('EndpointDnsRecords-', parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name)]",
+                            "type": "Microsoft.Resources/deployments",
+                            "dependsOn": [ "[parameters('privateDnsZone')]" ],
+                            "properties": {
+                                "mode": "Incremental",
+                                "templatelink": {
+                                    "uri": "https://go.microsoft.com/fwlink/?linkid=2264916"
+                                },
+                                "parameters": {
+                                    "privateDnsName": { "value": "[parameters('privateDnsZone')]" },
+                                    "privateEndpointNicResourceId": {
+                                        "value": "[concat('/subscriptions/', parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.subscription.subscriptionId, '/resourceGroups/', parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.resourceGroup.value.name, '/providers/Microsoft.Network/networkInterfaces/', parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name, '-nic')]"
+                                    },
+                                    "nicRecordsTemplateUri": { "value": "https://go.microsoft.com/fwlink/?linkid=2264719" },
+                                    "ipConfigRecordsTemplateUri": { "value": "https://go.microsoft.com/fwlink/?linkid=2265018" },
+                                    "uniqueId": { "value": "[parameters('uniqueId')]" },
+                                    "existingRecords": { "value": {} }
+                                }
+                            }
+                        },
+                        {
+                            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+                            "apiVersion": "2020-03-01",
+                            "name": "[concat(parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.privateEndpoint.name, '/', 'default')]",
+                            "location": "[parameters('location')]",
+                            "dependsOn": [ "[parameters('privateDnsZone')]" ],
+                            "properties": {
+                                "privateDnsZoneConfigs": [
+                                    {
+                                        "name": "privatelink-cognitiveservices",
+                                        "properties": {
+                                            "privateDnsZoneId": "[concat(parameters('resourceGroupId'), '/providers/Microsoft.Network/privateDnsZones/', parameters('privateDnsZone'))]"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "subscriptionId": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.subscription.subscriptionId]",
+            "resourceGroup": "[parameters('privateEndpoints')[copyIndex()].privateEndpointConfiguration.resourceGroup.value.name]",
+            "copy": {
+                "name": "privateendpointdnscopy",
+                "count": "[length(parameters('privateEndpoints'))]"
+            },
+            "condition": "[and(equals(parameters('virtualNetworkType'), 'Internal'), parameters('privateEndpoints')[copyIndex()].privateDnsZoneConfiguration.integrateWithPrivateDnsZone)]"
+        }
+    ]
+}

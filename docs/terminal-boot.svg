@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="&#39;JetBrains Mono&#39;,&#39;Menlo&#39;,monospace">
+  <defs>
+    <radialGradient id="tgl" cx="25%" cy="20%" r="60%">
+      <stop offset="0%" stop-color="#ff6b1f" stop-opacity="0.1"></stop>
+      <stop offset="100%" stop-color="#ff6b1f" stop-opacity="0"></stop>
+    </radialGradient>
+    <pattern id="tscan" width="1" height="3" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#fff" fill-opacity="0.02"></rect></pattern>
+  </defs>
+  
+  <rect width="1600" height="900" fill="#0a0a0c"></rect>
+  <rect width="1600" height="42" fill="#15151a"></rect>
+  <line x1="0" y1="42" x2="1600" y2="42" stroke="#222"></line>
+  <g transform="translate(18,21)">
+    <circle cx="0" cy="0" r="6" fill="#ff5f57"></circle>
+    <circle cx="18" cy="0" r="6" fill="#febc2e"></circle>
+    <circle cx="36" cy="0" r="6" fill="#28c840"></circle>
+  </g>
+  <text x="800" y="27" text-anchor="middle" font-size="12" fill="#666" letter-spacing="2">falcon — kimi/kimi-k2.5 — 140×42</text>
+  
+  <rect y="42" width="1600" height="858" fill="url(#tgl)"></rect>
+  <rect y="42" width="1600" height="858" fill="url(#tscan)"></rect>
+
+  <g font-size="15">
+    
+    <text x="40" y="88" fill="#ff6b1f" font-weight="700">▲ FALCON</text>
+    <text x="160" y="88" fill="#6a6a72">v1.01.20 · kimi/kimi-k2.5 · accept-all</text>
+
+    
+    <g fill="#ff6b1f" font-size="14">
+      <text x="40" y="130">    ▄▄▄▄▄▄▄▄▄▄</text>
+      <text x="40" y="150">  ▄█▀         ▀█▄</text>
+      <text x="40" y="170"> █▀   ▄▄   ▄▄   ▀█</text>
+      <text x="40" y="190">█    █▀▀█ █▀▀█    █</text>
+      <text x="40" y="210">█   █    █    █   █</text>
+      <text x="40" y="230">█    ▀█▄▄█▀▀█▄▄█▀    █</text>
+      <text x="40" y="250">  █▄               ▄█</text>
+      <text x="40" y="270">    ▀█▄▄▄▄▄▄▄▄▄▄█▀</text>
+      <text x="40" y="290">        ▀▀▀▀</text>
+    </g>
+
+    
+    <g font-size="15">
+      <text x="480" y="150" fill="#f4ede4">┌─ </text>
+      <text x="515" y="150" fill="#ff6b1f" font-weight="700">Falcon v1.01.20</text>
+      <text x="695" y="150" fill="#f4ede4">──────────────────────┐</text>
+      <text x="480" y="172" fill="#f4ede4">│  Model:</text>
+      <text x="605" y="172" fill="#ffd166">kimi/kimi-k2.5</text>
+      <text x="770" y="172" fill="#6a6a72">(kimi)</text>
+      <text x="955" y="172" fill="#f4ede4">│</text>
+      <text x="480" y="194" fill="#f4ede4">│  Permissions:</text>
+      <text x="635" y="194" fill="#7cffb5">accept-all</text>
+      <text x="955" y="194" fill="#f4ede4">│</text>
+      <text x="480" y="216" fill="#f4ede4">│  Soul:</text>
+      <text x="605" y="216" fill="#ff6b1f">forensic</text>
+      <text x="955" y="216" fill="#f4ede4">│</text>
+      <text x="480" y="238" fill="#f4ede4">│  </text>
+      <text x="505" y="238" fill="#6a6a72">/model to switch · /help for commands</text>
+      <text x="955" y="238" fill="#f4ede4">│</text>
+      <text x="480" y="260" fill="#f4ede4">└────────────────────────────────────────┘</text>
+    </g>
+
+    
+    <text x="40" y="330" fill="#6a6a72">Active:</text>
+    <text x="125" y="330" fill="#f4ede4">verbose</text>
+    <text x="210" y="330" fill="#6a6a72">·</text>
+    <text x="230" y="330" fill="#f4ede4">thinking:raw</text>
+    <text x="365" y="330" fill="#6a6a72">·</text>
+    <text x="385" y="330" fill="#f4ede4">lite</text>
+    <text x="435" y="330" fill="#6a6a72">·</text>
+    <text x="455" y="330" fill="#f4ede4">telegram</text>
+
+    
+    <text x="60" y="372" fill="#ffd166">✦</text>
+    <text x="90" y="372" fill="#f4ede4">Soul loaded:</text>
+    <text x="238" y="372" fill="#6a6a72">1650 chars</text>
+    <text x="60" y="396" fill="#ffd166">♛</text>
+    <text x="90" y="396" fill="#f4ede4">Gold memory loaded:</text>
+    <text x="322" y="396" fill="#6a6a72">PrintToConsole_best_practices</text>
+    <text x="60" y="420" fill="#7ab6ff">🖳</text>
+    <text x="90" y="420" fill="#f4ede4">Shell detected:</text>
+    <text x="270" y="420" fill="#6a6a72">zsh · darwin 24.3.0</text>
+
+    
+    <text x="40" y="458" fill="#6a6a72" font-size="13">──────────────────────────────────────────────────────────────────────────────────────</text>
+
+    
+    <text x="40" y="498" fill="#ff6b1f" font-weight="700">[Falcon]</text>
+    <text x="150" y="498" fill="#6a6a72">[0.7%]</text>
+    <text x="228" y="498" fill="#ff6b1f" font-weight="700">»</text>
+    <text x="255" y="498" fill="#f4ede4">refactor the auth module, no compromise</text>
+
+    
+    <text x="40" y="540" fill="#ff6b1f">▲</text>
+    <text x="70" y="540" fill="#6a6a72">🦅 Dropping from the stratosphere...</text>
+
+    
+    <g font-size="14">
+      <text x="40" y="584" fill="#7cffb5">→ read</text>
+      <text x="130" y="584" fill="#6a6a72">src/auth/session.py</text>
+      <text x="580" y="584" fill="#7cffb5">✓ 428 lines</text>
+
+      <text x="40" y="608" fill="#7cffb5">→ read</text>
+      <text x="130" y="608" fill="#6a6a72">src/auth/tokens.py</text>
+      <text x="580" y="608" fill="#7cffb5">✓ 191 lines</text>
+
+      <text x="40" y="632" fill="#7cffb5">→ grep</text>
+      <text x="130" y="632" fill="#6a6a72">&#34;verify_jwt&#34;</text>
+      <text x="580" y="632" fill="#7cffb5">✓ 14 hits</text>
+
+      <text x="40" y="656" fill="#ffd166">→ edit</text>
+      <text x="130" y="656" fill="#6a6a72">src/auth/session.py:87</text>
+      <text x="580" y="656" fill="#ffd166">⧗ consolidating duplicated refresh path</text>
+
+      <text x="40" y="680" fill="#ff6b1f">→ agent</text>
+      <text x="130" y="680" fill="#6a6a72">reviewer · session-refactor</text>
+      <text x="580" y="680" fill="#ff6b1f">◉ spawned</text>
+
+      <text x="40" y="704" fill="#7cffb5">→ test</text>
+      <text x="130" y="704" fill="#6a6a72">tests/auth/*</text>
+      <text x="580" y="704" fill="#7cffb5">✓ 42 passed · 0 failed</text>
+
+      <text x="40" y="728" fill="#7ab6ff">→ checkpoint</text>
+      <text x="180" y="728" fill="#6a6a72">#043 · pre-commit</text>
+      <text x="580" y="728" fill="#7ab6ff">✓ snapshot saved</text>
+
+      <text x="40" y="752" fill="#7cffb5">→ commit</text>
+      <text x="145" y="752" fill="#6a6a72">feat(auth): consolidate refresh flow</text>
+      <text x="580" y="752" fill="#7cffb5">✓ 3 files, +142 -218</text>
+    </g>
+
+    
+    <text x="40" y="808" fill="#ff6b1f" font-weight="700">[Falcon]</text>
+    <text x="150" y="808" fill="#6a6a72">[14%]</text>
+    <text x="220" y="808" fill="#ff6b1f" font-weight="700">»</text>
+    <rect x="248" y="792" width="10" height="20" fill="#ff6b1f"></rect>
+  </g>
+
+  
+</svg>

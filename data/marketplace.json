@@ -1,0 +1,66 @@
+[
+  {
+    "id": "mp-themes",
+    "name": "Theme Switcher",
+    "version": "1.0.0",
+    "author": "Falcon Team",
+    "description": "Switch between Cyberpunk, Sakura, Sunset and Gold themes in real-time.",
+    "tags": [
+      "ui",
+      "themes",
+      "dashboard"
+    ],
+    "downloads": 420,
+    "rating": 4.8,
+    "installed": false,
+    "source": "builtin"
+  },
+  {
+    "id": "mp-git-stats",
+    "name": "Git Stats Visualizer",
+    "version": "0.9.0",
+    "author": "kimi-code",
+    "description": "Visualize commit history, contributor stats and code churn.",
+    "tags": [
+      "git",
+      "visualization",
+      "stats"
+    ],
+    "downloads": 128,
+    "rating": 4.5,
+    "installed": false,
+    "source": "community"
+  },
+  {
+    "id": "mp-agent-profiles",
+    "name": "Agent Profiles",
+    "version": "1.1.0",
+    "author": "kimi-code2",
+    "description": "Personas system with avatars, colors and identity per agent.",
+    "tags": [
+      "agents",
+      "personas",
+      "identity"
+    ],
+    "downloads": 256,
+    "rating": 4.9,
+    "installed": false,
+    "source": "community"
+  },
+  {
+    "id": "mp-mempalace-bridge",
+    "name": "MemPalace Bridge",
+    "version": "0.5.0",
+    "author": "Falcon Team",
+    "description": "Connect Smart Context to MemPalace for infinite agent memory.",
+    "tags": [
+      "memory",
+      "integration",
+      "mempalace"
+    ],
+    "downloads": 69,
+    "rating": 4.2,
+    "installed": false,
+    "source": "official"
+  }
+]
