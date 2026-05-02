@@ -17,18 +17,11 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
-  <img src="https://img.shields.io/badge/license-MIT-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
+  <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
   <img src="https://img.shields.io/badge/version-v1.01.20-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
   <img src="https://img.shields.io/badge/providers-11-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-27-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
-</p>
-
-<p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
-
-<p align="center">
-  <a href="https://kevrojo.github.io/Falcon/"><b>🌐 Visit the Falcon website →</b></a><br>
-  <sub>The site covers features, demos, and details not documented in this README.</sub>
 </p>
 
 <p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
@@ -506,7 +499,7 @@ git diff | falcon -p "write a commit message"
 
 ## License
 
-MIT. Fork it, rename it, sell a SaaS, we don't care. Just don't ship `--accept-all` as the default.
+GPLv3. Fork it, modify it, redistribute it — but keep it open. Derivative works must stay under GPLv3. Just don't ship `--accept-all` as the default.
 
 ---
 

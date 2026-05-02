@@ -10,6 +10,7 @@ the dependency one-way and eliminating any circular-import risk.
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from pathlib import Path
@@ -18,14 +19,24 @@ from typing import Any, Callable, Optional
 try:
     from prompt_toolkit import PromptSession
     from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-    from prompt_toolkit.completion import Completer, Completion
+    from prompt_toolkit.completion import (
+        Completer, Completion, FuzzyCompleter, WordCompleter, merge_completers,
+    )
+    from prompt_toolkit.document import Document
+    from prompt_toolkit.completion.base import CompleteEvent
     from prompt_toolkit.formatted_text import ANSI, is_formatted_text
     from prompt_toolkit.history import FileHistory, InMemoryHistory
+    from prompt_toolkit.keys import Keys
     from prompt_toolkit.patch_stdout import patch_stdout
     from prompt_toolkit.styles import Style
     HAS_PROMPT_TOOLKIT = True
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
+
+try:
+    import paste_placeholders as _paste_ph
+except ImportError:
+    _paste_ph = None  # type: ignore[assignment]
 
 try:
     from common import C
@@ -37,20 +48,28 @@ except ImportError:
 # Callers (Falcon REPL) must call setup() before read_line().
 _commands_provider: Optional[Callable[[], dict]] = None
 _meta_provider: Optional[Callable[[], dict]] = None
+_toolbar_provider: Optional[Callable[[], str]] = None
 
+
+_TOOLBAR_SENTINEL = object()
 
 def setup(
     commands_provider: Callable[[], dict],
     meta_provider: Callable[[], dict],
+    toolbar_provider: Optional[Callable[[], str]] = _TOOLBAR_SENTINEL,  # type: ignore[assignment]
 ) -> None:
     """Register providers for the live command registry and metadata.
 
     `commands_provider` returns the dispatcher's COMMANDS dict.
     `meta_provider` returns the _CMD_META dict (descriptions + subcommands).
+    `toolbar_provider` returns an ANSI toolbar string (or "" to hide).
+    Pass None explicitly to clear a previously-registered toolbar.
     """
-    global _commands_provider, _meta_provider
+    global _commands_provider, _meta_provider, _toolbar_provider
     _commands_provider = commands_provider
     _meta_provider = meta_provider
+    if toolbar_provider is not _TOOLBAR_SENTINEL:
+        _toolbar_provider = toolbar_provider  # type: ignore[assignment]
 
 
 # ── Completer ────────────────────────────────────────────────────────────────
@@ -142,6 +161,100 @@ else:  # pragma: no cover — unreachable when prompt_toolkit is installed
             raise RuntimeError("prompt_toolkit is not installed")
 
 
+if HAS_PROMPT_TOOLKIT:
+    class FileMentionCompleter(Completer):
+        """Fuzzy ``@`` path completion using file_filter from kimi-cli."""
+
+        _FRAGMENT_PATTERN = re.compile(r"[^\s@]+")
+        _TRIGGER_GUARDS = frozenset((".", "-", "_", "`", "'", '"', ":", "@", "#", "~"))
+
+        def __init__(self, root: Path | None = None, *, limit: int = 1000) -> None:
+            self._root = root or Path.cwd()
+            self._limit = limit
+            self._cache_time: float = 0.0
+            self._cached_paths: list[str] = []
+            self._fragment_hint: str | None = None
+
+            self._word_completer = WordCompleter(
+                self._get_paths,
+                WORD=False,
+                pattern=self._FRAGMENT_PATTERN,
+            )
+            self._fuzzy = FuzzyCompleter(
+                self._word_completer,
+                WORD=False,
+                pattern=r"^[^\s@]*",
+            )
+
+        def _get_paths(self) -> list[str]:
+            try:
+                from file_filter import list_files_git, list_files_walk, detect_git
+            except Exception:
+                return []
+            fragment = self._fragment_hint or ""
+            scope: str | None = None
+            if "/" in fragment:
+                scope = fragment.rsplit("/", 1)[0]
+            now = time.monotonic()
+            if now - self._cache_time <= 2.0:
+                return self._cached_paths
+            try:
+                if detect_git(self._root):
+                    paths = list_files_git(self._root, scope)
+                else:
+                    paths = list_files_walk(self._root, scope, limit=self._limit)
+            except Exception:
+                paths = []
+            self._cached_paths = paths or []
+            self._cache_time = now
+            return self._cached_paths
+
+        @staticmethod
+        def _extract_fragment(text: str) -> str | None:
+            index = text.rfind("@")
+            if index == -1:
+                return None
+            if index > 0:
+                prev = text[index - 1]
+                if prev.isalnum() or prev in FileMentionCompleter._TRIGGER_GUARDS:
+                    return None
+            fragment = text[index + 1 :]
+            if not fragment:
+                return ""
+            if any(ch.isspace() for ch in fragment):
+                return None
+            return fragment
+
+        def get_completions(self, document, complete_event):  # type: ignore[override]
+            fragment = self._extract_fragment(document.text_before_cursor)
+            if fragment is None:
+                return
+            mention_doc = Document(text=fragment, cursor_position=len(fragment))
+            self._fragment_hint = fragment
+            try:
+                candidates = list(self._fuzzy.get_completions(mention_doc, complete_event))
+                frag_lower = fragment.lower()
+
+                def _rank(c: Completion) -> tuple[int, ...]:
+                    path = c.text
+                    base = path.rstrip("/").split("/")[-1].lower()
+                    if base.startswith(frag_lower):
+                        return (0,)
+                    elif frag_lower in base:
+                        return (1,)
+                    return (2,)
+
+                candidates.sort(key=_rank)
+                yield from candidates
+            finally:
+                self._fragment_hint = None
+
+else:
+    class FileMentionCompleter:
+        def __init__(self, *_args, **_kwargs):
+            raise RuntimeError("prompt_toolkit is not installed")
+
+
 # ── Session cache ────────────────────────────────────────────────────────────
 _SESSION = None
 _SESSION_HISTORY_PATH: Optional[Path] = None
@@ -160,7 +273,10 @@ def _build_session(history_path: Optional[Path]):
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.filters import Condition
     from prompt_toolkit.application.current import get_app
-    completer = SlashCompleter()
+    completer = merge_completers([
+        SlashCompleter(),
+        FileMentionCompleter(),
+    ])
     history = FileHistory(str(history_path)) if history_path else InMemoryHistory()
     style = Style.from_dict({
         "completion-menu.completion":              "bg:#222222 #cccccc",
@@ -168,8 +284,8 @@ def _build_session(history_path: Optional[Path]):
         "completion-menu.meta.completion":         "bg:#222222 #808080",
         "completion-menu.meta.completion.current": "bg:#005f87 #eeeeee",
         "auto-suggestion":                         "#606060 italic",
-        "bottom-toolbar":                          "bg:#1a1a2e #4a4a6a",
-        "bottom-toolbar.text":                     "bg:#1a1a2e #555577",
+        "bottom-toolbar":                          "",
+        "bottom-toolbar.text":                     "",
     })
 
     # Only bind Tab to accept suggestion — right/ctrl-f/ctrl-e are already
@@ -197,6 +313,38 @@ def _build_session(history_path: Optional[Path]):
         if buf.suggestion:
             buf.insert_text(buf.suggestion.text)
 
+    # ── Paste accumulation (kimi-cli style) ────────────────────────────────
+    if _paste_ph is not None:
+        @kb.add(Keys.BracketedPaste, eager=True)
+        def _on_bracketed_paste(event):
+            """Fold large pastes into a placeholder instead of flooding the buffer."""
+            text = event.data
+            token = _paste_ph.maybe_placeholderize(text)
+            event.current_buffer.insert_text(token)
+
+        # Fallback for terminals without bracketed-paste support (Windows conhost, etc.)
+        @kb.add("c-v")
+        def _ctrl_v_paste(event):
+            """Ctrl+V reads clipboard via pyperclip and inserts as placeholder."""
+            try:
+                import pyperclip
+                text = pyperclip.paste()
+            except Exception:
+                return
+            if text:
+                token = _paste_ph.maybe_placeholderize(text)
+                event.current_buffer.insert_text(token)
+
+    def _bottom_toolbar():
+        provider = _toolbar_provider
+        if provider is None:
+            return ""
+        try:
+            text = provider()
+            return ANSI(text) if text else ""
+        except Exception:
+            return ""
+
     return PromptSession(
         history=history,
         completer=completer,
@@ -206,6 +354,7 @@ def _build_session(history_path: Optional[Path]):
         mouse_support=False,
         style=style,
         key_bindings=kb,
+        bottom_toolbar=_bottom_toolbar,
     )
 
 
@@ -466,8 +615,11 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     
     # Input buffer with completer
     history = FileHistory(str(history_path)) if history_path else InMemoryHistory()
-    completer = SlashCompleter()
-    
+    completer = merge_completers([
+        SlashCompleter(),
+        FileMentionCompleter(),
+    ])
+
     _split_buffer = Buffer(
         history=history,
         completer=completer,
@@ -561,7 +713,29 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     
     # Key bindings
     kb = KeyBindings()
-    
+
+    # ── Paste accumulation (kimi-cli style) ────────────────────────────────
+    if _paste_ph is not None:
+        @kb.add(Keys.BracketedPaste, eager=True)
+        def _on_bracketed_paste_split(event):
+            """Fold large pastes into a placeholder instead of flooding the buffer."""
+            text = event.data
+            token = _paste_ph.maybe_placeholderize(text)
+            event.current_buffer.insert_text(token)
+
+        # Fallback for terminals without bracketed-paste support (Windows conhost, etc.)
+        @kb.add("c-v")
+        def _ctrl_v_paste_split(event):
+            """Ctrl+V reads clipboard via pyperclip and inserts as placeholder."""
+            try:
+                import pyperclip
+                text = pyperclip.paste()
+            except Exception:
+                return
+            if text:
+                token = _paste_ph.maybe_placeholderize(text)
+                event.current_buffer.insert_text(token)
+
     @kb.add("enter")
     def submit(event):
         """Submit input.
@@ -636,11 +810,30 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     # re-bind them here or they'll override the well-tested defaults.
 
     # Build layout: output on top, separator, recent-strip + input at bottom
+    def _get_toolbar_text():
+        provider = _toolbar_provider
+        if provider is None:
+            return ""
+        try:
+            text = provider()
+            return ANSI(text) if text else ""
+        except Exception:
+            return ""
+
+    toolbar_window = ConditionalContainer(
+        content=Window(
+            content=FormattedTextControl(text=_get_toolbar_text),
+            height=1,
+        ),
+        filter=Condition(lambda: _toolbar_provider is not None),
+    )
+
     root_container = HSplit([
         output_window,  # Flexible height for output
         Window(height=1, char="─", style="class:separator"),
         recent_window,  # Last N user messages (in-bar history strip)
         input_window,   # Fixed height for input
+        toolbar_window, # Status toolbar (model, tokens, git)
         completions_menu,  # Floating completions
     ])
     
