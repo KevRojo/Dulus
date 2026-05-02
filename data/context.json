@@ -1,0 +1,140 @@
+{
+  "session": {
+    "mode": "proactive",
+    "agent": "Falcon",
+    "agent_id": "falcon",
+    "user": "KevRojo",
+    "location": "RD"
+  },
+  "project": {
+    "name": "Falcon Command Center",
+    "repo_stats": {
+      "files": 209,
+      "lines": 187659,
+      "languages": {
+        ".example": 5,
+        "no_ext": 115,
+        ".json": 1337,
+        ".py": 43745,
+        ".wasm": 982,
+        ".md": 5556,
+        ".toml": 40,
+        ".txt": 39,
+        ".html": 8667,
+        ".gif": 1560,
+        ".svg": 1124,
+        ".png": 58210,
+        ".MD": 17791,
+        ".sh": 144,
+        ".exe": 48344
+      }
+    },
+    "recent_commits": [
+      {
+        "hash": "dab4f92",
+        "subject": "feat(rtk): transparent token-optimized shell command rewriting",
+        "author": "KevRojo",
+        "date": "2026-04-29"
+      },
+      {
+        "hash": "92ffeb4",
+        "subject": "feat: GUI, license system, backend, voice/memory upgrades, core refactors",
+        "author": "KevRojo",
+        "date": "2026-04-29"
+      },
+      {
+        "hash": "268e26f",
+        "subject": "fix: /skill help text, empty state shows available skills directly",
+        "author": "KevRojo",
+        "date": "2026-04-25"
+      },
+      {
+        "hash": "82cc57f",
+        "subject": "feat: /skill list shows all available + installed, subcommand completion, remove fix",
+        "author": "KevRojo",
+        "date": "2026-04-25"
+      },
+      {
+        "hash": "61e3f40",
+        "subject": "feat: interruptible stream, skill hub, TTS upgrades",
+        "author": "KevRojo",
+        "date": "2026-04-25"
+      }
+    ],
+    "recent_changes": [
+      "config.py",
+      "data/context.json",
+      "falcon.py",
+      "rtk/README.md",
+      "rtk/install.sh",
+      "tools.py"
+    ]
+  },
+  "tasks": {
+    "active": [
+      {
+        "id": "T-009",
+        "subject": "Test Coverage Expansion",
+        "status": "in_progress",
+        "owner": "kimi-code",
+        "phase": "Quality"
+      },
+      {
+        "id": "T-010",
+        "subject": "Multi-Agent Mesa Redonda",
+        "status": "in_progress",
+        "owner": "Falcon",
+        "phase": "Core"
+      }
+    ],
+    "total": 2
+  },
+  "agents": [
+    {
+      "name": "Falcon",
+      "role": "primary",
+      "color": "#ff6b1f",
+      "status": "active",
+      "avatar": "[F]",
+      "active": true
+    },
+    {
+      "name": "kimi-code",
+      "role": "coder",
+      "color": "#7ab6ff",
+      "status": "idle",
+      "avatar": "[K1]",
+      "active": false
+    },
+    {
+      "name": "kimi-code2",
+      "role": "designer",
+      "color": "#b388ff",
+      "status": "idle",
+      "avatar": "[K2]",
+      "active": false
+    },
+    {
+      "name": "kimi-code3",
+      "role": "integrator",
+      "color": "#7cffb5",
+      "status": "idle",
+      "avatar": "[K3]",
+      "active": false
+    }
+  ],
+  "persona": {
+    "id": "falcon",
+    "name": "Falcon",
+    "role": "primary",
+    "color": "#ff6b1f",
+    "avatar": "[F]",
+    "tone": "dominicano_coder"
+  },
+  "memory": {
+    "connected": false,
+    "wings": [],
+    "count": 0,
+    "memories": []
+  }
+}

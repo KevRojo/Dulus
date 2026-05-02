@@ -1,0 +1,256 @@
+"""Theme system for Falcon GUI.
+
+Provides multiple color presets that can be switched at runtime.
+"""
+from __future__ import annotations
+
+# ── Theme presets ───────────────────────────────────────────────────────────
+
+THEMES: dict[str, dict[str, str]] = {
+    "falcon": {
+        "bg": "#0a0a0a",
+        "card": "#0f0f12",
+        "code_bg": "#15151a",
+        "accent": "#ff6b1f",
+        "accent_hover": "#ffb347",
+        "text": "#f0e8df",
+        "dim": "#6a6470",
+        "border": "#3a3840",
+        "user_bubble": "#15151a",
+        "assistant_bubble": "#0f0f12",
+        "error": "#ff5555",
+        "success": "#50fa7b",
+        "warning": "#f1fa8c",
+    },
+    "midnight": {
+        "bg": "#1a1a2e",
+        "card": "#16213e",
+        "accent": "#00BCD4",
+        "accent_hover": "#00acc1",
+        "text": "#eaeaea",
+        "dim": "#a0a0a0",
+        "border": "#2a2a4a",
+        "user_bubble": "#0d3b4c",
+        "assistant_bubble": "#1e293b",
+        "code_bg": "#0d1117",
+        "error": "#ff6b6b",
+        "success": "#4caf50",
+        "warning": "#FFC107",
+    },
+    "ocean": {
+        "bg": "#0f172a",
+        "card": "#1e293b",
+        "accent": "#38bdf8",
+        "accent_hover": "#0ea5e9",
+        "text": "#f1f5f9",
+        "dim": "#94a3b8",
+        "border": "#334155",
+        "user_bubble": "#064e3b",
+        "assistant_bubble": "#1e293b",
+        "code_bg": "#020617",
+        "error": "#f87171",
+        "success": "#4ade80",
+        "warning": "#fbbf24",
+    },
+    "dracula": {
+        "bg": "#282a36",
+        "card": "#44475a",
+        "accent": "#bd93f9",
+        "accent_hover": "#d6acff",
+        "text": "#f8f8f2",
+        "dim": "#6272a4",
+        "border": "#6272a4",
+        "user_bubble": "#6272a4",
+        "assistant_bubble": "#44475a",
+        "code_bg": "#191a21",
+        "error": "#ff5555",
+        "success": "#50fa7b",
+        "warning": "#f1fa8c",
+    },
+    "monokai": {
+        "bg": "#272822",
+        "card": "#3e3d32",
+        "accent": "#a6e22e",
+        "accent_hover": "#c4f279",
+        "text": "#f8f8f2",
+        "dim": "#75715e",
+        "border": "#75715e",
+        "user_bubble": "#49483e",
+        "assistant_bubble": "#3e3d32",
+        "code_bg": "#1e1f1c",
+        "error": "#f92672",
+        "success": "#a6e22e",
+        "warning": "#e6db74",
+    },
+    "nord": {
+        "bg": "#2e3440",
+        "card": "#3b4252",
+        "accent": "#88c0d0",
+        "accent_hover": "#81a1c1",
+        "text": "#eceff4",
+        "dim": "#4c566a",
+        "border": "#4c566a",
+        "user_bubble": "#434c5e",
+        "assistant_bubble": "#3b4252",
+        "code_bg": "#242933",
+        "error": "#bf616a",
+        "success": "#a3be8c",
+        "warning": "#ebcb8b",
+    },
+    "solarized": {
+        "bg": "#002b36",
+        "card": "#073642",
+        "accent": "#2aa198",
+        "accent_hover": "#1bafa3",
+        "text": "#eee8d5",
+        "dim": "#586e75",
+        "border": "#586e75",
+        "user_bubble": "#586e75",
+        "assistant_bubble": "#073642",
+        "code_bg": "#001f27",
+        "error": "#dc322f",
+        "success": "#859900",
+        "warning": "#b58900",
+    },
+    "gruvbox": {
+        "bg": "#282828",
+        "card": "#3c3836",
+        "accent": "#fabd2f",
+        "accent_hover": "#d79921",
+        "text": "#ebdbb2",
+        "dim": "#928374",
+        "border": "#504945",
+        "user_bubble": "#504945",
+        "assistant_bubble": "#3c3836",
+        "code_bg": "#1d2021",
+        "error": "#fb4934",
+        "success": "#b8bb26",
+        "warning": "#fe8019",
+    },
+    "tokyo-night": {
+        "bg": "#1a1b26",
+        "card": "#24283b",
+        "accent": "#7aa2f7",
+        "accent_hover": "#89ddff",
+        "text": "#c0caf5",
+        "dim": "#565f89",
+        "border": "#414868",
+        "user_bubble": "#364a82",
+        "assistant_bubble": "#24283b",
+        "code_bg": "#16161e",
+        "error": "#f7768e",
+        "success": "#9ece6a",
+        "warning": "#e0af68",
+    },
+    "catppuccin": {
+        "bg": "#1e1e2e",
+        "card": "#181825",
+        "accent": "#f5c2e7",
+        "accent_hover": "#f2cdcd",
+        "text": "#cdd6f4",
+        "dim": "#6c7086",
+        "border": "#45475a",
+        "user_bubble": "#313244",
+        "assistant_bubble": "#181825",
+        "code_bg": "#11111b",
+        "error": "#f38ba8",
+        "success": "#a6e3a1",
+        "warning": "#fab387",
+    },
+    "matrix": {
+        "bg": "#000000",
+        "card": "#0a0a0a",
+        "accent": "#00ff41",
+        "accent_hover": "#33ff66",
+        "text": "#00ff41",
+        "dim": "#008f11",
+        "border": "#003b00",
+        "user_bubble": "#003b00",
+        "assistant_bubble": "#0a0a0a",
+        "code_bg": "#000000",
+        "error": "#ff0000",
+        "success": "#00ff41",
+        "warning": "#ccff00",
+    },
+    "synthwave": {
+        "bg": "#2b213a",
+        "card": "#241b2f",
+        "accent": "#ff00ff",
+        "accent_hover": "#ff71ce",
+        "text": "#ffffff",
+        "dim": "#b31183",
+        "border": "#b31183",
+        "user_bubble": "#720c4f",
+        "assistant_bubble": "#241b2f",
+        "code_bg": "#1a1221",
+        "error": "#ff0000",
+        "success": "#33ff00",
+        "warning": "#fffb00",
+    },
+    "mono": {
+        "bg": "#121212",
+        "card": "#1e1e1e",
+        "accent": "#e0e0e0",
+        "accent_hover": "#ffffff",
+        "text": "#e0e0e0",
+        "dim": "#808080",
+        "border": "#333333",
+        "user_bubble": "#333333",
+        "assistant_bubble": "#1e1e1e",
+        "code_bg": "#000000",
+        "error": "#ffffff",
+        "success": "#ffffff",
+        "warning": "#ffffff",
+    },
+    "none": {
+        "bg": "#ffffff",
+        "card": "#f0f0f0",
+        "accent": "#000000",
+        "accent_hover": "#333333",
+        "text": "#000000",
+        "dim": "#666666",
+        "border": "#cccccc",
+        "user_bubble": "#e0e0e0",
+        "assistant_bubble": "#f0f0f0",
+        "code_bg": "#ffffff",
+        "error": "#ff0000",
+        "success": "#00aa00",
+        "warning": "#aa5500",
+    },
+}
+
+# Curated model list (shared between topbar and sidebar)
+CURATED_MODELS = [
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gemini-2.5-pro",
+    "kimi-for-coding",
+    "kimi-k2.5",
+    "deepseek-chat",
+    "deepseek-r1",
+    "ollama/gemma4",
+]
+
+_ACTIVE_THEME: dict[str, str] = THEMES["midnight"].copy()
+
+
+def get_theme() -> dict[str, str]:
+    """Return the currently active theme colors."""
+    return _ACTIVE_THEME.copy()
+
+
+def set_theme(name: str) -> dict[str, str] | None:
+    """Activate a theme by name. Returns the theme dict or None if unknown."""
+    global _ACTIVE_THEME
+    t = THEMES.get(name)
+    if t:
+        _ACTIVE_THEME = t.copy()
+        return _ACTIVE_THEME
+    return None
+
+
+def list_themes() -> list[str]:
+    """Return available theme names."""
+    return list(THEMES.keys())

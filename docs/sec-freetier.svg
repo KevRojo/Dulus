@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 320" width="1600" height="320" font-family="&#39;JetBrains Mono&#39;,&#39;Menlo&#39;,monospace">
+  <defs>
+    <pattern id="gf" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ff6b1f" stroke-opacity="0.07"></path>
+    </pattern>
+    
+    <radialGradient id="glf1" cx="15%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#76b900" stop-opacity="0.20"></stop>
+      <stop offset="100%" stop-color="#76b900" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="glf2" cx="85%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff6b1f" stop-opacity="0.18"></stop>
+      <stop offset="100%" stop-color="#ff6b1f" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+
+  <rect width="1600" height="320" fill="#07070a"></rect>
+  <rect width="1600" height="320" fill="url(#gf)"></rect>
+  <rect width="1600" height="320" fill="url(#glf1)"></rect>
+  <rect width="1600" height="320" fill="url(#glf2)"></rect>
+
+  
+  <rect width="1600" height="320" fill="none" stroke="none"></rect>
+
+  
+  <g stroke="#ff6b1f" stroke-width="2" fill="none">
+    <path d="M 14 42 L 14 14 L 42 14"></path>
+    <path d="M 1558 306 L 1586 306 L 1586 278"></path>
+  </g>
+  
+  <g stroke="#76b900" stroke-width="2" fill="none">
+    <path d="M 1558 14 L 1586 14 L 1586 42"></path>
+    <path d="M 14 278 L 14 306 L 42 306"></path>
+  </g>
+
+  
+  <text x="72" y="218" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="180" fill="none" stroke="#ff6b1f" stroke-width="1.4" letter-spacing="-6">09</text>
+
+  
+  <g transform="translate(320,60)">
+    <rect width="68" height="68" fill="#76b900"></rect>
+    <path d="M 10 54 L 10 14 L 22 14 L 44 44 L 44 14 L 58 14 L 58 54 L 46 54 L 24 24 L 24 54 Z" fill="#07070a"></path>
+    <text x="80" y="32" font-size="11" fill="#76b900" letter-spacing="3.5">NVIDIA NIM</text>
+    <text x="80" y="50" font-size="11" fill="#8a8275" letter-spacing="2">API FREE TIER</text>
+  </g>
+
+  
+  <g transform="translate(272,128)">
+    <text x="0" y="0" font-size="11" letter-spacing="4" fill="#ff6b1f">// FREE TIER · NO CREDIT CARD</text>
+    <text x="0" y="80" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="72" fill="#f4ede4" letter-spacing="-2">FREE TIER</text>
+    <text x="0" y="112" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="72" fill="#76b900" letter-spacing="-2">PROVIDERS</text>
+    <text x="0" y="148" font-size="14" fill="#9a9286">14 frontier models via NVIDIA NIM. 40 RPM each. Automatic fallback.</text>
+    <text x="0" y="168" font-size="14" fill="#9a9286">Zero friction. Just an NV key — and you already have one.</text>
+  </g>
+
+  
+  <g transform="translate(1180,90)" font-family="&#39;JetBrains Mono&#39;,monospace">
+    
+    <text x="0" y="0" font-size="11" fill="#8a8275" letter-spacing="2">MODELS</text>
+    <text x="0" y="48" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="56" fill="#ff6b1f">14</text>
+    
+    <text x="130" y="0" font-size="11" fill="#8a8275" letter-spacing="2">RPM / MODEL</text>
+    <text x="130" y="48" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="56" fill="#ff6b1f">40</text>
+    
+    <text x="0" y="90" font-size="11" fill="#8a8275" letter-spacing="2">FALLBACK</text>
+    <text x="0" y="130" font-size="16" fill="#76b900" letter-spacing="1">AUTO ✓</text>
+    
+    <text x="130" y="90" font-size="11" fill="#8a8275" letter-spacing="2">API KEY</text>
+    <text x="130" y="130" font-size="16" fill="#76b900" letter-spacing="1">FREE ✓</text>
+  </g>
+
+  
+  <text x="800" y="298" text-anchor="middle" font-size="11" letter-spacing="4" fill="#8a8275">◉ nvidia-web PROVIDER · /model nvidia-web/&lt;model&gt;</text>
+</svg>

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 260" width="1600" height="260" font-family="&#39;JetBrains Mono&#39;,monospace">
+  <defs>
+    <pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ff6b1f" stroke-opacity="0.07"></path></pattern>
+    <radialGradient id="gl" cx="85%" cy="50%" r="60%"><stop offset="0%" stop-color="#ff6b1f" stop-opacity="0.16"></stop><stop offset="100%" stop-color="#ff6b1f" stop-opacity="0"></stop></radialGradient>
+  </defs>
+  <rect width="1600" height="260" fill="#07070a"></rect>
+  <rect width="1600" height="260" fill="url(#g)"></rect>
+  <rect width="1600" height="260" fill="url(#gl)"></rect>
+  <g stroke="#ff6b1f" stroke-width="2" fill="none">
+    <path d="M 14 42 L 14 14 L 42 14"></path>
+    <path d="M 1558 246 L 1586 246 L 1586 218"></path>
+  </g>
+  <text x="72" y="170" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="150" fill="none" stroke="#ff6b1f" stroke-width="1.4" letter-spacing="-6">03</text>
+  <g transform="translate(260,0)">
+    <text x="0" y="90" font-size="11" letter-spacing="4" fill="#ff6b1f">// THE FLOCK</text>
+    <text x="0" y="170" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="68" fill="#f4ede4" letter-spacing="-2">SUB-AGENTS</text>
+    <text x="0" y="210" font-size="14" fill="#9a9286">Spawn typed agents — coder, reviewer, researcher, tester.</text>
+    <text x="0" y="230" font-size="14" fill="#9a9286">Each in its own git worktree. Falcon is the flock.</text>
+  </g>
+  <g font-size="12" fill="#ff6b1f" font-family="&#39;JetBrains Mono&#39;,monospace">
+    <text x="1550" y="95" text-anchor="end">◉ coder      feat/auth-refactor</text>
+    <text x="1550" y="113" text-anchor="end">◉ reviewer   feat/auth-refactor</text>
+    <text x="1550" y="131" text-anchor="end">◉ tester     feat/auth-refactor</text>
+    <text x="1550" y="149" text-anchor="end">◉ researcher spec/rfc-042</text>
+    <text x="1550" y="167" text-anchor="end">▲ flock: 4 alive</text>
+  </g>
+</svg>

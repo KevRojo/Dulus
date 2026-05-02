@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Falcon README — Preview</title>
+<style>
+  body{margin:0;background:#0d1117;color:#c9d1d9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;padding:40px}
+  .wrap{max-width:1012px;margin:0 auto;background:#0d1117}
+  img{max-width:100%;display:block;margin:16px auto}
+  h1,h2,h3{border-bottom:1px solid #21262d;padding-bottom:8px;font-weight:700}
+  h1{font-size:2em}
+  h2{font-size:1.5em;margin-top:2em}
+  code{background:#161b22;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono','SFMono-Regular',Consolas,monospace;font-size:85%}
+  pre{background:#161b22;padding:16px;border-radius:6px;overflow:auto}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:16px 0}
+  th,td{border:1px solid #30363d;padding:8px 14px;text-align:left}
+  th{background:#161b22}
+  a{color:#58a6ff;text-decoration:none}
+  blockquote{border-left:4px solid #30363d;padding:0 1em;color:#8b949e;margin:0}
+  details{background:#161b22;padding:12px 16px;border-radius:6px;margin:16px 0}
+  summary{cursor:pointer;font-weight:600}
+  hr{border:none;border-top:1px solid #21262d;margin:32px 0}
+  p{line-height:1.6}
+  sub{color:#8b949e}
+  .badge-row img{display:inline-block;margin:2px}
+</style>
+</head>
+<body>
+<div class="wrap" id="readme">
+  <p style="text-align:center;color:#8b949e">Live preview — see <a href="../README.md">README.md</a> for the source. Banners in <code>docs/</code>.</p>
+  <div id="content"></div>
+</div>
+<script>
+// load and very lightly render README.md
+fetch('../README.md').then(r=>r.text()).then(md=>{
+  // crude markdown→html for preview
+  let h = md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/&lt;p align="center"&gt;/g,'<div style="text-align:center">')
+    .replace(/&lt;\/p&gt;/g,'</div>')
+    .replace(/&lt;img src="([^"]+)"[^&]*&gt;/g,'<img src="../$1">')
+    .replace(/&lt;sub&gt;/g,'<sub>').replace(/&lt;\/sub&gt;/g,'</sub>')
+    .replace(/&lt;a href="([^"]+)"&gt;/g,'<a href="$1">').replace(/&lt;\/a&gt;/g,'</a>')
+    .replace(/&lt;b&gt;/g,'<b>').replace(/&lt;\/b&gt;/g,'</b>')
+    .replace(/&lt;details&gt;/g,'<details>').replace(/&lt;\/details&gt;/g,'</details>')
+    .replace(/&lt;summary&gt;/g,'<summary>').replace(/&lt;\/summary&gt;/g,'</summary>')
+    .replace(/^### (.*)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.*)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.*)$/gm,'<h1>$1</h1>')
+    .replace(/```([\s\S]*?)```/g,(m,c)=>'<pre><code>'+c+'</code></pre>')
+    .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+    .replace(/^> (.*)$/gm,'<blockquote>$1</blockquote>')
+    .replace(/^---$/gm,'<hr>')
+    .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>')
+    .replace(/\n\n/g,'</p><p>');
+  // tables
+  h = h.replace(/((?:^\|.*\|\s*$\n?)+)/gm, block=>{
+    const rows = block.trim().split('\n');
+    if(rows.length<2) return block;
+    const cells = r => r.split('|').slice(1,-1).map(c=>c.trim());
+    const sep = rows[1] && /^[\s|:-]+$/.test(rows[1]);
+    const head = sep ? rows[0] : null;
+    const body = sep ? rows.slice(2) : rows;
+    let t='<table>';
+    if(head) t+='<thead><tr>'+cells(head).map(c=>'<th>'+c+'</th>').join('')+'</tr></thead>';
+    t+='<tbody>'+body.map(r=>'<tr>'+cells(r).map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+    return t;
+  });
+  document.getElementById('content').innerHTML = '<p>'+h+'</p>';
+});
+</script>
+</body>
+</html>

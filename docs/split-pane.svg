@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="&#39;JetBrains Mono&#39;,&#39;Menlo&#39;,monospace">
+  <defs>
+    <radialGradient id="spgl" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#ff6b1f" stop-opacity="0.08"></stop>
+      <stop offset="100%" stop-color="#ff6b1f" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="#0a0a0c"></rect>
+  <rect width="1600" height="42" fill="#15151a"></rect>
+  <line x1="0" y1="42" x2="1600" y2="42" stroke="#222"></line>
+  <g transform="translate(18,21)">
+    <circle cx="0" cy="0" r="6" fill="#ff5f57"></circle>
+    <circle cx="18" cy="0" r="6" fill="#febc2e"></circle>
+    <circle cx="36" cy="0" r="6" fill="#28c840"></circle>
+  </g>
+  <text x="800" y="27" text-anchor="middle" font-size="12" fill="#666" letter-spacing="2">falcon · brainstorm mode · split-pane · 160×46</text>
+  <rect y="42" width="1600" height="858" fill="url(#spgl)"></rect>
+
+  
+  <line x1="800" y1="42" x2="800" y2="900" stroke="#1a1a1e" stroke-width="2"></line>
+
+  
+  <g font-size="14">
+    <text x="32" y="88" fill="#ff6b1f" font-weight="700">◉ agent://coder</text>
+    <text x="210" y="88" fill="#6a6a72">worktree: feat/api-v2</text>
+
+    <text x="32" y="130" fill="#7cffb5">✓</text>
+    <text x="52" y="130" fill="#f4ede4">read</text>
+    <text x="105" y="130" fill="#6a6a72">api/routes/users.py</text>
+
+    <text x="32" y="154" fill="#7cffb5">✓</text>
+    <text x="52" y="154" fill="#f4ede4">read</text>
+    <text x="105" y="154" fill="#6a6a72">api/schemas/user.py</text>
+
+    <text x="32" y="178" fill="#7cffb5">✓</text>
+    <text x="52" y="178" fill="#f4ede4">edit</text>
+    <text x="105" y="178" fill="#6a6a72">api/routes/users.py:142</text>
+
+    <text x="32" y="220" fill="#ff6b1f">▲</text>
+    <text x="60" y="220" fill="#f4ede4">🏎️  Shifting to 6th gear...</text>
+
+    
+    <g transform="translate(32,250)" font-size="13">
+      <text x="0" y="20" fill="#f4ede4">┌─ diff ─────────────────────────────┐</text>
+      <text x="0" y="44" fill="#f4ede4">│</text>
+      <text x="22" y="44" fill="#ff5a6e">- def get_user(id: int):</text>
+      <text x="340" y="44" fill="#f4ede4">│</text>
+      <text x="0" y="62" fill="#f4ede4">│</text>
+      <text x="22" y="62" fill="#ff5a6e">-     return db.find(id)</text>
+      <text x="340" y="62" fill="#f4ede4">│</text>
+      <text x="0" y="86" fill="#f4ede4">│</text>
+      <text x="22" y="86" fill="#7cffb5">+ async def get_user(</text>
+      <text x="340" y="86" fill="#f4ede4">│</text>
+      <text x="0" y="104" fill="#f4ede4">│</text>
+      <text x="22" y="104" fill="#7cffb5">+     id: UserID,</text>
+      <text x="340" y="104" fill="#f4ede4">│</text>
+      <text x="0" y="122" fill="#f4ede4">│</text>
+      <text x="22" y="122" fill="#7cffb5">+     db: DB = Depends(get_db),</text>
+      <text x="340" y="122" fill="#f4ede4">│</text>
+      <text x="0" y="140" fill="#f4ede4">│</text>
+      <text x="22" y="140" fill="#7cffb5">+ ) -&gt; UserOut:</text>
+      <text x="340" y="140" fill="#f4ede4">│</text>
+      <text x="0" y="158" fill="#f4ede4">│</text>
+      <text x="22" y="158" fill="#7cffb5">+     u = await db.find(id)</text>
+      <text x="340" y="158" fill="#f4ede4">│</text>
+      <text x="0" y="176" fill="#f4ede4">│</text>
+      <text x="22" y="176" fill="#7cffb5">+     if not u: raise NotFound</text>
+      <text x="340" y="176" fill="#f4ede4">│</text>
+      <text x="0" y="194" fill="#f4ede4">│</text>
+      <text x="22" y="194" fill="#7cffb5">+     return UserOut.from_orm(u)</text>
+      <text x="340" y="194" fill="#f4ede4">│</text>
+      <text x="0" y="218" fill="#f4ede4">└────────────────────────────────────┘</text>
+    </g>
+
+    <text x="32" y="520" fill="#ff6b1f" font-weight="700">[coder]</text>
+    <text x="130" y="520" fill="#6a6a72">[28%]</text>
+    <text x="200" y="520" fill="#ff6b1f" font-weight="700">»</text>
+    <text x="225" y="520" fill="#f4ede4">now add the rate-limit decorator...</text>
+
+    <text x="32" y="562" fill="#6a6a72">🛰  sending review package → reviewer</text>
+  </g>
+
+  
+  <g font-size="14">
+    <text x="832" y="88" fill="#ff6b1f" font-weight="700">◉ agent://reviewer</text>
+    <text x="1040" y="88" fill="#6a6a72">worktree: feat/api-v2</text>
+
+    <text x="832" y="130" fill="#7cffb5">✓</text>
+    <text x="852" y="130" fill="#f4ede4">read</text>
+    <text x="905" y="130" fill="#6a6a72">api/routes/users.py</text>
+
+    <text x="832" y="154" fill="#7cffb5">✓</text>
+    <text x="852" y="154" fill="#f4ede4">grep</text>
+    <text x="905" y="154" fill="#6a6a72">&#34;get_user&#34;     38 call sites</text>
+
+    <text x="832" y="196" fill="#ff6b1f">▲</text>
+    <text x="860" y="196" fill="#f4ede4">👁️  Falcon vision engaged...</text>
+
+    <text x="832" y="238" fill="#ffd166">⚠  3 issues found</text>
+
+    <g transform="translate(832,260)" font-size="13">
+      <text x="0" y="20" fill="#f4ede4">┌─ review ─────────────────────────────┐</text>
+      <text x="0" y="44" fill="#f4ede4">│</text>
+      <text x="22" y="44" fill="#ff5a6e">!!</text>
+      <text x="50" y="44" fill="#f4ede4">missing rate-limit on /users</text>
+      <text x="370" y="44" fill="#f4ede4">│</text>
+      <text x="0" y="62" fill="#f4ede4">│</text>
+      <text x="22" y="62" fill="#ffd166">!</text>
+      <text x="50" y="62" fill="#f4ede4">UserOut leaks email to admin</text>
+      <text x="370" y="62" fill="#f4ede4">│</text>
+      <text x="0" y="80" fill="#f4ede4">│</text>
+      <text x="22" y="80" fill="#ffd166">!</text>
+      <text x="50" y="80" fill="#f4ede4">async without cancel scope</text>
+      <text x="370" y="80" fill="#f4ede4">│</text>
+      <text x="0" y="98" fill="#f4ede4">│</text>
+      <text x="370" y="98" fill="#f4ede4">│</text>
+      <text x="0" y="122" fill="#f4ede4">│</text>
+      <text x="22" y="122" fill="#7cffb5">✓</text>
+      <text x="50" y="122" fill="#f4ede4">types look clean</text>
+      <text x="370" y="122" fill="#f4ede4">│</text>
+      <text x="0" y="140" fill="#f4ede4">│</text>
+      <text x="22" y="140" fill="#7cffb5">✓</text>
+      <text x="50" y="140" fill="#f4ede4">depinject correct</text>
+      <text x="370" y="140" fill="#f4ede4">│</text>
+      <text x="0" y="158" fill="#f4ede4">│</text>
+      <text x="22" y="158" fill="#7cffb5">✓</text>
+      <text x="50" y="158" fill="#f4ede4">naming consistent</text>
+      <text x="370" y="158" fill="#f4ede4">│</text>
+      <text x="0" y="182" fill="#f4ede4">└──────────────────────────────────────┘</text>
+    </g>
+
+    <text x="832" y="484" fill="#ff6b1f">→ message://coder</text>
+    <text x="852" y="506" fill="#6a6a72">&#34;add @rate_limit(60/min) and</text>
+    <text x="852" y="524" fill="#6a6a72">drop .email from UserOut.&#34;</text>
+
+    <text x="832" y="568" fill="#ff6b1f" font-weight="700">[reviewer]</text>
+    <text x="960" y="568" fill="#6a6a72">[19%]</text>
+    <text x="1028" y="568" fill="#ff6b1f" font-weight="700">»</text>
+    <text x="1055" y="568" fill="#6a6a72">idle · waiting on coder</text>
+  </g>
+</svg>
