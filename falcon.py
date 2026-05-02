@@ -133,6 +133,14 @@ if str(FALCON_CODE_ROOT) not in sys.path:
 from tools import ask_input_interactive, _tg_thread_local, _is_in_tg_turn
 import input as falcon_input
 try:
+    import paste_placeholders as _paste_ph
+except ImportError:
+    _paste_ph = None  # type: ignore[assignment]
+try:
+    import git_prompt as _git_prompt
+except ImportError:
+    _git_prompt = None  # type: ignore[assignment]
+try:
     from common import C
 except ImportError:
     # Fallback uses Falcon orange (default theme accent) instead of generic cyan
@@ -956,6 +964,12 @@ def _print_falcon_banner(config: dict, with_logo: bool = True) -> None:
 def cmd_clear(_args: str, state, config) -> bool:
     state.messages.clear()
     state.turn_count = 0
+    # Wipe paste placeholders so old pasted text doesn't leak into new session
+    if _paste_ph is not None:
+        _paste_ph.reset_handler()
+    # Reset git prompt cache so branch info refreshes after clear
+    if _git_prompt is not None:
+        _git_prompt.reset_git_cache()
     # Wipe the split-layout output buffer too — otherwise its contents get
     # re-rendered on the next app refresh and "ghost" back below new output.
     try:
@@ -2885,6 +2899,9 @@ def cmd_cwd(args: str, _state, config) -> bool:
         try:
             os.chdir(p)
             ok(f"Changed directory to: {os.getcwd()}")
+            # Directory changed — git info is stale
+            if _git_prompt is not None:
+                _git_prompt.reset_git_cache()
         except Exception as e:
             err(str(e))
     return True
@@ -4080,7 +4097,7 @@ def cmd_ssj(args: str, state, config) -> bool:
             break
 
         if choice.startswith("/"):
-            # Pass slash commands through to nano — exit SSJ and let REPL handle it
+            # Pass slash commands through to falcon — exit SSJ and let REPL handle it
             return ("__ssj_passthrough__", choice)
 
         if choice == "0" or choice.lower() in ("exit", "q"):
@@ -4607,7 +4624,7 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
                     elif tg_cmd == "/start":
                         _tg_send(token, chat_id, "🟢 falcon bridge is active. Send me anything.")
                         continue
-                    # Pass nano slash commands through handle_slash
+                    # Pass falcon slash commands through handle_slash
                     # Run in a separate thread so interactive commands
                     # (ask_input_interactive) don't block the polling loop.
                     slash_cb = config.get("_handle_slash_callback")
@@ -4670,7 +4687,7 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
                 except Exception:
                     print(clr(f"\n  {label}: {text}", "cyan"))
 
-                # Run through nano's model in a separate thread to prevent blocking poll loop
+                # Run through falcon's model in a separate thread to prevent blocking poll loop
                 def _bg_runner(q_text, chat_token, chat_id):
                     _typing_stop = threading.Event()
                     _typing_t = threading.Thread(target=_tg_typing_loop, args=(chat_token, chat_id, _typing_stop, config), daemon=True)
@@ -5271,36 +5288,30 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
     """Grab image from clipboard and send to vision model with optional prompt."""
     import sys as _sys
     try:
-        from PIL import ImageGrab
+        from PIL import Image
         import io, base64
     except ImportError:
         err("Pillow is required for /image. Install with: pip install falcon[vision]")
         return True
 
+    # Use kimi-cli style robust clipboard (Linux xclip/wl-paste, macOS native, Windows)
     try:
-        # grabclipboard() is only fully reliable on Windows/macOS native
-        img = ImageGrab.grabclipboard()
-    except Exception as e:
-        # Catch NotImplementedError on Linux/WSL or other unexpected issues
-        if _sys.platform == "linux":
-            err("Clipboard image capture is not supported on this Linux/WSL environment. "
-                "Please use a native terminal or install xclip/wl-paste.")
-        else:
-            err(f"Clipboard error: {e}")
+        from clipboard_utils import grab_media_from_clipboard, is_media_clipboard_available
+    except ImportError:
+        err("clipboard_utils module not found.")
         return True
 
-    if img is None:
+    if not is_media_clipboard_available():
+        err("No clipboard tool found. Install xclip (X11) or wl-clipboard (Wayland).")
+        return True
+
+    result = grab_media_from_clipboard()
+    if result is None or not result.images:
         err("No image found in clipboard. Copy an image first.")
         return True
 
-    # Convert to base64 PNG
+    img = result.images[0]
     try:
-        from PIL import Image
-        if not isinstance(img, Image.Image):
-            # Could be a list of files or other data
-            err("Clipboard does not contain a valid image.")
-            return True
-            
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
@@ -5309,14 +5320,6 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
     except Exception as e:
         err(f"Failed to process clipboard image: {e}")
         return True
-
-    # Convert to base64 PNG
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-    size_kb = len(buf.getvalue()) / 1024
-
-    info(f"📷 Clipboard image captured ({size_kb:.0f} KB, {img.size[0]}x{img.size[1]})")
 
     # Store in config for agent.py to pick up
     config["_pending_image"] = b64
@@ -6389,12 +6392,61 @@ def repl(config: dict, initial_prompt: str = None):
     verbose = config.get("verbose", False)
     config["_tg_send_callback"] = _tg_send
 
+    def _render_toolbar() -> str:
+        """Return ANSI toolbar string for prompt_toolkit bottom bar.
+
+        Kimi-cli style: mostly gray, with semantic color only for alerts.
+        """
+        parts: list[str] = []
+
+        # Model — gray bold (primary info but neutral)
+        model = config.get("model", "")
+        if model:
+            parts.append(clr(f"🧠 {model}", "gray", "bold"))
+
+        # CWD — gray
+        try:
+            cwd = Path.cwd().name
+            if cwd:
+                parts.append(clr(f"📁 {cwd}", "gray"))
+        except Exception:
+            pass
+
+        # Git branch — gray
+        try:
+            if _git_prompt is not None:
+                _gb = _git_prompt.git_badge()
+                if _gb:
+                    parts.append(clr(f"💻 {_gb}", "gray"))
+        except Exception:
+            pass
+
+        # Context usage — gray (kimi-cli style, no semantic color in toolbar)
+        try:
+            from compaction import estimate_tokens, get_context_limit
+            _model = config.get("model", "")
+            _used = estimate_tokens(state.messages, _model, config)
+            _limit = get_context_limit(_model) or 128000
+            _pct = int((_used * 100 / _limit) if _limit else 0)
+            parts.append(clr(f"📊 ctx {_pct}%", "gray"))
+        except Exception:
+            pass
+
+        # Permission mode — gray normally, RED if accept-all (dangerous)
+        pmode = config.get("permission_mode", "auto")
+        lock = "🔓" if pmode == "accept-all" else "🔒"
+        _pmode_color = "red" if pmode == "accept-all" else "gray"
+        parts.append(clr(f"{lock} {pmode}", _pmode_color))
+
+        # Separator in gray
+        return clr("  ·  ", "gray").join(parts) if parts else ""
+
     # Setup slash-command autocompletion with prompt_toolkit if available
     if HAS_PROMPT_TOOLKIT and input_setup:
         # Use the global COMMANDS and _CMD_META from falcon.py
         commands_provider = lambda: dict(COMMANDS)
         meta_provider = lambda: dict(_CMD_META)
-        input_setup(commands_provider, meta_provider)
+        input_setup(commands_provider, meta_provider, toolbar_provider=_render_toolbar)
 
     # Collected status lines from init steps. Printed AFTER the banner so the
     # logo + box stay visually clean. Soul picker (only thing that needs
@@ -6665,7 +6717,11 @@ def repl(config: dict, initial_prompt: str = None):
     
     def run_query(user_input: str, is_background: bool = False):
         nonlocal verbose
-        
+
+        # ── Expand paste placeholders before the agent sees them ─────────────
+        if _paste_ph is not None:
+            user_input = _paste_ph.expand_placeholders(user_input)
+
         global _SUPPRESS_CONSOLE, _RICH_LIVE
         _SUPPRESS_CONSOLE = False  # never suppress — background output should be visible
 
@@ -7245,6 +7301,9 @@ def repl(config: dict, initial_prompt: str = None):
                 lines.append(raw)
 
             result = "\n".join(lines).strip()
+            # Fold large pastes into a placeholder (kimi-cli style)
+            if _paste_ph is not None:
+                return _paste_ph.maybe_placeholderize(result)
             n = result.count("\n") + 1
             info(f"  (pasted {n} line{'s' if n > 1 else ''})")
             return result
@@ -7290,6 +7349,9 @@ def repl(config: dict, initial_prompt: str = None):
 
             if len(lines) > 1:
                 result = "\n".join(lines).strip()
+                # Fold large pastes into a placeholder (kimi-cli style)
+                if _paste_ph is not None:
+                    return _paste_ph.maybe_placeholderize(result)
                 info(f"  (pasted {len(lines)} lines)")
                 return result
 

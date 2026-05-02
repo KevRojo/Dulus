@@ -482,6 +482,9 @@ def maybe_truncate_diff(diff_text, max_lines=80):
 
 # ── Tool implementations ───────────────────────────────────────────────────
 
+_DEFAULT_READ_LIMIT = 1000  # kimi-cli default
+
+
 def _read(file_path: str, limit: int = None, offset: int = None) -> str:
     p = Path(file_path).expanduser().resolve()
     if not p.exists():
@@ -489,6 +492,9 @@ def _read(file_path: str, limit: int = None, offset: int = None) -> str:
     if p.is_dir():
         return f"Error: {p} is a directory"
     try:
+        # Default limit so the model doesn't accidentally swallow multi-MB files.
+        effective_limit = limit if limit is not None else _DEFAULT_READ_LIMIT
+
         # For small files, we can just read everything. For large files, we should iterate.
         # Threshold for "large" file: 10MB
         size = p.stat().st_size
@@ -496,26 +502,28 @@ def _read(file_path: str, limit: int = None, offset: int = None) -> str:
             lines = p.read_text(encoding="utf-8", errors="replace", newline="").splitlines(keepends=True)
             total = len(lines)
             start = offset or 0
-            chunk = lines[start:start + limit] if limit else lines[start:]
+            chunk = lines[start:start + effective_limit]
         else:
             # Memory efficient reading for large files
             total = 0
             chunk = []
             start = offset or 0
-            end = (start + limit) if limit else None
-            
+            end = start + effective_limit
+
             with p.open("r", encoding="utf-8", errors="replace", newline="") as f:
                 for i, line in enumerate(f):
                     total += 1
-                    if i >= start and (end is None or i < end):
+                    if i >= start and i < end:
                         chunk.append(line)
-                
+
         if not chunk and total > 0:
             return f"(offset {start} >= total lines {total})"
         if not chunk:
             return "(empty file)"
-        
+
         header = f"[File: {file_path} | Total lines: {total} | Reading: {start+1} to {start+len(chunk)}]\n"
+        if limit is None and total > effective_limit:
+            header += f"[TRUNCATED — default limit of {effective_limit} lines applied. Use offset + limit to read more.]\n"
         content = "".join(f"{start + i + 1:6}\t{l}" for i, l in enumerate(chunk))
         return header + content
     except Exception as e:
