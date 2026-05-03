@@ -620,7 +620,7 @@ def cmd_help(_args: str, _state, config) -> bool:
         ("auto_show",       True,  "/auto_show",       "Visual tools auto-render to console"),
         ("autojob",         False, "/autojob",         "Auto-print full background-job results"),
         ("verbose",         False, "/verbose",         "Verbose output (thinking chunks, debug)"),
-        ("sticky_input",    False, "/sticky_input",    "Anchored input bar (prompt_toolkit)"),
+        ("sticky_input",    True,  "/sticky_input",    "Anchored input bar (prompt_toolkit)"),
         ("hide_sender",     True,  "/hide_sender",     "Hide your typed message above the bar in sticky mode (use /history to recall)"),
         ("mem_palace",      True,  "/mem_palace",      "Per-turn MemPalace memory injection"),
         ("mem_palace_print",False, "/mem_palace print", "Print MemPalace injections to console (debug)"),
