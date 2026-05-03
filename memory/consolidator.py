@@ -168,3 +168,145 @@ def consolidate_session(messages: list, config: dict) -> list[str]:
 
     except Exception:
         return []
+
+
+_MINE_SYSTEM = """\
+You are a memory architect for Falcon. Given the contents of a single file
+that was created or modified during this session, decide whether it deserves
+a long-term 'project' memory entry.
+
+SKIP (return {"skip": true}) when the file is:
+- A cache, build artifact, log, lockfile, or binary
+- Trivial config edits, formatting-only changes, or generated code
+- Personal/throwaway scratch with no reusable value
+
+OTHERWISE return:
+{
+  "name": "short_slug",
+  "description": "one-line summary of what the file is and why it matters",
+  "content": "full context: purpose, key decisions, how it connects to the rest of the project, gotchas",
+  "confidence": 0.75
+}
+Return ONLY the JSON object. No prose, no fences.
+"""
+
+
+def mine_files(file_paths: list[str], config: dict, max_files: int = 15, max_bytes: int = 20_000) -> list[str]:
+    """Read each file and create a 'project' memory for the relevant ones.
+
+    Used on session exit when MemPalace is ON to capture context about
+    files the user worked on. Returns the list of saved memory names.
+    """
+    if not file_paths:
+        return []
+    try:
+        from pathlib import Path
+        from providers import stream, AssistantTurn, TextChunk
+        from .store import MemoryEntry, save_memory, check_conflict
+        import json
+
+        _SKIP_EXT = {
+            ".pyc", ".pyo", ".so", ".dll", ".exe", ".bin", ".wasm",
+            ".zip", ".tar", ".gz", ".7z", ".png", ".jpg", ".jpeg",
+            ".gif", ".pdf", ".mp3", ".mp4", ".lock",
+        }
+        _SKIP_PARTS = {"__pycache__", ".git", "node_modules", ".venv", "venv"}
+
+        saved: list[str] = []
+        for raw in file_paths[:max_files]:
+            p = Path(raw)
+            if p.suffix.lower() in _SKIP_EXT:
+                continue
+            if any(part in _SKIP_PARTS for part in p.parts):
+                continue
+            if not p.exists() or not p.is_file():
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")[:max_bytes]
+            except Exception:
+                continue
+            if not text.strip():
+                continue
+
+            user_msg = f"File: {raw}\n\n```\n{text}\n```"
+            result_text = ""
+            try:
+                for event in stream(
+                    model=config.get("model", ""),
+                    system=_MINE_SYSTEM,
+                    messages=[{"role": "user", "content": user_msg}],
+                    tool_schemas=[],
+                    config={**config, "max_tokens": 1024, "no_tools": True},
+                ):
+                    if isinstance(event, TextChunk):
+                        result_text += event.text
+                    elif isinstance(event, AssistantTurn):
+                        if event.text:
+                            result_text = event.text
+                        break
+            except Exception:
+                continue
+
+            if not result_text:
+                continue
+
+            try:
+                js = result_text.find("{")
+                je = result_text.rfind("}")
+                if js == -1 or je == -1:
+                    continue
+                parsed = json.loads(result_text[js:je + 1])
+            except json.JSONDecodeError:
+                continue
+
+            if parsed.get("skip"):
+                continue
+            if not all(k in parsed for k in ("name", "description", "content")):
+                continue
+
+            entry = MemoryEntry(
+                name=str(parsed["name"]),
+                description=str(parsed["description"]),
+                type="project",
+                content=str(parsed["content"]),
+                created=datetime.now().strftime("%Y-%m-%d"),
+                hall="files",
+                confidence=float(parsed.get("confidence", 0.75)),
+                source="file_miner",
+            )
+            conflict = check_conflict(entry, scope="user")
+            if conflict and conflict["existing_confidence"] >= entry.confidence:
+                continue
+            save_memory(entry, scope="user")
+            saved.append(entry.name)
+
+        return saved
+    except Exception:
+        return []
+
+
+def snapshot_memory_files() -> set[str]:
+    """Return the current set of .md files (absolute paths) in the user
+    memory directory. Use before consolidate_session, then call
+    new_memory_files(snapshot) after to get only what was just created."""
+    try:
+        from .store import USER_MEMORY_DIR
+        d = USER_MEMORY_DIR
+        if not d.exists():
+            return set()
+        return {str(p.resolve()) for p in d.glob("*.md") if p.name != "MEMORY.md"}
+    except Exception:
+        return set()
+
+
+def new_memory_files(snapshot: set[str]) -> list[str]:
+    """Return .md files in the user memory directory that weren't in `snapshot`."""
+    try:
+        from .store import USER_MEMORY_DIR
+        d = USER_MEMORY_DIR
+        if not d.exists():
+            return []
+        current = {str(p.resolve()): p for p in d.glob("*.md") if p.name != "MEMORY.md"}
+        return [path for path, _ in current.items() if path not in snapshot]
+    except Exception:
+        return []
