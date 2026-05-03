@@ -60,6 +60,16 @@ Falcon is a **lightweight Python reimplementation of Claude Code** that isn't lo
 <img width="3684" height="1912" alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
 
 
+ROUND TABLE (FALCON UNIQUE FEATURE)
+
+<img width="1209" height="1798" alt="image" src="https://github.com/user-attachments/assets/648ffe5e-28e2-49e0-bc27-362a585edd4f" />
+
+<img width="3760" height="1917" alt="image" src="https://github.com/user-attachments/assets/9e8f17ed-6ca2-4ae0-b8c3-146ae5fef491" />
+
+Falcon is the first one meeting multiples models at the same time working for the same objetive and sharing they'r ideas.
+
+
+
 ```bash
 # clone
 git clone https://github.com/KevRojo/Falcon && cd Falcon
