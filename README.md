@@ -2,6 +2,8 @@
 
 > **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — Claude, GPT, Gemini, DeepSeek, Qwen, Kimi, Zhipu, MiniMax, and local models via Ollama. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
 
+SET /sticky_input ON since the first run for the best experience!
+
 <p align="center">
   <img src="docs/hero.svg" alt="Falcon" width="100%">
 </p>
