@@ -169,6 +169,14 @@ def _score_message_priority(message: dict) -> int:
     return max(0, score)
 
 
+def _is_safe_split(messages: list, idx: int) -> bool:
+    """A split is safe only if messages[idx] is not a `tool` message
+    (which would be orphaned from its assistant tool_calls partner)."""
+    if idx <= 0 or idx >= len(messages):
+        return True
+    return messages[idx].get("role") != "tool"
+
+
 def find_split_point(messages: list, keep_ratio: float = 0.3, model: str = "", config: dict | None = None) -> int:
     """Find index that splits messages so ~keep_ratio of tokens are in the recent portion.
 
@@ -181,16 +189,24 @@ def find_split_point(messages: list, keep_ratio: float = 0.3, model: str = "", c
         model: model string (optional, for provider-specific estimation)
         config: agent config dict (optional)
     Returns:
-        split index (messages[:idx] = old, messages[idx:] = recent)
+        split index (messages[:idx] = old, messages[idx:] = recent).
+        Always returns an index that does not orphan a tool message from
+        its assistant tool_calls partner.
     """
     total = estimate_tokens(messages, model=model, config=config)
     target = int(total * keep_ratio)
     running = 0
+    split = 0
     for i in range(len(messages) - 1, -1, -1):
         running += estimate_tokens([messages[i]], model=model, config=config)
         if running >= target:
-            return i
-    return 0
+            split = i
+            break
+    # Walk forward until we land on a non-tool message, so the recent
+    # portion never starts with an orphaned tool result.
+    while split < len(messages) and messages[split].get("role") == "tool":
+        split += 1
+    return split
 
 
 def compact_messages(messages: list, config: dict, focus: str = "") -> list:
@@ -218,10 +234,17 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
     recent = messages[split:]
 
     # ── Smart separation: keep high-priority messages verbatim ──
+    # Skip `tool` messages and `assistant` messages with tool_calls — pinning
+    # either alone orphans the pair and triggers
+    # `tool_call_id is not found` (HTTP 400) on the next API call.
     pinned = []
     to_summarize = []
     for m in old:
-        if _score_message_priority(m) >= 3:
+        role = m.get("role", "")
+        has_tool_calls = bool(m.get("tool_calls"))
+        if role == "tool" or has_tool_calls:
+            to_summarize.append(m)
+        elif _score_message_priority(m) >= 3:
             pinned.append(m)
         else:
             to_summarize.append(m)
