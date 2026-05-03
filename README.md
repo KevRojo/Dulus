@@ -48,6 +48,18 @@ Falcon is a **lightweight Python reimplementation of Claude Code** that isn't lo
 
 <img width="1647" height="1728" alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
 
+
+<img width="1723" height="1197" alt="image" src="https://github.com/user-attachments/assets/72526ae1-b69f-4529-adc7-eef1cd3876c8" />
+
+<img width="1696" height="1207" alt="image" src="https://github.com/user-attachments/assets/6baf90e5-a163-4a38-bdde-3d77c0a87281" />
+
+<img width="1666" height="1171" alt="image" src="https://github.com/user-attachments/assets/453c1aad-b777-4d9a-98b8-40edbadb5079" />
+
+<img width="3759" height="1914" alt="image" src="https://github.com/user-attachments/assets/eb11cb86-2f53-4979-b7bf-5bd1f97ed5fc" />
+
+<img width="3684" height="1912" alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
+
+
 ```bash
 # clone
 git clone https://github.com/KevRojo/Falcon && cd Falcon
