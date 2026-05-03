@@ -3041,6 +3041,47 @@ def cmd_cloudsave(args: str, state, config) -> bool:
 
 
 def cmd_exit(_args: str, _state, config) -> bool:
+    # ── Sleep Trigger: Ask to consolidate before exit ──────────────────
+    try:
+        if _state.messages and _state.turn_count > 1:
+            print(
+                clr("\n  [Falcon is still awake] ", "cyan")
+                + clr("Consolidate memories before leaving? [y/N] ", "white", "bold"),
+                end="", flush=True,
+            )
+            try:
+                choice = input("").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                choice = ""
+                print()
+            if choice == "y":
+                from memory import (
+                    consolidate_session, mine_files,
+                    snapshot_memory_files, new_memory_files,
+                )
+                # Snapshot existing memory .md files BEFORE consolidating,
+                # so we can detect exactly which ones consolidate just created.
+                snap = snapshot_memory_files()
+                info("Consolidating session memories…")
+                saved = consolidate_session(_state.messages, config)
+                if saved:
+                    ok(f"Consolidated {len(saved)} memories: {', '.join(saved)}")
+                else:
+                    info("No new insights to consolidate.")
+                # If MemPalace is ON, mine the .md files just created in
+                # the memory dir (works without git).
+                if config.get("mem_palace", True):
+                    fresh = new_memory_files(snap)
+                    if fresh:
+                        info(f"MemPalace ON → mining {len(fresh)} fresh memory file(s)…")
+                        mined = mine_files(fresh, config)
+                        if mined:
+                            ok(f"Mined {len(mined)} extra memories: {', '.join(mined)}")
+                        else:
+                            info("No additional insights mined.")
+    except Exception as e:
+        warn(f"Consolidation trigger failed: {e}")
+
     if sys.stdin.isatty() and sys.platform != "win32":
         sys.stdout.write("\x1b[?2004l")  # disable bracketed paste mode
         sys.stdout.flush()

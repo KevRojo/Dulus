@@ -51,7 +51,7 @@ from .types import (  # noqa: F401
     MEMORY_SYSTEM_PROMPT,
     WHAT_NOT_TO_SAVE,
 )
-from .consolidator import consolidate_session  # noqa: F401
+from .consolidator import consolidate_session, mine_files, snapshot_memory_files, new_memory_files  # noqa: F401
 from .palace import ensure_memory_palace  # noqa: F401
 
 __all__ = [
@@ -87,6 +87,7 @@ __all__ = [
     "WHAT_NOT_TO_SAVE",
     # consolidator
     "consolidate_session",
+    "mine_files",
     # palace
     "ensure_memory_palace",
 ]
