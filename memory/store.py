@@ -301,9 +301,12 @@ def search_memory(
         # Weighted field scoring
         name_score = _token_score(query_tokens, entry.name)
         desc_score = _token_score(query_tokens, entry.description)
-        body_score = _token_score(query_tokens, entry.content[:500])
+        body_score = _token_score(query_tokens, entry.content[:4000])
 
-        total = (name_score * 3.0 + desc_score * 2.0 + body_score * 1.0) / 6.0
+        # Lower name weight (was 3.0) so short generic names like "soul" or
+        # "preferences" don't dominate every query just because they fuzzy-
+        # match a token. Body now gets a slightly bigger vote.
+        total = (name_score * 2.0 + desc_score * 2.0 + body_score * 1.5) / 5.5
 
         if total >= min_score:
             entry._search_score = total  # type: ignore[attr-defined]
