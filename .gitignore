@@ -1,0 +1,15 @@
+.gitignore
+.claude/
+__pycache__/
+**/__pycache__/
+*.pyc
+deepseek_pow.wasm
+sha3_wasm_bg.*.wasm
+*.zip
+
+# Python build artifacts
+dist/
+build/
+*.egg-info/
+*.pyc
+__pycache__/
