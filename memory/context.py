@@ -120,25 +120,49 @@ def find_relevant_memories(
         List of dicts with keys: name, description, type, scope, content,
         file_path, mtime_s, freshness_text
     """
-    # Step 1: Keyword filter
+    # Hybrid retrieval: ALWAYS run both keyword fuzzy + vector TF-IDF and
+    # fuse their scores. Previous version ran vector only as a fallback when
+    # keyword returned <max_results, which meant short-name memories
+    # (`soul.md`, `kevrojo_identity.md`) dominated every query and the
+    # semantic side never got a vote. Now both contribute on every call.
     keyword_results = search_memory(query)
+    keyword_score = {e.name: getattr(e, "_search_score", 0.0) for e in keyword_results}
 
-    # Step 1b: Vector similarity fallback/boost (pure Python, no deps)
-    if len(keyword_results) < max_results:
-        try:
-            from .vector_search import search_similar_memories
-            from .store import load_entries
-            all_entries = load_entries()
-            memories = [(e.name, f"{e.name}\n{e.description}\n{e.content}") for e in all_entries]
-            sim_results = search_similar_memories(query, memories, top_k=max_results * 2)
-            sim_names = {r[0] for r in sim_results}
-            # Add vector hits not already in keyword results
-            existing = {e.name for e in keyword_results}
-            for entry in all_entries:
-                if entry.name in sim_names and entry.name not in existing:
-                    keyword_results.append(entry)
-        except Exception:
-            pass
+    vector_score: dict[str, float] = {}
+    all_entries: list = []
+    try:
+        from .vector_search import search_similar_memories
+        from .store import load_entries as _load_entries
+        all_entries = _load_entries()
+        memories = [(e.name, f"{e.name}\n{e.description}\n{e.content}") for e in all_entries]
+        # Pull a wide pool so the fusion has room to re-rank
+        sim_results = search_similar_memories(query, memories, top_k=max(20, max_results * 5))
+        # Normalize cosine scores to [0,1] (already there) — store as-is
+        vector_score = {name: score for name, score in sim_results}
+    except Exception:
+        pass
+
+    # Fuse: weighted blend. Keyword catches exact terms / typos, vector
+    # catches semantic relatedness. 0.55/0.45 leans slightly to vector to
+    # break the prior keyword monopoly without abandoning fuzzy hits.
+    by_name: dict[str, "object"] = {e.name: e for e in keyword_results}
+    for e in all_entries:
+        by_name.setdefault(e.name, e)
+
+    fused: list[tuple[float, object]] = []
+    for name, entry in by_name.items():
+        ks = keyword_score.get(name, 0.0)
+        vs = vector_score.get(name, 0.0)
+        if ks == 0.0 and vs == 0.0:
+            continue
+        score = 0.55 * vs + 0.45 * ks
+        # Tiny confidence nudge so high-confidence memories break ties
+        score += 0.01 * float(getattr(entry, "confidence", 1.0))
+        entry._search_score = score  # type: ignore[attr-defined]
+        fused.append((score, entry))
+
+    fused.sort(key=lambda x: x[0], reverse=True)
+    keyword_results = [e for _, e in fused]
 
     if not keyword_results:
         return []
