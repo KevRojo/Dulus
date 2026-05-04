@@ -5,7 +5,7 @@
 SET /sticky_input ON since the first run for the best experience!
 
 <p align="center">
-  <img src="docs/hero.svg" alt="Falcon" width="100%">
+  <img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/hero.svg" alt="Falcon" width="100%">
 </p>
 
 <p align="center">
@@ -32,14 +32,14 @@ SET /sticky_input ON since the first run for the best experience!
   <code>pip install falcon-agent</code>
 </p>
 
-<p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/divider.svg" alt="" width="100%"></p>
 
 <p align="center">
   <a href="https://kevrojo.github.io/Falcon/"><b>🌐 Visit the Falcon website →</b></a><br>
   <sub>The site covers features, demos, and details not documented in this README.</sub>
 </p>
 
-<p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/divider.svg" alt="" width="100%"></p>
 
 ## What is this
 
@@ -50,29 +50,29 @@ Falcon is a **lightweight Python reimplementation of Claude Code** that isn't lo
 
 ---
 
-<p align="center"><img src="docs/sec-quickstart.svg" alt="Quick Start" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-quickstart.svg" alt="Quick Start" width="100%"></p>
 
 ## Quick Start
 
-<img width="1647" height="1728" alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
+<img alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
 
 
-<img width="1723" height="1197" alt="image" src="https://github.com/user-attachments/assets/72526ae1-b69f-4529-adc7-eef1cd3876c8" />
+<img alt="image" src="https://github.com/user-attachments/assets/72526ae1-b69f-4529-adc7-eef1cd3876c8" />
 
-<img width="1696" height="1207" alt="image" src="https://github.com/user-attachments/assets/6baf90e5-a163-4a38-bdde-3d77c0a87281" />
+<img alt="image" src="https://github.com/user-attachments/assets/6baf90e5-a163-4a38-bdde-3d77c0a87281" />
 
-<img width="1666" height="1171" alt="image" src="https://github.com/user-attachments/assets/453c1aad-b777-4d9a-98b8-40edbadb5079" />
+<img alt="image" src="https://github.com/user-attachments/assets/453c1aad-b777-4d9a-98b8-40edbadb5079" />
 
-<img width="3759" height="1914" alt="image" src="https://github.com/user-attachments/assets/eb11cb86-2f53-4979-b7bf-5bd1f97ed5fc" />
+<img alt="image" src="https://github.com/user-attachments/assets/eb11cb86-2f53-4979-b7bf-5bd1f97ed5fc" />
 
-<img width="3684" height="1912" alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
+<img alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
 
 
 ROUND TABLE (FALCON UNIQUE FEATURE)
 
-<img width="1209" height="1798" alt="image" src="https://github.com/user-attachments/assets/648ffe5e-28e2-49e0-bc27-362a585edd4f" />
+<img alt="image" src="https://github.com/user-attachments/assets/648ffe5e-28e2-49e0-bc27-362a585edd4f" />
 
-<img width="3760" height="1917" alt="image" src="https://github.com/user-attachments/assets/9e8f17ed-6ca2-4ae0-b8c3-146ae5fef491" />
+<img alt="image" src="https://github.com/user-attachments/assets/9e8f17ed-6ca2-4ae0-b8c3-146ae5fef491" />
 
 Falcon is the first one meeting multiples models at the same time working for the same objetive and sharing they'r ideas.
 
@@ -120,13 +120,13 @@ echo "explain this diff" | git diff | falcon -p --accept-all
 
 ---
 
-<p align="center"><img src="docs/terminal-boot.svg" alt="Falcon booting into session" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/terminal-boot.svg" alt="Falcon booting into session" width="100%"></p>
 
 <p align="center"><sub>↑ session boot. soul loaded, gold memory warm, shell sniffed. the little circles are real buttons on your Mac.</sub></p>
 
 ---
 
-<p align="center"><img src="docs/sec-features.svg" alt="Features" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-features.svg" alt="Features" width="100%"></p>
 
 ## Features
 
@@ -150,7 +150,7 @@ echo "explain this diff" | git diff | falcon -p --accept-all
 
 ---
 
-<p align="center"><img src="docs/sec-models.svg" alt="Models" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-models.svg" alt="Models" width="100%"></p>
 
 ## Models
 
@@ -191,7 +191,7 @@ falcon --model custom/<model>
 
 ---
 
-<p align="center"><img src="docs/sec-freetier.svg" alt="Free Tier Providers" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-freetier.svg" alt="Free Tier Providers" width="100%"></p>
 
 ## Free Tier Providers
 
@@ -204,7 +204,7 @@ export NVIDIA_API_KEY=nvapi-...
 falcon --model nvidia-web/deepseek-r1
 ```
 
-<p align="center"><img src="docs/nvidia-models.svg" alt="NVIDIA NIM free-tier models" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/nvidia-models.svg" alt="NVIDIA NIM free-tier models" width="100%"></p>
 
 | Model | Type | ID |
 |---|---|---|
@@ -243,7 +243,7 @@ Falcon cycles through the chain automatically when rate limits hit. The flock ke
 
 ---
 
-<p align="center"><img src="docs/sec-plugins.svg" alt="Plugins & MCP" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-plugins.svg" alt="Plugins & MCP" width="100%"></p>
 
 ## Plugins
 
@@ -276,7 +276,7 @@ Manage in the REPL: `/mcp`, `/mcp reload`, `/mcp add <name> <cmd> [args]`, `/mcp
 
 ---
 
-<p align="center"><img src="docs/sec-agents.svg" alt="Sub-agents" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-agents.svg" alt="Sub-agents" width="100%"></p>
 
 ## Sub-agents — the flock
 
@@ -291,13 +291,13 @@ Agent(type="tester",   task="run e2e on auth")
 
 Agents talk to each other via `SendMessage` and `CheckAgentResult`.
 
-<p align="center"><img src="docs/split-pane.svg" alt="Split-pane brainstorm" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/split-pane.svg" alt="Split-pane brainstorm" width="100%"></p>
 
 <p align="center"><sub>↑ coder and reviewer working the same branch. The reviewer sent a list of nits. The coder is already fixing them.</sub></p>
 
 ---
 
-<p align="center"><img src="docs/sec-perms.svg" alt="Permissions" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-perms.svg" alt="Permissions" width="100%"></p>
 
 ## Permissions
 
@@ -314,7 +314,7 @@ Switch anytime: `/permissions auto` / `/permissions plan`.
 
 ---
 
-<p align="center"><img src="docs/sec-bridges.svg" alt="Voice & Telegram" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-bridges.svg" alt="Voice & Telegram" width="100%"></p>
 
 ## Voice
 
@@ -334,7 +334,7 @@ Auto-starts next launch. Supports slash commands, vision, and voice from your ph
 
 ---
 
-<p align="center"><img src="docs/sec-memory.svg" alt="Memory & Checkpoints" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-memory.svg" alt="Memory & Checkpoints" width="100%"></p>
 
 ## Memory
 
@@ -366,7 +366,7 @@ Every agent turn can snapshot **conversation + files** into a checkpoint. Break 
 
 ---
 
-<p align="center"><img src="docs/sec-brainstorm.svg" alt="Brainstorm" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-brainstorm.svg" alt="Brainstorm" width="100%"></p>
 
 ## Brainstorm
 
@@ -384,7 +384,7 @@ Round 3 usually produces consensus. Round 5 produces a joint venture.
 
 ---
 
-<p align="center"><img src="docs/sec-ssj.svg" alt="SSJ Mode" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/sec-ssj.svg" alt="SSJ Mode" width="100%"></p>
 
 ## SSJ Developer Mode
 
@@ -407,7 +407,7 @@ Ten workflow shortcuts behind one keystroke. Refactor → review → test → co
 
 Because waiting should be fun.
 
-<p align="center"><img src="docs/spinners.svg" alt="Spinner messages" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/spinners.svg" alt="Spinner messages" width="100%"></p>
 
 <details>
 <summary><b>all 24 spinners</b></summary>
@@ -554,7 +554,7 @@ GPLv3. Fork it, modify it, redistribute it — but keep it open. Derivative work
 
 ---
 
-<p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Falcon/main/docs/divider.svg" alt="" width="100%"></p>
 
 <p align="center">
   <sub>▲ Built by <a href="https://github.com/KevRojo">KevRojo</a> · Named after the bird, not the reusable rocket · 2026</sub>
