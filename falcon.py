@@ -2631,9 +2631,134 @@ def cmd_gemini_chats(args: str, _state, config) -> bool:
 
 
 def cmd_kimi_chats(args: str, _state, config) -> bool:
-    """List recent Kimi.com conversations (PLACEHOLDER)."""
-    info("Kimi chat listing is coming soon! (Intercept ListConversations first)")
-    # TODO: Implement similarly to cmd_claude_chats once endpoint is known
+    """List and select Kimi.com chats.
+
+    /kimi_chats            — show last 20 chats (numbered)
+    /kimi_chats all        — show up to 200 chats
+    /kimi_chats use <N>    — switch to chat #N from the list
+    /kimi_chats use <id>   — switch to chat by id prefix
+    /kimi_chats new        — clear current chat (next message creates a new one)
+    """
+    import pathlib
+    import json as _json
+    from providers import _kimi_web_auth_path, _kimi_web_list_chats
+    from config import save_config
+
+    a = args.strip()
+
+    apath = pathlib.Path(_kimi_web_auth_path(config))
+
+    def _persist_kimi_chat(chat_id: str | None):
+        """Sync chat_id (and clear parent_id) into both config AND kimi_consumer.json.
+
+        Required because stream_kimi_web reads the harvested last_payload.chat_id
+        as a fallback and the parent_id only re-uses config when chat_ids match.
+        Leaving them out of sync causes the next stream to inherit a stale
+        parent_id from the OLD chat and break threading.
+        """
+        if chat_id:
+            config["kimi_web_chat_id"] = chat_id
+        else:
+            config.pop("kimi_web_chat_id", None)
+        config.pop("kimi_web_parent_id", None)
+        save_config(config)
+
+        try:
+            if apath.exists():
+                with open(apath, encoding="utf-8") as fh:
+                    blob = _json.load(fh)
+                lp = blob.setdefault("last_payload", {})
+                lp["chat_id"] = chat_id or ""
+                msg = lp.setdefault("message", {})
+                msg["parent_id"] = ""
+                # Reset blocks too so harvested user-text doesn't leak in
+                msg["blocks"] = [{"message_id": "", "text": {"content": ""}}]
+                with open(apath, "w", encoding="utf-8") as fh:
+                    _json.dump(blob, fh, indent=2, ensure_ascii=False)
+        except Exception as exc:
+            err(f"Warning: could not update {apath.name}: {exc}")
+
+    # /kimi_chats new — reset to a fresh chat
+    if a.lower() == "new":
+        _persist_kimi_chat(None)
+        ok("Kimi-web will create a new chat on the next message.")
+        return True
+
+    if not apath.exists():
+        err(f"No Kimi auth file at {apath}. Run /harvest first.")
+        return True
+
+    with open(apath, encoding="utf-8") as f:
+        auth_data = _json.load(f)
+
+    # Pagination — kimi gives a page_token; we fetch up to 200 in "all" mode.
+    limit = 200 if a.lower() == "all" else 20
+    chats = []
+    page_token = ""
+    try:
+        while len(chats) < limit:
+            data = _kimi_web_list_chats(auth_data, page_size=min(50, limit - len(chats)),
+                                        page_token=page_token)
+            batch = data.get("chats") or data.get("items") or []
+            if not batch:
+                break
+            chats.extend(batch)
+            page_token = data.get("next_page_token") or data.get("nextPageToken") or ""
+            if not page_token:
+                break
+    except Exception as e:
+        err(f"Failed to fetch chats: {e}. Cookies may be expired — run /harvest.")
+        return True
+
+    if not chats:
+        info("No chats found.")
+        return True
+
+    # /kimi_chats use <N or id-prefix>
+    if a.lower().startswith("use "):
+        selector = a[4:].strip()
+        chosen = None
+        if selector.isdigit():
+            idx = int(selector) - 1
+            if 0 <= idx < len(chats):
+                chosen = chats[idx]
+            else:
+                err(f"No chat #{selector} in list (only {len(chats)} shown).")
+                return True
+        else:
+            for c in chats:
+                cid = c.get("id") or c.get("chat_id") or ""
+                if cid.startswith(selector):
+                    chosen = c
+                    break
+            if not chosen:
+                err(f"No chat matching '{selector}'.")
+                return True
+
+        chat_id = chosen.get("id") or chosen.get("chat_id") or ""
+        name = chosen.get("name") or chosen.get("title") or "(untitled)"
+        _persist_kimi_chat(chat_id)
+        ok(f"Switched to: {clr(name, 'cyan')}  {clr(chat_id[:12], 'yellow')}")
+        return True
+
+    # Default: list chats
+    current = config.get("kimi_web_chat_id", "")
+    print(clr(f"\n  Kimi.com Chats ({len(chats)} shown):", "cyan", "bold"))
+    print(clr("  " + "-" * 70, "dim"))
+    for i, c in enumerate(chats, 1):
+        cid     = c.get("id") or c.get("chat_id") or ""
+        name    = c.get("name") or c.get("title") or "(untitled)"
+        updated = (c.get("updateTime") or c.get("createTime")
+                   or c.get("updated_at") or c.get("created_at") or "")[:16]
+        if len(name) > 52:
+            name = name[:49] + "..."
+        active = clr(" ◀", "green", "bold") if current and cid.startswith(current[:8]) else ""
+        num = clr(f"{i:>3}.", "dim")
+        print(f"  {num} {clr(cid[:12], 'yellow')}  {name}  {clr(updated, 'dim')}{active}")
+    print(clr("  " + "-" * 70, "dim"))
+    cur_display = current[:12] if current else "none (will create new)"
+    info(f"Current: {cur_display}  |  Switch: /kimi_chats use <#>  |  New: /kimi_chats new")
+
     return True
 
 

@@ -352,7 +352,7 @@ PROVIDERS: dict[str, dict] = {
         "base_url":   "https://api.kimi.com/coding/v1",
         "context_limit": 256000,
         "models": [
-            "kimi-for-coding", "kimi-k2.5", "kimi-latest",
+            "kimi-for-coding", "kimi-k2.6", "kimi-k2.5", "kimi-latest",
         ],
     },
     "kimi-code2": {
@@ -361,7 +361,7 @@ PROVIDERS: dict[str, dict] = {
         "base_url":   "https://api.kimi.com/coding/v1",
         "context_limit": 256000,
         "models": [
-            "kimi-for-coding", "kimi-k2.5", "kimi-latest",
+            "kimi-for-coding", "kimi-k2.6", "kimi-k2.5", "kimi-latest",
         ],
     },
     "kimi-code3": {
@@ -370,7 +370,7 @@ PROVIDERS: dict[str, dict] = {
         "base_url":   "https://api.kimi.com/coding/v1",
         "context_limit": 256000,
         "models": [
-            "kimi-for-coding", "kimi-k2.5", "kimi-latest",
+            "kimi-for-coding", "kimi-k2.6", "kimi-k2.5", "kimi-latest",
         ],
     },
     "moonshot": {
@@ -619,6 +619,43 @@ def _kimi_web_auth_path(config: dict) -> str:
         pathlib.Path.home() / ".falcon" / "kimi_consumer.json"
     )
     return p
+
+
+def _kimi_web_list_chats(auth_data: dict, page_size: int = 50,
+                         page_token: str = "", query: str = "") -> dict:
+    """List recent chats from kimi.com using harvested cookies/headers.
+
+    Reuses the auth blob saved by /harvest (cookies + x-msh-* + Bearer).
+    Endpoint is kimi.chat.v1.ChatService/ListChats (NOT the gateway /Chat one).
+    Returns the parsed JSON from the API or raises on HTTP error.
+    """
+    import requests as _req
+
+    s = _req.Session()
+    for c in auth_data.get("cookies", []):
+        s.cookies.set(c["name"], c["value"],
+                      domain=c.get("domain", ".kimi.com"),
+                      path=c.get("path", "/"))
+
+    # Reuse harvested headers, but override content-type for plain JSON
+    # (the harvested one is connect+json for the streaming /Chat endpoint).
+    base = auth_data.get("headers", {})
+    headers = {k: v for k, v in base.items() if k.lower() not in ("content-type",)}
+    headers["Content-Type"] = "application/json"
+    headers["Accept"] = "*/*"
+    headers["Origin"] = "https://www.kimi.com"
+    headers.setdefault("Referer", "https://www.kimi.com/chat/history")
+
+    body = {
+        "project_id": "",
+        "page_size":  page_size,
+        "page_token": page_token,
+        "query":      query,
+    }
+    url = "https://www.kimi.com/apiv2/kimi.chat.v1.ChatService/ListChats"
+    resp = s.post(url, headers=headers, json=body, timeout=20)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def _gemini_web_auth_path(config: dict) -> str:
@@ -1444,10 +1481,16 @@ def stream_gemini_web(
     headers["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8"
 
     # ── Streaming with Retries ──────────────────────────────────────────────
+    # Accumulate the FULL raw response per attempt and parse <tool_call> tags
+    # ONCE at the very end (same pattern as stream_kimi_web / stream_qwen_web).
+    # Per-chunk parsing is fragile in gemini-web: tags can arrive split across
+    # frames or come in a single blob, so end-of-response parsing is more robust.
+    raw_content = ""
     text = ""
     parser = WebToolParser(auto_wrap_json=True)
 
     for attempt in range(3):
+        raw_content = ""  # reset per attempt; previous attempt may have been incomplete
         # attempt 0: original try
         # attempt 1: same-thread retry (if attempt 0 was empty)
         # attempt 2: fresh-thread retry (clear IDs if attempt 1 was empty)
@@ -1561,11 +1604,9 @@ def stream_gemini_web(
                                 if candidate and isinstance(candidate, str) and len(candidate) > raw_text_len:
                                     diff = candidate[raw_text_len:]
                                     raw_text_len = len(candidate)
-                                    text += diff
-                                    display = parser.parse_chunk(diff)
-                                    if display: yield TextChunk(display)
+                                    raw_content += diff
                                     try:
-                                        if len(inner) > 4 and inner[4][0][0]: 
+                                        if len(inner) > 4 and inner[4][0][0]:
                                             config["gemini_web_rc_id"] = inner[4][0][0]
                                     except: pass
                             except: pass
@@ -1578,13 +1619,15 @@ def stream_gemini_web(
             return
 
         # Check if we got something
-        if text or parser.tool_calls:
+        if raw_content:
             break
 
-    remaining = parser.flush()
-    if remaining:
-        text += remaining
-        yield TextChunk(remaining)
+    # Parse the full response once — avoids tool_call tags split across chunks
+    if raw_content:
+        text = parser.parse_chunk(raw_content)
+        text += parser.flush()
+        if text:
+            yield TextChunk(text)
 
     if not text and not parser.tool_calls:
         yield AssistantTurn("[gemini-web: no response after retries]", [], 0, 0)
@@ -2916,7 +2959,15 @@ def stream_openai_compat(
 ) -> Generator:
     """Stream from any OpenAI-compatible API. Yields TextChunk, then AssistantTurn."""
     from openai import OpenAI
-    _is_kimi_code = detect_provider(model) in ("kimi-code", "kimi-code2", "kimi-code3")
+    # Detect kimi-code by base_url, NOT by model name. Reason: when invoked as
+    # `kimi-code/kimi-k2.5` (or k2.6, kimi-latest, etc.), `model` arrives here
+    # already stripped to the bare name, and detect_provider("kimi-k2.5") falls
+    # through to the generic "kimi" prefix → header omitted → 403.
+    # The /coding/v1 endpoint is unique to kimi-code regardless of model.
+    _is_kimi_code = (
+        "api.kimi.com/coding" in (base_url or "")
+        or detect_provider(model) in ("kimi-code", "kimi-code2", "kimi-code3")
+    )
     client_kwargs: dict = {"api_key": api_key or "dummy", "base_url": base_url}
     if _is_kimi_code:
         # Kimi Code API whitelists only known Coding Agents by User-Agent.
