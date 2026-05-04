@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "falcon-agent"
+version = "0.1.0"
+description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "KevRojo"}]
+keywords = [
+    "ai", "cli", "llm", "claude", "gemini", "nvidia", "openai",
+    "kimi", "deepseek", "qwen", "ollama", "agent", "tts", "voice",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Terminals",
+]
+dependencies = [
+    "anthropic>=0.40.0",
+    "openai>=1.30.0",
+    "httpx>=0.27.0",
+    "requests>=2.31.0",
+    "rich>=13.0.0",
+    "prompt_toolkit>=3.0.0",
+    "mempalace>=3.3.4",
+    "Flask>=3.1.3",
+]
+
+[project.optional-dependencies]
+voice = ["sounddevice"]
+gui = []
+
+[project.scripts]
+falcon = "falcon:main"
+
+[project.urls]
+Homepage = "https://github.com/KevRojo/Falcon"
+Repository = "https://github.com/KevRojo/Falcon"
+Issues = "https://github.com/KevRojo/Falcon/issues"
+
+# ── Build config ────────────────────────────────────────────────────────────
+# Fast-path: ship every top-level .py as a module + every subpackage with
+# its __init__.py. Cleaner restructure can come later.
+[tool.setuptools]
+py-modules = [
+    "agent",
+    "batch_api",
+    "claude_code_watcher",
+    "clipboard_utils",
+    "cloudsave",
+    "common",
+    "compaction",
+    "config",
+    "context",
+    "falcon",
+    "falcon_gui",
+    "input",
+    "license_manager",
+    # NOTE: skipping "memory" — there's a package memory/ that supersedes
+    # the legacy memory.py shim. Same import name; can't ship both.
+    "offload_helper",
+    "providers",
+    "skills",
+    "spinner",
+    "string_utils",
+    "subagent",
+    "tmux_offloader",
+    "tmux_tools",
+    "tool_registry",
+    "tools",
+    "webchat",
+    "webchat_server",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "backend*",
+    "checkpoint*",
+    "gui*",
+    "mcp*",
+    "memory*",
+    "multi_agent*",
+    "plugin*",
+    "skill*",
+    "task*",
+    "ui*",
+    "voice*",
+]
+exclude = ["tests*", "__pycache__*"]

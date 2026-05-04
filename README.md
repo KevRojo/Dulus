@@ -18,12 +18,18 @@ SET /sticky_input ON since the first run for the best experience!
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.10+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
+  <a href="https://pypi.org/project/falcon-agent/"><img src="https://img.shields.io/pypi/v/falcon-agent.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="pypi"/></a>
+  <a href="https://pypi.org/project/falcon-agent/"><img src="https://static.pepy.tech/badge/falcon-agent?style=flat-square" alt="downloads"/></a>
+  <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
   <img src="https://img.shields.io/badge/version-v1.01.20-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
   <img src="https://img.shields.io/badge/providers-11-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-27-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
+</p>
+
+<p align="center">
+  <code>pip install falcon-agent</code>
 </p>
 
 <p align="center"><img src="docs/divider.svg" alt="" width="100%"></p>
@@ -72,24 +78,36 @@ Falcon is the first one meeting multiples models at the same time working for th
 
 
 
+### One-liner
+
 ```bash
-# clone
+pip install falcon-agent && falcon
+```
+
+That's it. Falcon prompts you for a key on first run.
+
+### From source (hacking on Falcon itself)
+
+```bash
 git clone https://github.com/KevRojo/Falcon && cd Falcon
-
-# install (pick one)
-uv tool install .                    # global, recommended
-pip install -r requirements.txt      # or just run directly
-
-# flip a key
-export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY, GEMINI_API_KEY, ...
-
-# fly
+pip install -e .          # editable install
 falcon
 ```
 
-**Zero API keys?** Use Ollama locally:
+### Pick a model
 
 ```bash
+export ANTHROPIC_API_KEY=sk-ant-...     # or OPENAI_API_KEY, GEMINI_API_KEY, ...
+falcon
+```
+
+**Zero API keys?** Two free paths:
+
+```bash
+# 1. NVIDIA NIM — 14 models free, 40 RPM each, no card
+falcon --model nvidia-web/deepseek-ai/deepseek-r1
+
+# 2. Fully offline via Ollama
 ollama pull qwen2.5-coder
 falcon --model ollama/qwen2.5-coder
 ```
