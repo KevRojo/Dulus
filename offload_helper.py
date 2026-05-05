@@ -15,7 +15,7 @@ class TmuxJob:
     
     def __init__(self, command: str):
         self.command = command
-        self.session = f"falcon_{uuid.uuid4().hex[:8]}"
+        self.session = f"dulus_{uuid.uuid4().hex[:8]}"
         self._created = False
         self._start_time = None
         
@@ -122,7 +122,7 @@ def offload_and_wait(command: str, timeout: Optional[float] = None) -> Dict[str,
 
 
 def list_offloaded():
-    """Lista todas las sesiones falcon activas"""
+    """Lista todas las sesiones dulus activas"""
     result = subprocess.run(
         ["tmux", "list-sessions"],
         capture_output=True,
@@ -134,7 +134,7 @@ def list_offloaded():
     
     sessions = []
     for line in result.stdout.strip().split('\n'):
-        if line.startswith('falcon_'):
+        if line.startswith('dulus_'):
             sessions.append(line.split(':')[0])
     return sessions
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
         # Demo 3: Listar
         print("\n3️⃣ Sesiones activas:")
         sessions = list_offloaded()
-        print(f"   {len(sessions)} sesiones falcon activas")
+        print(f"   {len(sessions)} sesiones dulus activas")
         
         print("\n✅ Todo funcionando!")
     else:

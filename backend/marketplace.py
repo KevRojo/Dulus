@@ -19,7 +19,7 @@ DEFAULT_REGISTRY: list[dict[str, Any]] = [
         "id": "mp-themes",
         "name": "Theme Switcher",
         "version": "1.0.0",
-        "author": "Falcon Team",
+        "author": "Dulus Team",
         "description": "Switch between Cyberpunk, Sakura, Sunset and Gold themes in real-time.",
         "tags": ["ui", "themes", "dashboard"],
         "downloads": 420,
@@ -55,7 +55,7 @@ DEFAULT_REGISTRY: list[dict[str, Any]] = [
         "id": "mp-mempalace-bridge",
         "name": "MemPalace Bridge",
         "version": "0.5.0",
-        "author": "Falcon Team",
+        "author": "Dulus Team",
         "description": "Connect Smart Context to MemPalace for infinite agent memory.",
         "tags": ["memory", "integration", "mempalace"],
         "downloads": 69,
@@ -133,7 +133,7 @@ def get_stats() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print("🛒 Falcon Plugin Marketplace v0.1")
+    print("🛒 Dulus Plugin Marketplace v0.1")
     print("=" * 40)
     for p in load_registry():
         status = "✅" if p["installed"] else "⬜"

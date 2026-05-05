@@ -1,8 +1,8 @@
-"""MemPalace Bridge (#28) — connects Falcon Context Manager with real MemPalace memories.
+"""MemPalace Bridge (#28) — connects Dulus Context Manager with real MemPalace memories.
 
 Design: The bridge reads from a JSON cache maintained by the AI runtime.
 When the AI has tool access, it refreshes the cache with real memories.
-When running standalone (server.py, falcon.py), it reads the cached data.
+When running standalone (server.py, dulus.py), it reads the cached data.
 
 This avoids requiring tool-injected globals inside Python subprocesses.
 """
@@ -12,8 +12,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-FALCON_DIR = Path(__file__).parent.parent
-DATA_DIR = FALCON_DIR / "data"
+DULUS_DIR = Path(__file__).parent.parent
+DATA_DIR = DULUS_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 MEMCACHE_FILE = DATA_DIR / "mempalace_cache.json"
 MEMCACHE_TTL_SECONDS = 120  # Refresh every 2 minutes

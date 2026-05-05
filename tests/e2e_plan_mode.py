@@ -62,7 +62,7 @@ def test_plan_mode():
     print("STEP 3: Enter plan mode")
     print(SEP)
 
-    plans_dir = tmpdir / ".falcon" / "plans"
+    plans_dir = tmpdir / ".dulus" / "plans"
     plans_dir.mkdir(parents=True, exist_ok=True)
     plan_path = plans_dir / "plantest.md"
     plan_path.write_text("# Plan: Add WebSocket support\n\n", encoding="utf-8")

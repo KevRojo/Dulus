@@ -28,13 +28,13 @@ def search_session_history(query: str, max_results: int = 5) -> list[dict]:
     if not all_sessions and sys.platform == "linux" and Path("/mnt/c").exists():
         # Heuristic: try common Windows user paths
         # This is a bit of a hack but helpful for users running in WSL
-        # who didn't symlink their .falcon folder yet.
+        # who didn't symlink their .dulus folder yet.
         try:
-            # Try to find a .falcon directory in any user folder on C:
+            # Try to find a .dulus directory in any user folder on C:
             c_users = Path("/mnt/c/Users")
             for udir in c_users.iterdir():
                 if not udir.is_dir(): continue
-                win_hist = udir / ".falcon" / "sessions" / "history.json"
+                win_hist = udir / ".dulus" / "sessions" / "history.json"
                 if win_hist.exists():
                     data = json.loads(win_hist.read_text(encoding="utf-8", errors="replace"))
                     all_sessions.extend(data.get("sessions", []))

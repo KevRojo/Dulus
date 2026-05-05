@@ -40,7 +40,7 @@
   </g>
 
   <g font-size="11" letter-spacing="2.2" fill="#8a8275">
-    <text x="30" y="34">SYS://FALCON.CORE</text>
+    <text x="30" y="34">SYS://DULUS.CORE</text>
     <text x="1570" y="34" text-anchor="end">BUILD v1.01.20 · STABLE</text>
     <text x="30" y="622">MULTIPROVIDER · MCP · PLUGINS · AGENTS · VOICE</text>
     <text x="1570" y="622" text-anchor="end" fill="#ff6b1f">◉ ONLINE</text>
@@ -67,7 +67,7 @@
   <g transform="translate(450,555)">
     <rect x="0" y="-22" width="340" height="34" fill="#ff6b1f" fill-opacity="0.06" stroke="#ff6b1f" stroke-opacity="0.45"></rect>
     <text x="14" y="0" font-size="14" fill="#ff6b1f">$</text>
-    <text x="30" y="0" font-size="14" fill="#f4ede4">pip install falcon &amp;&amp; falcon</text>
+    <text x="30" y="0" font-size="14" fill="#f4ede4">pip install dulus &amp;&amp; dulus</text>
     <rect x="308" y="-14" width="9" height="16" fill="#ff6b1f"></rect>
   </g>
 

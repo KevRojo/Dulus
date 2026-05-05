@@ -1,4 +1,4 @@
-"""Settings popup for Falcon GUI."""
+"""Settings popup for Dulus GUI."""
 from __future__ import annotations
 
 import os

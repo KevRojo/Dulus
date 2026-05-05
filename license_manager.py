@@ -1,4 +1,4 @@
-"""Falcon License Manager — Offline-first key validation + feature gating.
+"""Dulus License Manager — Offline-first key validation + feature gating.
 
 Tiers:
   FREE      No key required. Limited tool calls, local providers only.
@@ -6,9 +6,9 @@ Tiers:
   ENTERPRISE $50/mo. Team features + admin dashboard + SSO (future).
 
 Key format (offline):
-  FALCON-<base64(json_payload + ":" + hmac_signature)>
+  DULUS-<base64(json_payload + ":" + hmac_signature)>
 
-The secret lives in ~/.falcon/.license_secret (never commit this file).
+The secret lives in ~/.dulus/.license_secret (never commit this file).
 If the secret file is missing we fall back to a hardcoded dev-key so
 Kev can develop without friction, but distribution builds MUST bundle
 a real secret via CI env var or PyInstaller --add-data.
@@ -27,18 +27,18 @@ from typing import Optional
 
 # ── Secret resolution ───────────────────────────────────────────────────────
 # 1. CI / build-time env var   (safest for releases)
-# 2. ~/.falcon/.license_secret (Kev's local dev key)
+# 2. ~/.dulus/.license_secret (Kev's local dev key)
 # 3. Fallback dev secret       (NEVER use in production builds)
-_LICENSE_SECRET = os.environ.get("FALCON_LICENSE_SECRET", "")
+_LICENSE_SECRET = os.environ.get("DULUS_LICENSE_SECRET", "")
 if not _LICENSE_SECRET:
-    _secret_path = Path.home() / ".falcon" / ".license_secret"
+    _secret_path = Path.home() / ".dulus" / ".license_secret"
     if _secret_path.exists():
         _LICENSE_SECRET = _secret_path.read_text().strip()
     else:
-        _LICENSE_SECRET = "falcon-dev-secret-do-not-distribute"
+        _LICENSE_SECRET = "dulus-dev-secret-do-not-distribute"
         import warnings
         warnings.warn(
-            "FALCON_LICENSE_SECRET not set — using hardcoded DEV secret. "
+            "DULUS_LICENSE_SECRET not set — using hardcoded DEV secret. "
             "Generated keys will be trivially forgeable in production!",
             RuntimeWarning,
             stacklevel=2,
@@ -52,7 +52,7 @@ class LicenseTier:
 
 
 class LicenseManager:
-    """Parse and validate a Falcon license key."""
+    """Parse and validate a Dulus license key."""
 
     def __init__(self, key: Optional[str] = None):
         self.raw_key = key or ""
@@ -68,7 +68,7 @@ class LicenseManager:
     # ── validation core ─────────────────────────────────────────────────────
 
     def _validate(self) -> None:
-        if not self.raw_key.startswith("FALCON-"):
+        if not self.raw_key.startswith("DULUS-"):
             self.error = "Invalid key prefix"
             return
 
@@ -158,7 +158,7 @@ class LicenseManager:
         if self.error:
             return f"[LICENSE EXPIRED / INVALID] {self.error} — running in FREE mode"
         if self.tier == LicenseTier.FREE:
-            return "[FREE] Limited features. Upgrade: https://getfalcon.dev/pro"
+            return "[FREE] Limited features. Upgrade: https://getdulus.dev/pro"
         return f"[{self.tier.upper()}] Valid until {time.strftime('%Y-%m-%d', time.localtime(self.expiry))}"
 
 
@@ -174,12 +174,12 @@ def _generate_key(tier: str, days: int, secret: str) -> str:
     }, separators=(",", ":")).encode()
     sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()[:24]
     token = base64.urlsafe_b64encode(payload + b":" + sig.encode()).decode().rstrip("=")
-    return f"FALCON-{token}"
+    return f"DULUS-{token}"
 
 
 if __name__ == "__main__":
     import argparse
-    ap = argparse.ArgumentParser(description="Falcon License Key Generator (Kev only)")
+    ap = argparse.ArgumentParser(description="Dulus License Key Generator (Kev only)")
     ap.add_argument("tier", choices=["free", "pro", "enterprise"])
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--secret", default=_LICENSE_SECRET)

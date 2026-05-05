@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Falcon — Task Dashboard</title>
+  <title>Dulus — Task Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -1656,7 +1656,7 @@
   <nav>
     <a href="/" class="nav-logo">
       <div class="mark">▲</div>
-      <span class="name">FALCON</span>
+      <span class="name">DULUS</span>
     </a>
     <div class="live-badge" id="live-badge"><span class="pulse"></span>Live</div>
     <div class="theme-selector">
@@ -1897,7 +1897,7 @@
       </div>
       <div class="modal-field">
         <label>Owner</label>
-        <input type="text" id="tm-owner" placeholder="Falcon">
+        <input type="text" id="tm-owner" placeholder="Dulus">
       </div>
       <div class="modal-field">
         <label>Status</label>
@@ -2248,9 +2248,9 @@
 
       // fallback properly allows 0
       const tokens = (serverTokens !== undefined && serverTokens !== null) ? serverTokens : estimateTokens(JSON.stringify({
-        session: { mode: 'proactive', agent: 'Falcon', user: 'KevRojo' },
+        session: { mode: 'proactive', agent: 'Dulus', user: 'KevRojo' },
         tasks: active.map(t => ({ id: t.id, subject: t.subject, status: t.status, owner: t.owner })),
-        agents: [{ name: 'Falcon', role: 'primary', status: 'active' }, { name: 'kimi-code', role: 'coder', status: 'idle' }, { name: 'kimi-code3', role: 'coder', status: 'idle' }]
+        agents: [{ name: 'Dulus', role: 'primary', status: 'active' }, { name: 'kimi-code', role: 'coder', status: 'idle' }, { name: 'kimi-code3', role: 'coder', status: 'idle' }]
       }));
       const currentMax = serverMaxTokens;
       const pct = Math.min(tokens / currentMax, 1);
@@ -2441,7 +2441,7 @@
 
     /* ===== THEME SWITCHER ===== */
     const THEME_COLORS = {
-      falcon: '#ff6b1f',
+      dulus: '#ff6b1f',
       midnight: '#00BCD4',
       ocean: '#38bdf8',
       dracula: '#bd93f9',
@@ -2451,7 +2451,7 @@
       matrix: '#00ff41'
     };
 
-    let currentTheme = localStorage.getItem('falcon-theme') || 'falcon';
+    let currentTheme = localStorage.getItem('dulus-theme') || 'dulus';
 
     function ensureThemeStyleTag() {
       let tag = document.getElementById('dynamic-theme');
@@ -2470,7 +2470,7 @@
         const css = await res.text();
         ensureThemeStyleTag().textContent = css;
         currentTheme = name;
-        localStorage.setItem('falcon-theme', name);
+        localStorage.setItem('dulus-theme', name);
         renderThemeCards();
       } catch (e) {
         console.warn('Theme apply failed:', e);
@@ -2595,10 +2595,10 @@
     }
 
     function showToast(msg) {
-      let toast = document.getElementById('falcon-toast');
+      let toast = document.getElementById('dulus-toast');
       if (!toast) {
         toast = document.createElement('div');
-        toast.id = 'falcon-toast';
+        toast.id = 'dulus-toast';
         toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:200;background:var(--bg3);color:var(--ink);border:1px solid var(--accent);padding:10px 16px;font-size:12px;font-family:var(--mono);border-radius:var(--radius);opacity:0;transition:opacity .3s;pointer-events:none;';
         document.body.appendChild(toast);
       }
@@ -2670,7 +2670,7 @@
     }
     async function submitTask() {
       const subject = document.getElementById('tm-subject').value.trim();
-      const owner = document.getElementById('tm-owner').value.trim() || 'Falcon';
+      const owner = document.getElementById('tm-owner').value.trim() || 'Dulus';
       const status = document.getElementById('tm-status').value;
       if (!subject) { showToast('Subject is required'); return; }
       try {

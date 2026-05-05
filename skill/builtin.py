@@ -1,4 +1,4 @@
-"""Built-in skills that ship with falcon."""
+"""Built-in skills that ship with dulus."""
 from __future__ import annotations
 
 from .loader import SkillDef, register_builtin_skill

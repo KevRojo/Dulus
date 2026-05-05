@@ -238,7 +238,7 @@ def generate_plugin_files(plugin_dir: Path, safe_name: str, config: dict) -> boo
     analysis_report_str = "\n".join(analysis_report)
 
     prompt = f"""
-Adapt the Python repository "{safe_name}" as a Falcon plugin.
+Adapt the Python repository "{safe_name}" as a Dulus plugin.
 
 {analysis_report_str}
 
@@ -246,7 +246,7 @@ Adapt the Python repository "{safe_name}" as a Falcon plugin.
 
 GOAL: Generate `plugin.json`, `plugin_tool.py`, and `ADAPTATION_GUIDE.md`.
 
->HINT: Check existing plugins in ~/.falcon/plugins/ for working examples. You have WebSearch if needed.<
+>HINT: Check existing plugins in ~/.dulus/plugins/ for working examples. You have WebSearch if needed.<
 
 GUIDELINES FOR plugin_tool.py:
 
@@ -378,9 +378,9 @@ Respond with the delimited format:
         reasoning_text = ""
 
         generation_system = (
-            "You are a plugin adapter for the Falcon AI agent system. "
-            "Your job is to generate plugin_tool.py and plugin.json that make an existing Python repo usable as a Falcon tool.\n\n"
-            "IMPORTANT: You are generating code, NOT running inside Falcon. Do NOT attempt to validate or test by calling Falcon system tools. "
+            "You are a plugin adapter for the Dulus AI agent system. "
+            "Your job is to generate plugin_tool.py and plugin.json that make an existing Python repo usable as a Dulus tool.\n\n"
+            "IMPORTANT: You are generating code, NOT running inside Dulus. Do NOT attempt to validate or test by calling Dulus system tools. "
             "Tool registration happens automatically later via /plugin reload. Just write the files correctly.\n\n"
             "ABSOLUTE RULES — violating these causes immediate failure:\n"
             "- TOOL_DEFS must be a list of ToolDef objects: ToolDef(name, schema, func)\n"
@@ -450,10 +450,10 @@ Respond with the delimited format:
         if not data:
             raise ValueError("Could not parse AI response — no file blocks found.")
 
-        # ── Save generation as a Falcon session JSON ──────────────────────
+        # ── Save generation as a Dulus session JSON ──────────────────────
         # The fixer agent (in _attempt_fix) seeds its state.messages from this
         # file, so it picks up exactly where the generator left off — same
-        # format Falcon uses for /save and /load. Persistent + user-inspectable.
+        # format Dulus uses for /save and /load. Persistent + user-inspectable.
         try:
             import uuid as _uuid
             from datetime import datetime as _dt
@@ -556,7 +556,7 @@ Respond with the delimited format:
                 scope="user",  # GLOBAL - available from any directory
                 source="model",
             )
-            save_memory(mem, scope="user")  # Save to ~/.falcon/memory/
+            save_memory(mem, scope="user")  # Save to ~/.dulus/memory/
         except Exception as e:
             warn(f"Could not save persistent memory for plugin: {e}")
         
@@ -575,7 +575,7 @@ Respond with the delimited format:
                     scope="user",  # GLOBAL - available from any directory
                     source="system",
                 )
-                save_memory(tool_mem, scope="user")  # Save to ~/.falcon/memory/
+                save_memory(tool_mem, scope="user")  # Save to ~/.dulus/memory/
                 info(f"Saved {safe_name}_plugin_tools to permanent memory")
         except Exception as e:
             warn(f"Could not save plugin tools source to memory: {e}")
@@ -927,7 +927,7 @@ def _attempt_fresh_start(plugin_dir: Path, safe_name: str,
 
     error_history = "\n".join(f"  - Attempt {i+1}: {e}" for i, e in enumerate(accumulated_errors))
 
-    rewrite_message = f"""Completely rewrite `plugin_tool.py` for the Falcon plugin `{safe_name}` from scratch.
+    rewrite_message = f"""Completely rewrite `plugin_tool.py` for the Dulus plugin `{safe_name}` from scratch.
 
 PLUGIN DIR: {plugin_dir}
 
@@ -943,7 +943,7 @@ STEPS:
 1. Read the plugin source files in `{plugin_dir}` to understand the real API.
 2. Use Bash to test imports: `python -c "import <pkg>; print(dir(<pkg>))"` (cwd={plugin_dir}).
 3. Write a completely fresh `{plugin_dir}/plugin_tool.py` that avoids ALL the errors above.
-4. Test with Bash — use a MockToolDef since tool_registry is only available at Falcon runtime.
+4. Test with Bash — use a MockToolDef since tool_registry is only available at Dulus runtime.
 5. Verify: `python -c "import ast; ast.parse(open(r'{plugin_dir}/plugin_tool.py').read())"`.
 
 RULES (non-negotiable):
@@ -958,7 +958,7 @@ RULES (non-negotiable):
 
     # Fresh start always creates new agent - full system prompt needed
     system = (
-        f"You are an AI coding assistant helping write a Falcon plugin adapter. "
+        f"You are an AI coding assistant helping write a Dulus plugin adapter. "
         f"Your task: write plugin_tool.py and plugin.json in {plugin_dir}. "
         f"\n\n"
         f"AVAILABLE TOOLS: Read, Write, Edit, Bash, Grep, WebSearch, MemorySearch. "
@@ -1011,7 +1011,7 @@ def _attempt_fix(plugin_dir: Path, safe_name: str, task_title: str,
                  state=None, generation_context: str = "") -> tuple[bool, Any, bool]:
     """
     Run a full tool-enabled agent turn to fix a failing task.
-    The agent has Read/Write/Edit/Bash/Grep/WebSearch — same as normal Falcon.
+    The agent has Read/Write/Edit/Bash/Grep/WebSearch — same as normal Dulus.
     Reuses existing state if provided (for multi-attempt fixes), otherwise creates new state.
     Returns (success, state) so state can be reused for next attempt.
     
@@ -1116,7 +1116,7 @@ Example: `WebSearch(query="python {safe_name} {task_title.replace(' ', ' ').spli
     # a no-op fallback for older callers that still pass it.
     gen_context_hint = ""
 
-    fix_message = f"""Fix a failing verification task in the Falcon plugin `{safe_name}`.
+    fix_message = f"""Fix a failing verification task in the Dulus plugin `{safe_name}`.
 
 PLUGIN DIR: {plugin_dir}
 {context_hint}
@@ -1154,7 +1154,7 @@ When done, output a one-line summary of what you changed.
 
     # Fresh state per task. Seed messages from the generator's session JSON
     # so the fixer continues the same conversation — same effect as /load on
-    # a normal Falcon session, but inline. Falls back to empty if the JSON
+    # a normal Dulus session, but inline. Falls back to empty if the JSON
     # is missing (older plugins, or generation failed to save it).
     state = _agent.AgentState()
     gen_session_path = plugin_dir / "_generation_session.json"
@@ -1180,9 +1180,9 @@ When done, output a one-line summary of what you changed.
     )
 
     # DEBUG MODE system prompt - focused on fixing broken code
-    # Do NOT use build_system_prompt - it confuses the agent about being "inside Falcon"
+    # Do NOT use build_system_prompt - it confuses the agent about being "inside Dulus"
     system = (
-        f"You are an AI coding assistant fixing a broken Falcon plugin. "
+        f"You are an AI coding assistant fixing a broken Dulus plugin. "
         f"Your task: Fix the code in {plugin_dir}/plugin_tool.py\n"
         f"\n"
         f"{_continuity_note}"

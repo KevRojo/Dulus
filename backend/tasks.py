@@ -11,9 +11,9 @@ TASKS_FILE = DATA_DIR / "tasks.json"
 DEFAULT_TASKS = [
     {
         "id": "T-001",
-        "subject": "Setup Falcon Backend",
+        "subject": "Setup Dulus Backend",
         "status": "completed",
-        "owner": "Falcon",
+        "owner": "Dulus",
         "created_at": "2026-04-26",
         "updated_at": "2026-04-26",
         "metadata": {
@@ -28,7 +28,7 @@ DEFAULT_TASKS = [
         "id": "T-002",
         "subject": "Smart Context Manager (#23)",
         "status": "completed",
-        "owner": "Falcon",
+        "owner": "Dulus",
         "created_at": "2026-04-26",
         "updated_at": "2026-04-26",
         "metadata": {
@@ -43,7 +43,7 @@ DEFAULT_TASKS = [
         "id": "T-003",
         "subject": "Plugin System",
         "status": "completed",
-        "owner": "Falcon",
+        "owner": "Dulus",
         "created_at": "2026-04-26",
         "updated_at": "2026-04-26",
         "metadata": {
@@ -103,7 +103,7 @@ DEFAULT_TASKS = [
         "id": "T-007",
         "subject": "MemPalace Integration",
         "status": "completed",
-        "owner": "Falcon",
+        "owner": "Dulus",
         "created_at": "2026-04-26",
         "updated_at": "2026-04-26",
         "metadata": {
@@ -148,7 +148,7 @@ DEFAULT_TASKS = [
         "id": "T-010",
         "subject": "Multi-Agent Mesa Redonda",
         "status": "in_progress",
-        "owner": "Falcon",
+        "owner": "Dulus",
         "created_at": "2026-04-26",
         "updated_at": "2026-04-26",
         "metadata": {

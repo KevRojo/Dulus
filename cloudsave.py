@@ -1,12 +1,12 @@
 """
-Cloud sync for falcon sessions via GitHub Gist.
+Cloud sync for dulus sessions via GitHub Gist.
 
 Supported provider: GitHub Gist
   - No extra cloud account needed beyond a GitHub Personal Access Token
   - Sessions stored as private Gists (JSON), browsable in GitHub UI
   - Zero extra dependencies (uses urllib from stdlib)
 
-Config keys (stored in ~/.falcon/config.json):
+Config keys (stored in ~/.dulus/config.json):
   gist_token      — GitHub Personal Access Token (needs 'gist' scope)
   cloudsave_auto  — bool: auto-upload on /exit
   cloudsave_last_gist_id — last uploaded gist ID (for in-place update)
@@ -17,7 +17,7 @@ import urllib.request
 import urllib.error
 from datetime import datetime
 
-GIST_TAG = "[falcon]"
+GIST_TAG = "[dulus]"
 _API = "https://api.github.com"
 
 
@@ -82,7 +82,7 @@ def upload_session(
     """
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     desc = f"{GIST_TAG} {description or ts}"
-    filename = f"falcon_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    filename = f"dulus_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     content = json.dumps(session_data, indent=2, default=str)
 
     body = {
@@ -103,7 +103,7 @@ def upload_session(
 
 def list_sessions(token: str, max_results: int = 20) -> tuple[list[dict], str | None]:
     """
-    List Gists tagged as falcon sessions.
+    List Gists tagged as dulus sessions.
     Returns (list of {id, description, updated_at, url}), error).
     """
     result, err = _request_safe("GET", "/gists?per_page=100", token)

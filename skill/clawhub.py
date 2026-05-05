@@ -1,4 +1,4 @@
-"""ClawHub + local Anthropic skill importer for Falcon.
+"""ClawHub + local Anthropic skill importer for Dulus.
 
 Sources:
   - LOCAL      : ~/.claude/plugins/marketplaces/claude-plugins-official/  (Anthropic, on-disk)
@@ -16,7 +16,7 @@ from typing import Optional
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 
-FALCON_SKILLS_DIR = Path.home() / ".falcon" / "skills"
+DULUS_SKILLS_DIR = Path.home() / ".dulus" / "skills"
 ANTHROPIC_PLUGINS = (
     Path.home() / ".claude" / "plugins" / "marketplaces" / "claude-plugins-official"
 )
@@ -123,7 +123,7 @@ def get_local(slug: str) -> Optional[dict]:
 
 
 def install_local(slug: str) -> tuple[bool, str]:
-    """Copy a local Anthropic skill (SKILL.md + all support files) into ~/.falcon/skills/<name>/"""
+    """Copy a local Anthropic skill (SKILL.md + all support files) into ~/.dulus/skills/<name>/"""
     import shutil
     entry = get_local(slug)
     if not entry:
@@ -131,7 +131,7 @@ def install_local(slug: str) -> tuple[bool, str]:
 
     skill_dir = Path(entry["path"]).parent  # dir containing SKILL.md + support files
     name = entry["skill"]
-    dest_dir = FALCON_SKILLS_DIR / name
+    dest_dir = DULUS_SKILLS_DIR / name
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     # Copy all files from the skill directory
@@ -144,12 +144,12 @@ def install_local(slug: str) -> tuple[bool, str]:
             shutil.copy2(src, dst)
             copied.append(str(rel))
 
-    # Rewrite SKILL.md with Falcon frontmatter prepended
+    # Rewrite SKILL.md with Dulus frontmatter prepended
     skill_md = dest_dir / "SKILL.md"
     if skill_md.exists():
         raw = skill_md.read_text(encoding="utf-8")
         body = _strip_frontmatter(raw)
-        skill_md.write_text(_falcon_frontmatter(entry) + body, encoding="utf-8")
+        skill_md.write_text(_dulus_frontmatter(entry) + body, encoding="utf-8")
 
     return True, f"Installed '{name}' → {dest_dir}  ({len(copied)} files: {', '.join(copied[:5])}{'...' if len(copied)>5 else ''})"
 
@@ -166,7 +166,7 @@ def search_clawhub(query: str, limit: int = 10) -> list[dict]:
 
 
 def install_clawhub(slug: str) -> tuple[bool, str]:
-    """Download a skill from ClawHub by slug and save to ~/.falcon/skills/.
+    """Download a skill from ClawHub by slug and save to ~/.dulus/skills/.
     TODO: fill in real endpoint.
     """
     # PLACEHOLDER
@@ -176,14 +176,14 @@ def install_clawhub(slug: str) -> tuple[bool, str]:
 # ── Installed skills ───────────────────────────────────────────────────────
 
 def list_installed(query: Optional[str] = None) -> list[dict]:
-    """Return skills already saved in ~/.falcon/skills/."""
-    FALCON_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+    """Return skills already saved in ~/.dulus/skills/."""
+    DULUS_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
     skills = []
     seen = set()
     q = query.lower() if query else None
 
     # New format: subdirs with SKILL.md
-    for f in sorted(FALCON_SKILLS_DIR.glob("*/SKILL.md")):
+    for f in sorted(DULUS_SKILLS_DIR.glob("*/SKILL.md")):
         name = f.parent.name
         meta = _parse_frontmatter(f.read_text(encoding="utf-8"))
         desc = meta.get("description", "")
@@ -202,7 +202,7 @@ def list_installed(query: Optional[str] = None) -> list[dict]:
         seen.add(name)
 
     # Old format: flat .md files
-    for f in sorted(FALCON_SKILLS_DIR.glob("*.md")):
+    for f in sorted(DULUS_SKILLS_DIR.glob("*.md")):
         name = f.stem
         if name not in seen:
             meta = _parse_frontmatter(f.read_text(encoding="utf-8"))
@@ -224,17 +224,17 @@ def list_installed(query: Optional[str] = None) -> list[dict]:
 def read_skill(name: str) -> Optional[str]:
     """Return the body (no frontmatter) of an installed skill."""
     # New format: subdirectory with SKILL.md
-    subdir = FALCON_SKILLS_DIR / name / "SKILL.md"
+    subdir = DULUS_SKILLS_DIR / name / "SKILL.md"
     if subdir.exists():
         raw = subdir.read_text(encoding="utf-8")
         return _strip_frontmatter(raw)
     # Old format: flat .md file
-    path = FALCON_SKILLS_DIR / f"{name}.md"
+    path = DULUS_SKILLS_DIR / f"{name}.md"
     if path.exists():
         raw = path.read_text(encoding="utf-8")
         return _strip_frontmatter(raw)
     # Fuzzy match
-    matches = list(FALCON_SKILLS_DIR.glob(f"*{name}*/SKILL.md")) + list(FALCON_SKILLS_DIR.glob(f"*{name}*.md"))
+    matches = list(DULUS_SKILLS_DIR.glob(f"*{name}*/SKILL.md")) + list(DULUS_SKILLS_DIR.glob(f"*{name}*.md"))
     if not matches:
         return None
     raw = matches[0].read_text(encoding="utf-8")
@@ -259,7 +259,7 @@ def _strip_frontmatter(text: str) -> str:
     return re.sub(r"^---\n.*?\n---\n?", "", text, count=1, flags=re.DOTALL).strip()
 
 
-def _falcon_frontmatter(entry: dict) -> str:
+def _dulus_frontmatter(entry: dict) -> str:
     return (
         f"---\n"
         f"name: {entry['skill']}\n"

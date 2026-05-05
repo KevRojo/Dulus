@@ -1,9 +1,9 @@
-"""Configuration management for Falcon (multi-provider)."""
+"""Configuration management for Dulus (multi-provider)."""
 import os
 import json
 from pathlib import Path
 
-CONFIG_DIR        = Path.home() / ".falcon"
+CONFIG_DIR        = Path.home() / ".dulus"
 CONFIG_FILE       = CONFIG_DIR  / "config.json"
 HISTORY_FILE      = CONFIG_DIR  / "input_history.txt"
 SESSIONS_DIR      = CONFIG_DIR  / "sessions"
@@ -29,7 +29,7 @@ DEFAULTS = {
     "adapter_max_fix_attempts": 20,  # max fix attempts per task in autoadapter worker
     "session_limit_daily":   10,    # max sessions kept per day in daily/
     "session_limit_history": 200,  # max sessions kept in history.json
-    "license_key":          "",    # Falcon license key (PRO/ENTERPRISE)
+    "license_key":          "",    # Dulus license key (PRO/ENTERPRISE)
     # Shell configuration (Windows only)
     # Valid types: "auto" (detects gitbash/wsl), "gitbash", "wsl", "powershell", "cmd", "custom"
     # For "custom", you MUST provide the full path to the shell executable
@@ -74,7 +74,7 @@ DEFAULTS = {
 
 
 # ── Simple secret encryption (XOR + base64) — no external deps ────────────
-_SECRET_KEY = os.environ.get("FALCON_SECRET", "falcon-default-key")
+_SECRET_KEY = os.environ.get("DULUS_SECRET", "dulus-default-key")
 
 def _encrypt(value: str) -> str:
     """Encrypt a string with XOR + base64."""

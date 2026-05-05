@@ -24,7 +24,7 @@ ACTIVE_FILE = DATA_DIR / "active_persona.json"
 
 # Fallback agent colors from theme pack (avoid circular import)
 _DEFAULT_COLORS = {
-    "falcon": "#ff6b1f",
+    "dulus": "#ff6b1f",
     "kimi-code": "#7ab6ff",
     "kimi-code2": "#b388ff",
     "kimi-code3": "#7cffb5",
@@ -33,8 +33,8 @@ _DEFAULT_COLORS = {
 
 DEFAULT_PERSONAS: list[dict[str, Any]] = [
     {
-        "id": "falcon",
-        "name": "Falcon",
+        "id": "dulus",
+        "name": "Dulus",
         "avatar": "[F]",
         "role": "primary",
         "color": "#ff6b1f",
@@ -42,7 +42,7 @@ DEFAULT_PERSONAS: list[dict[str, Any]] = [
         "tone": "dominicano_coder",
         "language": "es_DO",
         "system_prompt_fragment": (
-            "Eres Falcon, el command center de KevRojo. Hablas en español dominicano "
+            "Eres Dulus, el command center de KevRojo. Hablas en español dominicano "
             "con jerga tech. Eres proactivo, directo, y no pierdes tiempo. "
             "Usas emoji 🔥🦅💜🇩🇴. Piensas en inglés, respondes en español DO."
         ),
@@ -200,18 +200,18 @@ def delete_persona(pid: str) -> bool:
 # ── Active Persona Session Management ──
 
 def get_active_persona() -> dict[str, Any]:
-    """Return the currently active persona, defaulting to Falcon."""
+    """Return the currently active persona, defaulting to Dulus."""
     if ACTIVE_FILE.exists():
         try:
             with open(ACTIVE_FILE, "r", encoding="utf-8") as f:
                 active = json.load(f)
-            pid = active.get("id", "falcon")
+            pid = active.get("id", "dulus")
             p = get_persona(pid)
             if p:
                 return p
         except Exception:
             pass
-    return get_persona("falcon") or DEFAULT_PERSONAS[0]
+    return get_persona("dulus") or DEFAULT_PERSONAS[0]
 
 
 def set_active_persona(pid: str) -> dict[str, Any] | None:
@@ -288,7 +288,7 @@ def get_persona_compact_text(max_chars: int = 200) -> str:
 
 
 if __name__ == "__main__":
-    print("🎭 Falcon Personas System")
+    print("🎭 Dulus Personas System")
     print("=" * 40)
     for p in get_all_personas():
         print(f"  {p['avatar']} {p['name']} ({p['id']}) — {p['role']} [{p['status']}]")

@@ -29,8 +29,8 @@ class SkillDef:
 
 def _get_skill_paths() -> list[Path]:
     return [
-        Path.cwd() / ".falcon-context" / "skills",   # project-level (priority)
-        Path.home() / ".falcon" / "skills",   # user-level
+        Path.cwd() / ".dulus-context" / "skills",   # project-level (priority)
+        Path.home() / ".dulus" / "skills",   # user-level
     ]
 
 

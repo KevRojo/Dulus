@@ -1,4 +1,4 @@
-"""Multi-agent package for falcon.
+"""Multi-agent package for dulus.
 
 Provides:
   - AgentDefinition  — typed agent definition (name, system_prompt, model, tools)

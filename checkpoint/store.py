@@ -1,7 +1,7 @@
 """Checkpoint store: file-level backup + snapshot persistence.
 
 Directory layout:
-    ~/.falcon/checkpoints/<session_id>/
+    ~/.dulus/checkpoints/<session_id>/
         snapshots.json       # list of Snapshot metadata
         backups/
             <hash>@v<N>      # actual file copies
@@ -27,7 +27,7 @@ _file_versions: dict[str, int] = {}
 
 
 def _checkpoints_root() -> Path:
-    return Path.home() / ".falcon" / "checkpoints"
+    return Path.home() / ".dulus" / "checkpoints"
 
 
 def _session_dir(session_id: str) -> Path:

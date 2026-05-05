@@ -1,11 +1,11 @@
-"""Git hook management for Falcon."""
+"""Git hook management for Dulus."""
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 HOOK_TEMPLATE = '''#!/usr/bin/env python3
-"""Falcon Pre-Commit Hook — auto-installed by `falcon git-hook install`"""
+"""Dulus Pre-Commit Hook — auto-installed by `dulus git-hook install`"""
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +19,7 @@ MAX_MB = 10
 
 def log(msg, level="info"):
     colors = {"error": RED, "ok": GREEN, "warn": YELLOW, "info": ""}
-    print(f"{colors.get(level, '')}{BOLD}[falcon-hook]{RESET} {msg}")
+    print(f"{colors.get(level, '')}{BOLD}[dulus-hook]{RESET} {msg}")
 
 def get_staged():
     r = subprocess.run(
@@ -59,7 +59,7 @@ def check_size(files):
             for f in files if Path(f).exists() and Path(f).stat().st_size > MAX_MB*1024*1024]
 
 def check_tasks(files):
-    p = Path(".falcon-context/tasks.json")
+    p = Path(".dulus-context/tasks.json")
     if not p.exists():
         return []
     try:
@@ -73,7 +73,7 @@ def check_tasks(files):
     return []
 
 def main():
-    log("Running Falcon pre-commit checks...", "info")
+    log("Running Dulus pre-commit checks...", "info")
     files = get_staged()
     if not files:
         log("No staged files - skipping", "ok")
@@ -102,7 +102,7 @@ def main():
         log("Commit blocked. Fix or use --no-verify to bypass.", "error")
         sys.exit(1)
 
-    log("All checks passed! Falcon out.", "ok")
+    log("All checks passed! Dulus out.", "ok")
     sys.exit(0)
 
 if __name__ == "__main__":
@@ -117,8 +117,8 @@ def _hook_path():
     return git_dir / "hooks" / "pre-commit"
 
 
-def is_falcon_hook(path: Path) -> bool:
-    return path.exists() and "Falcon Pre-Commit Hook" in path.read_text(encoding="utf-8")
+def is_dulus_hook(path: Path) -> bool:
+    return path.exists() and "Dulus Pre-Commit Hook" in path.read_text(encoding="utf-8")
 
 
 def install():
@@ -137,7 +137,7 @@ def install():
         hook.chmod(0o755)
     except Exception:
         pass
-    print("[OK] Falcon pre-commit hook installed!")
+    print("[OK] Dulus pre-commit hook installed!")
     print("     Checks: trailing whitespace / Python syntax / large files / task consistency")
 
 
@@ -147,11 +147,11 @@ def uninstall():
         print("[X] Not a git repository.")
         sys.exit(1)
 
-    if is_falcon_hook(hook):
+    if is_dulus_hook(hook):
         hook.unlink()
-        print("[OK] Falcon pre-commit hook removed.")
+        print("[OK] Dulus pre-commit hook removed.")
     else:
-        print("[!] No Falcon hook found.")
+        print("[!] No Dulus hook found.")
 
 
 def status():
@@ -160,7 +160,7 @@ def status():
         print("[X] Not a git repository.")
         sys.exit(1)
 
-    if is_falcon_hook(hook):
-        print("[OK] Falcon pre-commit hook is active.")
+    if is_dulus_hook(hook):
+        print("[OK] Dulus pre-commit hook is active.")
     else:
-        print("[--] Falcon pre-commit hook is NOT installed.")
+        print("[--] Dulus pre-commit hook is NOT installed.")

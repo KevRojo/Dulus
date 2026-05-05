@@ -3,7 +3,7 @@
 claude_code_watcher.py
 
 Watches a Claude Code session JSONL file and extracts assistant responses
-in real time. Can print to stdout or POST to a Falcon/webhook endpoint.
+in real time. Can print to stdout or POST to a Dulus/webhook endpoint.
 
 v2: Groups multi-part assistant turns (text + tool_use + text) into one
     complete message before sending. Fixes the bug where text after a
@@ -23,7 +23,7 @@ import argparse
 from pathlib import Path
 
 
-SESSION_DIR = Path.home() / ".claude" / "projects" / "C--Users-Admin-Desktop-FALCONV2"
+SESSION_DIR = Path.home() / ".claude" / "projects" / "C--Users-Admin-Desktop-DULUSV2"
 
 # How long to wait (seconds) with no new assistant entries before flushing
 # the accumulated turn as complete.

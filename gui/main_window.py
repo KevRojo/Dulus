@@ -1,4 +1,4 @@
-"""Falcon Main Window — customtkinter desktop GUI.
+"""Dulus Main Window — customtkinter desktop GUI.
 
 Provides a professional dark-themed interface with sidebar, chat area,
 input bar, and top controls. Designed to be wired to a backend bridge
@@ -17,7 +17,7 @@ except ImportError:
 from gui.chat_widget import ChatWidget
 from gui.tasks_view import TasksView
 from gui.themes import get_theme, set_theme, list_themes, CURATED_MODELS
-from gui.sidebar import FalconSidebar
+from gui.sidebar import DulusSidebar
 
 # ── Theme constants (loaded from active theme) ──────────────────────────────
 _SIDEBAR_WIDTH = 260
@@ -51,14 +51,14 @@ FONT_TITLE = _FONT_TITLE
 FONT_LOGO = _FONT_LOGO
 
 
-class FalconMainWindow(ctk.CTk):
-    """Main Falcon application window."""
+class DulusMainWindow(ctk.CTk):
+    """Main Dulus application window."""
 
     def __init__(self):
         super().__init__()
 
         # ── Window setup ─────────────────────────────────────────────────────
-        self.title("Falcon")
+        self.title("Dulus")
         self.geometry("1100x750")
         self.minsize(900, 600)
         self.configure(fg_color=BG_COLOR)
@@ -99,7 +99,7 @@ class FalconMainWindow(ctk.CTk):
     # ═══════════════════════════════════════════════════════════════════════
 
     def _build_sidebar(self) -> None:
-        self.sidebar = FalconSidebar(
+        self.sidebar = DulusSidebar(
             self,
             on_new_chat=lambda: self.on_new_chat(),
             on_command=lambda cmd: None,

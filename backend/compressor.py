@@ -223,7 +223,7 @@ def compress_compact_context(text: str, max_tokens: int = 200) -> str:
     return compress(text, max_tokens)["compressed"]
 
 
-# Public API alias used by falcon.__init__
+# Public API alias used by dulus.__init__
 compact = compress_compact_context
 
 
@@ -243,19 +243,19 @@ def summarize_memory(name: str, body: str) -> str:
 
 if __name__ == "__main__":
     sample = (
-        "[FALCON CONTEXT]\n"
-        "Session: proactive | Agent: Falcon | User: KevRojo\n"
-        "Project: Falcon Command Center | Files: 11 | Lines: 2014\n"
+        "[DULUS CONTEXT]\n"
+        "Session: proactive | Agent: Dulus | User: KevRojo\n"
+        "Project: Dulus Command Center | Files: 11 | Lines: 2014\n"
         "Active Tasks:\n"
-        "  • T-002 [in_progress] Smart Context Manager (#23) (Falcon, Core)\n"
-        "  • T-003 [pending] Plugin System (Falcon, Extensibility)\n"
-        "  • T-007 [pending] MemPalace Integration (Falcon, Integration)\n"
+        "  • T-002 [in_progress] Smart Context Manager (#23) (Dulus, Core)\n"
+        "  • T-003 [pending] Plugin System (Dulus, Extensibility)\n"
+        "  • T-007 [pending] MemPalace Integration (Dulus, Integration)\n"
         "Agents:\n"
-        "  • Falcon (primary) - active\n"
+        "  • Dulus (primary) - active\n"
         "  • kimi-code (coder) - idle\n"
         "  • kimi-code3 (coder) - idle\n"
         "Recent Commits:\n"
-        "  • 865c915 Add Falcon Task Dashboard at docs/dashboard/index.html by Nano Agent\n"
+        "  • 865c915 Add Dulus Task Dashboard at docs/dashboard/index.html by Nano Agent\n"
     )
     print("Rule-based compression:")
     print(compress(sample)["compressed"])

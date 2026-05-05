@@ -1,6 +1,6 @@
-"""Persona system for Falcon GUI.
+"""Persona system for Dulus GUI.
 
-Loads the canonical persona definitions from .falcon-context/personas.json
+Loads the canonical persona definitions from .dulus-context/personas.json
 and provides helpers for retrieving persona data and rendering cards in
 customtkinter interfaces.
 """
@@ -14,7 +14,7 @@ from typing import Any
 # ── Paths ───────────────────────────────────────────────────────────────────
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_JSON_PATH = _REPO_ROOT / ".falcon-context" / "personas.json"
+_DEFAULT_JSON_PATH = _REPO_ROOT / ".dulus-context" / "personas.json"
 
 
 # ── Cache ───────────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ def get_persona(persona_id: str, path: Path | str | None = None) -> dict[str, An
 def get_color_for_agent(agent_name: str, path: Path | str | None = None) -> str:
     """Return the hex color for an agent name/id (case-insensitive).
 
-    Falls back to the default Falcon accent ``#ff6b1f`` if unknown.
+    Falls back to the default Dulus accent ``#ff6b1f`` if unknown.
     """
     lookup = agent_name.lower().strip()
     for p in get_all_personas(path):
@@ -226,5 +226,5 @@ if __name__ == "__main__":
     print("\n=== Color for 'kimi-code2' ===")
     print(get_color_for_agent("kimi-code2"))
 
-    print("\n=== Display name for 'falcon' ===")
-    print(get_display_name("falcon"))
+    print("\n=== Display name for 'dulus' ===")
+    print(get_display_name("dulus"))

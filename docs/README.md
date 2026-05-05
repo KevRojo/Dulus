@@ -1,9 +1,9 @@
-# ▲ FALCON
+# ▲ DULUS
 
 > **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — Claude, GPT, Gemini, DeepSeek, Qwen, Kimi, Zhipu, MiniMax, and local models via Ollama. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
 
 <p align="center">
-  <img src="docs/hero.svg" alt="Falcon" width="100%">
+  <img src="docs/hero.svg" alt="Dulus" width="100%">
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 ## What is this
 
-Falcon is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
+Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
 > **v1.01.20 — Apr 09, 2026** — Automated Plugin Adapter. Hot-Reloading. Premium UI.
 > Type `/news` to see what changed.
@@ -41,7 +41,7 @@ Falcon is a **lightweight Python reimplementation of Claude Code** that isn't lo
 
 ```bash
 # clone
-git clone https://github.com/KevRojo/Falcon && cd Falcon
+git clone https://github.com/KevRojo/Dulus && cd Dulus
 
 # install (pick one)
 uv tool install .                    # global, recommended
@@ -51,25 +51,25 @@ pip install -r requirements.txt      # or just run directly
 export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY, GEMINI_API_KEY, ...
 
 # fly
-falcon
+dulus
 ```
 
 **Zero API keys?** Use Ollama locally:
 
 ```bash
 ollama pull qwen2.5-coder
-falcon --model ollama/qwen2.5-coder
+dulus --model ollama/qwen2.5-coder
 ```
 
 Or pipe it like a good unix citizen:
 
 ```bash
-echo "explain this diff" | git diff | falcon -p --accept-all
+echo "explain this diff" | git diff | dulus -p --accept-all
 ```
 
 ---
 
-<p align="center"><img src="docs/terminal-boot.svg" alt="Falcon booting into session" width="100%"></p>
+<p align="center"><img src="docs/terminal-boot.svg" alt="Dulus booting into session" width="100%"></p>
 
 <p align="center"><sub>↑ session boot. soul loaded, gold memory warm, shell sniffed. the little circles are real buttons on your Mac.</sub></p>
 
@@ -89,7 +89,7 @@ echo "explain this diff" | git diff | falcon -p --accept-all
 | **Voice input** | Offline STT via Whisper. No API key. No cloud. |
 | **Brainstorm** | Multi-persona AI debate. Auto-generated expert roles. |
 | **SSJ Developer Mode** | Power menu: 10 workflow shortcuts behind one keystroke |
-| **Telegram bridge** | Run Falcon from your phone. Slash commands. Vision. Voice. |
+| **Telegram bridge** | Run Dulus from your phone. Slash commands. Vision. Voice. |
 | **Checkpoints** | Auto-snapshot conversation + files. Rewind to any turn. |
 | **Plan mode** | Read-only analysis phase before touching anything |
 | **Context compression** | Auto-compact long sessions. Keep the signal, drop the slop. |
@@ -120,14 +120,14 @@ echo "explain this diff" | git diff | falcon -p --accept-all
 
 ```bash
 # Ollama (recommended: qwen2.5-coder, llama3.3, mistral, phi4)
-falcon --model ollama/qwen2.5-coder
+dulus --model ollama/qwen2.5-coder
 
 # LM Studio
-falcon --model lmstudio/<model>
+dulus --model lmstudio/<model>
 
 # Any OpenAI-compat server
 export CUSTOM_BASE_URL=http://localhost:8000/v1
-falcon --model custom/<model>
+dulus --model custom/<model>
 ```
 
 ### Switching models mid-flight
@@ -146,11 +146,11 @@ falcon --model custom/<model>
 
 No credit card. No waiting list. No "contact sales". Just frontier models, on tap.
 
-Falcon ships a **`nvidia-web`** provider that talks to [NVIDIA NIM](https://build.nvidia.com) — NVIDIA's hosted inference API. Sign up, grab a key, and you've got **14 top-tier models** running at **40 requests per minute each**, for free. When one model hits its ceiling, Falcon auto-falls to the next one in the chain. Zero downtime. Zero config.
+Dulus ships a **`nvidia-web`** provider that talks to [NVIDIA NIM](https://build.nvidia.com) — NVIDIA's hosted inference API. Sign up, grab a key, and you've got **14 top-tier models** running at **40 requests per minute each**, for free. When one model hits its ceiling, Dulus auto-falls to the next one in the chain. Zero downtime. Zero config.
 
 ```bash
 export NVIDIA_API_KEY=nvapi-...
-falcon --model nvidia-web/deepseek-r1
+dulus --model nvidia-web/deepseek-r1
 ```
 
 <p align="center"><img src="docs/nvidia-models.svg" alt="NVIDIA NIM free-tier models" width="100%"></p>
@@ -172,7 +172,7 @@ falcon --model nvidia-web/deepseek-r1
 | **Phi-4** | Microsoft | `nvidia-web/phi-4` |
 | **Gemma 3 27B** | Google | `nvidia-web/gemma-3-27b` |
 
-**Automatic fallback.** Configure the chain in `~/.falcon/config.json`:
+**Automatic fallback.** Configure the chain in `~/.dulus/config.json`:
 
 ```json
 {
@@ -186,7 +186,7 @@ falcon --model nvidia-web/deepseek-r1
 }
 ```
 
-Falcon cycles through the chain automatically when rate limits hit. The flock keeps flying.
+Dulus cycles through the chain automatically when rate limits hit. The flock keeps flying.
 
 > **Get your key:** [build.nvidia.com](https://build.nvidia.com) → sign up → 1000 free credits. Takes 90 seconds.
 
@@ -196,7 +196,7 @@ Falcon cycles through the chain automatically when rate limits hit. The flock ke
 
 ## Plugins
 
-Falcon's **Auto-Adapter** reads a random Python repo and figures out its tools on its own — no `plugin.yaml` required.
+Dulus's **Auto-Adapter** reads a random Python repo and figures out its tools on its own — no `plugin.yaml` required.
 
 ```bash
 /plugin install my-plugin@https://github.com/user/my-plugin
@@ -210,7 +210,7 @@ Adapt-and-install runs in under a second. New tools register **live**, no restar
 
 ## MCP
 
-Drop a `.mcp.json` in your project root (or `~/.falcon/mcp.json` for user-wide):
+Drop a `.mcp.json` in your project root (or `~/.dulus/mcp.json` for user-wide):
 
 ```json
 {
@@ -229,7 +229,7 @@ Manage in the REPL: `/mcp`, `/mcp reload`, `/mcp add <name> <cmd> [args]`, `/mcp
 
 ## Sub-agents — the flock
 
-Falcon can spawn typed agents that work in **isolated git worktrees** so they don't trip over each other. Ship a feature while a reviewer nitpicks the previous one. Tester runs in parallel.
+Dulus can spawn typed agents that work in **isolated git worktrees** so they don't trip over each other. Ship a feature while a reviewer nitpicks the previous one. Tester runs in parallel.
 
 ```
 /agents                              # show active flock
@@ -291,8 +291,8 @@ Persistent memories stored as markdown in two scopes:
 
 | Scope | Path |
 |---|---|
-| User | `~/.falcon/memory/` |
-| Project | `.falcon/memory/` |
+| User | `~/.dulus/memory/` |
+| Project | `.dulus/memory/` |
 
 Types: `user` · `feedback` · `project` · `reference`. Search is ranked by **confidence × recency**. Mark a memory gold to pin it.
 
@@ -319,7 +319,7 @@ Every agent turn can snapshot **conversation + files** into a checkpoint. Break 
 
 ## Brainstorm
 
-Spin up a **council of ghosts**. Falcon fabricates expert personas, has them argue, and hands you the distilled take.
+Spin up a **council of ghosts**. Dulus fabricates expert personas, has them argue, and hands you the distilled take.
 
 ```
 /brainstorm "should we rewrite in rust"
@@ -378,7 +378,7 @@ Because waiting should be fun.
 🌪️ Blitzing through the bytecode...
 💫 Bending spacetime...
 🦅 Preying on bugs from above...
-👁️ Falcon vision engaged...
+👁️ Dulus vision engaged...
 🍗 Hunting for memory leaks...
 🪶 Shedding legacy code...
 🕹️ Try-catching mid-flight...
@@ -388,7 +388,7 @@ Because waiting should be fun.
 ☕ If I'm taking so long, don't worry, I'm just talking to your mom...
 ```
 
-Drop your own in `falcon/spinners.py` and PR them. Bonus points for a reference we'll understand in 2046.
+Drop your own in `dulus/spinners.py` and PR them. Bonus points for a reference we'll understand in 2046.
 </details>
 
 ---
@@ -440,15 +440,15 @@ MCP tools auto-registered as `mcp__<server>__<tool>`.
 
 ## CLAUDE.md
 
-Drop a `CLAUDE.md` at your project root. It gets auto-injected into the system prompt so Falcon remembers your stack, your conventions, and that one thing you hate.
+Drop a `CLAUDE.md` at your project root. It gets auto-injected into the system prompt so Dulus remembers your stack, your conventions, and that one thing you hate.
 
 ---
 
 ## Project structure
 
 ```
-falcon/
-├── falcon.py             # entry · REPL · slash commands · SSJ · Telegram
+dulus/
+├── dulus.py             # entry · REPL · slash commands · SSJ · Telegram
 ├── agent.py              # agent loop · streaming · tool dispatch · compaction
 ├── providers.py          # multi-provider streaming
 ├── tools.py              # core tools + registry wiring
@@ -484,12 +484,12 @@ Use one that supports function calling: `qwen2.5-coder`, `llama3.3`, `mistral`, 
 **How do I check API cost?** `/cost`.
 
 **Voice transcribes "kubectl" as "cubicle".**
-Add domain terms to `.falcon/voice_keyterms.txt`, one per line. Whisper respects the hint.
+Add domain terms to `.dulus/voice_keyterms.txt`, one per line. Whisper respects the hint.
 
 **Can I pipe input?**
 ```bash
-echo "explain this" | falcon -p --accept-all
-git diff | falcon -p "write a commit message"
+echo "explain this" | dulus -p --accept-all
+git diff | dulus -p "write a commit message"
 ```
 
 **Is this safe to point at prod?**

@@ -1,6 +1,6 @@
-# RTK (Rust Token Killer) — Falcon integration
+# RTK (Rust Token Killer) — Dulus integration
 
-Falcon transparently rewrites covered shell commands (`ls`, `tree`, `grep`,
+Dulus transparently rewrites covered shell commands (`ls`, `tree`, `grep`,
 `find`, `git`, `diff`, `cat`, …) through the `rtk` binary so model-issued
 commands always emit token-optimized output. 60–90% savings on common ops.
 
@@ -8,14 +8,14 @@ commands always emit token-optimized output. 60–90% savings on common ops.
 
 - **Windows**: `rtk.exe` is bundled — no setup needed.
 - **Linux / macOS**: run `bash install.sh` once to drop the binary in
-  `~/.local/bin/rtk`. Falcon will pick it up automatically.
+  `~/.local/bin/rtk`. Dulus will pick it up automatically.
 
 ## Toggle
 
-Controlled by `rtk_enabled` in `~/.falcon/config.json` (default: `true`).
+Controlled by `rtk_enabled` in `~/.dulus/config.json` (default: `true`).
 Set to `false` to disable rewriting.
 
-If the binary is missing, Falcon silently falls back to the raw command —
+If the binary is missing, Dulus silently falls back to the raw command —
 nothing breaks.
 
 ## Upstream

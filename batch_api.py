@@ -1,5 +1,5 @@
 """
-Falcon Batch API — provider-agnostic OpenAI-compatible batch processing.
+Dulus Batch API — provider-agnostic OpenAI-compatible batch processing.
 
 Works with any provider that supports the OpenAI Batch API format:
   - OpenAI (api.openai.com)
@@ -25,7 +25,7 @@ OPENAI_BASE_URL = "https://api.openai.com"
 KIMI_BASE_URL   = "https://api.moonshot.ai"
 
 BATCH_SYSTEM_PROMPT = (
-    "You are Falcon, an AI assistant. You are processing a batch request — "
+    "You are Dulus, an AI assistant. You are processing a batch request — "
     "respond directly to each task. Be concise, precise, and complete. "
     "Output in the same language the user writes in. "
     "No tool calls available — just answer with text."
@@ -92,7 +92,7 @@ class BatchManager:
     def upload_file(self, jsonl_content: str, filename: str = "batch_input.jsonl") -> str:
         """Upload JSONL content and return the file_id."""
         url = f"{self.base_url}/v1/files"
-        boundary = f"----FalconBatch{int(time.time())}"
+        boundary = f"----DulusBatch{int(time.time())}"
 
         parts = []
         # purpose field
@@ -173,12 +173,12 @@ KimiBatchManager = BatchManager  # old name still works
 
 # ── Local job persistence ────────────────────────────────────────────────────
 
-_JOBS_DIR = os.path.join(os.path.expanduser("~"), ".falcon", "jobs")
+_JOBS_DIR = os.path.join(os.path.expanduser("~"), ".dulus", "jobs")
 
 
 def save_batch_job(batch_id: str, description: str = "", file_id: str = "",
                    provider: str = "unknown") -> str:
-    """Save a batch job record locally in ~/.falcon/jobs/."""
+    """Save a batch job record locally in ~/.dulus/jobs/."""
     os.makedirs(_JOBS_DIR, exist_ok=True)
     job_file = os.path.join(_JOBS_DIR, f"{batch_id}.json")
 
@@ -201,7 +201,7 @@ def save_batch_job(batch_id: str, description: str = "", file_id: str = "",
 
 
 def list_batch_jobs(include_pollers: bool = True, **_kw) -> List[Dict]:
-    """List saved batch jobs from ~/.falcon/jobs/."""
+    """List saved batch jobs from ~/.dulus/jobs/."""
     if not os.path.exists(_JOBS_DIR):
         return []
 

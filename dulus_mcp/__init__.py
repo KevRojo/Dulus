@@ -1,10 +1,10 @@
-"""mcp package — Model Context Protocol client for falcon.
+"""mcp package — Model Context Protocol client for dulus.
 
 Usage
 -----
 MCP servers are configured in one of two JSON files:
 
-  ~/.falcon/mcp.json        (user-level, all projects)
+  ~/.dulus/mcp.json        (user-level, all projects)
   .mcp.json                      (project-level, current dir, overrides user)
 
 Format:

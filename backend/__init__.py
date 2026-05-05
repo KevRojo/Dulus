@@ -1,4 +1,4 @@
-"""Falcon — Backend + Smart Context + Plugins + Personas + MemPalace."""
+"""Dulus — Backend + Smart Context + Plugins + Personas + MemPalace."""
 __version__ = "0.2.0"
 
 # Public API exports

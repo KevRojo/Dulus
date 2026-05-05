@@ -9,8 +9,8 @@ from typing import Any
 
 
 class PluginScope(str, Enum):
-    USER    = "user"     # ~/.falcon/plugins/
-    PROJECT = "project"  # .falcon/plugins/ (cwd)
+    USER    = "user"     # ~/.dulus/plugins/
+    PROJECT = "project"  # .dulus/plugins/ (cwd)
 
 
 @dataclass

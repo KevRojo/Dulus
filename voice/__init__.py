@@ -1,4 +1,4 @@
-"""Voice package for falcon.
+"""Voice package for dulus.
 
 Public API
 ----------

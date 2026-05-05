@@ -225,7 +225,7 @@ def _list_agent_types(params: dict, config: dict) -> str:
             lines.append(f"                           {tools_info}")
     lines.append("")
     lines.append(
-        "Create custom agents: place .md files in ~/.falcon/agents/ or .falcon/agents/"
+        "Create custom agents: place .md files in ~/.dulus/agents/ or .dulus/agents/"
     )
     return "\n".join(lines)
 
@@ -239,7 +239,7 @@ register_tool(ToolDef(
         "description": (
             "Spawn a sub-agent to handle a task autonomously. The sub-agent runs in a "
             "separate thread with its own conversation history. Supports specialized agent "
-            "types (coder, reviewer, researcher, tester, or custom from .falcon/agents/), "
+            "types (coder, reviewer, researcher, tester, or custom from .dulus/agents/), "
             "isolated git worktrees for parallel work, and background execution.\n\n"
             "When using isolation='worktree', the agent gets its own git branch and "
             "working copy — ideal for parallel coding tasks that shouldn't interfere."
