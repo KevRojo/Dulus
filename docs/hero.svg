@@ -53,8 +53,7 @@
   </g>
 
   <g font-family="&#39;Archivo Black&#39;,&#39;Impact&#39;,&#39;Helvetica&#39;,sans-serif" font-weight="900" letter-spacing="-6">
-    <text x="80" y="300" font-size="200" fill="url(#typeFill)">FAL</text>
-    <text x="80" y="470" font-size="200" fill="url(#typeFill)">CON</text>
+    <text x="80" y="380" font-size="230" fill="url(#typeFill)">DULUS</text>
   </g>
   <text x="82" y="510" font-size="16" letter-spacing="4.5" fill="#ff6b1f">// HUNT. PATCH. SHIP.</text>
 
