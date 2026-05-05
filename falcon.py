@@ -366,6 +366,15 @@ def stream_text(chunk: str) -> None:
         # (text is already on screen — re-printing it inside a Panel
         # would duplicate the response).
         global _streamed_plain
+        # Defensive: if a Live instance leaked from a previous turn
+        # (sub-agent flow, exception during streaming, etc.) kill it.
+        # Otherwise that orphan Live keeps repainting bubbles below us.
+        if _current_live is not None:
+            try:
+                _current_live.stop()
+            except Exception:
+                pass
+            _current_live = None
         _streamed_plain = True
         print(chunk, end="", flush=True)
     else:
