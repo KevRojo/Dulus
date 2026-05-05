@@ -14,7 +14,7 @@
   <g transform="translate(260,0)">
     <text x="0" y="90" font-size="11" letter-spacing="4" fill="#ff6b1f">// REMOTE</text>
     <text x="0" y="170" font-family="&#39;Archivo Black&#39;,Impact,sans-serif" font-size="68" fill="#f4ede4" letter-spacing="-2">VOICE &amp; TELEGRAM</text>
-    <text x="0" y="210" font-size="14" fill="#9a9286">Offline Whisper for voice. Telegram bridge to control Dulus</text>
+    <text x="0" y="210" font-size="14" fill="#9a9286">Offline Whisper for voice. Telegram bridge to control Falcon</text>
     <text x="0" y="230" font-size="14" fill="#9a9286">from the bus, the gym, the shower. (Probably not the shower.)</text>
   </g>
   <g font-size="12" fill="#ff6b1f" font-family="&#39;JetBrains Mono&#39;,monospace">
