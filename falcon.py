@@ -297,6 +297,7 @@ _last_live_update = 0
 _LIVE_UPDATE_INTERVAL = 0.03  # 30ms throttle (~33 FPS) — keeps streaming fluid
 _buffered_since_render = 0    # chunks buffered without a Live update
 _LIVE_LINE_LIMIT = 80  # auto-switch to plain streaming beyond this many lines
+_streamed_plain = False  # when bubbles forced plain streaming, skip bubble in flush
 
 def stream_text(chunk: str) -> None:
     """Buffer chunk; update Live in-place when Rich available, else print directly.
@@ -318,7 +319,13 @@ def stream_text(chunk: str) -> None:
     # streaming in that case — each chunk becomes one clean append.
     _redirected = type(sys.stdout).__name__ == "_OutputRedirector"
 
-    if _RICH and _RICH_LIVE and not _redirected:
+    # When bubbles are on, Live's cursor-up math goes wrong because the
+    # snug Panel width grows mid-stream. Result: the bubble re-prints
+    # stacked instead of in-place (the duplicated-bubble bug). Stream
+    # plain during the response, render the bubble once in flush_response.
+    _bubble_active = _use_bubbles()
+
+    if _RICH and _RICH_LIVE and not _redirected and not _bubble_active:
         full = "".join(_accumulated_text)
         line_count = full.count("\n")
 
@@ -353,10 +360,14 @@ def stream_text(chunk: str) -> None:
         else:
             # Already past limit, no Live — just append new chunk
             print(chunk, end="", flush=True)
-    elif _use_bubbles():
-        # Bubble mode without Live (background turns, etc.):
-        # Just accumulate — Panel will be rendered in flush_response.
-        pass
+    elif _bubble_active:
+        # Bubble mode: stream plain so the user sees progress. We mark
+        # _streamed_plain so flush_response skips the bubble repaint
+        # (text is already on screen — re-printing it inside a Panel
+        # would duplicate the response).
+        global _streamed_plain
+        _streamed_plain = True
+        print(chunk, end="", flush=True)
     else:
         print(chunk, end="", flush=True)
 
@@ -364,9 +375,17 @@ def stream_text(chunk: str) -> None:
 
 def flush_response() -> None:
     """Commit buffered text to screen: stop Live (freezes rendered Markdown in place)."""
-    global _current_live
+    global _current_live, _streamed_plain
     full = "".join(_accumulated_text)
     _accumulated_text.clear()
+
+    # If bubbles forced plain streaming, the text is already on screen.
+    # Reset the flag and bail — repainting as a Panel would duplicate it.
+    if _streamed_plain:
+        _streamed_plain = False
+        print()  # newline to close the response cleanly
+        return
+
     if _current_live is not None:
         try:
             # Final render pass — chunks buffered within the last window may not
