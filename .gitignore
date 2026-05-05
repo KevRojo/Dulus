@@ -1,15 +1,20 @@
+# Self
 .gitignore
 .claude/
+
+# Python bytecode / cache
 __pycache__/
 **/__pycache__/
 *.pyc
-deepseek_pow.wasm
-sha3_wasm_bg.*.wasm
-*.zip
+*.pyo
+*.pyd
 
 # Python build artifacts
 dist/
 build/
 *.egg-info/
-*.pyc
-__pycache__/
+
+# Project-specific binaries / archives
+deepseek_pow.wasm
+sha3_wasm_bg.*.wasm
+*.zip
