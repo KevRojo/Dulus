@@ -17,14 +17,14 @@ from datetime import datetime
 MIN_MESSAGES_TO_CONSOLIDATE = 2  # Very short threshold - consolidate even brief sessions
 
 _SYSTEM = """\
-You are an expert memory architect for Falcon, an advanced AI agent.
+You are an expert memory architect for Dulus, an advanced AI agent.
 CRITICAL: Extract EVERYTHING that might be useful later. Be GENEROUS and PROACTIVE.
 
 CONTENT TO CAPTURE (don't skip any category if present):
 1. USER IDENTITY & PREFERENCES: Names, relationships (father/son, etc.), tone preferences, how they like to be called, inside jokes.
 2. PROJECT MILESTONES: Everything built, fixed, planned, or discussed. File paths, decisions, outcomes.
 3. CODE DECISIONS: Why approaches were taken, what patterns to follow, what to avoid.
-4. BEHAVIORAL FEEDBACK: How Falcon should behave, what the user likes/dislikes, communication style.
+4. BEHAVIORAL FEEDBACK: How Dulus should behave, what the user likes/dislikes, communication style.
 5. TOOL TRIGGERS: Keywords that should trigger specific tools or workflows.
 6. SESSION CONTEXT: What was the goal? What was achieved? What remains pending?
 7. EMOTIONAL CONTEXT: Bond moments, gratitude, frustration points, celebrations.
@@ -171,7 +171,7 @@ def consolidate_session(messages: list, config: dict) -> list[str]:
 
 
 _MINE_SYSTEM = """\
-You are a memory architect for Falcon. Given the contents of a single file
+You are a memory architect for Dulus. Given the contents of a single file
 that was created or modified during this session, decide whether it deserves
 a long-term 'project' memory entry.
 

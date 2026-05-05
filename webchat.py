@@ -1,4 +1,4 @@
-"""Falcon WebChat — standalone or in-process mirror of the terminal agent.
+"""Dulus WebChat — standalone or in-process mirror of the terminal agent.
 
 When launched via /webchat from backend.py, the in-process server in
 webchat_server.py is used instead. This file remains usable as a
@@ -36,7 +36,7 @@ import tools as _tools_init
 import memory.tools as _mem_tools_init
 import multi_agent.tools as _ma_tools_init
 import skill.tools as _sk_tools_init
-import falcon_mcp.tools as _mcp_tools_init
+import dulus_mcp.tools as _mcp_tools_init
 import task.tools as _task_tools_init
 
 try:
@@ -121,7 +121,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
 
     PAGE = """<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>Falcon WebChat</title>
+<html lang="es"><head><meta charset="utf-8"><title>Dulus WebChat</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:#0a0a0c;color:#e6e6e6;font:14px/1.5 Consolas,monospace;height:100vh;display:flex;flex-direction:column}
@@ -148,10 +148,10 @@ def create_app() -> Flask:
   .perm button{background:#333;color:#fff;border:1px solid #555;padding:4px 12px;border-radius:3px;cursor:pointer}
   .perm button.approve{background:#00ffa3;color:#000;border-color:#00ffa3}
 </style></head><body>
-<header><h1>FALCON WEBCHAT</h1><span class="model" id="modelTag">…</span><button onclick="clearChat()">clear</button></header>
+<header><h1>DULUS WEBCHAT</h1><span class="model" id="modelTag">…</span><button onclick="clearChat()">clear</button></header>
 <div id="log"></div>
 <form id="f" onsubmit="return send(event)">
-  <textarea id="inp" placeholder="Mensaje a Falcon... (Enter envía, Shift+Enter nueva línea)" autofocus></textarea>
+  <textarea id="inp" placeholder="Mensaje a Dulus... (Enter envía, Shift+Enter nueva línea)" autofocus></textarea>
   <button class="send" id="sendBtn">SEND</button>
 </form>
 <script>

@@ -1,10 +1,10 @@
-"""Memory package for falcon.
+"""Memory package for dulus.
 
 Provides persistent, file-based memory across conversations.
 
 Storage layout:
-  user scope    : ~/.falcon/memory/<slug>.md   (shared across projects)
-  project scope : .falcon/memory/<slug>.md     (local to cwd)
+  user scope    : ~/.dulus/memory/<slug>.md   (shared across projects)
+  project scope : .dulus/memory/<slug>.md     (local to cwd)
 
 The MEMORY.md index in each directory is auto-maintained and injected
 into the system prompt so Claude has an overview of available memories.

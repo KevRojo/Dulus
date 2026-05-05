@@ -39,11 +39,11 @@ def _memory_save(params: dict, config: dict) -> str:
         try:
             import subprocess as _sp, sys as _sys, os as _os
             from pathlib import Path as _Path
-            _mem_dir = _Path.home() / ".falcon" / "memory"
+            _mem_dir = _Path.home() / ".dulus" / "memory"
             _env = {**_os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
             _sp.Popen(
                 [_sys.executable, "-X", "utf8", "-m", "mempalace", "mine",
-                 str(_mem_dir), "--wing", "memory", "--agent", "falcon"],
+                 str(_mem_dir), "--wing", "memory", "--agent", "dulus"],
                 stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
                 env=_env,
                 creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0),
@@ -140,14 +140,14 @@ def _memory_search(params: dict, config: dict) -> str:
             for sr in sess_results:
                 lines.append(f"\nSession {sr['session_id']} ({sr['saved_at']})")
                 for h in sr["hits"]:
-                    role_lbl = "User" if h["role"] == "user" else "Falcon"
+                    role_lbl = "User" if h["role"] == "user" else "Dulus"
                     lines.append(f"  [{role_lbl}] {h['snippet']}")
 
     # ── Part 3: Offloaded Jobs Search ────────────────────────────────────
     try:
         from pathlib import Path
         import json
-        jobs_dir = Path.home() / ".falcon" / "jobs"
+        jobs_dir = Path.home() / ".dulus" / "jobs"
         if jobs_dir.is_dir():
             job_matches = []
             q_lower = query.lower()
@@ -278,8 +278,8 @@ register_tool(ToolDef(
                     "type": "string",
                     "enum": ["user", "project"],
                     "description": (
-                        "'user' (default) = ~/.falcon/memory/ shared across projects; "
-                        "'project' = .falcon/memory/ local to this project"
+                        "'user' (default) = ~/.dulus/memory/ shared across projects; "
+                        "'project' = .dulus/memory/ local to this project"
                     ),
                 },
                 "confidence": {

@@ -37,7 +37,7 @@ def test_commands():
 
 def _run_tests(tmpdir):
     # Import after chdir so paths resolve correctly
-    from falcon import cmd_init, cmd_export, cmd_copy, cmd_status, info, err
+    from dulus import cmd_init, cmd_export, cmd_copy, cmd_status, info, err
 
     state = FakeState(messages=[
         {"role": "user", "content": "Write a hello world function"},
@@ -82,7 +82,7 @@ def _run_tests(tmpdir):
     print(SEP)
     result = cmd_export("", state, config)
     assert result == True
-    export_dir = tmpdir / ".falcon" / "exports"
+    export_dir = tmpdir / ".dulus" / "exports"
     exports = list(export_dir.glob("conversation_*.md"))
     assert len(exports) == 1
     md_content = exports[0].read_text(encoding="utf-8")

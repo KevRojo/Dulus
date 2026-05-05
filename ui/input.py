@@ -4,7 +4,7 @@ Optional dependency: when prompt_toolkit is not installed, HAS_PROMPT_TOOLKIT
 is False and callers should fall through to readline-based input.
 
 Dependency-injected: callers register command/meta providers via setup()
-before calling read_line(). This module never imports Falcon core — keeping
+before calling read_line(). This module never imports Dulus core — keeping
 the dependency one-way and eliminating any circular-import risk.
 """
 
@@ -27,7 +27,7 @@ except ImportError:
 
 
 # ── Injected providers ───────────────────────────────────────────────────────
-# Callers (Falcon REPL) must call setup() before read_line().
+# Callers (Dulus REPL) must call setup() before read_line().
 _commands_provider: Optional[Callable[[], dict]] = None
 _meta_provider: Optional[Callable[[], dict]] = None
 
@@ -174,7 +174,7 @@ def read_line(prompt_ansi: str, history_path: Optional[Path] = None) -> str:
     """Read one line of input via prompt_toolkit; caches the session across calls.
 
     The history file passed here MUST NOT be the readline history file — the
-    two line-editors use incompatible formats. See Falcon REPL for the
+    two line-editors use incompatible formats. See Dulus REPL for the
     dedicated PT_HISTORY_FILE.
     """
     global _SESSION, _SESSION_HISTORY_PATH, _notification_callback

@@ -164,7 +164,7 @@
   <g transform="translate(72,330)" font-size="13">
     <text x="0" y="0" fill="#ff6b1f" letter-spacing="2">AUTO-FALLBACK CHAIN</text>
     <line x1="0" y1="14" x2="1456" y2="14" stroke="#ff6b1f" stroke-opacity="0.25" stroke-width="1"></line>
-    <text x="0" y="40" fill="#9a9286">When a model hits its 40 RPM ceiling, Falcon automatically routes to the next available model in the chain.</text>
+    <text x="0" y="40" fill="#9a9286">When a model hits its 40 RPM ceiling, Dulus automatically routes to the next available model in the chain.</text>
     <text x="0" y="60" fill="#9a9286">Zero downtime. Zero manual switching. The flock keeps flying.</text>
     
     <g transform="translate(0,82)" font-size="12">

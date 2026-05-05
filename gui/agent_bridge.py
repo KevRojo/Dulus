@@ -1,4 +1,4 @@
-"""Bridge between the GUI and Falcon's core agent engine.
+"""Bridge between the GUI and Dulus's core agent engine.
 
 Handles AgentState, config, threaded execution, MemPalace injection,
 skill injection, and permission requests. Based on Nayeli's design.
@@ -29,7 +29,7 @@ import tools as _tools_init
 import memory.tools as _mem_tools_init
 import multi_agent.tools as _ma_tools_init
 import skill.tools as _sk_tools_init
-import falcon_mcp.tools as _mcp_tools_init
+import dulus_mcp.tools as _mcp_tools_init
 import task.tools as _task_tools_init
 
 try:
@@ -44,8 +44,8 @@ except Exception:
     pass
 
 
-class FalconBridge:
-    """Thread-safe bridge between GUI and Falcon core.
+class DulusBridge:
+    """Thread-safe bridge between GUI and Dulus core.
 
     Runs the agent loop in a background thread and streams events
     back to the UI via an internal event queue (poll from GUI thread).
@@ -224,7 +224,7 @@ class FalconBridge:
                     event.granted = False
 
     def _apply_mempalace(self, user_input: str) -> str:
-        """Copy of falcon.py MemPalace injection logic."""
+        """Copy of dulus.py MemPalace injection logic."""
         if not self.config.get("mem_palace", True):
             return user_input
 

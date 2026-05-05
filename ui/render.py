@@ -1,5 +1,5 @@
 """
-ui/render.py — All terminal rendering for Falcon.
+ui/render.py — All terminal rendering for Dulus.
 
 Provides:
   - ANSI color helpers (C, clr, info, ok, warn, err)
@@ -28,15 +28,15 @@ except ImportError:
     Markdown = None
 
 # ── ANSI helpers ───────────────────────────────────────────────────────────
-# Prefer the global theme-aware palette from common.py; fall back to Falcon
+# Prefer the global theme-aware palette from common.py; fall back to Dulus
 # orange (default theme accent) so this module never emits generic cyan.
 try:
     from common import C, clr, info, ok, warn, err
 except ImportError:
-    _FALCON_ORANGE = "\033[38;2;255;135;0m"
+    _DULUS_ORANGE = "\033[38;2;255;135;0m"
     _WARN = "\033[38;2;255;175;0m"
     C = {
-        "cyan": _FALCON_ORANGE, "green": _FALCON_ORANGE, "blue": _FALCON_ORANGE,
+        "cyan": _DULUS_ORANGE, "green": _DULUS_ORANGE, "blue": _DULUS_ORANGE,
         "yellow": _WARN, "magenta": _WARN, "red": "\033[38;5;196m",
         "white": "\033[97m", "gray": "\033[90m",
         "bold": "\033[1m", "dim": "\033[2m", "reset": "\033[0m",

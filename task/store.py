@@ -1,4 +1,4 @@
-"""Thread-safe task store: in-memory dict persisted to .falcon/tasks.json."""
+"""Thread-safe task store: in-memory dict persisted to .dulus/tasks.json."""
 from __future__ import annotations
 
 import json
@@ -12,7 +12,7 @@ from .types import Task, TaskStatus
 
 _lock = threading.Lock()
 
-# Tasks are keyed by ID, stored per session in <cwd>/.falcon/tasks.json
+# Tasks are keyed by ID, stored per session in <cwd>/.dulus/tasks.json
 # The store is kept in memory; we reload from disk on first access.
 
 _tasks: dict[str, Task] = {}
@@ -22,7 +22,7 @@ _loaded = False
 # ── persistence ───────────────────────────────────────────────────────────────
 
 def _tasks_file() -> Path:
-    return Path.cwd() / ".falcon-context" / "tasks.json"
+    return Path.cwd() / ".dulus-context" / "tasks.json"
 
 
 def _load() -> None:

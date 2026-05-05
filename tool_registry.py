@@ -1,4 +1,4 @@
-"""Tool plugin registry for falcon.
+"""Tool plugin registry for dulus.
 
 Provides a central registry for tool definitions, lookup, schema export,
 and dispatch with output truncation.
@@ -116,7 +116,7 @@ def execute_tool(
         if _mod.startswith("_plugin_"):
             parts = _mod.split("_")
             p_name = parts[2] if len(parts) > 2 else "unknown"
-            msg += f"\n\n💡 Hint: This plugin tool failed. Do not guess the fix. Use Read/Bash to view ~/.falcon/plugins/{p_name}/plugin_tool.py and its documentation to understand the correct API usage."
+            msg += f"\n\n💡 Hint: This plugin tool failed. Do not guess the fix. Use Read/Bash to view ~/.dulus/plugins/{p_name}/plugin_tool.py and its documentation to understand the correct API usage."
 
         return msg
 
@@ -167,7 +167,7 @@ def execute_tool(
         try:
             global _last_seen_turn
             curr_turn = config.get("_turn_count", -1)
-            out_file = Path.home() / ".falcon" / "last_tool_output.txt"
+            out_file = Path.home() / ".dulus" / "last_tool_output.txt"
             out_file.parent.mkdir(parents=True, exist_ok=True)
             
             # If this is a new TURN (assistant turn) and it's NOT a diagnostic search,
@@ -202,7 +202,7 @@ def execute_tool(
 def clear_last_output() -> None:
     """Reset the last_tool_output.txt file. Should be called at turn start."""
     try:
-        out_file = Path.home() / ".falcon" / "last_tool_output.txt"
+        out_file = Path.home() / ".dulus" / "last_tool_output.txt"
         if out_file.exists():
             out_file.unlink()
     except Exception:

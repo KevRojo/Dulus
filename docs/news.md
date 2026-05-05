@@ -4,10 +4,10 @@
 
 
 - Apr 09, 2026 (**v1.01.20**): **Automated Plugin Adapter System, Premium UI, and Hot-Reloading**
-  - **Automated Plugin Adapter (`plugin/autoadapter.py`)** — Falcon can now intelligently onboard any Python repository without a manual manifest. Using AST-based static analysis and AI-driven generation, it creates `plugin.json` and `plugin_tool.py` on the fly, handling complex dependencies and constructor arguments.
+  - **Automated Plugin Adapter (`plugin/autoadapter.py`)** — Dulus can now intelligently onboard any Python repository without a manual manifest. Using AST-based static analysis and AI-driven generation, it creates `plugin.json` and `plugin_tool.py` on the fly, handling complex dependencies and constructor arguments.
   - **Intelligent Library Handling** — The AI generation pipeline now includes specialized instructions for terminal-based libraries (e.g., `asciimatics`), ensuring correct usage of patterns like `Screen.wrapper` to prevent runtime errors.
   - **Hot-Reloading** — Newly adapted plugins are automatically registered and available for use in the current session immediately after installation, with no restart required.
-  - **Premium Branding & UI** — Replaced the startup ASCII logo with a high-resolution Falcon design. Added real-time "Thinking" spinners and progress feedback during the adaptation process.
+  - **Premium Branding & UI** — Replaced the startup ASCII logo with a high-resolution Dulus design. Added real-time "Thinking" spinners and progress feedback during the adaptation process.
 
 - Apr 06, 2026 (**v3.05.53**): **Telegram interactive menus, `/img` alias, `/voice device`, OpenAI/Gemini vision support**
   - **Telegram interactive menus fixed** — slash commands with interactive input (e.g. `/ollama`, `/permission`, `/checkpoint`) were blocking the Telegram poll loop, making it impossible to respond to the menu prompts. Slash commands now run in a daemon thread (like regular queries), keeping the poll loop free. All interactive menus (`ask_input_interactive`) work correctly over Telegram.

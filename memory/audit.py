@@ -1,4 +1,4 @@
-"""Audit trail for Falcon RTK — logs all tool operations."""
+"""Audit trail for Dulus RTK — logs all tool operations."""
 from __future__ import annotations
 
 import json
@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict
 
-AUDIT_FILE = Path.home() / ".falcon" / "audit.log"
+AUDIT_FILE = Path.home() / ".dulus" / "audit.log"
 _MAX_AUDIT_LINES = 5000
 
 

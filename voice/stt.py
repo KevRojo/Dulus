@@ -34,12 +34,12 @@ _openai_whisper_model = None
 
 # Model size: "tiny", "base", "small", "medium", "large-v2", "large-v3"
 # "base" is a good balance of speed and accuracy for coding dictation.
-# Override with env var FALCON_WHISPER_MODEL.
-DEFAULT_MODEL_SIZE = os.environ.get("FALCON_WHISPER_MODEL", "medium")
+# Override with env var DULUS_WHISPER_MODEL.
+DEFAULT_MODEL_SIZE = os.environ.get("DULUS_WHISPER_MODEL", "medium")
 
 # ── NVIDIA Riva (whisper-large-v3 via NVCF gRPC) ─────────────────────────
-RIVA_SERVER       = os.environ.get("FALCON_RIVA_SERVER", "grpc.nvcf.nvidia.com:443")
-RIVA_FUNCTION_ID  = os.environ.get("FALCON_RIVA_FUNCTION_ID",
+RIVA_SERVER       = os.environ.get("DULUS_RIVA_SERVER", "grpc.nvcf.nvidia.com:443")
+RIVA_FUNCTION_ID  = os.environ.get("DULUS_RIVA_FUNCTION_ID",
                                    "b702f636-f60c-4a3d-a6f4-f3568c13bd7d")
 
 

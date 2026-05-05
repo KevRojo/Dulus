@@ -1,4 +1,4 @@
-"""Left sidebar panel for Falcon GUI.
+"""Left sidebar panel for Dulus GUI.
 
 Provides session history, model selector, context-usage bar,
 quick-command buttons, available-tools list, and version info.
@@ -40,16 +40,16 @@ FONT_NORMAL = (FONT_FAMILY, 12)
 FONT_BOLD = (FONT_FAMILY, 12, "bold")
 FONT_SMALL = (FONT_FAMILY, 10)
 
-# Falcon version
+# Dulus version
 _VERSION = "unknown"
 try:
-    import falcon as _falcon_mod
-    _VERSION = getattr(_falcon_mod, "VERSION", _VERSION)
+    import dulus as _dulus_mod
+    _VERSION = getattr(_dulus_mod, "VERSION", _VERSION)
 except Exception:
     pass
 
 
-class FalconSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
+class DulusSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
     """Left sidebar with session history, model selector, context bar, tools, and quick commands."""
 
     def __init__(
@@ -120,7 +120,7 @@ class FalconSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
 
         # ── Header / Logo ────────────────────────────────────────────────────
         lbl_cls = ctk.CTkLabel if HAS_CTK else ctk.Label
-        self._logo_label = lbl_cls(container, text="🦅  Falcon", font=(FONT_FAMILY, 18, "bold"),
+        self._logo_label = lbl_cls(container, text="🦅  Dulus", font=(FONT_FAMILY, 18, "bold"),
              text_color=ACCENT_COLOR if HAS_CTK else ACCENT_COLOR)
         self._logo_label.pack(anchor="w", pady=(0, 2))
         self._subtitle_label = lbl_cls(container, text="AI Coding Assistant", font=FONT_SMALL,

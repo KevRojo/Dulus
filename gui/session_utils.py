@@ -1,4 +1,4 @@
-"""Utility functions for managing Falcon GUI sessions."""
+"""Utility functions for managing Dulus GUI sessions."""
 import json
 import datetime
 import uuid
@@ -75,7 +75,7 @@ def scan_sessions() -> list[dict]:
     return sessions[:50]
 
 def save_session(state, config: dict, session_id: str | None = None) -> str:
-    """Save AgentState to disk in standard Falcon format. Returns the session_id."""
+    """Save AgentState to disk in standard Dulus format. Returns the session_id."""
     if not state.messages:
         return ""
     

@@ -23,8 +23,8 @@ class FakeState:
 
 @pytest.fixture
 def tmp_home(tmp_path):
-    """Redirect ~/.falcon/checkpoints to a temp directory."""
-    ckpt_root = tmp_path / ".falcon" / "checkpoints"
+    """Redirect ~/.dulus/checkpoints to a temp directory."""
+    ckpt_root = tmp_path / ".dulus" / "checkpoints"
     ckpt_root.mkdir(parents=True)
     with patch("checkpoint.store._checkpoints_root", return_value=ckpt_root):
         yield tmp_path, ckpt_root

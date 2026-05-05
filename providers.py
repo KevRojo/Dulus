@@ -1,5 +1,5 @@
 """
-Multi-provider support for Falcon.
+Multi-provider support for Dulus.
 
 Supported providers:
   anthropic  — Claude (claude-opus-4-6, claude-sonnet-4-6, ...)
@@ -607,7 +607,7 @@ def _claude_web_cookies_path(config: dict) -> str:
     """Return path to claude.ai cookies JSON file."""
     import os, pathlib
     p = config.get("claude_web_cookies") or str(
-        pathlib.Path.home() / ".falcon" / "claude_cookies.json"
+        pathlib.Path.home() / ".dulus" / "claude_cookies.json"
     )
     return p
 
@@ -616,7 +616,7 @@ def _kimi_web_auth_path(config: dict) -> str:
     """Return path to kimi.com consumer auth JSON file."""
     import os, pathlib
     p = config.get("kimi_web_auth_path") or str(
-        pathlib.Path.home() / ".falcon" / "kimi_consumer.json"
+        pathlib.Path.home() / ".dulus" / "kimi_consumer.json"
     )
     return p
 
@@ -662,7 +662,7 @@ def _gemini_web_auth_path(config: dict) -> str:
     """Return path to gemini.google.com consumer auth JSON file."""
     import os, pathlib
     p = config.get("gemini_web_auth_path") or str(
-        pathlib.Path.home() / ".falcon" / "gemini_web.json"
+        pathlib.Path.home() / ".dulus" / "gemini_web.json"
     )
     return p
 
@@ -671,7 +671,7 @@ def _deepseek_web_auth_path(config: dict) -> str:
     """Return path to chat.deepseek.com consumer auth JSON file."""
     import pathlib
     p = config.get("deepseek_web_auth_path") or str(
-        pathlib.Path.home() / ".falcon" / "deepseek_web.json"
+        pathlib.Path.home() / ".dulus" / "deepseek_web.json"
     )
     return p
 
@@ -680,7 +680,7 @@ def _qwen_web_auth_path(config: dict) -> str:
     """Return path to chat.qwen.ai consumer auth JSON file."""
     import pathlib
     p = config.get("qwen_web_auth_path") or str(
-        pathlib.Path.home() / ".falcon" / "qwen_web.json"
+        pathlib.Path.home() / ".dulus" / "qwen_web.json"
     )
     return p
 
@@ -786,7 +786,7 @@ def _claude_web_create_conversation(cookies_data: dict, org_id: str) -> str | No
             "Referer": "https://claude.ai/new",
         })
         url = f"https://claude.ai/api/organizations/{org_id}/chat_conversations"
-        resp = s.post(url, json={"name": f"Falcon — {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}"}, timeout=15)
+        resp = s.post(url, json={"name": f"Dulus — {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}"}, timeout=15)
         if resp.status_code == 200:
             return resp.json().get("uuid")
     except Exception:
@@ -829,7 +829,7 @@ def stream_claude_web(
         yield AssistantTurn(msg, [], 0, 0, error=True)
         return
 
-    # ── Conversation ID (persists for the Falcon session) ───────────────────
+    # ── Conversation ID (persists for the Dulus session) ───────────────────
     conv_id = config.get("claude_web_conv_id")
     if not conv_id:
         # Use existing conv_id from harvest first (like CODE5.PY)
@@ -1065,7 +1065,7 @@ def stream_claude_code(
     import subprocess as _sp
     from pathlib import Path as _Path
 
-    _session_dir = _Path.home() / ".claude" / "projects" / "C--Users-Admin-Desktop-FALCONV2"
+    _session_dir = _Path.home() / ".claude" / "projects" / "C--Users-Admin-Desktop-DULUSV2"
     _jsonl_files = sorted(_session_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
     _jsonl_path = _jsonl_files[0] if _jsonl_files else None
 
@@ -1125,7 +1125,7 @@ def stream_claude_code(
 
     # ── Poll JSONL for new assistant entry ────────────────────────────────────
     if not _jsonl_path:
-        msg = "[claude-code] No JSONL session file found in ~/.claude/projects/C--Users-Admin-Desktop-FALCONV2"
+        msg = "[claude-code] No JSONL session file found in ~/.claude/projects/C--Users-Admin-Desktop-DULUSV2"
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
         return
@@ -1360,7 +1360,7 @@ def stream_gemini_web(
     """Stream from gemini.google.com using the fast REST API with user-provided headers.
 
     Uses the 'requests' library with the exact cookies and headers captured from
-    the user's browser. The harvester requires the user to type 'FALCON' as the
+    the user's browser. The harvester requires the user to type 'DULUS' as the
     message so we can locate and replace it in the f.req payload.
     """
     import requests
@@ -1431,7 +1431,7 @@ def stream_gemini_web(
         f_req_source = "params"
 
     if f_req_source:
-        find_and_replace(f_req, "FALCON", last_user_msg)
+        find_and_replace(f_req, "DULUS", last_user_msg)
         
         # Inject IDs to maintain conversation thread
         try:
@@ -1514,7 +1514,7 @@ def stream_gemini_web(
             f_req_source = "params"
 
         if f_req_source:
-            find_and_replace(curr_f_req, "FALCON", last_user_msg)
+            find_and_replace(curr_f_req, "DULUS", last_user_msg)
             # Inject IDs if not on attempt 2 (fresh thread)
             if attempt < 2:
                 try:
@@ -1733,7 +1733,7 @@ def stream_deepseek_web(
 
     # ── Load persisted chat state (session + parent message) ─────────────────
     import pathlib as _pl
-    _ds_state_path = _pl.Path.home() / ".falcon" / "deepseek_chat_state.json"
+    _ds_state_path = _pl.Path.home() / ".dulus" / "deepseek_chat_state.json"
     _ds_state = {}
     if _ds_state_path.exists():
         try:
@@ -2014,7 +2014,7 @@ def stream_qwen_web(
 
     # ── Load persisted chat state (chat_id + parent_id across restarts) ──
     import pathlib as _pl
-    _qw_state_path = _pl.Path.home() / ".falcon" / "qwen_chat_state.json"
+    _qw_state_path = _pl.Path.home() / ".dulus" / "qwen_chat_state.json"
     _qw_state = {}
     if _qw_state_path.exists():
         try:
@@ -3635,7 +3635,7 @@ def stream_ollama(
     #     thinking = _sanitize_deepseek_output(thinking)
 
     # Ollama doesn't return exact token counts via livestream easily until "done",
-    # but we can do a rough estimate or 0, falcon handles zero gracefully
+    # but we can do a rough estimate or 0, dulus handles zero gracefully
 
     # For cloud-routed models: if text is empty (timing issue), retry once with longer wait
     if not text and not tool_calls and ":cloud" in model.lower():

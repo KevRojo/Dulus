@@ -1,4 +1,4 @@
-"""Theme system for Falcon GUI.
+"""Theme system for Dulus GUI.
 
 Provides multiple color presets that can be switched at runtime.
 """
@@ -7,7 +7,7 @@ from __future__ import annotations
 # ── Theme presets ───────────────────────────────────────────────────────────
 
 THEMES: dict[str, dict[str, str]] = {
-    "falcon": {
+    "dulus": {
         "bg": "#0a0a0a",
         "card": "#0f0f12",
         "code_bg": "#15151a",

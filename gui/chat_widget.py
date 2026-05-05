@@ -1,4 +1,4 @@
-"""Chat display widget for Falcon GUI.
+"""Chat display widget for Dulus GUI.
 
 Provides a scrollable chat view with message bubbles, markdown-like rendering,
 code blocks with copy buttons, tool execution pills, and a typing indicator.
@@ -91,7 +91,7 @@ class ChatWidget(ctk.CTkFrame):
         )
         self._thinking_label = ctk.CTkLabel(
             self._thinking_frame,
-            text="🌀  Falcon ta pensando…",
+            text="🌀  Dulus ta pensando…",
             font=FONT_NORMAL,
             text_color=ACCENT_COLOR,
         )

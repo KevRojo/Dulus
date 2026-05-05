@@ -25,7 +25,7 @@ def _make_pcm(n_samples: int = 1600) -> bytes:
 class TestSplitIdentifier:
     def test_camel_case(self):
         from voice.keyterms import split_identifier
-        assert split_identifier("falconCode") == ["falcon", "Code"]
+        assert split_identifier("dulusCode") == ["dulus", "Code"]
 
     def test_kebab_case(self):
         from voice.keyterms import split_identifier
@@ -202,39 +202,39 @@ class TestVoiceInit:
 
 class TestReplVoiceIntegration:
     def test_voice_in_commands(self):
-        import falcon
-        assert "voice" in falcon.COMMANDS
+        import dulus
+        assert "voice" in dulus.COMMANDS
 
     def test_voice_command_callable(self):
-        import falcon
-        assert callable(falcon.COMMANDS["voice"])
+        import dulus
+        assert callable(dulus.COMMANDS["voice"])
 
     def test_handle_slash_voice_sentinel(self):
         """handle_slash('/voice ...') propagates __voice__ sentinel from cmd_voice."""
-        import falcon
+        import dulus
 
         # Patch cmd_voice to return a sentinel directly
         sentinel = ("__voice__", "hello world")
-        with patch.object(falcon, "cmd_voice", return_value=sentinel):
+        with patch.object(dulus, "cmd_voice", return_value=sentinel):
             # Re-bind in COMMANDS so the patch is seen
-            falcon.COMMANDS["voice"] = falcon.cmd_voice
-            result = falcon.handle_slash("/voice", object(), {})
+            dulus.COMMANDS["voice"] = dulus.cmd_voice
+            result = dulus.handle_slash("/voice", object(), {})
             assert result == sentinel
 
     def test_voice_status_no_crash(self, capsys):
         """'/voice status' should not raise even without audio hardware."""
-        import falcon
+        import dulus
         # Should not raise
         try:
-            falcon.cmd_voice("status", object(), {})
+            dulus.cmd_voice("status", object(), {})
         except SystemExit:
             pass
         # Output captured — just ensure no uncaught exception
 
     def test_voice_lang_set(self, capsys):
-        import falcon
-        falcon.cmd_voice("lang zh", object(), {})
-        assert falcon._voice_language == "zh"
+        import dulus
+        dulus.cmd_voice("lang zh", object(), {})
+        assert dulus._voice_language == "zh"
         # Reset
-        falcon.cmd_voice("lang auto", object(), {})
-        assert falcon._voice_language == "auto"
+        dulus.cmd_voice("lang auto", object(), {})
+        assert dulus._voice_language == "auto"

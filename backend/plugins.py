@@ -1,4 +1,4 @@
-"""Hot-loadable plugin system for Falcon."""
+"""Hot-loadable plugin system for Dulus."""
 import importlib.util
 import json
 import sys
@@ -24,7 +24,7 @@ def register_hook(name: str, fn: Callable):
 
 def unregister_plugin_hooks(name: str):
     """Remove all hooks registered by a given plugin name."""
-    mod_name = f"falcon.plugins.{name}"
+    mod_name = f"dulus.plugins.{name}"
     for hook_name, fns in list(_hooks.items()):
         _hooks[hook_name] = [fn for fn in fns if getattr(fn, "__module__", None) != mod_name]
         if not _hooks[hook_name]:
@@ -58,7 +58,7 @@ def load_plugin(path: Path) -> dict[str, Any]:
     except Exception:
         pass
 
-    spec = importlib.util.spec_from_file_location(f"falcon.plugins.{name}", path)
+    spec = importlib.util.spec_from_file_location(f"dulus.plugins.{name}", path)
     if not spec or not spec.loader:
         return {"name": name, "status": "error", "error": "Cannot load spec"}
     mod = importlib.util.module_from_spec(spec)
@@ -86,7 +86,7 @@ def unload_plugin(name: str) -> bool:
     if name not in _registry:
         return False
     unregister_plugin_hooks(name)
-    mod_name = f"falcon.plugins.{name}"
+    mod_name = f"dulus.plugins.{name}"
     if mod_name in sys.modules:
         del sys.modules[mod_name]
     del _registry[name]
@@ -204,12 +204,12 @@ def create_example_plugin():
     example = PLUGINS_DIR / "example.py"
     if example.exists():
         return
-    example.write_text('''"""Example Falcon Plugin."""
+    example.write_text('''"""Example Dulus Plugin."""
 __plugin_meta__ = {
     "name": "example",
     "version": "1.0.0",
     "description": "Counts tasks by status",
-    "author": "Falcon"
+    "author": "Dulus"
 }
 
 def count_by_status(tasks):

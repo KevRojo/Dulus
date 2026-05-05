@@ -1,73 +1,75 @@
 {
   "session": {
     "mode": "proactive",
-    "agent": "Falcon",
-    "agent_id": "falcon",
+    "agent": "Dulus",
+    "agent_id": "dulus",
     "user": "KevRojo",
     "location": "RD"
   },
   "project": {
-    "name": "Falcon Command Center",
+    "name": "Dulus Command Center",
     "repo_stats": {
-      "files": 209,
-      "lines": 187659,
+      "files": 194,
+      "lines": 283472,
       "languages": {
         ".example": 5,
-        "no_ext": 115,
-        ".json": 1337,
-        ".py": 43745,
+        ".py": 44493,
         ".wasm": 982,
-        ".md": 5556,
-        ".toml": 40,
+        ".html": 14583,
+        ".zip": 141436,
+        "no_ext": 674,
+        ".md": 1842,
         ".txt": 39,
-        ".html": 8667,
-        ".gif": 1560,
+        ".json": 781,
         ".svg": 1124,
-        ".png": 58210,
-        ".MD": 17791,
         ".sh": 144,
-        ".exe": 48344
+        ".exe": 48344,
+        ".png": 29025
       }
     },
     "recent_commits": [
       {
-        "hash": "dab4f92",
-        "subject": "feat(rtk): transparent token-optimized shell command rewriting",
+        "hash": "f41f924",
+        "subject": "readme: restore website link block (mistakenly dropped in prev commit)",
         "author": "KevRojo",
-        "date": "2026-04-29"
+        "date": "2026-05-02"
       },
       {
-        "hash": "92ffeb4",
-        "subject": "feat: GUI, license system, backend, voice/memory upgrades, core refactors",
+        "hash": "f4bc03b",
+        "subject": "license: switch to GPLv3",
         "author": "KevRojo",
-        "date": "2026-04-29"
+        "date": "2026-05-02"
       },
       {
-        "hash": "268e26f",
-        "subject": "fix: /skill help text, empty state shows available skills directly",
+        "hash": "b1a80d8",
+        "subject": "readme: add prominent link to website with features not in README",
         "author": "KevRojo",
-        "date": "2026-04-25"
+        "date": "2026-05-02"
       },
       {
-        "hash": "82cc57f",
-        "subject": "feat: /skill list shows all available + installed, subcommand completion, remove fix",
+        "hash": "59cddb5",
+        "subject": "rename Dulus.html to index.html for GitHub Pages root",
         "author": "KevRojo",
-        "date": "2026-04-25"
+        "date": "2026-05-02"
       },
       {
-        "hash": "61e3f40",
-        "subject": "feat: interruptible stream, skill hub, TTS upgrades",
+        "hash": "4433f39",
+        "subject": "docs: add index.html landing page",
         "author": "KevRojo",
-        "date": "2026-04-25"
+        "date": "2026-05-02"
       }
     ],
     "recent_changes": [
-      "config.py",
+      "README.md",
+      "auto_context_loader.py",
+      "context_integration.py",
       "data/context.json",
-      "falcon.py",
-      "rtk/README.md",
-      "rtk/install.sh",
-      "tools.py"
+      "memory/__pycache__/context.cpython-314.pyc",
+      "memory/__pycache__/store.cpython-314.pyc",
+      "memory/context.py",
+      "memory/store.py",
+      "providers.py",
+      "startup_context.py"
     ]
   },
   "tasks": {
@@ -83,7 +85,7 @@
         "id": "T-010",
         "subject": "Multi-Agent Mesa Redonda",
         "status": "in_progress",
-        "owner": "Falcon",
+        "owner": "Dulus",
         "phase": "Core"
       }
     ],
@@ -91,7 +93,7 @@
   },
   "agents": [
     {
-      "name": "Falcon",
+      "name": "Dulus",
       "role": "primary",
       "color": "#ff6b1f",
       "status": "active",
@@ -124,8 +126,8 @@
     }
   ],
   "persona": {
-    "id": "falcon",
-    "name": "Falcon",
+    "id": "dulus",
+    "name": "Dulus",
     "role": "primary",
     "color": "#ff6b1f",
     "avatar": "[F]",

@@ -1,6 +1,6 @@
-# Falcon
+# Dulus
 
-**Falcon** is a lightweight Python reimplementation of Claude Code that supports **any model** — Claude, GPT, Gemini, DeepSeek, Qwen, MiniMax, Kimi, Zhipu, and local models via Ollama.
+**Dulus** is a lightweight Python reimplementation of Claude Code that supports **any model** — Claude, GPT, Gemini, DeepSeek, Qwen, MiniMax, Kimi, Zhipu, and local models via Ollama.
 
 ~12K lines of readable Python. No build step. Just `pip install` and run.
 
@@ -46,7 +46,7 @@
 
 <div align="center">
   <img src="https://github.com/SafeRL-Lab/clawspring/blob/main/docs/telegram_demo.gif" width="850"/>
-  <p>Telegram Bridge: Control Falcon from Your Phone</p>
+  <p>Telegram Bridge: Control Dulus from Your Phone</p>
 </div>
 
 ---
@@ -55,29 +55,29 @@
 
 ```bash
 # Clone and install
-git clone https://github.com/KevRojo/Falcon
-cd Falcon
+git clone https://github.com/KevRojo/Dulus
+cd Dulus
 
 # Option A: global install with uv
 uv tool install .
 
 # Option B: run directly
 pip install -r requirements.txt
-python falcon.py
+python dulus.py
 ```
 
 Set an API key and go:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...    # or OPENAI_API_KEY, GEMINI_API_KEY, etc.
-falcon --model claude-sonnet-4-6
+dulus --model claude-sonnet-4-6
 ```
 
 For local models (no API key needed):
 
 ```bash
 ollama pull qwen2.5-coder
-falcon --model ollama/qwen2.5-coder
+dulus --model ollama/qwen2.5-coder
 ```
 
 ---
@@ -94,7 +94,7 @@ falcon --model ollama/qwen2.5-coder
 | Voice input | Offline STT via Whisper — no API key required |
 | Brainstorm | Multi-persona AI debate with auto-generated expert roles |
 | SSJ Developer Mode | Power menu with 10 workflow shortcuts |
-| Telegram bridge | Control Falcon from your phone |
+| Telegram bridge | Control Dulus from your phone |
 | Checkpoints | Auto-snapshot conversation + files; rewind to any point |
 | Plan mode | Read-only analysis phase before implementation |
 | Context compression | Auto-compact long conversations to stay within model limits |
@@ -125,7 +125,7 @@ Recommended for coding: `qwen2.5-coder`, `llama3.3`, `mistral`, `phi4`. Vision: 
 
 ```bash
 ollama pull qwen2.5-coder
-falcon --model ollama/qwen2.5-coder
+dulus --model ollama/qwen2.5-coder
 ```
 
 Also works with **LM Studio** (`lmstudio/<model>`) and any **OpenAI-compatible server** (`custom/<model>` + `CUSTOM_BASE_URL`).
@@ -135,24 +135,24 @@ Also works with **LM Studio** (`lmstudio/<model>`) and any **OpenAI-compatible s
 ## Usage
 
 ```bash
-falcon                              # interactive REPL (default model)
-falcon --model gpt-4o               # choose model
-falcon -p "explain this code"       # non-interactive mode
-falcon --accept-all -p "init project"  # no permission prompts (CI)
-falcon --thinking --verbose         # extended thinking (Claude)
+dulus                              # interactive REPL (default model)
+dulus --model gpt-4o               # choose model
+dulus -p "explain this code"       # non-interactive mode
+dulus --accept-all -p "init project"  # no permission prompts (CI)
+dulus --thinking --verbose         # extended thinking (Claude)
 ```
 
 ### Model name format
 
 ```bash
-falcon --model gpt-4o                    # auto-detected
-falcon --model ollama/qwen2.5-coder      # explicit provider/model
-falcon --model kimi:moonshot-v1-32k      # colon syntax also works
+dulus --model gpt-4o                    # auto-detected
+dulus --model ollama/qwen2.5-coder      # explicit provider/model
+dulus --model kimi:moonshot-v1-32k      # colon syntax also works
 ```
 
 ### API keys
 
-Set via environment variables, `/config` in the REPL, or edit `~/.falcon/config.json` directly.
+Set via environment variables, `/config` in the REPL, or edit `~/.dulus/config.json` directly.
 
 ---
 
@@ -217,7 +217,7 @@ MCP tools are auto-registered as `mcp__<server>__<tool>`.
 
 ## MCP (Model Context Protocol)
 
-Add a `.mcp.json` to your project or `~/.falcon/mcp.json` for user-wide config:
+Add a `.mcp.json` to your project or `~/.dulus/mcp.json` for user-wide config:
 
 ```json
 {
@@ -253,8 +253,8 @@ Persistent memories stored as markdown files in two scopes:
 
 | Scope | Path |
 |---|---|
-| User | `~/.falcon/memory/` |
-| Project | `.falcon/memory/` |
+| User | `~/.dulus/memory/` |
+| Project | `.dulus/memory/` |
 
 Types: `user`, `feedback`, `project`, `reference`. Search is ranked by confidence x recency.
 
@@ -264,7 +264,7 @@ Types: `user`, `feedback`, `project`, `reference`. Search is ranked by confidenc
 
 Built-in: `/commit` (git commit helper), `/review` (code review).
 
-Custom skills: create markdown files in `~/.falcon/skills/` or `.falcon/skills/`.
+Custom skills: create markdown files in `~/.dulus/skills/` or `.dulus/skills/`.
 
 ---
 
@@ -297,8 +297,8 @@ Place a `CLAUDE.md` in your project root to give the model persistent context ab
 ## Project Structure
 
 ```
-falcon/
-├── falcon.py             # Entry point: REPL, slash commands, SSJ, Telegram
+dulus/
+├── dulus.py             # Entry point: REPL, slash commands, SSJ, Telegram
 ├── agent.py              # Agent loop: streaming, tool dispatch, compaction
 ├── providers.py          # Multi-provider streaming
 ├── tools.py              # Core tools + registry wiring
@@ -335,9 +335,9 @@ Use a model that supports function calling: `qwen2.5-coder`, `llama3.3`, `mistra
 `/cost`
 
 **Voice transcribes coding terms wrong?**
-Add terms to `.falcon/voice_keyterms.txt` (one per line).
+Add terms to `.dulus/voice_keyterms.txt` (one per line).
 
 **Can I pipe input?**
 ```bash
-echo "Explain this" | falcon -p --accept-all
+echo "Explain this" | dulus -p --accept-all
 ```

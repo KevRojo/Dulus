@@ -151,13 +151,13 @@ def load_agent_definitions() -> Dict[str, AgentDefinition]:
     """Load all agent definitions: built-ins → user-level → project-level.
 
     Search paths:
-      ~/.falcon/agents/*.md   (user-level)
-      .falcon/agents/*.md     (project-level, overrides user)
+      ~/.dulus/agents/*.md   (user-level)
+      .dulus/agents/*.md     (project-level, overrides user)
     """
     defs: Dict[str, AgentDefinition] = dict(_BUILTIN_AGENTS)
 
     # User-level
-    user_dir = Path.home() / ".falcon" / "agents"
+    user_dir = Path.home() / ".dulus" / "agents"
     if user_dir.is_dir():
         for p in sorted(user_dir.glob("*.md")):
             try:
@@ -167,7 +167,7 @@ def load_agent_definitions() -> Dict[str, AgentDefinition]:
                 pass
 
     # Project-level (overrides user)
-    proj_dir = Path.cwd() / ".falcon-context" / "agents"
+    proj_dir = Path.cwd() / ".dulus-context" / "agents"
     if proj_dir.is_dir():
         for p in sorted(proj_dir.glob("*.md")):
             try:

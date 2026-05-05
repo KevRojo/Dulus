@@ -1,4 +1,4 @@
-"""Tests for Falcon license system."""
+"""Tests for Dulus license system."""
 import base64
 import json
 import sys
@@ -49,7 +49,7 @@ class TestLicenseValidation(unittest.TestCase):
         self.assertIn("prefix", lic.error.lower())
 
     def test_malformed_base64(self):
-        lic = LicenseManager("FALCON-!!!notbase64!!!")
+        lic = LicenseManager("DULUS-!!!notbase64!!!")
         self.assertFalse(lic.valid)
         self.assertIn("malformed", lic.error.lower())
 
@@ -66,7 +66,7 @@ class TestLicenseValidation(unittest.TestCase):
         new_payload_json = json.dumps(payload, separators=(",", ":")).encode()
         # Re-encode con la MISMA firma (ataque!)
         tampered = base64.urlsafe_b64encode(new_payload_json + b":" + sig).decode().rstrip("=")
-        tampered_key = f"FALCON-{tampered}"
+        tampered_key = f"DULUS-{tampered}"
         lic = LicenseManager(tampered_key)
         self.assertFalse(lic.valid)
         self.assertIn("signature", lic.error.lower())
@@ -82,7 +82,7 @@ class TestLicenseValidation(unittest.TestCase):
         payload["exp"] = int(time.time() + 365 * 86400)
         new_payload_json = json.dumps(payload, separators=(",", ":")).encode()
         tampered = base64.urlsafe_b64encode(new_payload_json + b":" + sig).decode().rstrip("=")
-        tampered_key = f"FALCON-{tampered}"
+        tampered_key = f"DULUS-{tampered}"
         lic = LicenseManager(tampered_key)
         self.assertFalse(lic.valid)
         self.assertIn("signature", lic.error.lower())
@@ -101,7 +101,7 @@ class TestLicenseValidation(unittest.TestCase):
         import hashlib, hmac
         sig = hmac.new(_LICENSE_SECRET.encode(), payload, hashlib.sha256).hexdigest()[:24]
         token = base64.urlsafe_b64encode(payload + b":" + sig.encode()).decode().rstrip("=")
-        boundary_key = f"FALCON-{token}"
+        boundary_key = f"DULUS-{token}"
         lic = LicenseManager(boundary_key)
         # time.time() >= now, debería estar expirada
         self.assertFalse(lic.valid)

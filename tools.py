@@ -1,4 +1,4 @@
-"""Tool definitions and implementations for Falcon."""
+"""Tool definitions and implementations for Dulus."""
 import json
 import os
 import re
@@ -15,15 +15,15 @@ from tool_registry import execute_tool as _registry_execute
 # Import input.py for slash command autocompletion
 try:
     from input import setup as input_setup, HAS_PROMPT_TOOLKIT, read_line
-    # Expose setup for backwards compatibility (Falcon uses input.setup())
+    # Expose setup for backwards compatibility (Dulus uses input.setup())
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
     input_setup = None
     read_line = None
 
-# Import falcon's COMMANDS and _CMD_META for autocompletion
+# Import dulus's COMMANDS and _CMD_META for autocompletion
 try:
-    from falcon import COMMANDS, _CMD_META
+    from dulus import COMMANDS, _CMD_META
 except ImportError:
     COMMANDS = {}
     _CMD_META = {}
@@ -549,7 +549,7 @@ def _print_last_output() -> str:
     
     Use this to display large outputs (ASCII art, logs, etc.) without re-writing them.
     """
-    out_file = Path.home() / ".falcon" / "last_tool_output.txt"
+    out_file = Path.home() / ".dulus" / "last_tool_output.txt"
     if not out_file.exists():
         return "No saved tool output available."
     try:
@@ -563,7 +563,7 @@ def _print_last_output() -> str:
 
 def _search_last_output(pattern: str = None, context: int = 2) -> str:
     """Search or summarize the tool outputs accumulated during this turn."""
-    out_file = Path.home() / ".falcon" / "last_tool_output.txt"
+    out_file = Path.home() / ".dulus" / "last_tool_output.txt"
     if not out_file.exists():
         return "No saved tool output available. No tool has produced truncated output yet."
     try:
@@ -1884,7 +1884,7 @@ def _sleeptimer(seconds: int, config: dict) -> str:
     import threading
     cb = config.get("_run_query_callback")
     if not cb:
-        return "Error: Internal callback missing, falcon did not provide _run_query_callback"
+        return "Error: Internal callback missing, dulus did not provide _run_query_callback"
         
     def worker():
         import time
@@ -1922,10 +1922,10 @@ def _print_to_console(content: str = "", style: str = "normal", prefix: str = ""
     if file_path:
         try:
             fp = Path(file_path)
-            # Special case: last_tool_output.txt is usually in the app config dir (~/.falcon)
+            # Special case: last_tool_output.txt is usually in the app config dir (~/.dulus)
             if file_path == "last_tool_output.txt" and not fp.exists():
                 # Cross-platform home directory resolution
-                fp = Path.home() / ".falcon" / "last_tool_output.txt"
+                fp = Path.home() / ".dulus" / "last_tool_output.txt"
                 
             if not fp.exists():
                 return f"[ERROR] File not found: {file_path}"
@@ -2230,7 +2230,7 @@ import skill.tools as _skill_tools  # noqa: F401
 # ── MCP tools ─────────────────────────────────────────────────────────────────
 # mcp/tools.py connects to configured MCP servers and registers their tools.
 # Connection happens in a background thread so startup is not blocked.
-import falcon_mcp.tools as _mcp_tools  # noqa: F401
+import dulus_mcp.tools as _mcp_tools  # noqa: F401
 
 
 # ── Plugin tools ───────────────────────────────────────────────────────────────
@@ -2260,7 +2260,7 @@ def _enter_plan_mode(params: dict, config: dict) -> str:
         return "Already in plan mode. Write your plan to the plan file, then call ExitPlanMode."
 
     session_id = config.get("_session_id", "default")
-    plans_dir = Path.cwd() / ".falcon-context" / "plans"
+    plans_dir = Path.cwd() / ".dulus-context" / "plans"
     plans_dir.mkdir(parents=True, exist_ok=True)
     plan_path = plans_dir / f"{session_id}.md"
 
@@ -2393,7 +2393,7 @@ def _plugin_list(params: dict, config: dict) -> str:
 
 _PLUGIN_LIST_SCHEMA = {
     "name": "PluginList",
-    "description": "List all currently installed Falcon plugins, their scopes, and their status (enabled/disabled). Use this if you need to recall which plugins you have available.",
+    "description": "List all currently installed Dulus plugins, their scopes, and their status (enabled/disabled). Use this if you need to recall which plugins you have available.",
     "input_schema": {
         "type": "object",
         "properties": {},
@@ -2481,7 +2481,7 @@ def _plugin_tools_list(params: dict, config: dict) -> str:
 
 _PLUGIN_TOOLS_LIST_SCHEMA = {
     "name": "PluginToolsList",
-    "description": "List all tools exposed by installed Falcon plugins. Returns each plugin's name and the tools it provides with brief descriptions. Use this to discover what plugin tools are available without searching files.",
+    "description": "List all tools exposed by installed Dulus plugins. Returns each plugin's name and the tools it provides with brief descriptions. Use this to discover what plugin tools are available without searching files.",
     "input_schema": {
         "type": "object",
         "properties": {},
@@ -2512,7 +2512,7 @@ def _read_job(params: dict, config: dict) -> str:
     try:
         from pathlib import Path
         import re
-        jobs_dir = Path.home() / ".falcon" / "jobs"
+        jobs_dir = Path.home() / ".dulus" / "jobs"
         job_file = jobs_dir / f"{job_id}.json"
         
         if not job_file.exists():
@@ -2683,7 +2683,7 @@ register_tool(ToolDef(name="GitStatus", schema=_GIT_STATUS_SCHEMA, func=_git_sta
 register_tool(ToolDef(name="GitLog", schema=_GIT_LOG_SCHEMA, func=_git_log, read_only=True, concurrent_safe=True))
 
 
-# Plugins are loaded once when Falcon starts (not on every reload to avoid overhead)
+# Plugins are loaded once when Dulus starts (not on every reload to avoid overhead)
 try:
     from plugin.loader import register_plugin_tools
     _plugin_count = register_plugin_tools()

@@ -1,4 +1,4 @@
-"""Falcon WebChat — in-process mirror of the terminal agent + Roundtable mode.
+"""Dulus WebChat — in-process mirror of the terminal agent + Roundtable mode.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ import tools as _tools_init
 import memory.tools as _mem_tools_init
 import multi_agent.tools as _ma_tools_init
 import skill.tools as _sk_tools_init
-import falcon_mcp.tools as _mcp_tools_init
+import dulus_mcp.tools as _mcp_tools_init
 import task.tools as _task_tools_init
 
 try:
@@ -132,7 +132,7 @@ def _strip_ansi(text: str) -> str:
 def _run_slash_command(cmd_line: str) -> tuple[str, str | None]:
     """Run a slash command through the REPL's registered handler,
     capturing stdout. Mirrors the Telegram bridge behavior
-    (falcon.py:_handle_slash_from_telegram).
+    (dulus.py:_handle_slash_from_telegram).
 
     Returns (output_text, assistant_reply_or_None).
     `assistant_reply` is set when the slash triggered a model query
@@ -396,7 +396,7 @@ def create_app() -> Flask:
     # ───────────────────────── Chat Normal HTML ─────────────────────────
     CHAT_PAGE = r"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Falcon WebChat</title>
+<title>Dulus WebChat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Archivo+Black&display=swap" rel="stylesheet">
@@ -464,7 +464,7 @@ header{padding:0 20px;height:auto;padding-bottom:10px}
 </style></head><body>
 <div class="grid-bg"></div>
 <header>
-  <h1>FALCON WEBCHAT</h1>
+  <h1>DULUS WEBCHAT</h1>
   <select id="personaSelect" style="background:var(--bg3);color:var(--dim);border:1px solid var(--dim2);padding:4px 10px;border-radius:var(--radius);font-family:var(--mono);font-size:12px;outline:none;cursor:pointer;flex:1;max-width:250px;margin:0 15px;text-align:center"></select>
   <div>
     <a href="/roundtable">Mesa Redonda</a>
@@ -474,7 +474,7 @@ header{padding:0 20px;height:auto;padding-bottom:10px}
 </header>
 <div id="log"></div>
 <div id="inputArea">
-  <textarea id="inp" placeholder="Mensaje a Falcon... (Enter envia, Shift+Enter nueva linea)" autofocus></textarea>
+  <textarea id="inp" placeholder="Mensaje a Dulus... (Enter envia, Shift+Enter nueva linea)" autofocus></textarea>
   <button class="send" id="sendBtn">SEND</button>
 </div>
 <script>
@@ -693,7 +693,7 @@ setInterval(syncChat, 5000);
     # ─────────────────────── Mesa Redonda HTML ──────────────────────────
     RT_PAGE = r"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Falcon Mesa Redonda</title>
+<title>Dulus Mesa Redonda</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Archivo+Black&display=swap" rel="stylesheet">
@@ -771,7 +771,7 @@ header{padding:10px 20px;height:auto}
 </style></head><body>
 <div class="grid-bg"></div>
 <header>
-  <h1>FALCON MESA REDONDA</h1>
+  <h1>DULUS MESA REDONDA</h1>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--dim)">
       <input type="checkbox" id="proactiveToggle" style="accent-color:var(--accent);cursor:pointer">
@@ -1438,14 +1438,14 @@ restoreRt();
             mimetype="text/event-stream",
         )
 
-    # ── FALCON 2 UNIFIED ENDPOINTS ──
+    # ── DULUS 2 UNIFIED ENDPOINTS ──
 
     @app.route("/api/events")
     def api_events():
         def generate():
             q = queue.Queue(maxsize=100)
             _add_sse_client(q)
-            yield f"event: connected\ndata: {json.dumps({'message':'Falcon SSE active'})}\n\n"
+            yield f"event: connected\ndata: {json.dumps({'message':'Dulus SSE active'})}\n\n"
             try:
                 while True:
                     try:
@@ -1459,7 +1459,7 @@ restoreRt();
 
     @app.route("/api/health")
     def api_health():
-        return jsonify({"status": "ok", "agent": "Falcon", "mode": "proactive", "version": "2026.04.26"})
+        return jsonify({"status": "ok", "agent": "Dulus", "mode": "proactive", "version": "2026.04.26"})
 
     @app.route("/api/tasks", methods=["GET"])
     def get_api_tasks():
@@ -1569,7 +1569,7 @@ restoreRt();
     @app.route("/api/plugins", methods=["GET"])
     def api_get_plugins():
         import os
-        user_plugins_dir = Path(os.path.expanduser("~")) / ".falcon" / "plugins"
+        user_plugins_dir = Path(os.path.expanduser("~")) / ".dulus" / "plugins"
         plugins = []
         if user_plugins_dir.exists():
             for d in sorted(user_plugins_dir.iterdir()):
@@ -1580,7 +1580,7 @@ restoreRt();
                         "source": "user",
                         "path": str(d),
                     })
-        # Also include any from falcon2's hot-reload system
+        # Also include any from dulus2's hot-reload system
         try:
             load_all_plugins()
             for p in get_plugin_info():

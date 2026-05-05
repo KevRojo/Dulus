@@ -1,4 +1,4 @@
-"""Task system for falcon."""
+"""Task system for dulus."""
 from .types import Task, TaskStatus
 from .store import (
     create_task, get_task, list_tasks, update_task,

@@ -1,4 +1,4 @@
-# Dependencias para la GUI profesional de Falcon
+# Dependencias para la GUI profesional de Dulus
 # Instalar con: pip install -r requirements_gui.txt
 
 customtkinter>=5.2.2

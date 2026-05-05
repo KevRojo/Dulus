@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Falcon — Next-gen Python Autonomous Agent.
+Dulus — Next-gen Python Autonomous Agent.
 
 Usage:
-  python falcon.py [options] [prompt]
-  falcon [options] [prompt]           (if falcon.bat is in PATH)
+  python dulus.py [options] [prompt]
+  dulus [options] [prompt]           (if dulus.bat is in PATH)
 
 Options:
   -p, --print          Non-interactive: run prompt and exit (also --print-output)
@@ -14,21 +14,21 @@ Options:
   --version            Print version and exit
   -h, --help           Show this help message
   
-  -c, --cmd COMMAND    Execute a Falcon slash command and exit (no REPL)
+  -c, --cmd COMMAND    Execute a Dulus slash command and exit (no REPL)
                        Useful for scripting and automation.
                        Examples:
-                         falcon --cmd "plugin reload"
-                         falcon --cmd "status"
-                         falcon --cmd "kill_tmux"
-                         falcon --cmd "checkpoint clear"
-                         falcon -c "skills"
+                         dulus --cmd "plugin reload"
+                         dulus --cmd "status"
+                         dulus --cmd "kill_tmux"
+                         dulus --cmd "checkpoint clear"
+                         dulus -c "skills"
                        Note: Some commands require an active session.
 
 Non-interactive Examples:
-  falcon "explain this code"                    # Quick question and exit
-  falcon -p "refactor this function"            # Same, explicit flag
-  falcon --cmd "plugin install art@gh"          # Install plugin from CLI
-  falcon --cmd "checkpoint"                     # List checkpoints
+  dulus "explain this code"                    # Quick question and exit
+  dulus -p "refactor this function"            # Same, explicit flag
+  dulus --cmd "plugin install art@gh"          # Install plugin from CLI
+  dulus --cmd "checkpoint"                     # List checkpoints
 
 Slash commands in REPL:
   /help       Show this help
@@ -61,7 +61,7 @@ Slash commands in REPL:
   /memory purge           Total wipe of memories EXCEPT the 'Soul'
   /memory purge-soul      Total wipe of EVERYTHING (Danger)
   /memory consolidate     Extract long-term insights from session via AI
-  /skills           List active Falcon skills (loaded each turn)
+  /skills           List active Dulus skills (loaded each turn)
   /skill            Browse + manage Anthropic/ClawHub skills
   /skill list       Show installed + all available Anthropic skills
   /skill get <plugin/skill>  Install a skill (e.g. /skill get frontend-design/frontend-design)
@@ -94,7 +94,7 @@ Slash commands in REPL:
   /cloudsave        Upload current session to GitHub Gist
   /cloudsave push [desc]     Upload with optional description
   /cloudsave auto on|off     Toggle auto-upload on exit
-  /cloudsave list   List your falcon Gists
+  /cloudsave list   List your dulus Gists
   /cloudsave load <gist_id>  Download and load a session from Gist
   /kill_tmux        Kill all stuck tmux/psmux sessions (cleanup)
   /batch            Manage Kimi Batch tasks (list, status, fetch)
@@ -124,14 +124,14 @@ if sys.platform == "win32":
 from pathlib import Path
 
 # ── Global Import Hook ───────────────────────────────────────────────────────
-# This allows running falcon.py from any directory while keeping its modules.
-# We find the directory where falcon.py actually lives.
-FALCON_CODE_ROOT = Path(__file__).resolve().parent
-if str(FALCON_CODE_ROOT) not in sys.path:
-    sys.path.insert(0, str(FALCON_CODE_ROOT))
+# This allows running dulus.py from any directory while keeping its modules.
+# We find the directory where dulus.py actually lives.
+DULUS_CODE_ROOT = Path(__file__).resolve().parent
+if str(DULUS_CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(DULUS_CODE_ROOT))
 
 from tools import ask_input_interactive, _tg_thread_local, _is_in_tg_turn
-import input as falcon_input
+import input as dulus_input
 try:
     import paste_placeholders as _paste_ph
 except ImportError:
@@ -143,9 +143,9 @@ except ImportError:
 try:
     from common import C
 except ImportError:
-    # Fallback uses Falcon orange (default theme accent) instead of generic cyan
-    _FALCON_ORANGE = "\033[38;2;255;135;0m"
-    C = {"cyan": _FALCON_ORANGE, "green": _FALCON_ORANGE, "blue": _FALCON_ORANGE,
+    # Fallback uses Dulus orange (default theme accent) instead of generic cyan
+    _DULUS_ORANGE = "\033[38;2;255;135;0m"
+    C = {"cyan": _DULUS_ORANGE, "green": _DULUS_ORANGE, "blue": _DULUS_ORANGE,
          "bold": "\033[1m", "reset": "\033[0m", "gray": "\033[90m", "dim": "\033[2m"}
 
 # ── License gate (KevRojo — tu esfuerzo, tu leche) ──────────────────────────
@@ -245,7 +245,7 @@ def _has_diff(text: str) -> bool:
 
 
 # ── Conversation rendering ─────────────────────────────────────────────────
-# NOTE: This section mirrors ui/render.py with falcon-specific optimizations.
+# NOTE: This section mirrors ui/render.py with dulus-specific optimizations.
 # Keep in sync with ui/render.py when making changes.
 
 _accumulated_text: list[str] = []   # buffer text during streaming
@@ -678,7 +678,7 @@ def cmd_help(_args: str, _state, config) -> bool:
     print(__doc__)
 
     # ── Toggle status ───────────────────────────────────────────────────────
-    # Every boolean toggle command in Falcon. Add new ones to this list so
+    # Every boolean toggle command in Dulus. Add new ones to this list so
     # they show up here automatically.
     _toggles = [
         ("auto_show",       True,  "/auto_show",       "Visual tools auto-render to console"),
@@ -837,10 +837,10 @@ def cmd_brainstorm(args: str, state, config) -> bool:
     if readme_path.exists():
         readme_content = readme_path.read_text("utf-8", errors="replace")
     
-    falcon_md = Path("FALCON.md")
-    falcon_content = ""
-    if falcon_md.exists():
-        falcon_content = falcon_md.read_text("utf-8", errors="replace")
+    dulus_md = Path("DULUS.md")
+    dulus_content = ""
+    if dulus_md.exists():
+        dulus_content = dulus_md.read_text("utf-8", errors="replace")
         
     project_files = "\n".join([f.name for f in Path(".").glob("*") if f.is_file() and not f.name.startswith(".")])
     
@@ -861,8 +861,8 @@ def cmd_brainstorm(args: str, state, config) -> bool:
 README:
 {readme_content[:3000]}
 
-FALCON.MD:
-{falcon_content[:1000]}
+DULUS.MD:
+{dulus_content[:1000]}
 
 ROOT FILES:
 {project_files}
@@ -1003,11 +1003,11 @@ def _save_synthesis(state, out_file: str) -> None:
         return
 
 
-def _print_falcon_banner(config: dict, with_logo: bool = True) -> None:
-    """Reprint the Falcon logo + info box (used by startup and /clear)."""
+def _print_dulus_banner(config: dict, with_logo: bool = True) -> None:
+    """Reprint the Dulus logo + info box (used by startup and /clear)."""
     from providers import detect_provider
     if with_logo:
-        logo = globals().get("_FALCON_LOGO_CACHED")
+        logo = globals().get("_DULUS_LOGO_CACHED")
         if logo:
             for line in logo:
                 print(clr(line, "cyan", "bold"))
@@ -1018,7 +1018,7 @@ def _print_falcon_banner(config: dict, with_logo: bool = True) -> None:
     prov_clr  = clr(f"({pname})", "dim")
     pmode     = clr(config.get("permission_mode", "auto"), "yellow")
     ver_clr   = clr(f"v{VERSION}", "green")
-    print(clr("  ╭─ ", "dim") + clr("Falcon ", "cyan", "bold") + ver_clr + clr(" ─────────────────────────────────╮", "dim"))
+    print(clr("  ╭─ ", "dim") + clr("Dulus ", "cyan", "bold") + ver_clr + clr(" ─────────────────────────────────╮", "dim"))
     print(clr("  │", "dim") + clr("  Model: ", "dim") + model_clr + " " + prov_clr)
     print(clr("  │", "dim") + clr("  Permissions: ", "dim") + pmode)
     print(clr("  │", "dim") + clr("  /model to switch · /help for commands", "dim"))
@@ -1037,9 +1037,9 @@ def cmd_clear(_args: str, state, config) -> bool:
     # Wipe the split-layout output buffer too — otherwise its contents get
     # re-rendered on the next app refresh and "ghost" back below new output.
     try:
-        import input as _falcon_input
-        if hasattr(_falcon_input, "clear_split_output"):
-            _falcon_input.clear_split_output()
+        import input as _dulus_input
+        if hasattr(_dulus_input, "clear_split_output"):
+            _dulus_input.clear_split_output()
     except Exception:
         pass
     try:
@@ -1047,7 +1047,7 @@ def cmd_clear(_args: str, state, config) -> bool:
     except Exception:
         pass
     try:
-        _print_falcon_banner(config)
+        _print_dulus_banner(config)
     except Exception:
         pass
     ok("Conversation cleared.")
@@ -1115,7 +1115,7 @@ def _atomic_write_json(path: Path, data) -> None:
 def _save_roundtable_session(log: list, save_path=None):
     """Save the full roundtable session log to a JSON file.
 
-    Sessions go under config.MR_SESSION_DIR (~/.falcon/sessions/mr_sessions/),
+    Sessions go under config.MR_SESSION_DIR (~/.dulus/sessions/mr_sessions/),
     consistent with /save and other session artifacts. Pass an explicit
     save_path to override (used to keep all turns of one debate in one file).
     """
@@ -1469,7 +1469,7 @@ def cmd_rtk(args: str, _state, config) -> bool:
                 info(f"  binary: {binary}")
             else:
                 import sys as _sys
-                hint = "rtk.exe (bundled in falcon-stable/rtk/)" if _sys.platform == "win32" \
+                hint = "rtk.exe (bundled in dulus-stable/rtk/)" if _sys.platform == "win32" \
                     else "bash rtk/install.sh  # to fetch the binary"
                 info(f"  [warn] rtk binary not found — falling back to raw commands. Hint: {hint}")
         except Exception:
@@ -1574,8 +1574,8 @@ def cmd_webchat(args: str, state, config) -> bool:
 def cmd_gui(_args: str, _state, config) -> bool:
     """Launch the desktop GUI from the REPL."""
     try:
-        from falcon_gui import launch_gui
-        info("Launching Falcon GUI...")
+        from dulus_gui import launch_gui
+        info("Launching Dulus GUI...")
         # Run GUI in a separate thread so the REPL stays alive
         import threading
         t = threading.Thread(
@@ -1903,7 +1903,7 @@ def cmd_schema_autoload(_args: str, _state, config) -> bool:
     from config import save_config
     config["schema_autoload"] = not config.get("schema_autoload", True)
     state_str = "ON" if config["schema_autoload"] else "OFF"
-    ok(f"Schema autoload at startup: {state_str}  (restart Falcon to take effect)")
+    ok(f"Schema autoload at startup: {state_str}  (restart Dulus to take effect)")
     save_config(config)
     return True
 
@@ -1945,13 +1945,13 @@ def cmd_harvest(_args: str, _state, config) -> bool:
     Opens a visible Chrome window with a persistent profile.
     If already logged in, cookies are collected automatically.
     If not, log in manually then press ENTER in the terminal.
-    Cookies are saved to ~/.falcon/claude_cookies.json and any
+    Cookies are saved to ~/.dulus/claude_cookies.json and any
     active claude-web conversation is reset so the new cookies
     take effect immediately.
     """
     import pathlib, json as _json
 
-    out_path = pathlib.Path.home() / ".falcon" / "claude_cookies.json"
+    out_path = pathlib.Path.home() / ".dulus" / "claude_cookies.json"
     ok(f"Starting Playwright harvest → {out_path}")
 
     try:
@@ -1966,7 +1966,7 @@ def cmd_harvest(_args: str, _state, config) -> bool:
     import os, time
     from datetime import datetime
 
-    pw_profile = os.path.join(os.path.expanduser("~"), ".falcon", "playwright", "claude")
+    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "claude")
     os.makedirs(pw_profile, exist_ok=True)
 
     try:
@@ -2092,12 +2092,12 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
     Opens a visible Chrome window and navigates to kimi.com.
     You must send a single message in the browser chat for the script
     to intercept the necessary gRPC-Web (Connect) headers and payloads.
-    Data is saved to ~/.falcon/kimi_consumer.json for use by kimi-web.
+    Data is saved to ~/.dulus/kimi_consumer.json for use by kimi-web.
     """
     import pathlib, json as _json, time, os, struct, re
     from datetime import datetime
 
-    out_path = pathlib.Path.home() / ".falcon" / "kimi_consumer.json"
+    out_path = pathlib.Path.home() / ".dulus" / "kimi_consumer.json"
     ok(f"Starting Kimi Harvester → {out_path}")
 
     try:
@@ -2108,7 +2108,7 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 
-    pw_profile = os.path.join(os.path.expanduser("~"), ".falcon", "playwright", "kimi-consumer")
+    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "kimi-consumer")
     os.makedirs(pw_profile, exist_ok=True)
     
     try:
@@ -2203,12 +2203,12 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
     Opens a visible Chrome window and navigates to gemini.google.com.
     You must send a single message in the browser chat for the script
     to intercept the necessary internal API headers/cookies.
-    Data is saved to ~/.falcon/gemini_web.json for use by gemini-web.
+    Data is saved to ~/.dulus/gemini_web.json for use by gemini-web.
     """
     import pathlib, json as _json, time, os, re
     from datetime import datetime
 
-    out_path = pathlib.Path.home() / ".falcon" / "gemini_web.json"
+    out_path = pathlib.Path.home() / ".dulus" / "gemini_web.json"
     ok(f"Starting Gemini Harvester → {out_path}")
 
     try:
@@ -2220,7 +2220,7 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
         from playwright.sync_api import sync_playwright
 
     # Reutiliza el perfil de Gemini para no loguear cada vez
-    pw_profile = os.path.join(os.path.expanduser("~"), ".falcon", "playwright", "gemini-interceptor")
+    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "gemini-interceptor")
     os.makedirs(pw_profile, exist_ok=True)
     
     try:
@@ -2246,13 +2246,13 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
             intercepted = []
 
             def _handle_req(request):
-                # Captura cualquier POST a gemini.google.com que tenga f.req y "falcon"
+                # Captura cualquier POST a gemini.google.com que tenga f.req y "dulus"
                 if "gemini.google.com" in request.url and request.method == "POST":
                     try:
                         pd = request.post_data or ""
                     except Exception:
                         pd = ""
-                    if "f.req" in pd and "falcon" in pd.lower():
+                    if "f.req" in pd and "dulus" in pd.lower():
                         if not intercepted:
                             intercepted.append({
                                 "url": request.url,
@@ -2272,7 +2272,7 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
 
             warn("🚨  ACTION REQUIRED:")
             warn("  1. Make sure you are logged in to Google.")
-            warn('  2. Type and SEND the exact word  FALCON  in the Gemini chat.')
+            warn('  2. Type and SEND the exact word  DULUS  in the Gemini chat.')
             warn("  Waiting for interception (timeout 3 min)...")
 
             timeout_limit = 180
@@ -2283,7 +2283,7 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
                 page.wait_for_timeout(1000)
 
             if not intercepted:
-                err("No se interceptaron requests. Asegúrate de haber enviado 'FALCON'.")
+                err("No se interceptaron requests. Asegúrate de haber enviado 'DULUS'.")
                 browser.close()
                 return True
 
@@ -2366,7 +2366,7 @@ def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
     Opens a visible Chrome window and navigates to chat.deepseek.com.
     The script intercepts the Authorization Bearer token and cookies
     automatically on the first chat response.
-    Data is saved to ~/.falcon/deepseek_web.json for use by deepseek-web.
+    Data is saved to ~/.dulus/deepseek_web.json for use by deepseek-web.
 
     Usage:
         /harvest-deepseek
@@ -2375,7 +2375,7 @@ def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
     import pathlib, json as _json, time, os
     from datetime import datetime
 
-    out_path = pathlib.Path.home() / ".falcon" / "deepseek_web.json"
+    out_path = pathlib.Path.home() / ".dulus" / "deepseek_web.json"
     ok(f"Starting DeepSeek Harvester → {out_path}")
 
     # Optional: navigate directly to a specific chat session from arg
@@ -2389,7 +2389,7 @@ def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 
-    pw_profile = os.path.join(os.path.expanduser("~"), ".falcon", "playwright", "deepseek-interceptor")
+    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "deepseek-interceptor")
     os.makedirs(pw_profile, exist_ok=True)
 
     try:
@@ -2515,7 +2515,7 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
     Opens a visible Chrome window and navigates to chat.qwen.ai. The
     script intercepts the JWT `token` cookie and POST headers/cookies the
     first time you send a message in the chat. Data is saved to
-    ~/.falcon/qwen_web.json for the qwen-web provider.
+    ~/.dulus/qwen_web.json for the qwen-web provider.
 
     Usage:
         /harvest-qwen
@@ -2524,7 +2524,7 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
     import pathlib, json as _json, time, os
     from datetime import datetime
 
-    out_path = pathlib.Path.home() / ".falcon" / "qwen_web.json"
+    out_path = pathlib.Path.home() / ".dulus" / "qwen_web.json"
     ok(f"Starting Qwen Harvester → {out_path}")
 
     start_url = _args.strip() if _args.strip().startswith("http") else "https://chat.qwen.ai/"
@@ -2537,7 +2537,7 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 
-    pw_profile = os.path.join(os.path.expanduser("~"), ".falcon", "playwright", "qwen-interceptor")
+    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "qwen-interceptor")
     os.makedirs(pw_profile, exist_ok=True)
 
     try:
@@ -2934,7 +2934,7 @@ def cmd_claude_chats(args: str, _state, config) -> bool:
 def cmd_hide_sender(_args: str, _state, config) -> bool:
     """Toggle echoing your typed message above the sticky input bar.
 
-    ON  → message disappears on send; output area shows only Falcon's responses
+    ON  → message disappears on send; output area shows only Dulus's responses
           (use /history to recall what you typed).
     OFF → your message stays visible above as `» <msg>`.
     """
@@ -2944,9 +2944,9 @@ def cmd_hide_sender(_args: str, _state, config) -> bool:
     ok(f"Hide sender: {state_str}")
     save_config(config)
     try:
-        import input as falcon_input
-        if hasattr(falcon_input, "set_hide_sender"):
-            falcon_input.set_hide_sender(config["hide_sender"])
+        import input as dulus_input
+        if hasattr(dulus_input, "set_hide_sender"):
+            dulus_input.set_hide_sender(config["hide_sender"])
     except Exception:
         pass
     return True
@@ -2997,18 +2997,18 @@ def cmd_sticky_input(_args: str, _state, config) -> bool:
     from config import save_config
     config["sticky_input"] = not config.get("sticky_input", False)
     state_str = "ON" if config["sticky_input"] else "OFF"
-    ok(f"Sticky input bar: {state_str}  (restart Falcon to take effect)")
+    ok(f"Sticky input bar: {state_str}  (restart Dulus to take effect)")
     save_config(config)
     return True
 
 
 def cmd_theme(args: str, _state, config) -> bool:
-    """Switch the Falcon color palette. `/theme` lists, `/theme <name>` applies."""
+    """Switch the Dulus color palette. `/theme` lists, `/theme <name>` applies."""
     from config import save_config
     import common as _cm
     name = (args or "").strip().lower()
     if not name:
-        current = config.get("theme", "falcon")
+        current = config.get("theme", "dulus")
         print(clr("  ── Available themes ──", "cyan", "bold"))
         for t, p in _cm.THEMES.items():
             marker = "●" if t == current else " "
@@ -3027,7 +3027,7 @@ def cmd_theme(args: str, _state, config) -> bool:
         os.system("cls" if os.name == "nt" else "clear")
     except Exception:
         pass
-    _print_falcon_banner(config)
+    _print_dulus_banner(config)
     return True
 
 
@@ -3122,7 +3122,7 @@ def cmd_cloudsave(args: str, state, config) -> bool:
     /cloudsave                 — upload current session to Gist
     /cloudsave push [desc]     — same as above with optional description
     /cloudsave auto on|off     — toggle auto-upload on /exit
-    /cloudsave list            — list your falcon Gists
+    /cloudsave list            — list your dulus Gists
     /cloudsave load <gist_id>  — download and load a session from Gist
     """
     from cloudsave import validate_token, upload_session, list_sessions, download_session
@@ -3174,7 +3174,7 @@ def cmd_cloudsave(args: str, state, config) -> bool:
 
     # ── list ───────────────────────────────────────────────────────────────────
     if sub == "list":
-        info("Fetching your falcon sessions from GitHub Gist…")
+        info("Fetching your dulus sessions from GitHub Gist…")
         sessions, err_msg = list_sessions(token)
         if err_msg:
             err(err_msg)
@@ -3185,7 +3185,7 @@ def cmd_cloudsave(args: str, state, config) -> bool:
         info(f"Found {len(sessions)} session(s):")
         for s in sessions:
             ts = s["updated_at"][:16].replace("T", " ")
-            desc = s["description"].replace("[falcon]", "").strip()
+            desc = s["description"].replace("[dulus]", "").strip()
             print(f"  {clr(s['id'][:8], 'yellow')}…  {clr(ts, 'dim')}  {desc or s['files'][0]}")
         return True
 
@@ -3234,7 +3234,7 @@ def cmd_exit(_args: str, _state, config) -> bool:
     try:
         if _state.messages and _state.turn_count > 1:
             print(
-                clr("\n  [Falcon is still awake] ", "cyan")
+                clr("\n  [Dulus is still awake] ", "cyan")
                 + clr("Consolidate memories before leaving? [y/N] ", "white", "bold"),
                 end="", flush=True,
             )
@@ -3599,7 +3599,7 @@ def _print_background_notifications(state=None):
     try:
         from pathlib import Path
         import json
-        jobs_dir = Path.home() / ".falcon" / "jobs"
+        jobs_dir = Path.home() / ".dulus" / "jobs"
         if jobs_dir.is_dir():
             for fp in list(jobs_dir.glob("*.json")):
                 job_id = fp.stem
@@ -3609,9 +3609,9 @@ def _print_background_notifications(state=None):
                     with open(fp, "r", encoding="utf-8") as f:
                         job = json.load(f)
                     if job.get("status") in ("completed", "failed"):
-                        # PID ownership check: only the Falcon instance that launched
+                        # PID ownership check: only the Dulus instance that launched
                         # this job should claim it. This prevents cross-instance
-                        # notification theft when 2+ Falcons share ~/.falcon/jobs/.
+                        # notification theft when 2+ Duluss share ~/.dulus/jobs/.
                         owner_pid = job.get("owner_pid")
                         if owner_pid and owner_pid != os.getpid():
                             # Looser check: if the owner PID is already dead,
@@ -3636,7 +3636,7 @@ def _print_background_notifications(state=None):
                                     is_alive = False
                             
                             if is_alive:
-                                continue  # This job definitely belongs to another ACTIVE Falcon instance
+                                continue  # This job definitely belongs to another ACTIVE Dulus instance
                         # Archive to disk FIRST — prevents race condition where
                         # sentinel thread + main loop both read "completed" simultaneously
                         job_status = job["status"]
@@ -3791,8 +3791,8 @@ def cmd_skill(args: str, state, config) -> bool:
 
     # ── /skill (no args) = show help + installed list ─────────────────────
     if not subcmd:
-        print(clr("\n  Falcon Skill Manager", "cyan", "bold"))
-        print(f"  {clr('Skills directory:', 'dim')} {str(_Path.home() / '.falcon/skills')}")
+        print(clr("\n  Dulus Skill Manager", "cyan", "bold"))
+        print(f"  {clr('Skills directory:', 'dim')} {str(_Path.home() / '.dulus/skills')}")
         print(f"  {clr('/skill list local [q]', 'yellow'):30s} Browse available marketplace skills")
         print(f"  {clr('/skill get <slug>', 'yellow'):30s} Install a skill by its slug")
         print(f"  {clr('/skill use <name>', 'yellow'):30s} Inject an installed skill into this turn")
@@ -3883,13 +3883,13 @@ def cmd_skill(args: str, state, config) -> bool:
         if not rest:
             err("Usage: /skill use <name>")
             return True
-        from skill.clawhub import FALCON_SKILLS_DIR
+        from skill.clawhub import DULUS_SKILLS_DIR
         body = read_skill(rest)
         if not body:
             err(f"Skill '{rest}' not found. Run /skill list to see installed skills.")
             return True
         # Inject as a user-side system message for this turn
-        skill_dir = FALCON_SKILLS_DIR / rest
+        skill_dir = DULUS_SKILLS_DIR / rest
         path_hint = f"\n\n# NOTE: Skill '{rest}' files are located at: {skill_dir}" if skill_dir.exists() else ""
         existing = config.get("_skill_inject", "")
         config["_skill_inject"] = (existing + "\n\n" + body + path_hint).strip()
@@ -3901,11 +3901,11 @@ def cmd_skill(args: str, state, config) -> bool:
         if not rest:
             err("Usage: /skill remove <name>")
             return True
-        from skill.clawhub import FALCON_SKILLS_DIR
+        from skill.clawhub import DULUS_SKILLS_DIR
         import shutil
         
-        path_md = FALCON_SKILLS_DIR / f"{rest}.md"
-        path_dir = FALCON_SKILLS_DIR / rest
+        path_md = DULUS_SKILLS_DIR / f"{rest}.md"
+        path_dir = DULUS_SKILLS_DIR / rest
         
         if path_md.exists():
             path_md.unlink()
@@ -3930,10 +3930,10 @@ def cmd_mcp(args: str, _state, config) -> bool:
     /mcp add <name> <command> [args...] — add a stdio server to user config
     /mcp remove <name> — remove a server from user config
     """
-    from falcon_mcp.client import get_mcp_manager
-    from falcon_mcp.config import (load_mcp_configs, add_server_to_user_config,
+    from dulus_mcp.client import get_mcp_manager
+    from dulus_mcp.config import (load_mcp_configs, add_server_to_user_config,
                              remove_server_from_user_config, list_config_files)
-    from falcon_mcp.tools import initialize_mcp, reload_mcp, refresh_server
+    from dulus_mcp.tools import initialize_mcp, reload_mcp, refresh_server
 
     parts = args.split() if args.strip() else []
     subcmd = parts[0].lower() if parts else ""
@@ -3993,7 +3993,7 @@ def cmd_mcp(args: str, _state, config) -> bool:
         configs = load_mcp_configs()
         if not configs:
             info("No MCP servers configured.")
-            info("Add servers in ~/.falcon/mcp.json or .mcp.json")
+            info("Add servers in ~/.dulus/mcp.json or .mcp.json")
             info("Example: /mcp add my-git uvx mcp-server-git")
         else:
             info("MCP servers configured but not yet connected. Run /mcp reload")
@@ -4014,7 +4014,7 @@ def cmd_mcp(args: str, _state, config) -> bool:
             total_tools += 1
 
     if total_tools:
-        info(f"Total: {total_tools} MCP tool(s) available to Falcon")
+        info(f"Total: {total_tools} MCP tool(s) available to Dulus")
     return True
 
 
@@ -4327,7 +4327,7 @@ def cmd_ssj(args: str, state, config) -> bool:
             break
 
         if choice.startswith("/"):
-            # Pass slash commands through to falcon — exit SSJ and let REPL handle it
+            # Pass slash commands through to dulus — exit SSJ and let REPL handle it
             return ("__ssj_passthrough__", choice)
 
         if choice == "0" or choice.lower() in ("exit", "q"):
@@ -4747,7 +4747,7 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
     except Exception:
         pass
     # Notify user bot is online
-    _tg_send(token, chat_id, "🟢 Falcon\nSend me a message and I'll process it.")
+    _tg_send(token, chat_id, "🟢 Dulus\nSend me a message and I'll process it.")
 
     while not _telegram_stop.is_set():
         try:
@@ -4852,9 +4852,9 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
                         _telegram_stop.set()
                         break
                     elif tg_cmd == "/start":
-                        _tg_send(token, chat_id, "🟢 falcon bridge is active. Send me anything.")
+                        _tg_send(token, chat_id, "🟢 dulus bridge is active. Send me anything.")
                         continue
-                    # Pass falcon slash commands through handle_slash
+                    # Pass dulus slash commands through handle_slash
                     # Run in a separate thread so interactive commands
                     # (ask_input_interactive) don't block the polling loop.
                     slash_cb = config.get("_handle_slash_callback")
@@ -4912,12 +4912,12 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
                 # Show on local terminal safely (avoid corrupting prompt_toolkit)
                 label = "🎙 Transcribed" if is_transcribed else "📩 Telegram"
                 try:
-                    import input as falcon_input
-                    falcon_input.safe_print_notification(clr(f"  {label}: {text}", "cyan"))
+                    import input as dulus_input
+                    dulus_input.safe_print_notification(clr(f"  {label}: {text}", "cyan"))
                 except Exception:
                     print(clr(f"\n  {label}: {text}", "cyan"))
 
-                # Run through falcon's model in a separate thread to prevent blocking poll loop
+                # Run through dulus's model in a separate thread to prevent blocking poll loop
                 def _bg_runner(q_text, chat_token, chat_id):
                     _typing_stop = threading.Event()
                     _typing_t = threading.Thread(target=_tg_typing_loop, args=(chat_token, chat_id, _typing_stop, config), daemon=True)
@@ -4927,11 +4927,11 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
                     # Telegram turn (thread-safe: invalidate() is designed for
                     # cross-thread use).
                     try:
-                        import input as falcon_input
-                        if falcon_input._split_buffer:
-                            falcon_input._split_buffer.text = ""
-                        if falcon_input._split_app:
-                            falcon_input._split_app.invalidate()
+                        import input as dulus_input
+                        if dulus_input._split_buffer:
+                            dulus_input._split_buffer.text = ""
+                        if dulus_input._split_app:
+                            dulus_input._split_app.invalidate()
                     except Exception:
                         pass
                     
@@ -4971,27 +4971,27 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
                     except Exception:
                         fresh_config = config
                     if not fresh_config.get("daemon"):
-                        _tg_send(chat_token, chat_id, "🔴 No REPL session active. Use `/daemon on` to allow external triggers, or open Falcon locally.")
+                        _tg_send(chat_token, chat_id, "🔴 No REPL session active. Use `/daemon on` to allow external triggers, or open Dulus locally.")
                         return
                     import subprocess, os, sys
-                    falcon_script = os.path.abspath(sys.argv[0] if sys.argv[0].endswith('.py') else __file__)
+                    dulus_script = os.path.abspath(sys.argv[0] if sys.argv[0].endswith('.py') else __file__)
                     try:
                         proc = subprocess.run(
-                            [sys.executable, falcon_script, "--print", q_text],
+                            [sys.executable, dulus_script, "--print", q_text],
                             capture_output=True, text=True, timeout=300,
-                            cwd=os.path.dirname(falcon_script)
+                            cwd=os.path.dirname(dulus_script)
                         )
                         out = proc.stdout.strip()
                         err_out = proc.stderr.strip()
                         full = (out + "\n" + err_out).strip()
                         if not full:
-                            full = "⚠ No response from Falcon."
+                            full = "⚠ No response from Dulus."
                         MAX_TG = 4000
                         if len(full) > MAX_TG:
                             full = full[:MAX_TG] + "\n\n…truncated"
                         _tg_send(chat_token, chat_id, full)
                     except Exception as e:
-                        _tg_send(chat_token, chat_id, f"⚠ Falcon process error: {e}")
+                        _tg_send(chat_token, chat_id, f"⚠ Dulus process error: {e}")
 
                 threading.Thread(target=_bg_runner, args=(text, token, chat_id), daemon=True).start()
         except Exception:
@@ -5002,7 +5002,7 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
 
 
 def _run_daemon(config: dict) -> None:
-    """Daemon mode — keep Falcon alive in the background for Telegram bridges.
+    """Daemon mode — keep Dulus alive in the background for Telegram bridges.
 
     No REPL, no GUI. Just a persistent state + callback loop so external
     triggers (Telegram) can wake the agent at any time.
@@ -5022,7 +5022,7 @@ def _run_daemon(config: dict) -> None:
     # Same callback used by the REPL so Telegram can trigger runs
     config["_run_query_callback"] = lambda msg: run_query(msg, is_background=True)
 
-    print(clr("\n  ▲ FALCON DAEMON", "accent", "bold"))
+    print(clr("\n  ▲ DULUS DAEMON", "accent", "bold"))
     print(clr("  " + "─" * 40, "dim"))
     info(f"Session: {session_id}")
     info("Daemon active — waiting for triggers…")
@@ -5267,7 +5267,7 @@ def cmd_tts(args: str, state, config) -> bool:
     /tts lang                 — show current language
     /tts provider             — show current TTS provider
     /tts provider <name>      — set provider (auto, azure, riva, openai, gtts, pyttsx3)
-    /tts auto                 — toggle auto-listen: after Falcon speaks, mic opens for
+    /tts auto                 — toggle auto-listen: after Dulus speaks, mic opens for
                                 your next reply (continuous voice conversation)
     /tts auto on|off          — explicit auto-listen toggle
     """
@@ -5326,7 +5326,7 @@ def cmd_tts(args: str, state, config) -> bool:
         state_str = "ON" if config["tts_auto_listen"] else "OFF"
         ok(f"TTS auto-listen: {state_str}  (mic opens automatically after each spoken reply)")
         if config["tts_auto_listen"] and not config.get("tts_enabled", False):
-            warn("Tip: also enable /tts so Falcon actually speaks.")
+            warn("Tip: also enable /tts so Dulus actually speaks.")
         save_config(config)
         return True
 
@@ -5459,7 +5459,7 @@ def cmd_voice(args: str, state, config) -> bool:
         else:
             info("  Microphone:    system default")
         info(f"  Language: {_voice_language}")
-        info("  Env override: FALCON_WHISPER_MODEL (default: base)")
+        info("  Env override: DULUS_WHISPER_MODEL (default: base)")
         return True
 
     # ── /voice [start] — record once and submit ──
@@ -5521,7 +5521,7 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
         from PIL import Image
         import io, base64
     except ImportError:
-        err("Pillow is required for /image. Install with: pip install falcon[vision]")
+        err("Pillow is required for /image. Install with: pip install dulus[vision]")
         return True
 
     # Use kimi-cli style robust clipboard (Linux xclip/wl-paste, macOS native, Windows)
@@ -5697,7 +5697,7 @@ def cmd_plan(args: str, state, config) -> bool:
         info(f"Exited plan mode. Permission mode restored to: {prev}")
         if plan_file:
             info(f"Plan saved at: {plan_file}")
-            info("You can now ask Falcon to implement the plan.")
+            info("You can now ask Dulus to implement the plan.")
         return True
 
     # /plan status
@@ -5730,7 +5730,7 @@ def cmd_plan(args: str, state, config) -> bool:
 
     # Create plan file
     session_id = config.get("_session_id", "default")
-    plans_dir = Path.cwd() / ".falcon-context" / "plans"
+    plans_dir = Path.cwd() / ".dulus-context" / "plans"
     plans_dir.mkdir(parents=True, exist_ok=True)
     plan_path = plans_dir / f"{session_id}.md"
     plan_path.write_text(f"# Plan: {arg}\n\n", encoding="utf-8")
@@ -5793,13 +5793,13 @@ def cmd_news(args: str, state, config) -> bool:
 
 
 def cmd_init(args: str, state, config) -> bool:
-    """Initialize a FALCON.md file in the current directory.
+    """Initialize a DULUS.md file in the current directory.
 
-    /init          — create FALCON.md with a starter template
+    /init          — create DULUS.md with a starter template
     """
-    target = Path.cwd() / "FALCON.md"
+    target = Path.cwd() / "DULUS.md"
     if target.exists():
-        err(f"FALCON.md already exists at {target}")
+        err(f"DULUS.md already exists at {target}")
         info("Edit it directly or delete it first.")
         return True
 
@@ -5819,14 +5819,14 @@ def cmd_init(args: str, state, config) -> bool:
     )
     target.write_text(template, encoding="utf-8")
     info(f"Created {target}")
-    info("Edit it to give Falcon context about your project.")
+    info("Edit it to give Dulus context about your project.")
     return True
 
 
 def cmd_export(args: str, state, config) -> bool:
     """Export conversation history to a file.
 
-    /export              — export as markdown to .falcon/exports/
+    /export              — export as markdown to .dulus/exports/
     /export <filename>   — export to a specific file (.md or .json)
     """
     if not state.messages:
@@ -5837,7 +5837,7 @@ def cmd_export(args: str, state, config) -> bool:
     if arg:
         out_path = Path(arg)
     else:
-        export_dir = Path.cwd() / ".falcon-context" / "exports"
+        export_dir = Path.cwd() / ".dulus-context" / "exports"
         export_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_path = export_dir / f"conversation_{ts}.md"
@@ -6113,27 +6113,27 @@ def cmd_doctor(args: str, state, config) -> bool:
         except ImportError:
             warn(f"{desc}: not installed")
 
-    # ── 7. FALCON.md / CLAUDE.md ──
+    # ── 7. DULUS.md / CLAUDE.md ──
     print()
-    falcon_md = Path.cwd() / "FALCON.md"
+    dulus_md = Path.cwd() / "DULUS.md"
     claude_md = Path.cwd() / "CLAUDE.md"
-    global_falcon = Path.home() / ".falcon" / "FALCON.md"
+    global_dulus = Path.home() / ".dulus" / "DULUS.md"
     global_claude = Path.home() / ".claude" / "CLAUDE.md"
 
-    if falcon_md.exists():
-        ok(f"Project FALCON.md: {falcon_md}")
+    if dulus_md.exists():
+        ok(f"Project DULUS.md: {dulus_md}")
     elif claude_md.exists():
-        ok(f"Project CLAUDE.md: {claude_md} (Consider renaming to FALCON.md)")
+        ok(f"Project CLAUDE.md: {claude_md} (Consider renaming to DULUS.md)")
     else:
-        warn("No project FALCON.md (run /init to create)")
+        warn("No project DULUS.md (run /init to create)")
 
-    if global_falcon.exists():
-        ok(f"Global FALCON.md: {global_falcon}")
+    if global_dulus.exists():
+        ok(f"Global DULUS.md: {global_dulus}")
     elif global_claude.exists():
         ok(f"Global CLAUDE.md: {global_claude}")
 
     # ── 8. Checkpoints disk usage ──
-    ckpt_root = Path.home() / ".falcon" / "checkpoints"
+    ckpt_root = Path.home() / ".dulus" / "checkpoints"
     if ckpt_root.exists():
         total = sum(f.stat().st_size for f in ckpt_root.rglob("*") if f.is_file())
         mb = total / (1024 * 1024)
@@ -6325,7 +6325,7 @@ def cmd_batch(args: str, _state, config) -> bool:
                 return True
             
             content = mgr.get_file_content(out_id)
-            results_dir = Path.home() / ".falcon" / "batch_results"
+            results_dir = Path.home() / ".dulus" / "batch_results"
             results_dir.mkdir(parents=True, exist_ok=True)
             out_file = results_dir / f"results_{batch_id}.jsonl"
             out_file.write_text(content, encoding="utf-8")
@@ -6495,7 +6495,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "task":        ("Manage tasks (alias)",               ["create", "delete", "get", "clear",
                                                            "todo", "in-progress", "done", "blocked"]),
     "proactive":   ("Manage proactive background watcher", ["off"]),
-    "daemon":      ("Toggle daemon — allow external triggers (Telegram) to spawn Falcon", ["on", "off"]),
+    "daemon":      ("Toggle daemon — allow external triggers (Telegram) to spawn Dulus", ["on", "off"]),
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),
     "rtk":         ("Toggle RTK token-optimized shell rewriting", ["on", "off"]),
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
@@ -6514,12 +6514,12 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "rewind":      ("Rewind to checkpoint (alias)",        ["clear"]),
     "plan":        ("Enter/exit plan mode",                ["done", "status"]),
     "compact":     ("Compact conversation history",         []),
-    "init":        ("Initialize FALCON.md template",        []),
+    "init":        ("Initialize DULUS.md template",        []),
     "export":      ("Export conversation to file",          []),
     "copy":        ("Copy last response to clipboard",      []),
     "status":      ("Show session status and model info",   []),
     "doctor":      ("Diagnose installation health",         []),
-    "exit":        ("Exit falcon",              []),
+    "exit":        ("Exit dulus",              []),
     "quit":        ("Exit (alias for /exit)",             []),
     "resume":      ("Resume last session",                []),
     "news":        ("Show latest project news",           []),
@@ -6673,7 +6673,7 @@ def repl(config: dict, initial_prompt: str = None):
 
     # Setup slash-command autocompletion with prompt_toolkit if available
     if HAS_PROMPT_TOOLKIT and input_setup:
-        # Use the global COMMANDS and _CMD_META from falcon.py
+        # Use the global COMMANDS and _CMD_META from dulus.py
         commands_provider = lambda: dict(COMMANDS)
         meta_provider = lambda: dict(_CMD_META)
         input_setup(commands_provider, meta_provider, toolbar_provider=_render_toolbar)
@@ -6684,16 +6684,16 @@ def repl(config: dict, initial_prompt: str = None):
     startup_status_msgs: list[str] = []
 
     # ── Output folder for scratch .txt files (thoughts, lyrics, summaries, …)
-    # Auto-created so the model can write to ~/.falcon/output/ without errors.
+    # Auto-created so the model can write to ~/.dulus/output/ without errors.
     try:
-        (Path.home() / ".falcon" / "output").mkdir(parents=True, exist_ok=True)
+        (Path.home() / ".dulus" / "output").mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
 
     # ── License gate (KevRojo — tu esfuerzo, tu leche) ───────────────────────
-    _license_key = os.environ.get("FALCON_LICENSE_KEY", "")
+    _license_key = os.environ.get("DULUS_LICENSE_KEY", "")
     if not _license_key:
-        _lic_file = Path.home() / ".falcon" / ".license_key"
+        _lic_file = Path.home() / ".dulus" / ".license_key"
         if _lic_file.exists():
             _license_key = _lic_file.read_text().strip()
     lic = LicenseManager(_license_key)
@@ -6712,7 +6712,7 @@ def repl(config: dict, initial_prompt: str = None):
         pass
 
     # ── Soul Initialization ───────────────────────────────────────────────────
-    # Loads the identity. One file, one soul: ~/.falcon/memory/soul.md.
+    # Loads the identity. One file, one soul: ~/.dulus/memory/soul.md.
     # Delete or rename the file to skip loading. Edit it to customize identity.
     try:
         from memory import USER_MEMORY_DIR
@@ -6810,8 +6810,8 @@ def repl(config: dict, initial_prompt: str = None):
     if not initial_prompt:
         from providers import detect_provider
         
-        # ── Falcon startup animation ──
-        _FALCON_FRAMES = [
+        # ── Dulus startup animation ──
+        _DULUS_FRAMES = [
             "     ✦",
             "    ✦ ·",
             "   ✦ · ·",
@@ -6819,7 +6819,7 @@ def repl(config: dict, initial_prompt: str = None):
             " ✦ · · · ·",
             "✦ · · · · ·",
         ]
-        _FALCON_LOGO = [
+        _DULUS_LOGO = [
             "                                                                 ",
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀",
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⣿⣿⣿⣿⣿⣿⠿⠟⠛⠛⢛⣻⡿⠟",
@@ -6851,16 +6851,16 @@ def repl(config: dict, initial_prompt: str = None):
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠛⠦⠤⢤⣤⣄⣀⣈⡉⣓⡦⢤⣄⣀⣀⣀⣀⣠⡴⠚⣽⣿⣭⡭⠭⠷⠒⠋⠀⠀⠀⠀⠀⠀⠀",
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⢾⣯⣧⣬⣭⣤⡶⠖⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
         ]
-        _FALCON_LOGO.append("     " + clr("v" + VERSION, "green", "bold"))
-        _FALCON_LOGO.append("     " + clr("New: Automated Plugin Adapter! Type /news", "cyan", "dim"))
-        _FALCON_LOGO.append("                                                                 ")
+        _DULUS_LOGO.append("     " + clr("v" + VERSION, "green", "bold"))
+        _DULUS_LOGO.append("     " + clr("New: Automated Plugin Adapter! Type /news", "cyan", "dim"))
+        _DULUS_LOGO.append("                                                                 ")
 
         # Spinning galaxy animation
         _GALAXY_FRAMES = ["◜", "◝", "◞", "◟"]
         try:
             for i in range(8):
                 frame = _GALAXY_FRAMES[i % 4]
-                sys.stdout.write(f"\r  {clr(frame, 'cyan', 'bold')} Initializing Falcon...")
+                sys.stdout.write(f"\r  {clr(frame, 'cyan', 'bold')} Initializing Dulus...")
                 sys.stdout.flush()
                 time.sleep(0.12)
             sys.stdout.write(f"\r{' ' * 40}\r")
@@ -6869,13 +6869,13 @@ def repl(config: dict, initial_prompt: str = None):
             pass
 
         # Print logo
-        for line in _FALCON_LOGO:
+        for line in _DULUS_LOGO:
             print(clr(line, "cyan", "bold"))
         print()
 
-        globals()["_FALCON_LOGO_CACHED"] = list(_FALCON_LOGO)
+        globals()["_DULUS_LOGO_CACHED"] = list(_DULUS_LOGO)
 
-        _print_falcon_banner(config, with_logo=False)
+        _print_dulus_banner(config, with_logo=False)
 
         # Show active non-default settings
         active_flags = []
@@ -7095,11 +7095,11 @@ def repl(config: dict, initial_prompt: str = None):
                 if _use_bubbles():
                     print()
                     _hdr = _bubbles.get_rich_chain(
-                        " 🦅 Falcon ", "dark_orange", "black"
+                        " 🦅 Dulus ", "dark_orange", "black"
                     ).link(" ● ", "green", "black").end()
                     Console(file=sys.stdout, width=console.width, force_terminal=console.is_terminal, legacy_windows=console.legacy_windows, color_system=console.color_system).print(_hdr)
                 else:
-                    print(clr("\n╭─ Falcon ", "dim") + clr("●", "green") + clr(" ─────────────────────────", "dim"))
+                    print(clr("\n╭─ Dulus ", "dim") + clr("●", "green") + clr(" ─────────────────────────", "dim"))
                 _accumulated_text.clear()   # reset per-turn buffer — prevents background events from re-printing previous turn
                 thinking_started = False
                 spinner_shown = not is_background
@@ -7262,7 +7262,7 @@ def repl(config: dict, initial_prompt: str = None):
                             try:
                                 from voice import say
                                 say(ans_content, lang=config.get("tts_lang", "es"), provider=config.get("tts_provider", "auto"))
-                                # auto-listen: after Falcon spoke, signal the input
+                                # auto-listen: after Dulus spoke, signal the input
                                 # loop to open the mic instead of the keyboard prompt
                                 if config.get("tts_auto_listen", False):
                                     config["_auto_voice_next"] = True
@@ -7332,11 +7332,11 @@ def repl(config: dict, initial_prompt: str = None):
                         # prompt_toolkit's broken line-counting that causes
                         # ghost text on Windows terminals.
                         try:
-                            import input as _falcon_input
-                            if hasattr(_falcon_input, "safe_print_notification"):
+                            import input as _dulus_input
+                            if hasattr(_dulus_input, "safe_print_notification"):
                                 _note = "\r\n" + output if not output.startswith("\r\n") else output
                                 _note = _note.rstrip("\n")
-                                _falcon_input.safe_print_notification(_note)
+                                _dulus_input.safe_print_notification(_note)
                             else:
                                 print(output, end="")
                                 if not output.endswith("\n"):
@@ -7443,12 +7443,12 @@ def repl(config: dict, initial_prompt: str = None):
     _sticky_input_enabled = bool(config.get("sticky_input", False))
     try:
         import common as _cm
-        _cm.apply_theme(config.get("theme", "falcon"))
+        _cm.apply_theme(config.get("theme", "dulus"))
     except Exception:
         pass
     try:
-        if hasattr(falcon_input, "set_hide_sender"):
-            falcon_input.set_hide_sender(bool(config.get("hide_sender", True)))
+        if hasattr(dulus_input, "set_hide_sender"):
+            dulus_input.set_hide_sender(bool(config.get("hide_sender", True)))
     except Exception:
         pass
     if _sticky_input_enabled:
@@ -7489,14 +7489,14 @@ def repl(config: dict, initial_prompt: str = None):
         # When sticky_input is ON  → split layout (fixed bottom bar + recent strip)
         # When sticky_input is OFF → plain PromptSession (just history + completer,
         #                            input line scrolls with output like a normal shell)
-        if falcon_input.HAS_PROMPT_TOOLKIT and sys.stdin.isatty():
+        if dulus_input.HAS_PROMPT_TOOLKIT and sys.stdin.isatty():
             try:
                 # Remove readline escape markers (\001/\002) - prompt_toolkit doesn't need them
                 clean_prompt = prompt.replace("\001", "").replace("\002", "")
                 if _sticky_input_enabled:
-                    return falcon_input.read_line_split(clean_prompt, PT_HISTORY_FILE)
+                    return dulus_input.read_line_split(clean_prompt, PT_HISTORY_FILE)
                 else:
-                    return falcon_input.read_line(clean_prompt, PT_HISTORY_FILE)
+                    return dulus_input.read_line(clean_prompt, PT_HISTORY_FILE)
             except (EOFError, KeyboardInterrupt):
                 raise
             except Exception:
@@ -7706,7 +7706,7 @@ def repl(config: dict, initial_prompt: str = None):
             try:
                 # Only ask if there's actually a session worth saving
                 if state.messages and state.turn_count > 1:
-                    print(clr("\n  [Falcon is still awake] ", "cyan") + clr("Consolidate memories before sleeping? [y/N] ", "white", "bold"), end="", flush=True)
+                    print(clr("\n  [Dulus is still awake] ", "cyan") + clr("Consolidate memories before sleeping? [y/N] ", "white", "bold"), end="", flush=True)
                     choice = _read_input("").strip().lower()
                     if choice == "y":
                         prompt = (
@@ -7734,7 +7734,7 @@ def repl(config: dict, initial_prompt: str = None):
 
         # Track recent messages for toolbar sliding window
         try:
-            falcon_input.add_recent_msg(user_input)
+            dulus_input.add_recent_msg(user_input)
         except Exception:
             pass
 
@@ -7878,7 +7878,7 @@ def repl(config: dict, initial_prompt: str = None):
                         "batch_job": True
                     }
                     
-                    job_path = Path.home() / ".falcon" / "jobs" / f"{job_id}.json"
+                    job_path = Path.home() / ".dulus" / "jobs" / f"{job_id}.json"
                     with open(job_path, "w", encoding="utf-8") as f:
                         json.dump(job_data, f, indent=2, ensure_ascii=False)
                     
@@ -7907,9 +7907,9 @@ def repl(config: dict, initial_prompt: str = None):
             # too, otherwise ghost lines reappear on the next redraw.
             if shell_cmd.lower() in ("clear", "cls"):
                 try:
-                    import input as _falcon_input
-                    if hasattr(_falcon_input, "clear_split_output"):
-                        _falcon_input.clear_split_output()
+                    import input as _dulus_input
+                    if hasattr(_dulus_input, "clear_split_output"):
+                        _dulus_input.clear_split_output()
                 except Exception:
                     pass
                 # Write ANSI clear directly to the REAL terminal, bypassing
@@ -8234,8 +8234,8 @@ def repl(config: dict, initial_prompt: str = None):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="falcon",
-        description="Falcon - Next-gen Python Autonomous Agent",
+        prog="dulus",
+        description="Dulus - Next-gen Python Autonomous Agent",
         add_help=False,
     )
     parser.add_argument("prompt", nargs="*", help="Initial prompt (non-interactive)")
@@ -8261,16 +8261,16 @@ def main():
     
     # Direct command execution mode (e.g., --cmd "plugin reload", --cmd "checkpoint clear")
     parser.add_argument("-c", "--cmd", dest="exec_cmd", nargs='+',
-                        help="Execute a Falcon command and exit (e.g., --cmd \"plugin reload\")")
+                        help="Execute a Dulus command and exit (e.g., --cmd \"plugin reload\")")
     parser.add_argument("--gui", action="store_true",
                         help="Launch the desktop GUI instead of the terminal REPL")
     parser.add_argument("--daemon", action="store_true",
-                        help="Daemon mode — keep Falcon alive in the background for Telegram/webhook bridges")
+                        help="Daemon mode — keep Dulus alive in the background for Telegram/webhook bridges")
 
     args = parser.parse_args()
 
     if args.version:
-        print(f"falcon v{VERSION}")
+        print(f"dulus v{VERSION}")
         sys.exit(0)
 
     if args.help:
@@ -8290,7 +8290,7 @@ def main():
     elif _lic.tier != LicenseTier.FREE:
         print(f"\n✅ {_lic.status_banner()}")
     else:
-        print(f"\n🦅 Falcon — {_lic.status_banner()}")
+        print(f"\n🦅 Dulus — {_lic.status_banner()}")
     # Inject license limits into config for downstream modules
     config["_license_tier"] = _lic.tier
     config["_license_valid"] = _lic.valid
@@ -8316,7 +8316,7 @@ def main():
     # Apply theme immediately so all colored output respects user preference
     try:
         import common as _cm
-        _cm.apply_theme(config.get("theme", "falcon"))
+        _cm.apply_theme(config.get("theme", "dulus"))
     except Exception:
         pass
 
@@ -8335,7 +8335,7 @@ def main():
         session_id = uuid.uuid4().hex[:8]
         set_session(session_id)
         
-        print(clr(f"\n  [Falcon Command] Executing: {cmd_str}", "cyan", "bold"))
+        print(clr(f"\n  [Dulus Command] Executing: {cmd_str}", "cyan", "bold"))
         
         # Execute the command
         result = handle_slash(cmd_str, state, config)
@@ -8370,7 +8370,7 @@ def main():
             except Exception:
                 pass
 
-        print(clr(f"\n  🚀 [Falcon Tool Runner] Executing: {args.run_tool} (Job: {job_id})", "cyan", "bold"))
+        print(clr(f"\n  🚀 [Dulus Tool Runner] Executing: {args.run_tool} (Job: {job_id})", "cyan", "bold"))
         print(clr("  " + "─" * 60, "dim"))
         
         try:
@@ -8439,7 +8439,7 @@ def main():
     # ── Launch desktop GUI ──
     if args.gui:
         try:
-            from falcon_gui import launch_gui
+            from dulus_gui import launch_gui
             launch_gui(config=config, initial_prompt=initial)
         except ImportError as exc:
             err(f"GUI dependencies missing: {exc}. Run: pip install customtkinter")

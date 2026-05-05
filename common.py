@@ -39,10 +39,10 @@ def _rgb(hex_str: str) -> str:
 
 
 # Curated palettes (hex per semantic role). `cyan/green/blue` collapse to the
-# theme's accent color since Falcon uses them all for primary chrome.
+# theme's accent color since Dulus uses them all for primary chrome.
 # Add new ones here and they show up in `/theme` automatically.
 THEMES: dict = {
-    "falcon":      {"accent": "#FF8700", "warn": "#FFAF00", "code": "monokai"},
+    "dulus":      {"accent": "#FF8700", "warn": "#FFAF00", "code": "monokai"},
     "dracula":     {"accent": "#BD93F9", "warn": "#FFB86C", "code": "dracula"},
     "nord":        {"accent": "#88C0D0", "warn": "#EBCB8B", "code": "nord"},
     "gruvbox":     {"accent": "#FABD2F", "warn": "#FE8019", "code": "gruvbox-dark"},
@@ -58,7 +58,7 @@ THEMES: dict = {
     "none":        {"accent": "#FFFFFF", "warn": "#FFFFFF", "code": "default"},
 }
 
-# Active code-block style for Rich Markdown rendering — read by falcon.py.
+# Active code-block style for Rich Markdown rendering — read by dulus.py.
 CODE_THEME: str = "monokai"
 
 C = {
@@ -87,8 +87,8 @@ def apply_theme(name: str) -> bool:
     return True
 
 
-# Default = Falcon orange (preserve previous look).
-apply_theme("falcon")
+# Default = Dulus orange (preserve previous look).
+apply_theme("dulus")
 
 def clr(text: str, *keys: str) -> str:
     return "".join(C[k] for k in keys) + str(text) + C["reset"]

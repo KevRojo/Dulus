@@ -13,7 +13,7 @@
     <circle cx="18" cy="0" r="6" fill="#febc2e"></circle>
     <circle cx="36" cy="0" r="6" fill="#28c840"></circle>
   </g>
-  <text x="800" y="27" text-anchor="middle" font-size="12" fill="#666" letter-spacing="2">falcon · brainstorm mode · split-pane · 160×46</text>
+  <text x="800" y="27" text-anchor="middle" font-size="12" fill="#666" letter-spacing="2">dulus · brainstorm mode · split-pane · 160×46</text>
   <rect y="42" width="1600" height="858" fill="url(#spgl)"></rect>
 
   
@@ -94,7 +94,7 @@
     <text x="905" y="154" fill="#6a6a72">&#34;get_user&#34;     38 call sites</text>
 
     <text x="832" y="196" fill="#ff6b1f">▲</text>
-    <text x="860" y="196" fill="#f4ede4">👁️  Falcon vision engaged...</text>
+    <text x="860" y="196" fill="#f4ede4">👁️  Dulus vision engaged...</text>
 
     <text x="832" y="238" fill="#ffd166">⚠  3 issues found</text>
 

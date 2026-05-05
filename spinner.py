@@ -1,6 +1,6 @@
-"""Shared spinner phrases for Falcon's tool/debate spinners.
+"""Shared spinner phrases for Dulus's tool/debate spinners.
 
-Centralized so falcon.py and ui/render.py stay in sync.
+Centralized so dulus.py and ui/render.py stay in sync.
 """
 
 TOOL_SPINNER_PHRASES = [
@@ -20,7 +20,7 @@ TOOL_SPINNER_PHRASES = [
     "🌪️ Blitzing through the bytecode...",
     "💫 Bending spacetime...",
     "🦅 Preying on bugs from above...",
-    "👁️ Falcon vision engaged...",
+    "👁️ Dulus vision engaged...",
     "🍗 Hunting for memory leaks...",
     "🪶 Shedding legacy code...",
     "🕹️ Try-catching mid-flight...",

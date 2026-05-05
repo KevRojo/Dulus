@@ -1,8 +1,8 @@
-"""Falcon GUI Entry Point — professional desktop interface.
+"""Dulus GUI Entry Point — professional desktop interface.
 
 Usage:
-    python falcon_gui.py
-    python falcon.py --gui
+    python dulus_gui.py
+    python dulus.py --gui
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ except ImportError:
     sys.exit(1)
 
 from config import load_config
-from gui import FalconMainWindow, FalconBridge
+from gui import DulusMainWindow, DulusBridge
 from gui.themes import get_theme, set_theme
 from gui.session_utils import scan_sessions
 
@@ -119,10 +119,10 @@ class _PermissionDialog(ctk.CTkToplevel):
 
 
 def launch_gui(config: dict | None = None, initial_prompt: str | None = None) -> None:
-    """Launch the Falcon desktop GUI.
+    """Launch the Dulus desktop GUI.
 
     Args:
-        config: Falcon configuration dict (loaded from disk if None).
+        config: Dulus configuration dict (loaded from disk if None).
         initial_prompt: Optional initial user message to send on startup.
     """
     cfg = config or load_config()
@@ -134,11 +134,11 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
     t = get_theme()
 
     # Create GUI window FIRST so user sees something immediately
-    app = FalconMainWindow()
+    app = DulusMainWindow()
     app.set_model(cfg.get("model", "default"))
 
     # Create bridge (but don't start yet)
-    bridge = FalconBridge(config=cfg)
+    bridge = DulusBridge(config=cfg)
 
     # Wire bridge into sidebar so context bar / model list work
     app.sidebar.bridge = bridge
@@ -303,7 +303,7 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
     try:
         bridge.start()
     except Exception as exc:
-        app.chat.add_assistant_message(f"**Fatal:** Could not start Falcon bridge: {exc}")
+        app.chat.add_assistant_message(f"**Fatal:** Could not start Dulus bridge: {exc}")
         app.set_status("Fatal error", t["error"])
 
     # ── Initial prompt ────────────────────────────────────────────────────────

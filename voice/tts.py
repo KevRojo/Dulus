@@ -148,7 +148,7 @@ def _azure_tts_available() -> bool:
     if os.environ.get("AZURE_SPEECH_KEY") and os.environ.get("AZURE_SPEECH_REGION"):
         return True
 
-    # Fallback: read from Falcon config if env vars not set (e.g. key was
+    # Fallback: read from Dulus config if env vars not set (e.g. key was
     # configured this session via /config but load_config() already ran).
     try:
         from config import load_config
@@ -227,8 +227,8 @@ def _say_azure(text: str, voice: Optional[str] = None, lang: str = "es") -> bool
 
 
 # ── NVIDIA Riva (Magpie-Multilingual via NVCF gRPC) ──────────────────────
-RIVA_TTS_SERVER      = os.environ.get("FALCON_RIVA_SERVER", "grpc.nvcf.nvidia.com:443")
-RIVA_TTS_FUNCTION_ID = os.environ.get("FALCON_RIVA_TTS_FUNCTION_ID",
+RIVA_TTS_SERVER      = os.environ.get("DULUS_RIVA_SERVER", "grpc.nvcf.nvidia.com:443")
+RIVA_TTS_FUNCTION_ID = os.environ.get("DULUS_RIVA_TTS_FUNCTION_ID",
                                       "877104f7-e885-42b9-8de8-f6e4c6303969")
 RIVA_TTS_DEFAULT_VOICE = "Magpie-Multilingual.EN-US.Aria"
 RIVA_TTS_SAMPLE_RATE = 44100
@@ -249,13 +249,13 @@ def _riva_lang_code(lang: str) -> str:
 def _riva_voice_for(lang: str) -> str:
     """Resolve voice via env var (per-language first, then global, then default).
 
-    Set FALCON_RIVA_TTS_VOICE_ES="Magpie-Multilingual.ES-US.Lupe" etc. to map
+    Set DULUS_RIVA_TTS_VOICE_ES="Magpie-Multilingual.ES-US.Lupe" etc. to map
     voices per language. Run `talk.py --list-voices` once to discover names.
     """
-    specific = os.environ.get(f"FALCON_RIVA_TTS_VOICE_{(lang or 'en').upper().split('-')[0]}")
+    specific = os.environ.get(f"DULUS_RIVA_TTS_VOICE_{(lang or 'en').upper().split('-')[0]}")
     if specific:
         return specific
-    return os.environ.get("FALCON_RIVA_TTS_VOICE", RIVA_TTS_DEFAULT_VOICE)
+    return os.environ.get("DULUS_RIVA_TTS_VOICE", RIVA_TTS_DEFAULT_VOICE)
 
 
 def _pcm_to_wav(pcm: bytes, sample_rate: int = 44100) -> bytes:

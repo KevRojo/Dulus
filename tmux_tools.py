@@ -1,4 +1,4 @@
-"""Tmux integration tools for Falcon.
+"""Tmux integration tools for Dulus.
 
 Gives the AI model direct control over tmux sessions: create panes,
 send commands, read output, and manage layouts.  Auto-detected at
@@ -109,9 +109,9 @@ def _tmux_list_sessions(params: dict, config: dict) -> str:
 
 
 def _tmux_new_session(params: dict, config: dict) -> str:
-    # Fix for tmuxoffload: use "session" as default on Unix, "falcon" on Windows
+    # Fix for tmuxoffload: use "session" as default on Unix, "dulus" on Windows
     platform = sys.platform
-    default_name = "falcon" if platform == "win32" else "session"
+    default_name = "dulus" if platform == "win32" else "session"
     name = _safe(params.get("session_name", default_name))
     detach = params.get("detached", True)
     cmd = params.get("command", "")
@@ -164,7 +164,7 @@ def _tmux_send_keys(params: dict, config: dict) -> str:
         try:
             # Create a temp batch file with the command
             # This avoids all the quoting nightmares with cmd.exe
-            fd, batch_path = tempfile.mkstemp(suffix='.bat', prefix='falcon_cmd_')
+            fd, batch_path = tempfile.mkstemp(suffix='.bat', prefix='dulus_cmd_')
             try:
                 # Write the command to the batch file
                 os.write(fd, keys.encode('utf-8'))
@@ -264,7 +264,7 @@ TMUX_TOOL_SCHEMAS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "session_name": {"type": "string", "description": "Session name (default: falcon)"},
+                "session_name": {"type": "string", "description": "Session name (default: dulus)"},
                 "detached":     {"type": "boolean", "description": "Start detached (default: true)"},
                 "command":      {"type": "string", "description": "Optional command to run in the new session"},
             },

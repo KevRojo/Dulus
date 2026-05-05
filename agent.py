@@ -47,7 +47,7 @@ def _interruptible_stream(gen):
             raise item
         yield item
 
-# ── Re-export event types (used by falcon) ─────────────────────────────────
+# ── Re-export event types (used by dulus) ─────────────────────────────────
 __all__ = [
     "AgentState", "run",
     "TextChunk", "ThinkingChunk",
@@ -230,7 +230,7 @@ def run(
             auto_show_on = config.get("auto_show", True) if config else True
             verbose_on   = config.get("verbose",   False) if config else False
 
-            # User-visibility rules (must match falcon.py print_tool_end logic):
+            # User-visibility rules (must match dulus.py print_tool_end logic):
             #   display tool   → user saw full output IF auto_show ON
             #   other tool     → user saw 500-char preview IF verbose ON
             if display:
@@ -283,7 +283,7 @@ def run(
             if (tc["name"] != "SearchLastOutput"
                     and "[TRUNCATED" in result):
                 try:
-                    path = Path.home() / ".falcon" / "last_tool_output.txt"
+                    path = Path.home() / ".dulus" / "last_tool_output.txt"
                     if path.exists():
                         full_size = path.stat().st_size
                         seen_size = len(result)

@@ -14,14 +14,14 @@ from .types import PluginEntry, PluginManifest, PluginScope, parse_plugin_identi
 
 # ── Config paths ──────────────────────────────────────────────────────────────
 
-USER_PLUGIN_DIR  = Path.home() / ".falcon" / "plugins"
-USER_PLUGIN_CFG  = Path.home() / ".falcon" / "plugins.json"
+USER_PLUGIN_DIR  = Path.home() / ".dulus" / "plugins"
+USER_PLUGIN_CFG  = Path.home() / ".dulus" / "plugins.json"
 
 def _project_plugin_dir() -> Path:
-    return Path.cwd() / ".falcon-context" / "plugins"
+    return Path.cwd() / ".dulus-context" / "plugins"
 
 def _project_plugin_cfg() -> Path:
-    return Path.cwd() / ".falcon-context" / "plugins.json"
+    return Path.cwd() / ".dulus-context" / "plugins.json"
 
 
 # ── Config read/write ─────────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ def install_plugin(
             try:
                 answer = input(
                     "No plugin manifest found. "
-                    "Would you like Falcon to auto-adapt this repository?\n"
+                    "Would you like Dulus to auto-adapt this repository?\n"
                     "This uses AI to analyze the repo and generate a plugin manifest.\n"
                     "It may take a few minutes. [Y/n] "
                 ).strip().lower()
@@ -277,7 +277,7 @@ def _update_plugin_list_memory(scope: PluginScope) -> None:
         mem_scope = "project" if scope == PluginScope.PROJECT else "user"
         mem = MemoryEntry(
             name="installed_plugins_list",
-            description="Dynamically updated list of all installed Falcon plugins and their status.",
+            description="Dynamically updated list of all installed Dulus plugins and their status.",
             type=mem_scope,
             content=content,
             hall="facts",

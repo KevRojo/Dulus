@@ -15,14 +15,14 @@
     <circle cx="18" cy="0" r="6" fill="#febc2e"></circle>
     <circle cx="36" cy="0" r="6" fill="#28c840"></circle>
   </g>
-  <text x="800" y="27" text-anchor="middle" font-size="12" fill="#666" letter-spacing="2">falcon — kimi/kimi-k2.5 — 140×42</text>
+  <text x="800" y="27" text-anchor="middle" font-size="12" fill="#666" letter-spacing="2">dulus — kimi/kimi-k2.5 — 140×42</text>
   
   <rect y="42" width="1600" height="858" fill="url(#tgl)"></rect>
   <rect y="42" width="1600" height="858" fill="url(#tscan)"></rect>
 
   <g font-size="15">
     
-    <text x="40" y="88" fill="#ff6b1f" font-weight="700">▲ FALCON</text>
+    <text x="40" y="88" fill="#ff6b1f" font-weight="700">▲ DULUS</text>
     <text x="160" y="88" fill="#6a6a72">v1.01.20 · kimi/kimi-k2.5 · accept-all</text>
 
     
@@ -41,7 +41,7 @@
     
     <g font-size="15">
       <text x="480" y="150" fill="#f4ede4">┌─ </text>
-      <text x="515" y="150" fill="#ff6b1f" font-weight="700">Falcon v1.01.20</text>
+      <text x="515" y="150" fill="#ff6b1f" font-weight="700">Dulus v1.01.20</text>
       <text x="695" y="150" fill="#f4ede4">──────────────────────┐</text>
       <text x="480" y="172" fill="#f4ede4">│  Model:</text>
       <text x="605" y="172" fill="#ffd166">kimi/kimi-k2.5</text>
@@ -84,7 +84,7 @@
     <text x="40" y="458" fill="#6a6a72" font-size="13">──────────────────────────────────────────────────────────────────────────────────────</text>
 
     
-    <text x="40" y="498" fill="#ff6b1f" font-weight="700">[Falcon]</text>
+    <text x="40" y="498" fill="#ff6b1f" font-weight="700">[Dulus]</text>
     <text x="150" y="498" fill="#6a6a72">[0.7%]</text>
     <text x="228" y="498" fill="#ff6b1f" font-weight="700">»</text>
     <text x="255" y="498" fill="#f4ede4">refactor the auth module, no compromise</text>
@@ -129,7 +129,7 @@
     </g>
 
     
-    <text x="40" y="808" fill="#ff6b1f" font-weight="700">[Falcon]</text>
+    <text x="40" y="808" fill="#ff6b1f" font-weight="700">[Dulus]</text>
     <text x="150" y="808" fill="#6a6a72">[14%]</text>
     <text x="220" y="808" fill="#ff6b1f" font-weight="700">»</text>
     <rect x="248" y="792" width="10" height="20" fill="#ff6b1f"></rect>

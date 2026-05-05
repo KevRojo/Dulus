@@ -76,7 +76,7 @@ def build_context() -> dict[str, Any]:
             "location": "RD"
         },
         "project": {
-            "name": "Falcon Command Center",
+            "name": "Dulus Command Center",
             "repo_stats": get_repo_stats(),
             "recent_commits": get_recent_commits(),
             "recent_changes": get_changed_files()
@@ -112,7 +112,7 @@ def load_context() -> dict[str, Any]:
 
 def get_user_max_tokens() -> int:
     try:
-        config_file = Path.home() / ".falcon" / "config.json"
+        config_file = Path.home() / ".dulus" / "config.json"
         if config_file.exists():
             with open(config_file, "r", encoding="utf-8") as f:
                 data = json.loads(f.read())
@@ -308,7 +308,7 @@ def get_compact_context(max_tokens_estimate: int = 800) -> str:
     """Generate ultra-dense text context for LLM prompt injection."""
     ctx = build_context()
     lines = [
-        "[FALCON CONTEXT]",
+        "[DULUS CONTEXT]",
         f"Session: {ctx['session']['mode']} | Agent: {ctx['session']['agent']} | User: {ctx['session']['user']}",
         f"Project: {ctx['project']['name']} | Files: {ctx['project']['repo_stats']['files']} | Lines: {ctx['project']['repo_stats']['lines']}",
         "Active Tasks:"

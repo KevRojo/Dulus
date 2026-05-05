@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "falcon-agent"
+name = "dulus-agent"
 version = "0.1.7"
 description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
 readme = "README.md"
@@ -43,12 +43,12 @@ dependencies = [
 ]
 
 [project.scripts]
-falcon = "falcon:main"
+dulus = "dulus:main"
 
 [project.urls]
-Homepage = "https://github.com/KevRojo/Falcon"
-Repository = "https://github.com/KevRojo/Falcon"
-Issues = "https://github.com/KevRojo/Falcon/issues"
+Homepage = "https://github.com/KevRojo/Dulus"
+Repository = "https://github.com/KevRojo/Dulus"
+Issues = "https://github.com/KevRojo/Dulus/issues"
 
 # ── Build config ────────────────────────────────────────────────────────────
 # Fast-path: ship every top-level .py as a module + every subpackage with
@@ -64,8 +64,8 @@ py-modules = [
     "compaction",
     "config",
     "context",
-    "falcon",
-    "falcon_gui",
+    "dulus",
+    "dulus_gui",
     "input",
     "license_manager",
     # NOTE: skipping "memory" — there's a package memory/ that supersedes
@@ -90,7 +90,7 @@ include = [
     "backend*",
     "checkpoint*",
     "gui*",
-    "falcon_mcp*",
+    "dulus_mcp*",
     "memory*",
     "multi_agent*",
     "plugin*",

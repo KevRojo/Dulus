@@ -9,13 +9,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from falcon_mcp.types import (
+from dulus_mcp.types import (
     MCPServerConfig, MCPTool, MCPServerState, MCPTransport,
     make_request, make_notification, INIT_PARAMS,
 )
-from falcon_mcp.config import load_mcp_configs, add_server_to_user_config, remove_server_from_user_config
-from falcon_mcp.client import MCPManager, MCPClient, StdioTransport, get_mcp_manager
-import falcon_mcp.config as _mcp_config
+from dulus_mcp.config import load_mcp_configs, add_server_to_user_config, remove_server_from_user_config
+from dulus_mcp.client import MCPManager, MCPClient, StdioTransport, get_mcp_manager
+import dulus_mcp.config as _mcp_config
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ import falcon_mcp.config as _mcp_config
 @pytest.fixture(autouse=True)
 def reset_manager(monkeypatch):
     """Each test gets a fresh MCPManager singleton."""
-    import falcon_mcp.client as _client_mod
+    import dulus_mcp.client as _client_mod
     monkeypatch.setattr(_client_mod, "_manager", None)
 
 

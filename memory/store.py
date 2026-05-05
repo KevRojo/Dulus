@@ -1,15 +1,15 @@
 """File-based memory storage with user-level and project-level scopes.
 
 Storage layout:
-  user scope    : ~/.falcon/memory/<slug>.md
-  project scope : .falcon/memory/<slug>.md  (relative to cwd)
+  user scope    : ~/.dulus/memory/<slug>.md
+  project scope : .dulus/memory/<slug>.md  (relative to cwd)
 
 Search uses token-based fuzzy matching with field weighting
 (name 3×, description 2×, content 1×) for better recall than
 simple substring matching.
 
 MEMORY.md in each directory is the index file — rebuilt automatically after
-every save/delete. It is loaded into the system prompt to give Falcon an
+every save/delete. It is loaded into the system prompt to give Dulus an
 overview of available memories.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 
-USER_MEMORY_DIR = Path.home() / ".falcon" / "memory"
+USER_MEMORY_DIR = Path.home() / ".dulus" / "memory"
 INDEX_FILENAME = "MEMORY.md"
 
 # Maximum lines/bytes for the index file 
@@ -32,15 +32,15 @@ MAX_INDEX_BYTES = 25_000
 
 def get_project_memory_dir() -> Path:
     """Return the project-local memory directory (relative to cwd)."""
-    return Path.cwd() / ".falcon-context" / "memory"
+    return Path.cwd() / ".dulus-context" / "memory"
 
 
 def get_memory_dir(scope: str = "user") -> Path:
     """Return the memory directory for the given scope.
 
     Args:
-        scope: "user" (global ~/.falcon/memory) or
-               "project" (.falcon/memory relative to cwd)
+        scope: "user" (global ~/.dulus/memory) or
+               "project" (.dulus/memory relative to cwd)
     """
     if scope == "project":
         return get_project_memory_dir()

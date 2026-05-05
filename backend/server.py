@@ -1,4 +1,4 @@
-"""Zero-dependency HTTP server for Falcon Dashboard + API + SSE Live Updates."""
+"""Zero-dependency HTTP server for Dulus Dashboard + API + SSE Live Updates."""
 import json
 import os
 import queue
@@ -56,7 +56,7 @@ def _sse_heartbeat():
 threading.Thread(target=_sse_heartbeat, daemon=True, name="sse-heartbeat").start()
 
 
-class FalconHandler(SimpleHTTPRequestHandler):
+class DulusHandler(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         # Suppress default logging
         pass
@@ -102,7 +102,7 @@ class FalconHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
 
-        self.wfile.write(f"event: connected\ndata: {json.dumps({'message':'Falcon SSE active'})}\n\n".encode("utf-8"))
+        self.wfile.write(f"event: connected\ndata: {json.dumps({'message':'Dulus SSE active'})}\n\n".encode("utf-8"))
         self.wfile.flush()
 
         try:
@@ -135,7 +135,7 @@ class FalconHandler(SimpleHTTPRequestHandler):
         if path == "/api/health":
             self._json_response({
                 "status": "ok",
-                "agent": "Falcon",
+                "agent": "Dulus",
                 "mode": "proactive",
                 "version": "2026.04.26"
             })
@@ -382,11 +382,11 @@ def run_server(port: int = 8000):
     # Start plugin hot-reload watcher with SSE broadcast
     started = start_watcher(broadcast_event)
     if started:
-        print("[FALCON] Plugin hot-reload watcher started")
-    server = HTTPServer(("", port), FalconHandler)
+        print("[DULUS] Plugin hot-reload watcher started")
+    server = HTTPServer(("", port), DulusHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    print(f"[FALCON] Server running at http://localhost:{port}")
+    print(f"[DULUS] Server running at http://localhost:{port}")
     print(f"   Dashboard:   http://localhost:{port}/")
     print(f"   API Tasks:   http://localhost:{port}/api/tasks")
     print(f"   Context:     http://localhost:{port}/api/context")
@@ -402,7 +402,7 @@ def run_server(port: int = 8000):
     try:
         thread.join()
     except KeyboardInterrupt:
-        print("\n[FALCON] Shutting down...")
+        print("\n[DULUS] Shutting down...")
         stop_watcher()
         server.shutdown()
 

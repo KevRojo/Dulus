@@ -1,4 +1,4 @@
-"""Plugin system for falcon."""
+"""Plugin system for dulus."""
 from .types import PluginManifest, PluginEntry, PluginScope, parse_plugin_identifier
 from .store import (
     install_plugin, uninstall_plugin,

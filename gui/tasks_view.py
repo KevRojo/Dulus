@@ -1,6 +1,6 @@
-"""Falcon Tasks View — professional Kanban-style task board v2.
+"""Dulus Tasks View — professional Kanban-style task board v2.
 
-Reads tasks from .falcon-context/tasks.json and displays them in a
+Reads tasks from .dulus-context/tasks.json and displays them in a
 three-column layout: Pending | In Progress | Completed.
 
 v2 improvements:
@@ -65,7 +65,7 @@ FONT_BOLD = (FONT_FAMILY, 12, "bold")
 FONT_SMALL = (FONT_FAMILY, 10)
 FONT_TITLE = (FONT_FAMILY, 16, "bold")
 
-TASKS_PATH = Path(__file__).parent.parent / ".falcon-context" / "tasks.json"
+TASKS_PATH = Path(__file__).parent.parent / ".dulus-context" / "tasks.json"
 POLL_MS = 5000  # 5 seconds
 
 
@@ -205,7 +205,7 @@ class TaskCard(ctk.CTkFrame if HAS_CTK else ctk.Frame):
 
 
 class TasksView(ctk.CTkFrame if HAS_CTK else ctk.Frame):
-    """Professional Kanban task board for Falcon with filters and auto-refresh."""
+    """Professional Kanban task board for Dulus with filters and auto-refresh."""
 
     def __init__(self, master, tasks_file: Path | str | None = None, **kwargs):
         super().__init__(master, fg_color=BG_COLOR, corner_radius=0, **kwargs)
@@ -233,7 +233,7 @@ class TasksView(ctk.CTkFrame if HAS_CTK else ctk.Frame):
         toolbar.grid_propagate(False)
 
         title = ctk.CTkLabel(
-            toolbar, text="Falcon Task Board", font=(FONT_FAMILY, 20, "bold"),
+            toolbar, text="Dulus Task Board", font=(FONT_FAMILY, 20, "bold"),
             text_color=ACCENT_COLOR,
         )
         title.pack(side="left")
@@ -491,7 +491,7 @@ class TasksView(ctk.CTkFrame if HAS_CTK else ctk.Frame):
 
 if __name__ == "__main__":
     root = ctk.CTk()
-    root.title("Falcon Tasks v2")
+    root.title("Dulus Tasks v2")
     root.geometry("1200x750")
     root.configure(fg_color=BG_COLOR)
     tv = TasksView(root)
