@@ -29,7 +29,7 @@ import tools as _tools_init
 import memory.tools as _mem_tools_init
 import multi_agent.tools as _ma_tools_init
 import skill.tools as _sk_tools_init
-import mcp.tools as _mcp_tools_init
+import falcon_mcp.tools as _mcp_tools_init
 import task.tools as _task_tools_init
 
 try:

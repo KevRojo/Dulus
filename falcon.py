@@ -3866,10 +3866,10 @@ def cmd_mcp(args: str, _state, config) -> bool:
     /mcp add <name> <command> [args...] — add a stdio server to user config
     /mcp remove <name> — remove a server from user config
     """
-    from mcp.client import get_mcp_manager
-    from mcp.config import (load_mcp_configs, add_server_to_user_config,
+    from falcon_mcp.client import get_mcp_manager
+    from falcon_mcp.config import (load_mcp_configs, add_server_to_user_config,
                              remove_server_from_user_config, list_config_files)
-    from mcp.tools import initialize_mcp, reload_mcp, refresh_server
+    from falcon_mcp.tools import initialize_mcp, reload_mcp, refresh_server
 
     parts = args.split() if args.strip() else []
     subcmd = parts[0].lower() if parts else ""

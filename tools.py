@@ -2230,7 +2230,7 @@ import skill.tools as _skill_tools  # noqa: F401
 # ── MCP tools ─────────────────────────────────────────────────────────────────
 # mcp/tools.py connects to configured MCP servers and registers their tools.
 # Connection happens in a background thread so startup is not blocked.
-import mcp.tools as _mcp_tools  # noqa: F401
+import falcon_mcp.tools as _mcp_tools  # noqa: F401
 
 
 # ── Plugin tools ───────────────────────────────────────────────────────────────
