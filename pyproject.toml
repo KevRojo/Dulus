@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "falcon-agent"
-version = "0.1.5"
+version = "0.1.6"
 description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
 readme = "README.md"
 requires-python = ">=3.11"

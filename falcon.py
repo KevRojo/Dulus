@@ -382,17 +382,53 @@ def stream_text(chunk: str) -> None:
 
 # stream_thinking imported from common above
 
+def _count_visual_lines(text: str, width: int) -> int:
+    """How many terminal rows did `text` occupy when streamed plain?
+    Counts wraps for long logical lines, ignores ANSI for length math.
+    Approximate (doesn't track double-width emoji exactly) but good
+    enough for the bubble re-render erase trick."""
+    import re as _re
+    total = 0
+    width = max(1, width)
+    for line in text.split("\n"):
+        stripped = _re.sub(r'\x1b\[[0-9;]*m', '', line)
+        visible = len(stripped)
+        wrapped = max(1, (visible + width - 1) // width) if visible else 1
+        total += wrapped
+    return total
+
+
 def flush_response() -> None:
     """Commit buffered text to screen: stop Live (freezes rendered Markdown in place)."""
     global _current_live, _streamed_plain
     full = "".join(_accumulated_text)
     _accumulated_text.clear()
 
-    # If bubbles forced plain streaming, the text is already on screen.
-    # Reset the flag and bail — repainting as a Panel would duplicate it.
+    # If bubbles forced plain streaming, erase what we streamed and
+    # repaint the whole response inside a Panel — gives the user the
+    # clean bubble without the mid-stream duplication bug.
     if _streamed_plain:
         _streamed_plain = False
-        print()  # newline to close the response cleanly
+        if full.strip():
+            try:
+                lines = _count_visual_lines(full, console.width)
+                # Move cursor up `lines` rows to col 0, clear from there to EOS.
+                sys.stdout.write(f"\r\033[{lines}A\033[J")
+                sys.stdout.flush()
+                _r = _make_renderable(full)
+                _r = _wrap_in_bubble(_r, full)
+                out_c = Console(
+                    file=sys.stdout,
+                    width=console.width,
+                    force_terminal=console.is_terminal,
+                    color_system=console.color_system,
+                    legacy_windows=console.legacy_windows,
+                )
+                out_c.print(_r)
+            except Exception:
+                # Fallback: if escape codes don't work, just close cleanly.
+                # The plain text stays on screen — no bubble but no duplicate.
+                print()
         return
 
     if _current_live is not None:
@@ -529,18 +565,26 @@ def print_tool_end(name: str, result: str, verbose: bool, config: dict = None):
     lines = result.count("\n") + 1
     size = len(result)
     summary = f"-> {lines} lines ({size} chars)"
+
+    # Tools whose full output is meaningful to a human (ASCII art, command
+    # output, web previews). When auto_show is ON these print fully even
+    # without verbose, matching the documented "master switch" behavior.
+    _user_facing = name in ("Bash", "PowerShell", "WebFetch", "WebSearch")
+
     if not result.startswith("Error") and not result.startswith("Denied"):
         print(clr(f"  [OK] {summary}", "dim", "green"), flush=True)
 
-        # Display-only tools render their full output when auto_show is ON.
-        if is_display and auto_show:
+        # Render full output when auto_show is ON for either:
+        #   • display-only tools (PrintToConsole) — their whole purpose is to print
+        #   • user-facing tools (Bash, etc.) — common source of ASCII art / cmd output
+        if auto_show and (is_display or _user_facing):
             print()
             try:
                 print(result)
             except UnicodeEncodeError:
                 print(result.encode('utf-8', errors='replace').decode('utf-8'))
             print()
-        
+
         # Render diff for Edit/Write results only in verbose mode
         if verbose and name in ("Edit", "Write") and _has_diff(result):
             parts = result.split("\n\n", 1)
@@ -549,7 +593,10 @@ def print_tool_end(name: str, result: str, verbose: bool, config: dict = None):
                 render_diff(parts[1])
     else:
         print(clr(f"  [X] {result[:120]}", "dim", "red"), flush=True)
-    if verbose and not result.startswith("Denied") and not (is_display and auto_show):
+    # Don't double-print: skip the verbose 500-char preview if auto_show
+    # already rendered the full result.
+    _already_rendered = auto_show and (is_display or _user_facing) and not result.startswith("Error") and not result.startswith("Denied")
+    if verbose and not result.startswith("Denied") and not _already_rendered:
         preview = result[:500] + ("..." if len(result) > 500 else "")
         try:
             print(clr(f"     {preview.replace(chr(10), chr(10)+'     ')}", "dim"))

@@ -130,15 +130,18 @@ def print_tool_end(name: str, result: str, success: bool = True, verbose: bool =
     # For display-only tools (ASCII art, etc.), show full content like PrintToConsole if auto_show is ON
     from tool_registry import is_display_only
     is_display = is_display_only(name)
-    
+    # User-facing tools whose full output is meaningful (ASCII art, command
+    # output, etc.). When auto_show is ON these print fully without verbose.
+    _user_facing = name in ("Bash", "PowerShell", "WebFetch", "WebSearch")
+
     if success:
         symbol = "[OK]"
         color = "green"
         summary = f"-> {len(result)} chars" if len(result) > 100 else f"-> {result}"
         print(clr(f"  {symbol} {summary}", "dim", color), flush=True)
-        
-        # For display-only tools, show the full content immediately if auto_show is ON
-        if is_display and auto_show:
+
+        # auto_show ON ⇒ print full result for display-only OR user-facing tools.
+        if auto_show and (is_display or _user_facing):
             print()
             try:
                 print(result)
@@ -149,8 +152,9 @@ def print_tool_end(name: str, result: str, success: bool = True, verbose: bool =
         symbol = "[X]"
         color = "red"
         print(clr(f"  {symbol} {result[:120]}", "dim", color), flush=True)
-    
-    if verbose and success and not (is_display and auto_show):
+
+    _already_rendered = auto_show and success and (is_display or _user_facing)
+    if verbose and success and not _already_rendered:
         preview = result[:300] + ("..." if len(result) > 300 else "")
         # Replace newlines for indentation but handle encoding
         try:
