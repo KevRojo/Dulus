@@ -18,7 +18,24 @@ from backend.plugins import load_all_plugins, get_plugin_info, start_watcher, st
 from task import create_task as task_create, list_tasks as task_list, update_task as task_update, get_task as task_get, delete_task as task_delete
 from backend.marketplace import load_registry, search_plugins, get_stats as marketplace_stats, install_plugin, uninstall_plugin
 
-DASHBOARD_DIR = Path(__file__).parent / "docs" / "dashboard"
+def _resolve_dashboard_dir() -> Path:
+    """Find docs/dashboard whether running from source or installed package."""
+    # 1. Try source layout (development)
+    src = Path(__file__).parent / "docs" / "dashboard"
+    if src.exists():
+        return src
+    # 2. Try installed package (docs is now a package)
+    try:
+        import docs as _docs_pkg
+        pkg = Path(_docs_pkg.__file__).parent / "dashboard"
+        if pkg.exists():
+            return pkg
+    except Exception:
+        pass
+    # 3. Fallback — will 404 gracefully
+    return src
+
+DASHBOARD_DIR = _resolve_dashboard_dir()
 
 from flask import Flask, request, jsonify, Response, stream_with_context
 
