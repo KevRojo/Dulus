@@ -74,7 +74,7 @@ DEFAULTS = {
 
 
 # ── Simple secret encryption (XOR + base64) — no external deps ────────────
-_SECRET_KEY = os.environ.get("DULUS_SECRET", "dulus-default-key")
+_SECRET_KEY = os.environ.get("DULUS_SECRET", "falcon-default-key")
 
 def _encrypt(value: str) -> str:
     """Encrypt a string with XOR + base64."""
