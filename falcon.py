@@ -565,19 +565,11 @@ def print_tool_end(name: str, result: str, verbose: bool, config: dict = None):
     lines = result.count("\n") + 1
     size = len(result)
     summary = f"-> {lines} lines ({size} chars)"
-
-    # Tools whose full output is meaningful to a human (ASCII art, command
-    # output, web previews). When auto_show is ON these print fully even
-    # without verbose, matching the documented "master switch" behavior.
-    _user_facing = name in ("Bash", "PowerShell", "WebFetch", "WebSearch")
-
     if not result.startswith("Error") and not result.startswith("Denied"):
         print(clr(f"  [OK] {summary}", "dim", "green"), flush=True)
 
-        # Render full output when auto_show is ON for either:
-        #   • display-only tools (PrintToConsole) — their whole purpose is to print
-        #   • user-facing tools (Bash, etc.) — common source of ASCII art / cmd output
-        if auto_show and (is_display or _user_facing):
+        # Display-only tools render their full output when auto_show is ON.
+        if is_display and auto_show:
             print()
             try:
                 print(result)
@@ -593,10 +585,7 @@ def print_tool_end(name: str, result: str, verbose: bool, config: dict = None):
                 render_diff(parts[1])
     else:
         print(clr(f"  [X] {result[:120]}", "dim", "red"), flush=True)
-    # Don't double-print: skip the verbose 500-char preview if auto_show
-    # already rendered the full result.
-    _already_rendered = auto_show and (is_display or _user_facing) and not result.startswith("Error") and not result.startswith("Denied")
-    if verbose and not result.startswith("Denied") and not _already_rendered:
+    if verbose and not result.startswith("Denied") and not (is_display and auto_show):
         preview = result[:500] + ("..." if len(result) > 500 else "")
         try:
             print(clr(f"     {preview.replace(chr(10), chr(10)+'     ')}", "dim"))
