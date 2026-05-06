@@ -155,62 +155,11 @@ def _tmux_send_keys(params: dict, config: dict) -> str:
     # Get target - handle both "session:window.pane" and ":pane" formats
     target = params.get("target", ":0.0")
     
-    if sys.platform == "win32":
-        # Windows: tmux/psmux has issues with complex escaping
-        # Solution: Write command to a temp batch file and execute that
-        import subprocess
-        import tempfile
-        import os
-        try:
-            # Create a temp batch file with the command
-            # This avoids all the quoting nightmares with cmd.exe
-            fd, batch_path = tempfile.mkstemp(suffix='.bat', prefix='dulus_cmd_')
-            try:
-                # Write the command to the batch file
-                os.write(fd, keys.encode('utf-8'))
-                os.close(fd)
-                
-                # Send the batch file execution command to tmux
-                # Use call to execute the batch file
-                batch_cmd = f'call "{batch_path}"'
-                safe_batch = batch_cmd.replace('\\', '\\\\')
-                
-                cmd_parts = ['tmux', 'send-keys', '-t', target, '-l', safe_batch]
-                subprocess.run(cmd_parts, capture_output=True, text=True, check=True)
-                
-                # Send Enter
-                subprocess.run(['tmux', 'send-keys', '-t', target, 'Enter'], 
-                             capture_output=True, text=True, check=True)
-                
-                # Schedule cleanup of the batch file after a delay
-                # (tmux needs time to execute it)
-                cleanup_cmd = f'"{batch_path}"'
-                subprocess.Popen(['tmux', 'send-keys', '-t', target, '-l', 
-                                f' && del "{batch_path}"', 'Enter'],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
-                return "ok"
-            except Exception:
-                # Cleanup on error
-                try:
-                    os.close(fd)
-                except:
-                    pass
-                try:
-                    os.unlink(batch_path)
-                except:
-                    pass
-                raise
-        except subprocess.CalledProcessError as e:
-            return f"failed: {e.stderr if e.stderr else str(e)}"
-        except Exception as e:
-            return f"failed: {str(e)}"
-    else:
-        # Unix: For tmux targets, we can't use shlex.quote because it wraps
-        # "session:window.pane" in quotes which tmux doesn't understand.
-        # Targets with : or . should NOT be quoted as a whole.
-        safe_keys = keys.replace("'", "'\\''")
-        return _run(f"tmux send-keys -t {target} '{safe_keys}'{enter}")
+    # For tmux targets, we can't use shlex.quote because it wraps
+    # "session:window.pane" in quotes which tmux doesn't understand.
+    # Targets with : or . should NOT be quoted as a whole.
+    safe_keys = keys.replace("'", "'\\''")
+    return _run(f"tmux send-keys -t {target} '{safe_keys}'{enter}")
 
 
 def _tmux_capture_pane(params: dict, config: dict) -> str:
