@@ -18,8 +18,8 @@ SET /sticky_input ON since the first run for the best experience!
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/dulus-agent/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="pypi"/></a>
-  <a href="https://pypi.org/project/dulus-agent/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
+  <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="pypi"/></a>
+  <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
   <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
   <img src="https://img.shields.io/badge/version-v1.01.20-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
