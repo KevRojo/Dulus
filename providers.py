@@ -1065,8 +1065,12 @@ def stream_claude_code(
     import subprocess as _sp
     from pathlib import Path as _Path
 
-    _cwd_slug = str(_Path.cwd()).replace(":", "-").replace("\\", "-").replace("/", "-")
-    _session_dir = _Path.home() / ".claude" / "projects" / _cwd_slug
+    _project_override = config.get("claude_code_project_dir", "").strip()
+    if _project_override:
+        _slug = _project_override.replace(":", "-").replace("\\", "-").replace("/", "-")
+    else:
+        _slug = str(_Path.cwd()).replace(":", "-").replace("\\", "-").replace("/", "-")
+    _session_dir = _Path.home() / ".claude" / "projects" / _slug
     _jsonl_files = sorted(_session_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
     _jsonl_path = _jsonl_files[0] if _jsonl_files else None
 
@@ -1180,16 +1184,20 @@ def stream_claude_code(
         # If we have text and silence window passed — flush
         if _accumulated and (_time.time() - _last_new_entry_time) >= _silence:
             text = "\n\n".join(_accumulated)
-            yield TextChunk(text)
-            yield AssistantTurn(text, [], 0, 0)
+            _parser = WebToolParser(auto_wrap_json=True)
+            _display = _parser.parse_chunk(text) + _parser.flush()
+            yield TextChunk(_display)
+            yield AssistantTurn(_display, _parser.tool_calls, 0, 0)
             return
 
         _time.sleep(_poll)
 
     if _accumulated:
         text = "\n\n".join(_accumulated)
-        yield TextChunk(text)
-        yield AssistantTurn(text, [], 0, 0)
+        _parser = WebToolParser(auto_wrap_json=True)
+        _display = _parser.parse_chunk(text) + _parser.flush()
+        yield TextChunk(_display)
+        yield AssistantTurn(_display, _parser.tool_calls, 0, 0)
         return
 
     msg = "[claude-code] Timeout waiting for assistant response (90s)."

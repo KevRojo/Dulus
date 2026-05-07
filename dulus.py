@@ -99,7 +99,8 @@ Slash commands in REPL:
   /kill_tmux        Kill all stuck tmux/psmux sessions (cleanup)
   /batch            Manage Kimi Batch tasks (list, status, fetch)
   /roundtable       Start a multi-model roundtable discussion
-  /harvest          Harvest Claude.ai cookies
+  /harvest          Harvest Claude.ai cookies (alias: /harvest-claude)
+  /harvest-claude   Harvest Claude.ai cookies
   /harvest-kimi     Harvest Kimi.com (Consumer) session/gRPC tokens
   /harvest-gemini   Harvest Gemini (Consumer) session tokens
   /harvest-qwen     Harvest Qwen (chat.qwen.ai) session tokens
@@ -6372,6 +6373,8 @@ COMMANDS = {
     "history":     cmd_history,
     "mem_palace":  cmd_mem_palace,
     "harvest":  cmd_harvest,
+    "harvest-claude": cmd_harvest,
+    "claude-harvest": cmd_harvest,
     "harvest-kimi": cmd_harvest_kimi,
     "harvest-gemini": cmd_harvest_gemini,
     "gemini-harvest": cmd_harvest_gemini,
@@ -6526,6 +6529,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "claude_chats": ("List Claude.ai conversations",       ["all"]),
     "gemini_chats": ("Manage Gemini Web conversations",    ["new"]),
     "gemini_harvest": ("Harvest Gemini Web cookies (alias)", []),
+    "harvest-claude": ("Harvest Claude.ai cookies (alias)", []),
     "webchat":       ("Spawn web chat UI",                 ["stop"]),
     "gui":           ("Launch desktop GUI",                 []),
 }
