@@ -2996,7 +2996,7 @@ def cmd_sticky_input(_args: str, _state, config) -> bool:
           Background notifications land where they land.
     """
     from config import save_config
-    config["sticky_input"] = not config.get("sticky_input", False)
+    config["sticky_input"] = not config.get("sticky_input", True)
     state_str = "ON" if config["sticky_input"] else "OFF"
     ok(f"Sticky input bar: {state_str}  (restart Dulus to take effect)")
     save_config(config)
@@ -7438,13 +7438,11 @@ def repl(config: dict, initial_prompt: str = None):
         sys.stdout.write("\x1b[?2004h")   # enable bracketed paste mode
         sys.stdout.flush()
 
-    # ── Sticky input bar (opt-in) ─────────────────────────────────────────────
-    # prompt_toolkit can anchor the input line so background prints flow above
-    # it, but on Windows consoles it constantly redraws on every keystroke and
-    # that causes visible jitter / artifacts. Disabled by default — the user
-    # can turn it on with `/sticky_input on` (or set `sticky_input: true` in
-    # config) if they want the anchored behavior.
-    _sticky_input_enabled = bool(config.get("sticky_input", False))
+    # ── Sticky input bar (ON by default) ─────────────────────────────────────
+    # prompt_toolkit anchors the input line so background prints flow above it.
+    # On Windows consoles it can redraw on every keystroke (mild jitter), but
+    # the UX win outweighs it. Toggle off with `/sticky_input` if needed.
+    _sticky_input_enabled = bool(config.get("sticky_input", True))
     try:
         import common as _cm
         _cm.apply_theme(config.get("theme", "dulus"))
