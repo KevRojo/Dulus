@@ -23,7 +23,8 @@ import argparse
 from pathlib import Path
 
 
-SESSION_DIR = Path.home() / ".claude" / "projects" / "C--Users-Admin-Desktop-DULUSV2"
+_CWD_SLUG = str(Path.cwd()).replace(":", "-").replace("\\", "-").replace("/", "-")
+SESSION_DIR = Path.home() / ".claude" / "projects" / _CWD_SLUG
 
 # How long to wait (seconds) with no new assistant entries before flushing
 # the accumulated turn as complete.
