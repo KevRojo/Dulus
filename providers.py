@@ -1065,7 +1065,8 @@ def stream_claude_code(
     import subprocess as _sp
     from pathlib import Path as _Path
 
-    _session_dir = _Path.home() / ".claude" / "projects" / "C--Users-Admin-Desktop-DULUSV2"
+    _cwd_slug = str(_Path.cwd()).replace(":", "-").replace("\\", "-").replace("/", "-")
+    _session_dir = _Path.home() / ".claude" / "projects" / _cwd_slug
     _jsonl_files = sorted(_session_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
     _jsonl_path = _jsonl_files[0] if _jsonl_files else None
 
@@ -1125,7 +1126,7 @@ def stream_claude_code(
 
     # ── Poll JSONL for new assistant entry ────────────────────────────────────
     if not _jsonl_path:
-        msg = "[claude-code] No JSONL session file found in ~/.claude/projects/C--Users-Admin-Desktop-DULUSV2"
+        msg = f"[claude-code] No JSONL session file found in {_session_dir}"
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
         return
