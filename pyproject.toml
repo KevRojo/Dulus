@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "0.2.9"
+version = "0.2.10"
 description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -40,6 +40,11 @@ dependencies = [
     "sounddevice",
     "customtkinter>=5.2.0",
     "Pillow>=10.0.0",
+    # Pin typing-extensions floor: anthropic, openai, pydantic, chromadb (via
+    # mempalace) each pull it with different lower bounds — without an explicit
+    # floor here pip's resolver explodes with "dependency resolution exceeded
+    # maximum depth" trying to reconcile them.
+    "typing-extensions>=4.10.0",
 ]
 
 [project.scripts]
