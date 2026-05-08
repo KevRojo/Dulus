@@ -896,8 +896,7 @@ def _rtk_binary() -> Optional[str]:
     here = Path(__file__).resolve().parent
     name = "rtk.exe" if _sys.platform == "win32" else "rtk"
     candidates = [here / "rtk" / name]
-    if _sys.platform != "win32":
-        candidates.append(Path.home() / ".local" / "bin" / "rtk")
+    candidates.append(Path.home() / ".local" / "bin" / name)
 
     for c in candidates:
         if c.exists() and c.is_file():

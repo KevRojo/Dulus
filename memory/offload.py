@@ -27,7 +27,10 @@ def _tmux_offload(params: dict, config: dict) -> str:
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     job_path = JOBS_DIR / f"{job_id}.json"
     
-    # Save initial job state
+    # Save initial job state.
+    # IMPORTANT: never persist the parent config here — the child process
+    # calls load_config() itself, and dumping the in-memory config leaks
+    # API keys, session tokens, telegram bots, etc. to ~/.dulus/jobs/*.json.
     job_data = {
         "id": job_id,
         "tool_name": tool_name,
@@ -35,7 +38,6 @@ def _tmux_offload(params: dict, config: dict) -> str:
         "status": "running",
         "created_at": datetime.now().isoformat(),
         "owner_pid": os.getpid(),
-        "config": {k: v for k, v in config.items() if not k.startswith("_")}
     }
     
     with open(job_path, "w", encoding="utf-8") as f:

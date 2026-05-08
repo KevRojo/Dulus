@@ -7041,7 +7041,7 @@ def repl(config: dict, initial_prompt: str = None):
                 else:
                     _trivial = {"hola", "klk", "gracias", "ok", "si", "no", "dale",
                                 "exit", "quit", "help", "thanks", "bien"}
-                    _first = user_input.strip().lower().split()[0]
+                    _first = user_input.strip().lower().split()[0].strip(".,!?;:")
                     if _first in _trivial:
                         _mp_log(f"skip: trivial first word '{_first}'", "dim")
                     else:
@@ -7051,15 +7051,22 @@ def repl(config: dict, initial_prompt: str = None):
                             _q = user_input.strip()[:200]
                             _mp_log(f"querying: {_q!r}")
                             _raw_hits = find_relevant_memories(_q, max_results=3)
-                            if not _raw_hits:
-                                _mp_log("skip: no relevant memories found", "dim")
+                            _MIN_SCORE = 0.15
+                            if _mp_dbg:
+                                for _h in _raw_hits:
+                                    _mp_log(f"  hit: score={float(_h.get('keyword_score', 0.0)):.3f}  {_h.get('name','?')}", "dim")
+                            _kept = [h for h in _raw_hits if float(h.get("keyword_score", 0.0)) >= _MIN_SCORE]
+                            if not _kept:
+                                _mp_log(f"skip: no hits above threshold {_MIN_SCORE} (raw={len(_raw_hits)})", "dim")
                             else:
+                                _BODY_BUDGET = 1800
+                                _per_hit = max(300, _BODY_BUDGET // len(_kept))
                                 _parts = []
-                                for _i, _h in enumerate(_raw_hits, 1):
+                                for _i, _h in enumerate(_kept, 1):
                                     _name = _h.get("name", f"hit_{_i}")
                                     _desc = _h.get("description", "")
                                     _body = _h.get("content", "").strip()
-                                    _snip = _body[:300] + ("..." if len(_body) > 300 else "")
+                                    _snip = _body[:_per_hit] + ("..." if len(_body) > _per_hit else "")
                                     if _desc:
                                         _parts.append(f"### {_name}\n_{_desc}_\n{_snip}")
                                     else:
