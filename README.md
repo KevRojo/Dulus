@@ -45,7 +45,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
-> **v0.2.9 — May 8, 2026** — Per-turn injection now queries the real MemPalace (`~/.mempalace/palace`) instead of the small local memory dir, so deep context (bond, soul, sessions) actually surfaces. `/theme` palette upgraded to 4 semantic roles (accent / ok / warn / err) with a live preview swatch in the listing. TmuxOffload accepts `tool_input` as alias of `tool_params`, sends an explicit second Enter on Windows so commands containing `&&`/`||`/`;` don't sit typed-but-unexecuted.
+> **v0.2.10 — May 8, 2026** — Pin `typing-extensions>=4.10` to keep pip's resolver from blowing up (`dependency resolution exceeded maximum depth`) when reconciling anthropic / openai / pydantic / chromadb floors. New Termux/Android section in the README with a `--no-deps` workaround for the NumPy build.
 > Type `/news` to see what changed.
 
 ---
@@ -93,6 +93,18 @@ git clone https://github.com/KevRojo/Dulus && cd Dulus
 pip install -e .          # editable install
 dulus
 ```
+
+### Termux / Android
+
+The default install pulls `mempalace` and `sounddevice`, both of which need a NumPy that has no prebuilt wheel for `aarch64-android` — pip will try to build NumPy from source and fail. Install around it:
+
+```bash
+pkg install python python-numpy python-pillow build-essential
+pip install --no-deps dulus
+pip install anthropic openai httpx requests rich prompt_toolkit Flask bubblewrap-cli mempalace
+```
+
+Skip `sounddevice` (no usable PortAudio on Android — voice features won't work anyway). Dulus's runtime is graceful: voice / MemPalace just degrade if their deps aren't there, the CLI still boots and chats fine.
 
 ### Pick a model
 
