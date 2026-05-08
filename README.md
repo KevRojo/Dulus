@@ -45,7 +45,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
-> **v1.01.20 — Apr 09, 2026** — Automated Plugin Adapter. Hot-Reloading. Premium UI.
+> **v0.2.8 — May 8, 2026** — MemPalace injection: removed confidence-bias ranker, added relevance threshold + elastic char budget, fixed comma-trip on trivial filter. Job offload no longer leaks parent config (API keys, tokens) to `~/.dulus/jobs/*.json`.
 > Type `/news` to see what changed.
 
 ---
@@ -74,14 +74,14 @@ ROUND TABLE (DULUS UNIQUE FEATURE)
 
 <img alt="image" src="https://github.com/user-attachments/assets/9e8f17ed-6ca2-4ae0-b8c3-146ae5fef491" />
 
-Dulus is the first one meeting multiples models at the same time working for the same objetive and sharing they'r ideas.
+Dulus is the first one meeting multiple models at the same time working for the same objective and sharing their ideas.
 
 
 
 ### One-liner
 
 ```bash
-pip install dulus-agent && dulus
+pip install dulus && dulus
 ```
 
 That's it. Dulus prompts you for a key on first run.

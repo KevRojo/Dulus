@@ -156,8 +156,6 @@ def find_relevant_memories(
         if ks == 0.0 and vs == 0.0:
             continue
         score = 0.55 * vs + 0.45 * ks
-        # Tiny confidence nudge so high-confidence memories break ties
-        score += 0.01 * float(getattr(entry, "confidence", 1.0))
         entry._search_score = score  # type: ignore[attr-defined]
         fused.append((score, entry))
 
