@@ -3011,10 +3011,20 @@ def cmd_theme(args: str, _state, config) -> bool:
     if not name:
         current = config.get("theme", "dulus")
         print(clr("  ── Available themes ──", "cyan", "bold"))
+        _RESET = "\033[0m"
         for t, p in _cm.THEMES.items():
             marker = "●" if t == current else " "
-            swatch = f"{_cm._rgb(p['accent'])}■{_cm.C['reset']}{_cm._rgb(p['warn'])}■{_cm.C['reset']}"
-            print(f"  {marker} {swatch}  {t}")
+            if p.get("disable_color"):
+                swatch = "  (no color)  "
+            else:
+                fb = p.get("accent", "#FFFFFF")
+                swatch = (
+                    f"{_cm._rgb(p.get('accent', fb))} info {_RESET}"
+                    f"{_cm._rgb(p.get('ok', fb))} ok {_RESET}"
+                    f"{_cm._rgb(p.get('warn', fb))} warn {_RESET}"
+                    f"{_cm._rgb(p.get('err', '#FF5555'))} err {_RESET}"
+                )
+            print(f"  {marker} {t:<14} {swatch}  ({p['code']})")
         print(clr(f"  Use: /theme <name>   (current: {current})", "dim"))
         return True
     if not _cm.apply_theme(name):
@@ -7047,10 +7057,38 @@ def repl(config: dict, initial_prompt: str = None):
                     else:
                         try:
                             import re as _re
-                            from memory import find_relevant_memories
                             _q = user_input.strip()[:200]
                             _mp_log(f"querying: {_q!r}")
-                            _raw_hits = find_relevant_memories(_q, max_results=3)
+                            _raw_hits = []
+                            # Primary: query the real MemPalace (~/.mempalace/palace) which holds
+                            # the rich corpus (hija_palace, soul, bond, sessions, knowledge, etc.).
+                            # Dulus's local find_relevant_memories only sees ~/.dulus/memory/*.md,
+                            # which is a tiny slice and was the reason the same 3 generic files
+                            # kept getting injected on every turn.
+                            try:
+                                from mempalace.searcher import search_memories as _mp_search
+                                from mempalace.config import MempalaceConfig as _MPCfg
+                                _palace = _MPCfg().palace_path
+                                _res = _mp_search(_q, _palace, n_results=3)
+                                for _hit in (_res or {}).get("results", []):
+                                    _meta = _hit.get("metadata") or {}
+                                    _src = _meta.get("source_file") or _meta.get("name") or "palace"
+                                    _name = str(_src).rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0]
+                                    _vec = max(0.0, 1.0 - float(_hit.get("distance", 1.0)))
+                                    _bm  = float(_hit.get("bm25_score", 0.0))
+                                    _raw_hits.append({
+                                        "name": _name,
+                                        "description": _meta.get("wing") or _meta.get("room") or "",
+                                        "content": _hit.get("text", ""),
+                                        "keyword_score": max(_vec, _bm),
+                                    })
+                                _mp_log(f"mempalace hits: {len(_raw_hits)}")
+                            except Exception as _mpe:
+                                _mp_log(f"mempalace unavailable, falling back to local: {type(_mpe).__name__}: {_mpe}", "dim")
+                            # Fallback: Dulus's local memory dir (the old path)
+                            if not _raw_hits:
+                                from memory import find_relevant_memories
+                                _raw_hits = find_relevant_memories(_q, max_results=3)
                             _MIN_SCORE = 0.15
                             if _mp_dbg:
                                 for _h in _raw_hits:

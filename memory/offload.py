@@ -20,7 +20,15 @@ def _tmux_offload(params: dict, config: dict) -> str:
     # Note: We don't care if already inside tmux - just create the session
 
     tool_name = params["tool_name"]
-    tool_params = params.get("tool_params", {})
+    # Accept either `tool_params` (canonical) or `tool_input` (Claude Code
+    # convention). Models trained on Anthropic tool-use schemas reach for
+    # `tool_input` by reflex; silently dropping it stranded jobs with empty
+    # params and no error.
+    tool_params = params.get("tool_params")
+    if tool_params is None:
+        tool_params = params.get("tool_input", {})
+    if not isinstance(tool_params, dict):
+        return f"Error: tool_params/tool_input must be an object, got {type(tool_params).__name__}"
     
     # Create Job ID and directory
     job_id = uuid.uuid4().hex[:8]
@@ -73,9 +81,6 @@ def _tmux_offload(params: dict, config: dict) -> str:
     if sys.platform == "win32":
         # Windows: Use absolute path to dulus.py since tmux starts in home dir, not DULUS dir
         dulus_path_str = str(dulus_script).replace("\\", "/")
-        # Write a wrapper script that handles errors properly
-        # Use & instead of ; so kill-session runs regardless, and capture output
-        # Quote paths with spaces to prevent cmd.exe from splitting them
         cmd = f'python "{dulus_path_str}" --run-tool {tool_name} --job-id {job_id} --job-path "{job_path_str}" 2>&1 && echo SUCCESS || echo FAILED; tmux kill-session -t {session_name}'
     else:
         # Unix/Linux: unset PSMUX vars and use tee
@@ -84,6 +89,13 @@ def _tmux_offload(params: dict, config: dict) -> str:
         cmd = f"unset PSMUX PSMUX_SESSION PSMUX_SOCKET 2>/dev/null; \"{python_exe}\" -u \"{dulus_script}\" --run-tool {tool_name} --job-id {job_id} --job-path \"{job_path}\" 2>&1 | tee \"{job_log}\" \"{last_log}\"; tmux kill-session -t {session_name}"
     
     send_result = _tmux_send_keys({"keys": cmd, "target": f"{session_name}:0"}, config)
+    # Belt-and-suspenders: a second explicit Enter. On Windows tmux + cmd.exe the
+    # implicit `Enter` arg in the first send-keys sometimes gets swallowed by the
+    # cmd.exe outer parser when the keys string contains `&&` / `||` / `;`, so the
+    # command sits typed but unexecuted. The second send-keys is just an Enter — no
+    # special chars to fight with — and reliably submits the line.
+    if sys.platform == "win32":
+        _tmux_send_keys({"keys": "", "target": f"{session_name}:0", "press_enter": True}, config)
     if "failed" in send_result.lower() or "error" in send_result.lower():
         # Clean up the session since we can't send keys
         _run(f"tmux kill-session -t {session_name}", timeout=2)
@@ -138,10 +150,14 @@ def register_offload_tool():
                     },
                     "tool_params": {
                         "type": "object",
-                        "description": "Parameters for the target tool"
+                        "description": "Parameters for the target tool. Alias `tool_input` is also accepted."
+                    },
+                    "tool_input": {
+                        "type": "object",
+                        "description": "Alias of tool_params for callers using Claude Code's tool-use convention."
                     },
                 },
-                "required": ["tool_name", "tool_params"],
+                "required": ["tool_name"],
             },
         },
         func=_tmux_offload,

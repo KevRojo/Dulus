@@ -38,24 +38,30 @@ def _rgb(hex_str: str) -> str:
     return f"\033[38;2;{r};{g};{b}m"
 
 
-# Curated palettes (hex per semantic role). `cyan/green/blue` collapse to the
-# theme's accent color since Dulus uses them all for primary chrome.
-# Add new ones here and they show up in `/theme` automatically.
+# Curated palettes — each theme defines four semantic roles:
+#   accent : info / primary chrome (cyan, blue)
+#   ok     : success / diff additions (green) — kept distinct from accent
+#            so info() and ok() stay visually separable
+#   warn   : warnings (yellow, magenta)
+#   err    : errors / diff removals (red)
+#   code   : Rich Markdown code-block style (any Pygments style name)
+# Use {"disable_color": True, "code": "default"} to ship a colorless theme.
+# Add new entries here and they show up in `/theme` automatically.
 THEMES: dict = {
-    "dulus":      {"accent": "#FF8700", "warn": "#FFAF00", "code": "monokai"},
-    "dracula":     {"accent": "#BD93F9", "warn": "#FFB86C", "code": "dracula"},
-    "nord":        {"accent": "#88C0D0", "warn": "#EBCB8B", "code": "nord"},
-    "gruvbox":     {"accent": "#FABD2F", "warn": "#FE8019", "code": "gruvbox-dark"},
-    "solarized":   {"accent": "#268BD2", "warn": "#B58900", "code": "solarized-dark"},
-    "tokyo-night": {"accent": "#7AA2F7", "warn": "#E0AF68", "code": "one-dark"},
-    "catppuccin":  {"accent": "#F5C2E7", "warn": "#FAB387", "code": "one-dark"},
-    "matrix":      {"accent": "#00FF41", "warn": "#CCFF00", "code": "monokai"},
-    "synthwave":   {"accent": "#FF00FF", "warn": "#FFCC00", "code": "fruity"},
-    "midnight":    {"accent": "#00BCD4", "warn": "#FFC107", "code": "dracula"},
-    "ocean":       {"accent": "#38bdf8", "warn": "#fbbf24", "code": "nord"},
-    "monokai":     {"accent": "#a6e22e", "warn": "#e6db74", "code": "monokai"},
-    "mono":        {"accent": "#E0E0E0", "warn": "#A0A0A0", "code": "bw"},
-    "none":        {"accent": "#FFFFFF", "warn": "#FFFFFF", "code": "default"},
+    "dulus":       {"accent": "#FF8700", "ok": "#00FF87", "warn": "#FFAF00", "err": "#FF5F5F", "code": "monokai"},
+    "dracula":     {"accent": "#BD93F9", "ok": "#50FA7B", "warn": "#FFB86C", "err": "#FF5555", "code": "dracula"},
+    "nord":        {"accent": "#88C0D0", "ok": "#A3BE8C", "warn": "#EBCB8B", "err": "#BF616A", "code": "nord"},
+    "gruvbox":     {"accent": "#FABD2F", "ok": "#B8BB26", "warn": "#FE8019", "err": "#FB4934", "code": "gruvbox-dark"},
+    "solarized":   {"accent": "#268BD2", "ok": "#859900", "warn": "#B58900", "err": "#DC322F", "code": "solarized-dark"},
+    "tokyo-night": {"accent": "#7AA2F7", "ok": "#9ECE6A", "warn": "#E0AF68", "err": "#F7768E", "code": "one-dark"},
+    "catppuccin":  {"accent": "#F5C2E7", "ok": "#A6E3A1", "warn": "#FAB387", "err": "#F38BA8", "code": "one-dark"},
+    "matrix":      {"accent": "#00FF41", "ok": "#7FFF00", "warn": "#CCFF00", "err": "#FF0000", "code": "monokai"},
+    "synthwave":   {"accent": "#FF00FF", "ok": "#39FF14", "warn": "#FFCC00", "err": "#FF3864", "code": "fruity"},
+    "midnight":    {"accent": "#00BCD4", "ok": "#76FF03", "warn": "#FFC107", "err": "#FF1744", "code": "dracula"},
+    "ocean":       {"accent": "#38BDF8", "ok": "#34D399", "warn": "#FBBF24", "err": "#F87171", "code": "nord"},
+    "monokai":     {"accent": "#66D9EF", "ok": "#A6E22E", "warn": "#E6DB74", "err": "#F92672", "code": "monokai"},
+    "mono":        {"accent": "#E0E0E0", "ok": "#C0C0C0", "warn": "#A0A0A0", "err": "#FFFFFF", "code": "bw"},
+    "none":        {"disable_color": True, "code": "default"},
 }
 
 # Active code-block style for Rich Markdown rendering — read by dulus.py.
@@ -71,19 +77,42 @@ C = {
 
 
 def apply_theme(name: str) -> bool:
-    """Mutate the global ANSI color map in-place to a named theme."""
+    """Mutate the global ANSI color map in-place to a named theme.
+
+    Themes carry 4 semantic roles (accent / ok / warn / err) that map onto
+    Dulus's ANSI key set. `ok` is intentionally distinct from `accent` so
+    info() (cyan-keyed) and ok() (green-keyed) stay visually separable.
+    A theme with `disable_color: True` strips every escape for plain output.
+    """
     global CODE_THEME
     p = THEMES.get(name)
     if not p:
         return False
+
+    # Plain-text mode: zero out every key so clr() returns naked strings.
+    if p.get("disable_color"):
+        for k in list(C.keys()):
+            C[k] = ""
+        CODE_THEME = p.get("code", "default")
+        return True
+
     accent = _rgb(p["accent"])
-    warn   = _rgb(p["warn"])
-    C["cyan"] = C["green"] = C["blue"] = accent
-    C["yellow"] = C["magenta"] = warn
-    C["red"]    = "\033[38;5;196m"   # errors stay red across all themes
-    C["white"]  = "\033[97m"
-    C["gray"]   = "\033[90m"
-    CODE_THEME  = p["code"]
+    ok_col = _rgb(p.get("ok", p["accent"]))
+    warn_c = _rgb(p["warn"])
+    err_c  = _rgb(p.get("err", "#FF5555"))
+
+    C["cyan"]    = accent
+    C["blue"]    = accent
+    C["green"]   = ok_col
+    C["yellow"]  = warn_c
+    C["magenta"] = warn_c
+    C["red"]     = err_c
+    C["white"]   = "\033[97m"
+    C["gray"]    = "\033[90m"
+    C["bold"]    = "\033[1m"
+    C["dim"]     = "\033[2m"
+    C["reset"]   = "\033[0m"
+    CODE_THEME   = p["code"]
     return True
 
 

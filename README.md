@@ -45,7 +45,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
-> **v0.2.8 — May 8, 2026** — MemPalace injection: removed confidence-bias ranker, added relevance threshold + elastic char budget, fixed comma-trip on trivial filter. Job offload no longer leaks parent config (API keys, tokens) to `~/.dulus/jobs/*.json`.
+> **v0.2.9 — May 8, 2026** — Per-turn injection now queries the real MemPalace (`~/.mempalace/palace`) instead of the small local memory dir, so deep context (bond, soul, sessions) actually surfaces. `/theme` palette upgraded to 4 semantic roles (accent / ok / warn / err) with a live preview swatch in the listing. TmuxOffload accepts `tool_input` as alias of `tool_params`, sends an explicit second Enter on Windows so commands containing `&&`/`||`/`;` don't sit typed-but-unexecuted.
 > Type `/news` to see what changed.
 
 ---
