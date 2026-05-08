@@ -2347,6 +2347,109 @@ def calc_cost(model: str, in_tok: int, out_tok: int) -> float:
     return (in_tok * ic + out_tok * oc) / 1_000_000
 
 
+# ── Native tool-call format interceptors ──────────────────────────────────
+# Some models (Gemma 3/4, Mistral, ...) emit their NATIVE tool-call format
+# inside `delta.content` even when the API has been told to use OpenAI-style
+# tool schemas. Without interception the user sees raw markers like
+# `<|tool_call>call:Foo{"x":1}<tool_call|>` streamed as text, and the
+# intended tool call never fires — and on Ollama Cloud / vLLM the broken
+# format can also trip a 502 from the upstream proxy. The helpers below let
+# stream_ollama / stream_openai_compat detect these markers, switch into
+# buffer mode, and parse the buffered tail into proper tool_calls.
+_NATIVE_TOOL_OPENERS = (
+    "<|tool_call|>",   # Gemma official
+    "<|tool_call>",    # Gemma 4 asymmetric variant seen in the wild
+    "<tool_call>",     # Hermes / Qwen
+    "[TOOL_CALLS]",    # Mistral
+)
+
+_GEMMA_QUOTE_TOKEN_FIXES = (
+    ("<|\"|>", '"'),
+    ("<|'|>", "'"),
+)
+
+_NATIVE_FMT_V2 = re.compile(
+    r"<\|?tool_call\|?>\s*call:\s*(\w+)\s*(\{.*?\})\s*<\|?(?:end_)?(?:/)?tool_call\|?>",
+    re.DOTALL,
+)
+_NATIVE_FMT_V1 = re.compile(
+    r"<\|?tool_call\|?>\s*(\{.*?\})\s*<\|?(?:end_)?(?:/)?tool_call\|?>",
+    re.DOTALL,
+)
+_NATIVE_FMT_MISTRAL = re.compile(r"\[TOOL_CALLS\]\s*(\[.*?\])", re.DOTALL)
+
+
+def _find_native_tool_marker(text: str) -> "int | None":
+    earliest = None
+    for opener in _NATIVE_TOOL_OPENERS:
+        idx = text.find(opener)
+        if idx != -1 and (earliest is None or idx < earliest):
+            earliest = idx
+    return earliest
+
+
+def _extract_native_tool_calls(buf: str) -> list:
+    """Parse buffered native-format tool calls. Returns [] on any failure."""
+    if not buf:
+        return []
+    for tok, repl in _GEMMA_QUOTE_TOKEN_FIXES:
+        buf = buf.replace(tok, repl)
+
+    out: list = []
+
+    # Format 2 first (more specific — explicit `call:NAME` outside the JSON)
+    for m in _NATIVE_FMT_V2.finditer(buf):
+        name, body = m.group(1), m.group(2)
+        try:
+            args = json.loads(body)
+            if not isinstance(args, dict):
+                args = {"_raw": body}
+        except json.JSONDecodeError:
+            args = {"_raw": body}
+        out.append({"id": f"native_call_{len(out)}", "name": name, "input": args})
+
+    # Format 1: JSON envelope with `name` + `arguments`
+    if not out:
+        for m in _NATIVE_FMT_V1.finditer(buf):
+            try:
+                parsed = json.loads(m.group(1))
+                if isinstance(parsed, dict):
+                    name = parsed.get("name") or parsed.get("function") or ""
+                    args = parsed.get("arguments") or parsed.get("args") or {}
+                    if name:
+                        if not isinstance(args, dict):
+                            args = {"_raw": str(args)}
+                        out.append({
+                            "id": f"native_call_{len(out)}",
+                            "name": name, "input": args,
+                        })
+            except json.JSONDecodeError:
+                continue
+
+    # Mistral [TOOL_CALLS] [{...}, {...}]
+    if not out:
+        for m in _NATIVE_FMT_MISTRAL.finditer(buf):
+            try:
+                arr = json.loads(m.group(1))
+                if isinstance(arr, list):
+                    for item in arr:
+                        if not isinstance(item, dict):
+                            continue
+                        name = item.get("name") or (item.get("function") or {}).get("name") or ""
+                        args = item.get("arguments") or (item.get("function") or {}).get("arguments") or {}
+                        if name:
+                            if not isinstance(args, dict):
+                                args = {"_raw": str(args)}
+                            out.append({
+                                "id": f"native_call_{len(out)}",
+                                "name": name, "input": args,
+                            })
+            except json.JSONDecodeError:
+                continue
+
+    return out
+
+
 def estimate_tokens_kimi(api_key: str, model: str, messages: list) -> int | None:
     """Estimate token count using Kimi's native API endpoint.
     
@@ -3548,7 +3651,17 @@ def stream_ollama(
     text = ""
     thinking = ""
     tool_buf: dict = {}
-    
+
+    # Native tool-call interceptor state. When the model emits its native
+    # `<|tool_call|>...` envelope inside `content` (Gemma 3/4 in particular
+    # do this even when given OpenAI-style tool schemas), we stop yielding
+    # text and accumulate everything from the marker onward. At end-of-stream
+    # we parse the buffer into proper tool_calls. Without this the user sees
+    # `<|tool_call>call:Foo{...}<tool_call|>` as raw text, the tool never
+    # fires, and on Ollama Cloud the malformed exchange can trip a 502.
+    _native_buf = ""           # text accumulated after a native marker
+    _native_intercept = False  # True once we've seen any native marker
+
     # State for prompt-based tool call parsing across streamed chunks
     use_deep_tools = config.get("deep_tools", False) if config else False
     _auto_wrap_json = is_deepseek_r1 and use_deep_tools
@@ -3603,9 +3716,22 @@ def stream_ollama(
                     if display:
                         text += display
                         yield TextChunk(display)
+                elif _native_intercept:
+                    # Already inside a native tool-call envelope — buffer silently.
+                    _native_buf += content
                 else:
-                    text += content
-                    yield TextChunk(content)
+                    marker = _find_native_tool_marker(content)
+                    if marker is not None:
+                        # Yield clean prefix, then start buffering from the marker.
+                        prefix = content[:marker]
+                        if prefix:
+                            text += prefix
+                            yield TextChunk(prefix)
+                        _native_buf += content[marker:]
+                        _native_intercept = True
+                    else:
+                        text += content
+                        yield TextChunk(content)
 
             # Handle native ollama tools format
             for tc in msg.get("tool_calls", []):
@@ -3632,7 +3758,18 @@ def stream_ollama(
     for idx in sorted(tool_buf):
         v = tool_buf[idx]
         tool_calls.append({"id": v["id"], "name": v["name"], "input": v["input"]})
-    
+
+    # Merge native-format tool calls intercepted from `content` (Gemma 3/4 etc.)
+    if _native_intercept:
+        intercepted = _extract_native_tool_calls(_native_buf)
+        if intercepted:
+            tool_calls.extend(intercepted)
+        else:
+            # Parser couldn't make sense of it — surface the raw buffer so the
+            # user sees something instead of a silent stall.
+            text += _native_buf
+            yield TextChunk(_native_buf)
+
     # Merge prompt-based tools from parser
     if _prompt_tool_mode:
         for tc in parser.tool_calls:

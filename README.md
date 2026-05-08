@@ -45,7 +45,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
-> **v0.2.12 — May 8, 2026** — `sounddevice` also moved to `[voice]` extra (it pulls `cffi`, which needs `libffi-dev` to compile and breaks termux installs). Core `pip install dulus` is now zero-compile. Opt in to extras: `[memory]` for MemPalace, `[voice]` for mic input, `[full]` for both.
+> **v0.2.13 — May 8, 2026** — Internal robustness fixes for Ollama streaming. No user-facing API changes.
 > Type `/news` to see what changed.
 
 ---
