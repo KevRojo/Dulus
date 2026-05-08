@@ -45,7 +45,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
-> **v0.2.10 — May 8, 2026** — Pin `typing-extensions>=4.10` to keep pip's resolver from blowing up (`dependency resolution exceeded maximum depth`) when reconciling anthropic / openai / pydantic / chromadb floors. New Termux/Android section in the README with a `--no-deps` workaround for the NumPy build.
+> **v0.2.11 — May 8, 2026** — `mempalace` moved to `[memory]` extra so `pip install dulus` is now fast and works on termux/Android out of the box (chromadb's 26 transitive deps were the resolver killer). MemPalace per-turn injection still loads at runtime when present; opt in with `pip install "dulus[memory]"`.
 > Type `/news` to see what changed.
 
 ---
@@ -81,10 +81,11 @@ Dulus is the first one meeting multiple models at the same time working for the 
 ### One-liner
 
 ```bash
-pip install dulus && dulus
+pip install dulus && dulus              # core CLI — fast, no compile, works on termux
+pip install "dulus[memory]" && dulus    # +MemPalace per-turn memory (pulls chromadb)
 ```
 
-That's it. Dulus prompts you for a key on first run.
+That's it. Dulus prompts you for a key on first run. The `[memory]` extra pulls in `mempalace` and its `chromadb` chain — skip it on Android/termux or anywhere wheels for `numpy`/`onnxruntime` aren't available; the CLI still boots and chats fine without it.
 
 ### From source (hacking on Dulus itself)
 
