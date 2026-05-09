@@ -3,6 +3,10 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.14**): **Multi-user Telegram bridge**
+  - **Telegram bridge now supports multiple authorized chat_ids.** Configure with `/telegram <token> <id1>,<id2>,<id3>` or set `telegram_chat_ids` in `config.json` as a comma-separated string (trailing commas like `717151713,787615162,,` are ignored). Each authorized chat gets its own replies — Dulus tracks who sent each message via `_active_tg_chat_id` and routes the response back to the right user. Welcome message is broadcast to all configured users on bridge start. The legacy single-int `telegram_chat_id` still works for backwards-compat.
+  - **Why this matters.** One Dulus instance, multiple humans poking it from their phones — useful for teams sharing a long-running agent, or for paired-up users running the same MemPalace from different devices.
+
 - Apr 09, 2026 (**v1.01.20**): **Automated Plugin Adapter System, Premium UI, and Hot-Reloading**
   - **Automated Plugin Adapter (`plugin/autoadapter.py`)** — Dulus can now intelligently onboard any Python repository without a manual manifest. Using AST-based static analysis and AI-driven generation, it creates `plugin.json` and `plugin_tool.py` on the fly, handling complex dependencies and constructor arguments.
   - **Intelligent Library Handling** — The AI generation pipeline now includes specialized instructions for terminal-based libraries (e.g., `asciimatics`), ensuring correct usage of patterns like `Screen.wrapper` to prevent runtime errors.
