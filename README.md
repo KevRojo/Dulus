@@ -578,6 +578,9 @@ git diff | dulus -p "write a commit message"
 GPLv3. Fork it, modify it, redistribute it — but keep it open. Derivative works must stay under GPLv3. Just don't ship `--accept-all` as the default.
 
 ---
+Donations:
+
+Bitcoin: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
