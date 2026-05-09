@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.21"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.22"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -1509,6 +1509,214 @@ def cmd_daemon(args: str, _state, config) -> bool:
     save_config(config)
     return True
 
+def cmd_bg(args: str, _state, config) -> bool:
+    """Background Dulus — one detached daemon serving CLI (IPC), Web (browser),
+    and Telegram simultaneously.
+
+    /bg start [--web-port PORT]  — spawn detached daemon + webchat
+    /bg stop                     — kill the background daemon
+    /bg status                   — is it alive? on which ports?
+    /bg attach                   — print how to attach (tmux on unix, URL on win)
+
+    The detached process listens on:
+      • 127.0.0.1:5151  → IPC socket   (`dulus "..."` from any shell joins this)
+      • 127.0.0.1:5000  → WebChat      (open http://localhost:5000/ in browser)
+      • Telegram bridge if configured
+
+    All three entry points share the SAME live session. No session manager,
+    no service installer, no XML config — just a detached process and three
+    listeners. Workaround supremo.
+    """
+    import os as _os, sys as _sys, json as _json, subprocess as _sp, socket as _socket, time as _time
+    import signal as _signal
+    from pathlib import Path as _Path
+
+    BG_DIR = _Path.home() / ".dulus"
+    BG_DIR.mkdir(parents=True, exist_ok=True)
+    BG_PID = BG_DIR / "bg.pid"
+    BG_LOG = BG_DIR / "bg.log"
+
+    parts = (args or "").strip().split()
+    sub = parts[0].lower() if parts else "status"
+
+    def _is_alive(pid: int) -> bool:
+        if pid <= 0:
+            return False
+        try:
+            if _sys.platform == "win32":
+                # On Windows, os.kill(pid, 0) raises if the process doesn't exist.
+                _os.kill(pid, 0)
+                return True
+            else:
+                _os.kill(pid, 0)
+                return True
+        except (ProcessLookupError, OSError, PermissionError):
+            return False
+
+    def _read_pid() -> int:
+        try:
+            return int(BG_PID.read_text().strip())
+        except Exception:
+            return 0
+
+    def _ipc_alive() -> bool:
+        try:
+            s = _socket.create_connection(("127.0.0.1", DULUS_IPC_PORT), timeout=0.5)
+            s.close()
+            return True
+        except Exception:
+            return False
+
+    # ── /bg status ────────────────────────────────────────────────────────
+    if sub == "status":
+        pid = _read_pid()
+        alive = _is_alive(pid)
+        ipc = _ipc_alive()
+        if alive and ipc:
+            ok(f"Dulus background: RUNNING")
+            info(f"  PID: {pid}")
+            info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT} (responding)")
+            info(f"  Web: http://127.0.0.1:{config.get('_webchat_port', 5000)}/")
+            info(f"  Log: {BG_LOG}")
+        elif alive and not ipc:
+            warn(f"PID {pid} alive but IPC port not responding (still booting?)")
+        elif ipc:
+            warn("Some Dulus is listening on IPC, but our PID file is stale.")
+        else:
+            info("Dulus background: NOT RUNNING")
+        return True
+
+    # ── /bg stop ──────────────────────────────────────────────────────────
+    if sub == "stop":
+        pid = _read_pid()
+        if not _is_alive(pid):
+            info("Dulus background not running.")
+            try:
+                BG_PID.unlink()
+            except FileNotFoundError:
+                pass
+            return True
+        try:
+            if _sys.platform == "win32":
+                _os.kill(pid, _signal.SIGTERM)
+            else:
+                _os.kill(pid, _signal.SIGTERM)
+            ok(f"Sent SIGTERM to PID {pid}.")
+        except Exception as e:
+            err(f"Failed to kill {pid}: {e}")
+            return True
+        for _ in range(20):
+            if not _is_alive(pid):
+                break
+            _time.sleep(0.25)
+        try:
+            BG_PID.unlink()
+        except FileNotFoundError:
+            pass
+        ok("Dulus background stopped.")
+        return True
+
+    # ── /bg attach ────────────────────────────────────────────────────────
+    if sub == "attach":
+        pid = _read_pid()
+        if not _is_alive(pid):
+            warn("Dulus background not running. Use `/bg start` first.")
+            return True
+        port = config.get("_webchat_port", 5000)
+        info("Attach options:")
+        info(f"  • From any shell:  dulus \"your prompt\"   (joins via IPC)")
+        info(f"  • Browser:         http://127.0.0.1:{port}/")
+        if _sys.platform != "win32":
+            info(f"  • Tmux (if used):  tmux attach -t dulus-bg")
+        info(f"  • Tail log:        tail -f {BG_LOG}")
+        return True
+
+    # ── /bg start ─────────────────────────────────────────────────────────
+    if sub == "start":
+        # Already running?
+        existing_pid = _read_pid()
+        if _is_alive(existing_pid) and _ipc_alive():
+            info(f"Already running (PID {existing_pid}).  Use `/bg status` for details.")
+            return True
+
+        # Parse --web-port
+        web_port = config.get("_webchat_port", 5000)
+        if "--web-port" in parts:
+            try:
+                web_port = int(parts[parts.index("--web-port") + 1])
+            except (IndexError, ValueError):
+                err("--web-port needs a number")
+                return True
+        config["_webchat_port"] = web_port
+        from config import save_config
+        save_config(config)
+
+        # Build the spawn command. Prefer the installed `dulus` shim; fall
+        # back to `python dulus.py` when running from source.
+        dulus_bin = None
+        for cand in ["dulus", "dulus.exe"]:
+            from shutil import which
+            p = which(cand)
+            if p:
+                dulus_bin = p
+                break
+        if dulus_bin:
+            cmd = [dulus_bin, "--daemon"]
+        else:
+            dulus_script = _os.path.abspath(__file__)
+            cmd = [_sys.executable, dulus_script, "--daemon"]
+
+        # Pass the auto-webchat hint via env so the daemon picks it up.
+        env = _os.environ.copy()
+        env["DULUS_BG_AUTO_WEBCHAT"] = "1"
+        env["DULUS_BG_WEBCHAT_PORT"] = str(web_port)
+
+        # Detach properly per platform.
+        log_fp = open(BG_LOG, "ab")
+        try:
+            if _sys.platform == "win32":
+                # CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
+                DETACHED = 0x00000008
+                NEW_GROUP = 0x00000200
+                proc = _sp.Popen(
+                    cmd,
+                    stdout=log_fp, stderr=log_fp, stdin=_sp.DEVNULL,
+                    creationflags=DETACHED | NEW_GROUP,
+                    close_fds=True,
+                    env=env,
+                )
+            else:
+                proc = _sp.Popen(
+                    cmd,
+                    stdout=log_fp, stderr=log_fp, stdin=_sp.DEVNULL,
+                    start_new_session=True,
+                    close_fds=True,
+                    env=env,
+                )
+        except Exception as e:
+            err(f"Failed to spawn daemon: {e}")
+            log_fp.close()
+            return True
+
+        BG_PID.write_text(str(proc.pid))
+
+        # Wait briefly for the IPC port to come up
+        for _ in range(40):  # up to 10 seconds
+            if _ipc_alive():
+                break
+            _time.sleep(0.25)
+
+        ok(f"Dulus background started.  PID {proc.pid}")
+        info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT}")
+        info(f"  Web: http://127.0.0.1:{web_port}/")
+        info(f"  Log: {BG_LOG}")
+        info("  Stop with `/bg stop`.")
+        return True
+
+    err(f"Unknown subcommand: {sub}.  Use start | stop | status | attach")
+    return True
+
+
 def cmd_webchat(args: str, state, config) -> bool:
     """Start the in-process webchat mirror. /webchat stop kills it."""
     import time, urllib.request, socket
@@ -1533,6 +1741,25 @@ def cmd_webchat(args: str, state, config) -> bool:
         else:
             info("WebChat not running")
         config.pop("_webchat_proc", None)
+        return True
+
+    # /webchat lan on|off — toggle LAN exposure (default: loopback only)
+    if arg.startswith("lan"):
+        from config import save_config
+        sub = arg.replace("lan", "", 1).strip()
+        if sub in ("on", "1", "true", "yes"):
+            config["webchat_lan"] = True
+        elif sub in ("off", "0", "false", "no"):
+            config["webchat_lan"] = False
+        else:
+            info(f"WebChat LAN exposure: {'ON' if config.get('webchat_lan') else 'OFF (loopback only)'}")
+            info("Use `/webchat lan on` to expose to the local network.")
+            return True
+        save_config(config)
+        state_str = "ON — visible on the LAN" if config["webchat_lan"] else "OFF — loopback only (safe)"
+        ok(f"WebChat LAN exposure: {state_str}")
+        if webchat_server.is_running():
+            warn("Restart with `/webchat stop` then `/webchat` to apply the new bind.")
         return True
 
     active_model = config.get("model", "")
@@ -5335,7 +5562,36 @@ def _run_daemon(config: dict) -> None:
     config["_last_interaction_time"] = time.time()
 
     # Same callback used by the REPL so Telegram can trigger runs
-    config["_run_query_callback"] = lambda msg: run_query(msg, is_background=True)
+    # NB: the run_query referenced here lives on the global namespace once the
+    # daemon is running with --daemon (we provide a thin wrapper below).
+    def _daemon_run_query(msg, is_background=True):
+        try:
+            from agent import run as agent_run
+            for _ in agent_run(state, msg, config, is_background=is_background):
+                pass
+        except Exception as _e:
+            err(f"daemon run_query error: {type(_e).__name__}: {_e}")
+    config["_run_query_callback"] = lambda msg: _daemon_run_query(msg, is_background=True)
+
+    # Auto-start the webchat server alongside the daemon when /bg start asked
+    # for it — same session, same state. One Dulus, three entry points (CLI
+    # via IPC, browser via webchat, Telegram via bridge).
+    import os as _os_d
+    if _os_d.environ.get("DULUS_BG_AUTO_WEBCHAT") == "1":
+        config["_bg_start_webchat"] = True
+        try:
+            config["_webchat_port"] = int(_os_d.environ.get("DULUS_BG_WEBCHAT_PORT", 5000))
+        except ValueError:
+            pass
+    if config.get("_bg_start_webchat"):
+        try:
+            import webchat_server as _wc
+            _wc_port = int(config.get("_webchat_port", 5000))
+            if not _wc.is_running():
+                _wc.start(state, config, port=_wc_port)
+                ok(f"WebChat started → http://127.0.0.1:{_wc_port}/")
+        except Exception as _wce:
+            warn(f"WebChat auto-start failed: {_wce}")
 
     # IPC server — same socket the REPL uses, so external `dulus "..."` calls
     # land in this daemon's session.
@@ -6725,6 +6981,7 @@ COMMANDS = {
     "task":        cmd_tasks,
     "proactive":   cmd_proactive,
     "daemon":      cmd_daemon,
+    "bg":          cmd_bg,
     "lite":        cmd_lite,
     "cloudsave":   cmd_cloudsave,
     "voice":       cmd_voice,
@@ -6825,6 +7082,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
                                                            "todo", "in-progress", "done", "blocked"]),
     "proactive":   ("Manage proactive background watcher", ["off"]),
     "daemon":      ("Toggle daemon — allow external triggers (Telegram) to spawn Dulus", ["on", "off"]),
+    "bg":          ("Background Dulus — one detached daemon for CLI + Web + Telegram", ["start", "stop", "status", "attach"]),
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),
     "rtk":         ("Toggle RTK token-optimized shell rewriting", ["on", "off"]),
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
