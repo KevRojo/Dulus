@@ -318,9 +318,15 @@ Example adapting Sherlock repo:
 
 <img width="1765" height="166" alt="image" src="https://github.com/user-attachments/assets/c67dc15e-a2e3-4575-be34-8c9b54045510" />
 
+-----
+
 <img width="1327" height="751" alt="image" src="https://github.com/user-attachments/assets/676a0ef5-3699-4960-98a4-14a55fbef081" />
 
+-----
+
 <img width="885" height="301" alt="image" src="https://github.com/user-attachments/assets/52c02444-2606-41dc-bc33-ebe26ac41e5e" />
+
+----
 
 <img width="1006" height="271" alt="image" src="https://github.com/user-attachments/assets/d823428e-6344-4414-bf42-14ed3128f763" />
 
