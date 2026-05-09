@@ -3,6 +3,8 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.18**): **Add `beautifulsoup4` as default dep** — needed by web scraping / harvest flows and several plugins. Tiny dep, ships by default.
+
 - May 09, 2026 (**v0.2.17**): **Mega-release — Composio bundled, awesome skills live, lite mode fixed, English prompt**
   - **Composio plugin shipped in the wheel.** `pip install dulus` now bundles the Composio Tool Router plugin (no MCP needed) and copies it into `~/.dulus/plugins/composio/` on first launch. The composio Python SDK (~1MB) is now a default dep — Slack, Gmail, GitHub, Notion, Asana, ClickUp, Linear, etc. all available via `composio_create_session`.
   - **`/skill list` interactive picker.** Calling `/skill list` without args opens a menu: awesome (~235 skills via GitHub), composio (1000+ toolkits via API), local (Anthropic marketplace on disk), installed, or all. Catalogs are cached 24h in `~/.dulus/cache/`.

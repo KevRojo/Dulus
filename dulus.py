@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.17"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.18"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
