@@ -112,8 +112,6 @@ Dulus is a **lightweight Python reimplementation of Claude Code** that isn't loc
 
 ROUND TABLE (DULUS UNIQUE FEATURE)
 
-<img alt="image" src="https://github.com/user-attachments/assets/648ffe5e-28e2-49e0-bc27-362a585edd4f" />
-
 <img alt="image" src="https://github.com/user-attachments/assets/9e8f17ed-6ca2-4ae0-b8c3-146ae5fef491" />
 
 Dulus is the first one meeting multiple models at the same time working for the same objective and sharing their ideas.
