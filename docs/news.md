@@ -3,6 +3,11 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.19**): **Shared sessions via tiny TCP socket — daemon workaround supremo**
+  - **One Dulus, many shells.** When a Dulus REPL or `--daemon` is running, it now listens on `127.0.0.1:5151`. Any subsequent `dulus "do X"` from another shell forwards the prompt to that live session over the socket and prints back the reply — same history, same memory, same plugins, same tool state. No session manager, no IPC framework, no systemd unit. 80 lines of plain TCP.
+  - **Falls back gracefully.** If no listener is up, the CLI behaves exactly as before (spawns its own `--print` process). Daemon/gui/`--cmd`/`--run-tool` modes intentionally bypass the IPC dispatch — they need their own process.
+  - **Why this matters.** The competition wires up `multiprocessing.Manager`/grpc/zmq/dbus + a daemon CLI + config files + service installers to do the same thing. Dulus does it with `socket.bind` and a thread.
+
 - May 09, 2026 (**v0.2.18**): **Add `beautifulsoup4` as default dep** — needed by web scraping / harvest flows and several plugins. Tiny dep, ships by default.
 
 - May 09, 2026 (**v0.2.17**): **Mega-release — Composio bundled, awesome skills live, lite mode fixed, English prompt**
