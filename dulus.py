@@ -1918,6 +1918,8 @@ def cmd_mem_palace(args: str, _state, config) -> bool:
     /mem_palace          → toggle the injection ON/OFF
     /mem_palace print    → toggle visibility: print to console what's being
                            injected to the model (debug — see klk pasa)
+    /mem_palace reset    → clear the per-session dedup cache (allows already-
+                           injected memories to be re-injected on next match)
 
     ON  → before each user turn, runs `search_memory(query=user_msg, k=3)`
           via the mempalace plugin and injects the top hits as a system
@@ -1932,6 +1934,15 @@ def cmd_mem_palace(args: str, _state, config) -> bool:
         state_str = "ON" if config["mem_palace_print"] else "OFF"
         ok(f"MemPalace injection-print (debug): {state_str}")
         save_config(config)
+        return True
+    if sub in ("reset", "clear", "forget"):
+        # Clear the per-session dedup cache so memories injected earlier in
+        # this conversation can be re-injected if they match a new query.
+        n = len(config.get("_mp_injected_keys", set()))
+        config["_mp_injected_keys"] = set()
+        # also clear legacy name-based cache if present
+        config.pop("_mp_injected_names", None)
+        ok(f"MemPalace dedup cache cleared ({n} memories forgotten).")
         return True
     config["mem_palace"] = not config.get("mem_palace", True)
     state_str = "ON" if config["mem_palace"] else "OFF"
@@ -7151,6 +7162,31 @@ def repl(config: dict, initial_prompt: str = None):
                                 for _h in _raw_hits:
                                     _mp_log(f"  hit: score={float(_h.get('keyword_score', 0.0)):.3f}  {_h.get('name','?')}", "dim")
                             _kept = [h for h in _raw_hits if float(h.get("keyword_score", 0.0)) >= _MIN_SCORE]
+                            # ── Dedup: skip memories already injected earlier in this session.
+                            # Key by content hash (not name) because mempalace often returns
+                            # generic names like "palace" for every hit in a wing — name-based
+                            # dedup would over-block. Content hash makes each memory unique.
+                            import hashlib as _hashlib
+                            def _mp_dedup_key(h):
+                                content = (h.get("content") or "").strip()[:240]
+                                return _hashlib.md5(content.encode("utf-8", errors="ignore")).hexdigest()[:12]
+                            _seen = config.setdefault("_mp_injected_keys", set())
+                            _before_dedup = len(_kept)
+                            # Dedup against session cache AND within this turn's hits
+                            # (mempalace sometimes returns the same chunk twice in one query).
+                            _this_turn = set()
+                            _filtered = []
+                            for _h in _kept:
+                                _k = _mp_dedup_key(_h)
+                                if _k in _seen or _k in _this_turn:
+                                    continue
+                                _this_turn.add(_k)
+                                _filtered.append(_h)
+                            _kept = _filtered
+                            if _before_dedup and not _kept:
+                                _mp_log(f"skip: all {_before_dedup} hits already injected this session", "dim")
+                            elif _before_dedup != len(_kept):
+                                _mp_log(f"dedup: dropped {_before_dedup - len(_kept)} already-injected memories", "dim")
                             if not _kept:
                                 _mp_log(f"skip: no hits above threshold {_MIN_SCORE} (raw={len(_raw_hits)})", "dim")
                             else:
@@ -7182,6 +7218,9 @@ def repl(config: dict, initial_prompt: str = None):
                                     + "\n\n---\n\n[USER MESSAGE]\n"
                                     + user_input
                                 )
+                                # Mark these as injected so we don't repeat them next turn.
+                                for _h in _kept:
+                                    _seen.add(_mp_dedup_key(_h))
                                 if _mp_dbg:
                                     print(clr(
                                         f"\n  ── [MemPalace inject → {len(_inject)} chars] ──",
