@@ -46,7 +46,7 @@ Talent cant be copied.
 
 Dulus Reduce your IA costs by 60% parsing webchats and claude-code directly. Write poetry while Anthropic only see text.
 
-<img width="3189" height="1489" alt="image" src="https://github.com/user-attachments/assets/8fe96b65-6ae9-4ef7-9d85-0086abc64d23" />
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/poetry-banner.png" alt="Anthropic only sees text while you and Claude are writing poetry" width="100%"></p>
 
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
