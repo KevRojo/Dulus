@@ -22,7 +22,7 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
   <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
-  <img src="https://img.shields.io/badge/version-v0.2.6-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
+  <img src="https://img.shields.io/badge/version-v0.2.14-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
   <img src="https://img.shields.io/badge/providers-11-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-27-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
@@ -159,7 +159,7 @@ echo "explain this diff" | git diff | dulus -p --accept-all
 | **Voice input** | Offline STT via Whisper. No API key. No cloud. |
 | **Brainstorm** | Multi-persona AI debate. Auto-generated expert roles. |
 | **SSJ Developer Mode** | Power menu: 10 workflow shortcuts behind one keystroke |
-| **Telegram bridge** | Run Dulus from your phone. Slash commands. Vision. Voice. |
+| **Telegram bridge** | Run Dulus from your phone. Slash commands. Vision. Voice. Multi-user authorized list. |
 | **Checkpoints** | Auto-snapshot conversation + files. Rewind to any turn. |
 | **Plan mode** | Read-only analysis phase before touching anything |
 | **Context compression** | Auto-compact long sessions. Keep the signal, drop the slop. |
@@ -346,10 +346,15 @@ Then `/voice` in the REPL. Offline. Supports `/voice lang zh` and `/voice device
 ## Telegram bridge
 
 ```
-/telegram <bot_token> <chat_id>
+/telegram <bot_token> <chat_id>                  # single user
+/telegram <bot_token> <id1>,<id2>,<id3>          # multi-user — same Dulus, multiple authorized chats
 ```
 
-Auto-starts next launch. Supports slash commands, vision, and voice from your phone. Useful when you want to poke a long-running agent from the bus.
+Auto-starts next launch. Supports slash commands, vision, and voice from your phone.
+Multi-user mode (v0.2.14+): each authorized chat gets its own replies — Dulus tracks who
+sent each message and routes the response back. Trailing commas are ignored, so
+`717151713,787615162,,` works fine. Useful when you want to poke a long-running agent
+from the bus, or share one Dulus instance with your team.
 
 ---
 
