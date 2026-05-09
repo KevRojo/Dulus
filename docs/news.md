@@ -3,6 +3,8 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.30**): **`/bg start` daemon is now truly windowless on Windows** — `python.exe` is a console-subsystem binary, so even with `DETACHED_PROCESS` Windows still spun up a visible console window for the daemon. Closing that window killed the daemon. Switched to `pythonw.exe` (the GUI-subsystem variant) + `CREATE_NO_WINDOW` so the daemon spawns with NO console window at all. Verified: `Get-Process` reports `MainWindowHandle = 0` after spawn — there's literally nothing to close. Telegram + WebChat + IPC keep running in background until `/bg stop` or `/bg kill`.
+
 - May 09, 2026 (**v0.2.29**): **`/bg start` actually works from inside a REPL + daemon-mode webchat default-on + tested end-to-end this time**
   - **The whole point of `/bg start` was broken from day one.** A REPL itself binds `127.0.0.1:5151` to serve `dulus "..."` shell calls, so the moment you typed `/bg start` from inside that REPL, the duplicate-detection check saw "port in use" and refused — by the very REPL invoking the command. `/bg kill` then killed the only thing on the port: your own REPL. Pure logic flaw on me.
   - **Now `/bg start` releases the REPL's own IPC first.** When invoked from inside a REPL, the command stops the REPL's IPC thread, force-closes the socket with `SO_LINGER {1, 0}` (skips TIME_WAIT), waits ~600ms for the OS to free the port, and only then spawns the daemon. The REPL keeps running — it just becomes a normal client whose `dulus "..."` dispatches now go to the daemon.

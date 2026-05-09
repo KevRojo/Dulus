@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.29"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.30"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -1766,20 +1766,32 @@ def cmd_bg(args: str, _state, config) -> bool:
         from config import save_config
         save_config(config)
 
-        # Build the spawn command. Prefer the installed `dulus` shim; fall
-        # back to `python dulus.py` when running from source.
-        dulus_bin = None
-        for cand in ["dulus", "dulus.exe"]:
-            from shutil import which
-            p = which(cand)
-            if p:
-                dulus_bin = p
-                break
-        if dulus_bin:
-            cmd = [dulus_bin, "--daemon"]
-        else:
+        # Build the spawn command. On Windows we MUST use pythonw.exe (windowless
+        # variant) instead of the console-subsystem python.exe / dulus shim,
+        # otherwise Windows creates a visible console window for the daemon
+        # and closing it kills the process. The shim itself runs python.exe,
+        # so we go around it by invoking pythonw -m dulus directly.
+        if _sys.platform == "win32":
+            pythonw = _sys.executable.replace("python.exe", "pythonw.exe")
+            if not _os.path.exists(pythonw):
+                # Fall back to python.exe if pythonw isn't shipped (rare;
+                # mostly happens on stripped embeddable distributions).
+                pythonw = _sys.executable
             dulus_script = _os.path.abspath(__file__)
-            cmd = [_sys.executable, dulus_script, "--daemon"]
+            cmd = [pythonw, dulus_script, "--daemon"]
+        else:
+            from shutil import which
+            dulus_bin = None
+            for cand in ["dulus", "dulus.exe"]:
+                p = which(cand)
+                if p:
+                    dulus_bin = p
+                    break
+            if dulus_bin:
+                cmd = [dulus_bin, "--daemon"]
+            else:
+                dulus_script = _os.path.abspath(__file__)
+                cmd = [_sys.executable, dulus_script, "--daemon"]
 
         # Pass the auto-webchat hint via env so the daemon picks it up.
         env = _os.environ.copy()
@@ -1790,13 +1802,18 @@ def cmd_bg(args: str, _state, config) -> bool:
         log_fp = open(BG_LOG, "ab")
         try:
             if _sys.platform == "win32":
-                # CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
-                DETACHED = 0x00000008
+                # CREATE_NO_WINDOW (0x08000000) suppresses the console window
+                # entirely — cannot be combined with DETACHED_PROCESS, but
+                # because we're invoking pythonw.exe (a GUI-subsystem binary)
+                # there is no console to inherit from in the first place.
+                # CREATE_NEW_PROCESS_GROUP keeps Ctrl+C in the parent shell
+                # from killing the daemon when the parent later exits.
+                CREATE_NO_WINDOW = 0x08000000
                 NEW_GROUP = 0x00000200
                 proc = _sp.Popen(
                     cmd,
                     stdout=log_fp, stderr=log_fp, stdin=_sp.DEVNULL,
-                    creationflags=DETACHED | NEW_GROUP,
+                    creationflags=CREATE_NO_WINDOW | NEW_GROUP,
                     close_fds=True,
                     env=env,
                 )
