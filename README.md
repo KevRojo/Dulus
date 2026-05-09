@@ -49,6 +49,9 @@ Use claude-code as an API without the new 'extra-usage' wall <3
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/poetry-banner.png" alt="Anthropic only sees text while you and Claude are writing poetry" width="100%"></p>
 
+<p align="center">
+  <sub>⚡ <b>Saves you Claude tokens?</b> Throw a sat — BTC: <code>1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN</code></sub>
+</p>
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
@@ -578,9 +581,13 @@ git diff | dulus -p "write a commit message"
 GPLv3. Fork it, modify it, redistribute it — but keep it open. Derivative works must stay under GPLv3. Just don't ship `--accept-all` as the default.
 
 ---
-Donations:
+## Donations
 
-Bitcoin: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
+If Dulus saved you tokens, time, or sanity — throw some sats:
+
+```
+BTC: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
+```
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
