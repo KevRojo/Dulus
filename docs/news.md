@@ -3,6 +3,11 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.22**): **`/bg start` — one detached daemon for CLI + Web + Telegram**
+  - **One command, three doors.** `/bg start` spawns a detached Dulus daemon that simultaneously listens on `127.0.0.1:5151` (IPC for `dulus "..."` from any shell), `127.0.0.1:5000` (WebChat in your browser), and the Telegram bridge if configured. All three entry points hit the SAME live session — same history, memory, plugins, tool state.
+  - **`/bg status` / `stop` / `attach`** — small surface, big convenience. `attach` prints how to reach the running daemon (CLI, browser, tail the log).
+  - **WebChat is loopback-only by default.** Previously the webchat server bound to `0.0.0.0` and was visible on the LAN out of the box. Now it binds to `127.0.0.1` unless you opt in with `/webchat lan on` (or `webchat_lan: true` in config). Anyone on the wifi can no longer poke your agent by accident.
+
 - May 09, 2026 (**v0.2.21**): **System prompt clarifies SleepTimer scope** — added an explicit hint that SleepTimer is ONLY for user-facing reminders/notifications, NEVER for inter-tool waits (those freeze the console). When a pause is needed mid-pipeline, models should use `sleep N` inside the Bash command itself. Fixes a recurring console-freeze when models reflexively reached for SleepTimer between commands.
 
 - May 09, 2026 (**v0.2.20**): **IPC port-collision fix on Windows** — `SO_REUSEADDR` on Windows lets two sockets share the same port, which would let a second Dulus instance silently "steal" the IPC listener. Switched to `SO_EXCLUSIVEADDRUSE` so the second instance correctly backs off and acts as a client. Verified end-to-end with the new test harness.

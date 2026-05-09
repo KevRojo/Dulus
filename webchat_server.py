@@ -1759,7 +1759,11 @@ def start(state: AgentState, config: dict, port: int = 5000, open_browser: bool 
 
     from werkzeug.serving import make_server
 
-    _WERKZEUG_SERVER = make_server("0.0.0.0", port, app, threaded=True)
+    # Default to loopback-only — exposing to the LAN by accident is a real
+    # safety footgun (anyone on the wifi can poke the agent). Opt-in via
+    # config["webchat_lan"] = true (or /webchat lan on).
+    bind_host = "0.0.0.0" if config.get("webchat_lan") else "127.0.0.1"
+    _WERKZEUG_SERVER = make_server(bind_host, port, app, threaded=True)
     _SERVER_THREAD = threading.Thread(target=_WERKZEUG_SERVER.serve_forever, daemon=True)
     _SERVER_THREAD.start()
     return True
