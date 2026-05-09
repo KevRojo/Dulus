@@ -3,6 +3,8 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.25**): **`/skill list awesome` no longer hangs** — was fetching 235 SKILL.md files sequentially (50-120 seconds, looked frozen). Now uses one GitHub tree API call (instant, <1s, names only) by default; pass `--full` to also pull per-skill descriptions in parallel via a 12-worker thread pool (~5s instead of 120s). Cache stores the with_descriptions flag so future calls reuse the right data.
+
 - May 09, 2026 (**v0.2.24**): **Auto-adapter prompt — 5 fixes from a sherlock postmortem**
   - **Reconciled `limit` default** — the prompt had two contradictory rules ("default: 50, max: 200" vs "default: 10, NOT 50"). Models burned tokens reasoning about which to follow. Unified on `default: 10, hard max: 200` everywhere.
   - **"READ the source first" rule** at the top of the wrapper guidelines. Adapters were inferring upstream function signatures from class names and shipping plugins that compile/import/export cleanly but crash at runtime due to type-shape mismatches. Now the prompt explicitly tells the model to read the consumer code (`param.get(...)` / `for x in param`) before guessing shapes.

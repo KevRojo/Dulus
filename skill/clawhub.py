@@ -172,9 +172,14 @@ _AWESOME_EXCLUDE_REMOTE = {
 }
 
 
-def _fetch_awesome_remote() -> list[dict]:
-    """Hit the GitHub tree API + raw URLs to build an awesome skills catalog.
-    Returns [] on any network/parse error so callers can fall back gracefully.
+def _fetch_awesome_remote(with_descriptions: bool = False) -> list[dict]:
+    """Hit the GitHub tree API to list awesome skills.
+
+    Default (with_descriptions=False): ONE API call, instant, no descriptions.
+    Returns 235 entries with name + url ready in <1s.
+
+    with_descriptions=True: also pulls each SKILL.md's frontmatter via
+    raw.githubusercontent.com — done with a thread pool so it stays under ~5s.
     """
     import time
     tree_url = (
@@ -199,6 +204,7 @@ def _fetch_awesome_remote() -> list[dict]:
             continue
         skill_paths.append(path)
 
+    # Build the skill list from paths alone — instant, no per-file fetch.
     skills = []
     for path in skill_paths:
         rel_dir = "/".join(path.split("/")[:-1])
@@ -207,26 +213,43 @@ def _fetch_awesome_remote() -> list[dict]:
             f"https://raw.githubusercontent.com/{_AWESOME_REPO}/"
             f"{_AWESOME_BRANCH}/{path}"
         )
-        try:
-            with urllib.request.urlopen(raw_url, timeout=10) as r:
-                raw = r.read().decode("utf-8", errors="ignore")
-        except Exception:
-            continue
-        meta = _parse_frontmatter(raw)
         skills.append({
             "id": f"awesome/{rel_dir}",
             "plugin": "awesome",
             "skill": skill_name,
-            "description": meta.get("description", ""),
+            "description": "",  # filled in below if with_descriptions
             "path": raw_url,
             "source": "awesome-remote",
             "_remote_dir": rel_dir,
         })
 
+    if with_descriptions and skills:
+        # Pull frontmatter in parallel via raw.githubusercontent.com (no
+        # rate limit). 12 workers keeps GitHub happy and 235 fetches done
+        # in 3-5 seconds instead of the original 50-120 seconds.
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _fetch_one(s):
+            try:
+                with urllib.request.urlopen(s["path"], timeout=8) as r:
+                    raw = r.read().decode("utf-8", errors="ignore")
+                meta = _parse_frontmatter(raw)
+                s["description"] = meta.get("description", "")
+            except Exception:
+                pass
+            return s
+
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(_fetch_one, skills))
+
     _AWESOME_CACHE.parent.mkdir(parents=True, exist_ok=True)
     try:
         _AWESOME_CACHE.write_text(
-            json.dumps({"fetched_at": time.time(), "skills": skills}, indent=2),
+            json.dumps({
+                "fetched_at": time.time(),
+                "with_descriptions": with_descriptions,
+                "skills": skills,
+            }, indent=2),
             encoding="utf-8",
         )
     except Exception:
@@ -234,21 +257,26 @@ def _fetch_awesome_remote() -> list[dict]:
     return skills
 
 
-def list_awesome_remote(query: Optional[str] = None, force_refresh: bool = False) -> list[dict]:
-    """Return the awesome-skills catalog (cached). Falls through to live fetch
-    when cache is missing or older than 24h.
+def list_awesome_remote(query: Optional[str] = None, force_refresh: bool = False, with_descriptions: bool = False) -> list[dict]:
+    """Return the awesome-skills catalog (cached).
+
+    Default: one GitHub tree call (~1s, no descriptions), cached 24h.
+    with_descriptions=True: also fetches each SKILL.md frontmatter in parallel.
     """
     import time
     skills: list[dict] = []
+    cache_has_descriptions = False
     if not force_refresh and _AWESOME_CACHE.exists():
         try:
             data = json.loads(_AWESOME_CACHE.read_text(encoding="utf-8"))
             if time.time() - float(data.get("fetched_at", 0)) < _AWESOME_TTL_SEC:
                 skills = data.get("skills", [])
+                cache_has_descriptions = bool(data.get("with_descriptions"))
         except Exception:
             skills = []
-    if not skills:
-        skills = _fetch_awesome_remote()
+    # Refetch if no cache, or if user wants descriptions but cache doesn't have them.
+    if not skills or (with_descriptions and not cache_has_descriptions):
+        skills = _fetch_awesome_remote(with_descriptions=with_descriptions)
 
     if query:
         q = query.lower()

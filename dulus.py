@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.24"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.25"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -4251,17 +4251,27 @@ def cmd_skill(args: str, state, config) -> bool:
 
         if rest.startswith("awesome"):
             query = rest[7:].strip()
-            info("Fetching awesome skills from GitHub (cached 24h)...")
-            skills = list_awesome_remote(query)
+            # `--full` flag pulls per-skill descriptions in parallel (slower but
+            # informative). Default lists names only — instant.
+            full = False
+            if "--full" in query.split():
+                full = True
+                query = " ".join(t for t in query.split() if t != "--full").strip()
+            if full:
+                info("Fetching awesome skills + descriptions from GitHub (parallel, ~5s)...")
+            else:
+                info("Fetching awesome skill list from GitHub (instant)...")
+            skills = list_awesome_remote(query, with_descriptions=full)
             if not skills:
                 err("Could not fetch awesome skills (network or rate-limit).")
                 return True
             lines = [
-                f"  {clr(s['id'], 'cyan'):55s}  {s['description'][:80]}"
+                f"  {clr(s['id'], 'cyan'):55s}  {s.get('description', '')[:80]}"
                 for s in skills
             ]
             header = f"Awesome skills ({len(skills)})" + (f" matching '{query}'" if query else "")
-            _pager(f"{header} — n=next q=quit", lines)
+            hint = "" if full else " — add `--full` for descriptions"
+            _pager(f"{header}{hint} — n=next q=quit", lines)
             return True
 
         if rest.startswith("composio"):
