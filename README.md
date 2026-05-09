@@ -56,6 +56,26 @@ Use claude-code as an API without the new 'extra-usage' wall <3
   <sub>⚡ <b>Saves you Claude tokens?</b> Throw a sat — BTC: <code>1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN</code></sub>
 </p>
 
+
+Another reminder of a Dulus magic spell: 
+Wanna get stock prices, history , etc? 
+
+/plugin install yfinance@https://github.com/ranaroussi/yfinance
+
+them:
+/plugin reload
+
+dulus get the prices of NVDA, TSLA, SP500:
+
+<img width="2094" height="1365" alt="image" src="https://github.com/user-attachments/assets/1551d651-9d69-4607-bac0-4adbde645783" />
+
+Be creative!!! 
+
+Dulus adapt any python repository <3
+
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
+
+
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
 > **v0.2.22 — May 9, 2026** — `/bg start` spawns one detached Dulus daemon that serves CLI (IPC), Web (browser at `127.0.0.1:5000`), and Telegram simultaneously — all sharing the same session. WebChat now defaults to **loopback-only** (opt-in to LAN exposure with `/webchat lan on`).
