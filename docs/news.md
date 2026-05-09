@@ -3,6 +3,13 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.24**): **Auto-adapter prompt — 5 fixes from a sherlock postmortem**
+  - **Reconciled `limit` default** — the prompt had two contradictory rules ("default: 50, max: 200" vs "default: 10, NOT 50"). Models burned tokens reasoning about which to follow. Unified on `default: 10, hard max: 200` everywhere.
+  - **"READ the source first" rule** at the top of the wrapper guidelines. Adapters were inferring upstream function signatures from class names and shipping plugins that compile/import/export cleanly but crash at runtime due to type-shape mismatches. Now the prompt explicitly tells the model to read the consumer code (`param.get(...)` / `for x in param`) before guessing shapes.
+  - **Notifier/callback pattern hint** — when the upstream library has a notify/callback class, prefer collecting results via that callback over parsing the return value. Callbacks tend to stay stable; return shapes drift between versions.
+  - **`ADAPTATION_GUIDE.md` now requires a `## Type Contracts` section** documenting the exact shape of every non-trivial parameter. Read by the verifier and by future re-adaptations — eliminates blind re-guessing.
+  - **Verifier checklist explicitly flags the smoke test as THE BAR.** Compile / import / exports / ToolDef-shape are necessary but not sufficient. The new header in `ADAPTATION_TODO.md` warns the model not to celebrate after the syntactic checks — most real bugs are type-shape mismatches that only the smoke test catches.
+
 - May 09, 2026 (**v0.2.23**): **Auto-adapter teaches new plugins to declare TmuxOffload-worthy tools**
   - **The adapter prompt now requires** the model to estimate per-tool runtime. Any tool that typically takes more than ~15 seconds (sherlock, holehe, OSINT crawls, video downloads, full-repo analysis, etc.) must end its `description` with the literal marker `[long-running — wrap in TmuxOffload]`.
   - **System prompt now honors that marker** at runtime. When the agent sees a tool with that suffix, it wraps the call in TmuxOffload automatically instead of blocking the REPL. No more 90-second sherlock freezes pretending to be productive.
