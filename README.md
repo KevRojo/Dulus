@@ -49,6 +49,9 @@ Use claude-code as an API without the new 'extra-usage' wall <3
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/poetry-banner.png" alt="Anthropic only sees text while you and Claude are writing poetry" width="100%"></p>
 
+<img width="1240" height="882" alt="image" src="https://github.com/user-attachments/assets/27dd76bc-8919-4bb9-b3c3-38ae7d92e482" />
+
+
 <p align="center">
   <sub>⚡ <b>Saves you Claude tokens?</b> Throw a sat — BTC: <code>1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN</code></sub>
 </p>
