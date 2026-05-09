@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.28"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.29"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -1514,7 +1514,8 @@ def cmd_bg(args: str, _state, config) -> bool:
     and Telegram simultaneously.
 
     /bg start [--web-port PORT]  — spawn detached daemon + webchat
-    /bg stop                     — kill the background daemon
+    /bg stop                     — kill the background daemon (uses PID file)
+    /bg kill                     — nuke whatever's on port 5151 (no PID file needed)
     /bg status                   — is it alive? on which ports?
     /bg attach                   — print how to attach (tmux on unix, URL on win)
 
@@ -1568,31 +1569,35 @@ def cmd_bg(args: str, _state, config) -> bool:
             return False
 
     # ── /bg status ────────────────────────────────────────────────────────
+    # Source of truth for "is a real detached daemon running": the BG_PID
+    # file. A REPL also binds 5151 but doesn't write the PID file, so we
+    # can distinguish "the user's own REPL" from "a true headless daemon".
     if sub == "status":
         pid = _read_pid()
         alive = _is_alive(pid)
         ipc = _ipc_alive()
         if alive and ipc:
-            ok(f"Dulus background: RUNNING")
+            ok(f"Dulus background daemon: RUNNING")
             info(f"  PID: {pid}")
             info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT} (responding)")
             info(f"  Web: http://127.0.0.1:{config.get('_webchat_port', 5000)}/")
             info(f"  Log: {BG_LOG}")
         elif alive and not ipc:
-            warn(f"PID {pid} alive but IPC port not responding (still booting?)")
+            warn(f"Daemon PID {pid} alive but IPC not responding (still booting?)")
         elif ipc:
-            warn("Another Dulus (REPL or older daemon) is on the IPC port.")
-            info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT} (responding, but not our daemon)")
-            info("  You can still reach it via `dulus \"...\"` from any shell.")
-            info("  /bg start won't spawn a duplicate — kill the other one first if needed.")
-            # Clear the stale PID file so this warning self-heals next time.
+            # No PID file (or stale) but port is in use — this is almost
+            # certainly the user's own REPL serving IPC, not a daemon.
+            info("No background daemon running.")
+            info(f"  But port {DULUS_IPC_PORT} is in use — likely your own Dulus REPL.")
+            info("  `dulus \"...\"` from any shell still works (it'll hit your REPL).")
+            info("  For a TRUE headless daemon (Telegram surviving close), start it from")
+            info("  a fresh shell with no REPL open: `dulus --daemon` or `/bg start`.")
             try:
                 BG_PID.unlink()
             except FileNotFoundError:
                 pass
         else:
-            info("Dulus background: NOT RUNNING")
-            # Clean up any stale PID file just in case.
+            info("Dulus background daemon: NOT RUNNING")
             try:
                 BG_PID.unlink()
             except FileNotFoundError:
@@ -1644,23 +1649,105 @@ def cmd_bg(args: str, _state, config) -> bool:
         info(f"  • Tail log:        tail -f {BG_LOG}")
         return True
 
+    # ── /bg kill ──────────────────────────────────────────────────────────
+    # Force-stop the background DAEMON only — never the user's own REPL.
+    # We use the BG_PID file as the source of truth: only /bg start writes
+    # it, so it uniquely identifies the detached daemon. If no BG_PID file
+    # exists, we refuse to kill anything (port may be held by a REPL the
+    # user wants to keep). For SIGKILL escalation we use taskkill on Windows.
+    if sub == "kill":
+        f_pid = _read_pid()
+        own_pid = _os.getpid()
+
+        if not f_pid:
+            info("No background daemon to kill (BG_PID file missing).")
+            info(f"  If port {DULUS_IPC_PORT} is in use, it's likely your own REPL.")
+            info("  Close your REPL (/exit) to free the port — /bg kill won't touch it.")
+            return True
+
+        if f_pid == own_pid:
+            warn("Refusing to kill the current process (that's me, the REPL you're in).")
+            try:
+                BG_PID.unlink()
+            except FileNotFoundError:
+                pass
+            return True
+
+        if not _is_alive(f_pid):
+            info(f"Daemon PID {f_pid} is already dead. Cleaning up PID file.")
+            try:
+                BG_PID.unlink()
+            except FileNotFoundError:
+                pass
+            return True
+
+        # Send SIGTERM, give it 1s, escalate to SIGKILL/taskkill if it lingers.
+        try:
+            _os.kill(f_pid, _signal.SIGTERM)
+            ok(f"Sent SIGTERM to daemon PID {f_pid}.")
+        except (ProcessLookupError, PermissionError, OSError) as e:
+            err(f"Could not signal PID {f_pid}: {e}")
+            return True
+
+        for _ in range(8):
+            if not _is_alive(f_pid):
+                break
+            _time.sleep(0.25)
+
+        if _is_alive(f_pid):
+            warn(f"PID {f_pid} did not exit on SIGTERM — escalating to SIGKILL.")
+            try:
+                if _sys.platform == "win32":
+                    _sp.run(["taskkill", "/F", "/PID", str(f_pid)],
+                            capture_output=True, timeout=5)
+                else:
+                    _os.kill(f_pid, _signal.SIGKILL)
+            except Exception as e:
+                err(f"SIGKILL failed: {e}")
+                return True
+
+        try:
+            BG_PID.unlink()
+        except FileNotFoundError:
+            pass
+        ok(f"Daemon (PID {f_pid}) stopped.")
+        return True
+
     # ── /bg start ─────────────────────────────────────────────────────────
     if sub == "start":
         # Already running?
         existing_pid = _read_pid()
-        if _is_alive(existing_pid) and _ipc_alive():
+        if _is_alive(existing_pid) and _ipc_alive() and existing_pid != _os.getpid():
             info(f"Already running (PID {existing_pid}).  Use `/bg status` for details.")
             return True
 
-        # Some other Dulus (a REPL on this machine, an old daemon, etc.) is
-        # holding the IPC port. Spawning a new daemon would just fail to bind
-        # and leave a stale PID. Better: tell the user what's up.
+        # If THIS REPL owns the IPC port, release it first so the spawned
+        # daemon can bind. Without this, /bg start from inside a REPL would
+        # always fail because the very REPL invoking it is holding 5151.
+        # We stop our own IPC server thread, give the OS a moment to free
+        # the socket, and then proceed to spawn the daemon. The REPL keeps
+        # running fine — it just becomes a normal client (its `dulus "..."`
+        # dispatches still work, they just go to the daemon now).
+        if _ipc_alive() and config.get("_ipc_thread") is not None:
+            info("Releasing this REPL's IPC port so the daemon can take over...")
+            config["_ipc_stop"] = True
+            ipc_thread = config.get("_ipc_thread")
+            try:
+                ipc_thread.join(timeout=2.5)
+            except Exception:
+                pass
+            # Clear the marker so a future /bg stop or restart doesn't reuse it.
+            config["_ipc_thread"] = None
+            config.pop("_ipc_listening", None)
+            # Brief sleep to let the OS reclaim the port (TIME_WAIT etc.).
+            _time.sleep(0.6)
+
+        # If something *else* still holds the port (an external Dulus, a
+        # stale daemon from a crash, etc.), refuse cleanly so we don't leave
+        # a stale PID file.
         if _ipc_alive():
-            warn(f"Port {DULUS_IPC_PORT} is already in use by another Dulus process.")
-            info("If that's a REPL you're running, this Dulus is already reachable")
-            info(f"  via `dulus \"...\"` from any shell — no /bg start needed.")
-            info("If it's a stale daemon, find and kill it manually, then retry.")
-            # Clean up the stale PID file so /bg status stops complaining.
+            warn(f"Port {DULUS_IPC_PORT} is in use by another process I don't own.")
+            info("Run `/bg kill` first if it's a stale daemon, or close the other Dulus.")
             try:
                 BG_PID.unlink()
             except FileNotFoundError:
@@ -4095,10 +4182,26 @@ def _ipc_server_loop(config, state):
             except Exception:
                 pass
 
+    # Release the port immediately on shutdown so a daemon spawned right
+    # after `/bg start` can bind without waiting for TIME_WAIT to expire.
+    # SO_LINGER {onoff:1, linger:0} forces an RST close that bypasses
+    # the TIME_WAIT state (cost: any in-flight bytes are dropped, which is
+    # fine — we're not sending anything when we shut down).
+    try:
+        import struct as _struct
+        sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_LINGER,
+                        _struct.pack("ii", 1, 0))
+    except Exception:
+        pass
+    try:
+        sock.shutdown(_socket.SHUT_RDWR)
+    except Exception:
+        pass
     try:
         sock.close()
     except Exception:
         pass
+    config["_ipc_listening"] = False
 
 
 def _try_ipc_dispatch(prompt: str, timeout: float = 0.4) -> bool:
@@ -5608,29 +5711,46 @@ def _run_daemon(config: dict) -> None:
     config["_session_id"] = session_id
     config["_last_interaction_time"] = time.time()
 
-    # Same callback used by the REPL so Telegram can trigger runs
-    # NB: the run_query referenced here lives on the global namespace once the
-    # daemon is running with --daemon (we provide a thin wrapper below).
-    def _daemon_run_query(msg, is_background=True):
+    # Same callback used by the REPL so Telegram / IPC can trigger runs.
+    # The `agent.run()` signature is (user_message, state, config, system_prompt, ...)
+    # — earlier I called it with the wrong arg order + a non-existent
+    # `is_background` kwarg, which made every Telegram/IPC turn raise
+    # silently and never actually answer the user. Fixed now.
+    def _daemon_run_query(msg):
         try:
             from agent import run as agent_run
-            for _ in agent_run(state, msg, config, is_background=is_background):
-                pass
+            from context import build_system_prompt
+            sys_prompt = build_system_prompt(config)
+            # Append the user message to state so build_system_prompt-aware
+            # turns and history work correctly.
+            for ev in agent_run(msg, state, config, sys_prompt):
+                # Drain the generator — we don't need to render in daemon mode,
+                # the Telegram bridge / IPC server reads the final assistant
+                # message off `state.messages` after this returns.
+                _ = ev
         except Exception as _e:
             err(f"daemon run_query error: {type(_e).__name__}: {_e}")
-    config["_run_query_callback"] = lambda msg: _daemon_run_query(msg, is_background=True)
+    config["_run_query_callback"] = _daemon_run_query
 
-    # Auto-start the webchat server alongside the daemon when /bg start asked
-    # for it — same session, same state. One Dulus, three entry points (CLI
-    # via IPC, browser via webchat, Telegram via bridge).
+    # Auto-start the webchat server alongside the daemon — always, by default.
+    # The whole point of daemon mode is "headless Dulus serving every entry
+    # point at once" (CLI via IPC, browser via WebChat, Telegram via bridge).
+    # Skip only if config["webchat_disabled"] is true OR env var
+    # DULUS_DAEMON_NO_WEB=1 is set (escape hatch for users who explicitly
+    # don't want a browser endpoint exposed even on loopback).
     import os as _os_d
-    if _os_d.environ.get("DULUS_BG_AUTO_WEBCHAT") == "1":
-        config["_bg_start_webchat"] = True
-        try:
-            config["_webchat_port"] = int(_os_d.environ.get("DULUS_BG_WEBCHAT_PORT", 5000))
-        except ValueError:
-            pass
-    if config.get("_bg_start_webchat"):
+    _no_web = (
+        config.get("webchat_disabled")
+        or _os_d.environ.get("DULUS_DAEMON_NO_WEB") == "1"
+    )
+    if not _no_web:
+        # If /bg start passed an explicit port through env, honor it.
+        env_port = _os_d.environ.get("DULUS_BG_WEBCHAT_PORT")
+        if env_port:
+            try:
+                config["_webchat_port"] = int(env_port)
+            except ValueError:
+                pass
         try:
             import webchat_server as _wc
             _wc_port = int(config.get("_webchat_port", 5000))
@@ -7135,7 +7255,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
                                                            "todo", "in-progress", "done", "blocked"]),
     "proactive":   ("Manage proactive background watcher", ["off"]),
     "daemon":      ("Toggle daemon — allow external triggers (Telegram) to spawn Dulus", ["on", "off"]),
-    "bg":          ("Background Dulus — one detached daemon for CLI + Web + Telegram", ["start", "stop", "status", "attach"]),
+    "bg":          ("Background Dulus — one detached daemon for CLI + Web + Telegram", ["start", "stop", "kill", "status", "attach"]),
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),
     "rtk":         ("Toggle RTK token-optimized shell rewriting", ["on", "off"]),
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
