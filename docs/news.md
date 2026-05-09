@@ -3,6 +3,15 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.17**): **Mega-release — Composio bundled, awesome skills live, lite mode fixed, English prompt**
+  - **Composio plugin shipped in the wheel.** `pip install dulus` now bundles the Composio Tool Router plugin (no MCP needed) and copies it into `~/.dulus/plugins/composio/` on first launch. The composio Python SDK (~1MB) is now a default dep — Slack, Gmail, GitHub, Notion, Asana, ClickUp, Linear, etc. all available via `composio_create_session`.
+  - **`/skill list` interactive picker.** Calling `/skill list` without args opens a menu: awesome (~235 skills via GitHub), composio (1000+ toolkits via API), local (Anthropic marketplace on disk), installed, or all. Catalogs are cached 24h in `~/.dulus/cache/`.
+  - **Awesome skills, no Claude Code needed.** Skills from `alirezarezvani/claude-skills` are now fetched live via the GitHub API (1 tree call) + raw.githubusercontent.com (no rate limit). Users without `~/.claude/plugins/` see the full ~235 catalog.
+  - **Lite mode actually works.** `/lite` previously toggled a config flag that nothing consumed. Now it strips platform_hints, git_info, DULUS.md, batch/thinking/plan/tmux hints, project memory index — saves ~45% of the system prompt for cheap models.
+  - **System prompt converted Chinese → English.** Internal prompt was condensed in Chinese for token density (~30% denser). Now in compact English: maintainable by humans, friendlier to small models, and matches the Spanish-first branding instead of fighting it. Net cost ~+125 tokens/turn — worth it.
+  - **`dulus` CLI hint baked into the prompt.** The model is now told that `dulus -c "..."` works after `pip install dulus` (no need for `python dulus.py`). Less path-juggling in agent flows.
+  - **VERSION auto-syncs from pyproject.** The `dulus.py` `VERSION` constant now reads `importlib.metadata.version("dulus")` so `/status`, `--version`, and the startup banner stop drifting from the released version.
+
 - May 09, 2026 (**v0.2.16**): **MemPalace per-session dedup — game changer**
   - **No more re-injecting the same memory every turn.** MemPalace now keeps a per-session set of content-hashes (`_mp_injected_keys`) — once a memory is injected in this conversation, it won't be re-injected on later turns even if it scores high on a new query. The next-best non-duplicate hit is used instead, so each turn brings *new* context to the model rather than the same 3 hits over and over.
   - **Within-turn dedup too.** When mempalace's hybrid retriever returns the same chunk twice in a single query (it happens), the duplicate is dropped before injection.
