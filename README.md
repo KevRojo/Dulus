@@ -58,8 +58,12 @@ Use claude-code as an API without the new 'extra-usage' wall <3
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
-> **v0.2.13 — May 8, 2026** — Internal robustness fixes for Ollama streaming. No user-facing API changes.
-> Type `/news` to see what changed.
+> **v0.2.17 — May 9, 2026** — Mega-release: Composio plugin bundled (1000+ apps, no MCP), `/skill list` interactive picker (awesome / composio / local), awesome skills live from GitHub (no Claude Code needed), lite mode finally functional, system prompt rewritten in English, `VERSION` auto-syncs from pyproject.
+> **v0.2.16 — May 9, 2026** — MemPalace per-session dedup. No more re-injecting the same memory every turn — content-hash cache saves ~8K tokens in a 20-turn conversation. `/mem_palace reset` clears it on demand.
+> **v0.2.15 — May 9, 2026** — Banner image hosted locally so PyPI renders it correctly.
+> **v0.2.14 — May 9, 2026** — Multi-user Telegram bridge: `telegram_chat_ids: "123,456,,"` supported. Replies route to the user who sent each message.
+> **v0.2.13 — May 8, 2026** — Internal robustness fixes for Ollama streaming.
+> Type `/news` to see the full changelog.
 
 ---
 
