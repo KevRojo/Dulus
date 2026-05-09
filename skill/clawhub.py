@@ -154,6 +154,167 @@ def install_local(slug: str) -> tuple[bool, str]:
     return True, f"Installed '{name}' → {dest_dir}  ({len(copied)} files: {', '.join(copied[:5])}{'...' if len(copied)>5 else ''})"
 
 
+# ── AWESOME (live, no install required) ──────────────────────────────────
+# Fetches the alirezarezvani/claude-skills catalog directly from GitHub so
+# users who don't have Claude Code installed (no ~/.claude/plugins/) still
+# see the ~235 awesome skills. Tree call costs 1 GitHub API hit; per-skill
+# SKILL.md fetches go through raw.githubusercontent.com (no rate limit).
+# Result is cached in ~/.dulus/cache/awesome-skills.json for 24h.
+
+_AWESOME_REPO = "alirezarezvani/claude-skills"
+_AWESOME_BRANCH = "main"
+_AWESOME_CACHE = Path.home() / ".dulus" / "cache" / "awesome-skills.json"
+_AWESOME_TTL_SEC = 24 * 3600
+
+_AWESOME_EXCLUDE_REMOTE = {
+    "docs", "documentation", "tests", "scripts",
+    "templates", "standards", "eval-workspace",
+}
+
+
+def _fetch_awesome_remote() -> list[dict]:
+    """Hit the GitHub tree API + raw URLs to build an awesome skills catalog.
+    Returns [] on any network/parse error so callers can fall back gracefully.
+    """
+    import time
+    tree_url = (
+        f"https://api.github.com/repos/{_AWESOME_REPO}/git/trees/"
+        f"{_AWESOME_BRANCH}?recursive=1"
+    )
+    try:
+        with urllib.request.urlopen(tree_url, timeout=15) as resp:
+            tree = json.loads(resp.read())
+    except Exception:
+        return []
+
+    skill_paths = []
+    for entry in tree.get("tree", []):
+        path = entry.get("path", "")
+        if not path.endswith("/SKILL.md"):
+            continue
+        parts = path.split("/")
+        if any(p.startswith(".") for p in parts):
+            continue
+        if _AWESOME_EXCLUDE_REMOTE.intersection(parts):
+            continue
+        skill_paths.append(path)
+
+    skills = []
+    for path in skill_paths:
+        rel_dir = "/".join(path.split("/")[:-1])
+        skill_name = path.split("/")[-2]
+        raw_url = (
+            f"https://raw.githubusercontent.com/{_AWESOME_REPO}/"
+            f"{_AWESOME_BRANCH}/{path}"
+        )
+        try:
+            with urllib.request.urlopen(raw_url, timeout=10) as r:
+                raw = r.read().decode("utf-8", errors="ignore")
+        except Exception:
+            continue
+        meta = _parse_frontmatter(raw)
+        skills.append({
+            "id": f"awesome/{rel_dir}",
+            "plugin": "awesome",
+            "skill": skill_name,
+            "description": meta.get("description", ""),
+            "path": raw_url,
+            "source": "awesome-remote",
+            "_remote_dir": rel_dir,
+        })
+
+    _AWESOME_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _AWESOME_CACHE.write_text(
+            json.dumps({"fetched_at": time.time(), "skills": skills}, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+    return skills
+
+
+def list_awesome_remote(query: Optional[str] = None, force_refresh: bool = False) -> list[dict]:
+    """Return the awesome-skills catalog (cached). Falls through to live fetch
+    when cache is missing or older than 24h.
+    """
+    import time
+    skills: list[dict] = []
+    if not force_refresh and _AWESOME_CACHE.exists():
+        try:
+            data = json.loads(_AWESOME_CACHE.read_text(encoding="utf-8"))
+            if time.time() - float(data.get("fetched_at", 0)) < _AWESOME_TTL_SEC:
+                skills = data.get("skills", [])
+        except Exception:
+            skills = []
+    if not skills:
+        skills = _fetch_awesome_remote()
+
+    if query:
+        q = query.lower()
+        skills = [
+            s for s in skills
+            if q in s.get("id", "").lower() or q in s.get("description", "").lower()
+        ]
+    return skills
+
+
+# ── COMPOSIO (live API listing of toolkits) ───────────────────────────────
+# The composio backend exposes a public toolkit list — we surface it as
+# pseudo-skills so users can browse `gmail`, `slack`, etc. and create a
+# Composio session from the same /skill UI.
+
+_COMPOSIO_TOOLKITS_URL = "https://backend.composio.dev/api/v3/toolkits?cursor=&limit=500"
+_COMPOSIO_CACHE = Path.home() / ".dulus" / "cache" / "composio-toolkits.json"
+
+
+def list_composio_toolkits(query: Optional[str] = None, force_refresh: bool = False) -> list[dict]:
+    """Return Composio toolkits as skill-like dicts. Cached 24h."""
+    import time
+    items: list[dict] = []
+    if not force_refresh and _COMPOSIO_CACHE.exists():
+        try:
+            data = json.loads(_COMPOSIO_CACHE.read_text(encoding="utf-8"))
+            if time.time() - float(data.get("fetched_at", 0)) < _AWESOME_TTL_SEC:
+                items = data.get("items", [])
+        except Exception:
+            items = []
+    if not items:
+        try:
+            with urllib.request.urlopen(_COMPOSIO_TOOLKITS_URL, timeout=15) as resp:
+                payload = json.loads(resp.read())
+        except Exception:
+            return []
+        for tk in payload.get("items", payload.get("data", [])):
+            slug = tk.get("slug") or tk.get("name", "")
+            if not slug:
+                continue
+            items.append({
+                "id": f"composio/{slug}",
+                "plugin": "composio",
+                "skill": slug,
+                "description": tk.get("description") or tk.get("meta", {}).get("description", ""),
+                "path": f"https://composio.dev/apps/{slug}",
+                "source": "composio",
+            })
+        _COMPOSIO_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            _COMPOSIO_CACHE.write_text(
+                json.dumps({"fetched_at": time.time(), "items": items}, indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+    if query:
+        q = query.lower()
+        items = [
+            t for t in items
+            if q in t.get("id", "").lower() or q in t.get("description", "").lower()
+        ]
+    return items
+
+
 # ── CLAWHUB (remote) ───────────────────────────────────────────────────────
 
 def search_clawhub(query: str, limit: int = 10) -> list[dict]:

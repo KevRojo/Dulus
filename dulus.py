@@ -211,7 +211,14 @@ except ImportError:
     _HAS_BUBBLES = False
     _bubbles = None
 
-VERSION = "1.01.20"
+# Single source of truth: pyproject.toml. Falls back to a hardcoded value
+# only when the package isn't installed (e.g. running dulus.py from source
+# without a `pip install -e .`).
+try:
+    from importlib.metadata import version as _pkg_version
+    VERSION = _pkg_version("dulus")
+except Exception:
+    VERSION = "0.2.17"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -3807,6 +3814,7 @@ def cmd_skill(args: str, state, config) -> bool:
     from skill.clawhub import (
         list_local, list_installed, install_local, install_clawhub,
         search_clawhub, read_skill,
+        list_awesome_remote, list_composio_toolkits,
     )
     from pathlib import Path as _Path
 
@@ -3835,9 +3843,76 @@ def cmd_skill(args: str, state, config) -> bool:
 
     # ── /skill list ────────────────────────────────────────────────────────
     if subcmd == "list":
+        # Interactive picker when called with no source — pick where to look.
+        if not rest:
+            print(clr("\n  Pick a source:", "cyan", "bold"))
+            print(f"  1) {clr('awesome', 'yellow')}   — alirezarezvani/claude-skills (~235 skills, live from GitHub)")
+            print(f"  2) {clr('composio', 'yellow')}  — Composio Tool Router (1000+ apps via API)")
+            print(f"  3) {clr('local', 'yellow')}     — Anthropic + awesome marketplaces on disk (~/.claude/...)")
+            print(f"  4) {clr('installed', 'yellow')} — skills already in ~/.dulus/skills/")
+            print(f"  5) {clr('all', 'yellow')}       — combine awesome + composio + local")
+            try:
+                choice = input(clr("  > ", "cyan")).strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return True
+            mapping = {"1": "awesome", "2": "composio", "3": "local", "4": "installed", "5": "all"}
+            rest = mapping.get(choice, choice)
+
+        if rest.startswith("awesome"):
+            query = rest[7:].strip()
+            info("Fetching awesome skills from GitHub (cached 24h)...")
+            skills = list_awesome_remote(query)
+            if not skills:
+                err("Could not fetch awesome skills (network or rate-limit).")
+                return True
+            lines = [
+                f"  {clr(s['id'], 'cyan'):55s}  {s['description'][:80]}"
+                for s in skills
+            ]
+            header = f"Awesome skills ({len(skills)})" + (f" matching '{query}'" if query else "")
+            _pager(f"{header} — n=next q=quit", lines)
+            return True
+
+        if rest.startswith("composio"):
+            query = rest[8:].strip()
+            info("Fetching Composio toolkits (cached 24h)...")
+            skills = list_composio_toolkits(query)
+            if not skills:
+                err("Could not fetch Composio toolkits.")
+                return True
+            lines = [
+                f"  {clr(s['id'], 'cyan'):40s}  {s['description'][:80]}"
+                for s in skills
+            ]
+            header = f"Composio toolkits ({len(skills)})" + (f" matching '{query}'" if query else "")
+            _pager(f"{header} — use composio_create_session to connect — n=next q=quit", lines)
+            return True
+
+        if rest.startswith("all"):
+            query = rest[3:].strip()
+            combined = (
+                list_awesome_remote(query)
+                + list_composio_toolkits(query)
+                + list_local(query)
+            )
+            if not combined:
+                err("No skills found across any source.")
+                return True
+            lines = [
+                f"  {clr(s['id'], 'cyan'):55s}  [{clr(s['source'],'yellow')}]  {s['description'][:60]}"
+                for s in combined
+            ]
+            _pager(f"All sources ({len(combined)}) — n=next q=quit", lines)
+            return True
+
         if rest.startswith("local"):
             query = rest[5:].strip()
             skills = list_local(query)
+            # Fall back to awesome remote when local marketplaces aren't on
+            # disk (i.e. user installed Dulus without Claude Code present).
+            if not skills and not query:
+                info("No local marketplace on disk — fetching awesome from GitHub...")
+                skills = list_awesome_remote()
             if not skills:
                 info(f"No local skills found matching '{query}'.")
                 return True

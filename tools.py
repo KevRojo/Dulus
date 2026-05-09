@@ -2686,6 +2686,14 @@ register_tool(ToolDef(name="GitLog", schema=_GIT_LOG_SCHEMA, func=_git_log, read
 # Plugins are loaded once when Dulus starts (not on every reload to avoid overhead)
 try:
     from plugin.loader import register_plugin_tools
+    # First-launch bootstrap: copy bundled plugins (composio, etc) shipped
+    # inside the wheel into ~/.dulus/plugins/ so they're available out of
+    # the box. Idempotent — only copies what's not already installed.
+    try:
+        from plugin.store import bootstrap_bundled_plugins
+        bootstrap_bundled_plugins()
+    except Exception:
+        pass
     _plugin_count = register_plugin_tools()
     # Silent registration - plugins are now available as tools
 except Exception:
