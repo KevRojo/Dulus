@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "0.2.16"
+version = "0.2.17"
 description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -39,6 +39,9 @@ dependencies = [
     "customtkinter>=5.2.0",
     "Pillow>=10.0.0",
     "typing-extensions>=4.10.0",
+    # Composio Tool Router — bundled plugin needs this to talk to 1000+ apps
+    # without going through MCP. Only ~1MB on the wheel; worth it as a default.
+    "composio>=1.0.0rc2",
 ]
 
 # mempalace pulls chromadb (26 transitive deps incl. numpy + onnxruntime),
@@ -114,4 +117,4 @@ include = [
 exclude = ["tests*", "__pycache__*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.html", "*.css", "*.js", "*.svg", "*.json", "*.md", "*.png", "*.jpg"]
+"*" = ["*.html", "*.css", "*.js", "*.svg", "*.json", "*.md", "*.png", "*.jpg", "*.txt", "*.py"]

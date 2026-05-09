@@ -1,0 +1,11 @@
+{
+  "name": "composio",
+  "version": "1.0.0",
+  "description": "Composio integration for Dulus. Connect to 1000+ apps via Composio Tool Router (no MCP needed).",
+  "author": "KevRojo",
+  "tags": ["automation", "integration", "composio", "mcp"],
+  "tools": ["plugin_tool"],
+  "skills": [],
+  "dependencies": ["composio"],
+  "homepage": "https://composio.dev"
+}

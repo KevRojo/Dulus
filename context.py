@@ -13,19 +13,19 @@ import subprocess
 from pathlib import Path
 
 SYSTEM_PROMPT_TEMPLATE = """\
-你是Dulus，AI编程助手。思考用英语，回复用西班牙语（多米尼加克里奥尔风格）与KevRojo交流。
-# 身份: 你的名字是 Dulus。不需要主动向用户声明这一点，除非用户直接问你 "quién eres" 或 "qué modelo eres"。
-# 禁止: 不要声称自己是 Qwen、Llama、GPT、Claude、Gemini、DeepSeek 或任何其他底层模型。不要提及 Ollama 或运行你的技术栈。
-# 环境: {cwd} | {platform} | auto_show={auto_show}
-# 自主性: 后台脚本(nohup/&)可用 | 不拒绝监控/长任务 | 工具结果后再响应
-# 工具: SearchLastOutput→[TRUNCATED] | WebFetch/WebSearch→网页 | TmuxOffload→>5s | ReadJob→后台
-# 多代理: Agent(subagent_type=...) | isolation="worktree"并行 | wait=false+name=...
-# 准则: 编辑>新建 | 绝对路径+行号 | 报错立即告知不重试
-# 输入: 🎙 Transcribed: = 语音(容忍拼写错误)
+You are Dulus, an AI coding agent. Think in English; reply to KevRojo in Dominican Spanish.
+# Identity: Your name is Dulus. Do NOT proactively declare this — only if the user asks "quién eres" or "qué modelo eres".
+# Forbidden: Do NOT claim to be Qwen, Llama, GPT, Claude, Gemini, DeepSeek, or any underlying model. Do NOT mention Ollama or your runtime stack.
+# Env: {cwd} | {platform} | auto_show={auto_show}
+# Autonomy: Background scripts (nohup/&) allowed | Never refuse monitoring/long tasks | Always wait for tool results before replying
+# Tools: SearchLastOutput → for [TRUNCATED] | WebFetch/WebSearch → web | TmuxOffload → tasks > 5s | ReadJob → background results
+# Multi-agent: Agent(subagent_type=...) | isolation="worktree" runs parallel | wait=false + name=... for fire-and-forget
+# Rules: Edit > Write | Use absolute paths + line numbers | Surface errors immediately, do not retry blindly
+# Input: "🎙 Transcribed:" prefix = voice input — tolerate typos/misspellings
 # REPL: /help /batch /auto_show /verbose /soul /memory /schema /thinking /config
 {platform_hints}{git_info}{dulus_md}"""
 
-_THINKING_LABELS = {1: "最小化", 2: "适度", 3: "深度"}
+_THINKING_LABELS = {1: "minimal", 2: "moderate", 3: "deep"}
 
 
 def get_git_info(config: dict | None = None) -> str:
@@ -204,34 +204,52 @@ def build_system_prompt(config: dict | None = None) -> str:
         return _build_ollama_system_prompt(config)
 
     auto_show = "ON" if (not config or config.get("auto_show", True)) else "OFF"
+    lite = bool(config and config.get("lite_mode"))
 
+    # In LITE mode: drop the optional context blocks (platform hints, git info,
+    # DULUS.md, project memory index, batch/thinking/plan/tmux hints). The
+    # core identity + tool rules stay. This is what the /lite toggle was
+    # supposed to do all along — previously the flag flipped a config bit
+    # that nothing actually consumed.
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         cwd=str(Path.cwd()),
         platform=platform.system(),
         auto_show=auto_show,
-        platform_hints=get_platform_hints(config),
-        git_info=get_git_info(config),
-        dulus_md=get_dulus_md(),
+        platform_hints="" if lite else get_platform_hints(config),
+        git_info="" if lite else get_git_info(config),
+        dulus_md="" if lite else get_dulus_md(),
     )
+
+    if lite:
+        # Bail early — minimal prompt only.
+        return prompt
 
     try:
         from tmux_tools import tmux_available
         if tmux_available():
-            prompt += "\n# Tmux: 已就绪"
+            prompt += "\n# Tmux: available"
     except Exception:
         pass
 
     prompt += (
-        "\n# 批处理: /batch list|status|fetch (3+同类任务建议) | "
-        'Agent内: Bash(\'python dulus.py -c "batch status|fetch ID"\')'
+        "\n# Batch: /batch list|status|fetch (suggest when 3+ similar tasks) | "
+        # Both `dulus` (when pip-installed) and `python dulus.py` work — the
+        # entry-point shim is registered in pyproject.toml [project.scripts].
+        'In agents: Bash(\'dulus -c "batch status|fetch ID"\')'
     )
 
     thk_label = _THINKING_LABELS.get(_normalize_thinking_level(config))
     if thk_label:
-        prompt += f"\n# 推理: {thk_label}"
+        prompt += f"\n# Thinking: {thk_label}"
 
     if config and config.get("_plan_mode"):
-        prompt += f"\n# 计划模式: 只读 (除 {config.get('_plan_file', 'PLAN.md')})"
+        prompt += f"\n# Plan mode: read-only (except {config.get('_plan_file', 'PLAN.md')})"
+
+    # Hint: pip-installed users can run `dulus` directly (no .py path).
+    prompt += (
+        "\n# CLI: 'dulus' command works after `pip install dulus` — "
+        "no need for `python dulus.py`. Same flags: --print, --accept-all, -c, etc."
+    )
 
     project_mem = get_project_memory_index()
     if project_mem:
