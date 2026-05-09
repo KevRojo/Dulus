@@ -3,6 +3,11 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.26**): **`/bg start` daemon crash fix + defensive `clr()` + composio fallback**
+  - **Daemon was silently crashing on launch.** `_run_daemon` printed its banner with `clr("...", "accent", "bold")`, but the default theme palette only ships {blue, cyan, gray, green, magenta, red, white, yellow} — `"accent"` raised `KeyError` and killed the process before the prompt loop started. WebChat + IPC threads, being daemon=True, died with it. Switched the banner to `"yellow"` and wrapped in try/except so a stale theme color name never takes the daemon down.
+  - **`clr()` is now defensive.** Missing color keys are silently dropped instead of raising. One typo in a theme name no longer crashes the REPL.
+  - **`/skill list composio` no longer errors out.** The public `/api/v3/toolkits` endpoint requires elevated auth (returns 401/403 even with a valid API key for free tiers). Added a curated 32-toolkit fallback (Gmail, Slack, GitHub, Notion, Linear, Asana, ClickUp, Jira, Discord, Stripe, etc.) so the menu always shows useful targets. Authenticated path is still attempted first when an API key is configured.
+
 - May 09, 2026 (**v0.2.25**): **`/skill list awesome` no longer hangs** — was fetching 235 SKILL.md files sequentially (50-120 seconds, looked frozen). Now uses one GitHub tree API call (instant, <1s, names only) by default; pass `--full` to also pull per-skill descriptions in parallel via a 12-worker thread pool (~5s instead of 120s). Cache stores the with_descriptions flag so future calls reuse the right data.
 
 - May 09, 2026 (**v0.2.24**): **Auto-adapter prompt — 5 fixes from a sherlock postmortem**
