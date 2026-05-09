@@ -3,6 +3,8 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.27**): **`/bg` no longer leaves stale state** — when something else (a REPL, an old daemon) is already on `127.0.0.1:5151`, `/bg start` now refuses to spawn a duplicate that would just fail to bind, explains what's happening, and clears the stale PID file. `/bg status` self-heals: when it sees a stale PID it auto-removes it instead of complaining on every call. The previous "Some Dulus is listening on IPC, but our PID file is stale" warning is gone for good.
+
 - May 09, 2026 (**v0.2.26**): **`/bg start` daemon crash fix + defensive `clr()` + composio fallback**
   - **Daemon was silently crashing on launch.** `_run_daemon` printed its banner with `clr("...", "accent", "bold")`, but the default theme palette only ships {blue, cyan, gray, green, magenta, red, white, yellow} — `"accent"` raised `KeyError` and killed the process before the prompt loop started. WebChat + IPC threads, being daemon=True, died with it. Switched the banner to `"yellow"` and wrapped in try/except so a stale theme color name never takes the daemon down.
   - **`clr()` is now defensive.** Missing color keys are silently dropped instead of raising. One typo in a theme name no longer crashes the REPL.
