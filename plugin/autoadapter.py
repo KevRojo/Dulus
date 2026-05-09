@@ -250,6 +250,13 @@ GOAL: Generate `plugin.json`, `plugin_tool.py`, and `ADAPTATION_GUIDE.md`.
 
 GUIDELINES FOR plugin_tool.py:
 
+0. READ THE SOURCE FIRST (critical — skip and you'll waste 10+ retry rounds):
+   - Before writing the wrapper, READ the actual function/class definitions you'll be calling.
+   - Note the EXACT shape each parameter expects: raw dict-of-dicts vs object-of-objects vs list of objects.
+   - DO NOT infer shapes from class names. Read the consumer code that does `param.get(...)` or `for x in param: ...`.
+   - When the upstream library has a notifier/callback/observer class, PREFER collecting results via that callback over parsing the return value — callbacks are usually consistent across versions, return shapes are not.
+   - Common gotcha: a class called `XInformation` often *wraps* the raw dict in `.information` or `.data`. The downstream function may expect the raw dict, not the wrapper. Verify by reading the function body.
+
 1. EXPORTS (mandatory):
    - `TOOL_DEFS`: list of `ToolDef(name, schema, func)` objects
    - `TOOL_SCHEMAS`: `[t.schema for t in TOOL_DEFS]`
@@ -272,7 +279,7 @@ GUIDELINES FOR plugin_tool.py:
 
 4. SCHEMA DESIGN:
    - Each param gets its own property. Never bundle into single "data" string
-   - Include `limit`/`max_results` (default: 10, NOT 50) and `verbose` (default: False) on every tool
+   - Include `limit`/`max_results` (default: 10, hard max: 200) and `verbose` (default: False) on every tool
 
 5. TOOL GRANULARITY:
    - Multiple specific tools > one mega-tool
@@ -362,6 +369,19 @@ TMUX-OFFLOAD HINT (important for UX):
 Respond with the delimited format:
 ---FILE: ADAPTATION_GUIDE.md---
 (Overview, tool design decisions, error patterns, validation)
+
+The ADAPTATION_GUIDE.md MUST include a `## Type Contracts` section that documents,
+for each upstream function/class you call, the EXACT shape of every non-trivial
+parameter. Example:
+
+## Type Contracts
+- `sherlock(username, site_data, ...)` expects `site_data: Dict[str, Dict[str, Any]]`
+  (NOT `Dict[str, SiteInformation]` — extract `.information` from each SiteInformation first).
+- `notifier.update(result)` is called once per site with a `QueryResult` object.
+  Collect via a `_SilentNotify(QueryNotify)` subclass instead of parsing the return dict.
+
+This section is read by the verifier and by future re-adaptations, so be precise.
+
 ---FILE: plugin.json---
 (JSON manifest)
 ---FILE: plugin_tool.py---
@@ -399,7 +419,7 @@ Respond with the delimited format:
             "- Always encoding='utf-8', errors='replace' for file/subprocess I/O\n"
             "- Never lowercase true/false/null in Python — always True/False/None\n\n"
             "TOKEN OPTIMIZATION RULES — plugins MUST be efficient:\n"
-            "- Every tool MUST accept a 'limit' or 'max_results' parameter (default: 50, max: 200)\n"
+            "- Every tool MUST accept a 'limit' or 'max_results' parameter (default: 10, hard max: 200)\n"
             "- Every tool MUST accept a 'verbose' parameter (default: False)\n"
             "- When verbose=False, return ONLY essential data — no debug info, no banners\n"
             "- Lists/arrays MUST be truncated before returning — never return unlimited items\n"
@@ -806,6 +826,14 @@ def _write_todo_file(plugin_dir: Path, safe_name: str, items: list[dict]) -> Pat
         "",
         "Auto-generated checklist verifying the AI-generated plugin works.",
         "Each task is verified by the adapter worker; failures trigger a fix attempt.",
+        "",
+        "⚠ THE BAR IS THE SMOKE TEST. Compile / import / exports / ToolDef-shape",
+        "checks are necessary but NOT sufficient — they only prove the file is",
+        "syntactically a Python module that exports something callable. They do",
+        "NOT prove the wrapper passes the right shapes to upstream functions.",
+        "If a smoke test fails after the syntactic checks pass, the bug is almost",
+        "always a TYPE-SHAPE mismatch (e.g. passing wrapper objects where the",
+        "function expected raw dicts). Re-read the source code before guessing.",
         "",
     ]
     for item in items:
