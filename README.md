@@ -58,6 +58,10 @@ Use claude-code as an API without the new 'extra-usage' wall <3
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
+> **v0.2.21 — May 9, 2026** — Console-freeze fix: system prompt now tells the model SleepTimer is for user reminders only — pauses inside command pipelines must use `sleep N` inside the Bash command itself.
+> **v0.2.20 — May 9, 2026** — Windows IPC port-collision fix: switched to `SO_EXCLUSIVEADDRUSE` so a second Dulus instance correctly cedes the port and acts as client. End-to-end tested.
+> **v0.2.19 — May 9, 2026** — Shared sessions via tiny TCP socket on `127.0.0.1:5151`. `dulus "do X"` from any shell forwards into the running REPL/daemon — same history, memory, plugins. 80 lines of plain socket code instead of a daemon manager + IPC framework.
+> **v0.2.18 — May 9, 2026** — `beautifulsoup4` added as default dep for web scraping flows.
 > **v0.2.17 — May 9, 2026** — Mega-release: Composio plugin bundled (1000+ apps, no MCP), `/skill list` interactive picker (awesome / composio / local), awesome skills live from GitHub (no Claude Code needed), lite mode finally functional, system prompt rewritten in English, `VERSION` auto-syncs from pyproject.
 > **v0.2.16 — May 9, 2026** — MemPalace per-session dedup. No more re-injecting the same memory every turn — content-hash cache saves ~8K tokens in a 20-turn conversation. `/mem_palace reset` clears it on demand.
 > **v0.2.15 — May 9, 2026** — Banner image hosted locally so PyPI renders it correctly.
