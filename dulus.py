@@ -631,8 +631,11 @@ def ask_permission_interactive(desc: str, config: dict) -> bool:
         config["permission_mode"] = "accept-all"
         if _is_in_tg_turn(config):
             token = config.get("telegram_token")
-            chat_id = config.get("telegram_chat_id")
-            _tg_send(token, chat_id, "✅ Permission mode set to accept-all for this session.")
+            # Reply to the user who actually triggered this prompt; fall back
+            # to the first configured chat_id if the active one is unknown.
+            cid = config.get("_active_tg_chat_id") or (_tg_get_chat_ids(config) or [None])[0]
+            if cid:
+                _tg_send(token, cid, "✅ Permission mode set to accept-all for this session.")
         else:
             ok("  Permission mode set to accept-all for this session.")
         return True
@@ -4743,8 +4746,50 @@ def _tg_typing_loop(token: str, chat_id: int, stop_event: threading.Event, confi
         _tg_api(token, "sendChatAction", {"chat_id": chat_id, "action": "typing"})
         stop_event.wait(4)
 
-def _tg_poll_loop(token: str, chat_id: int, config: dict):
-    """Long-polling loop that reads Telegram messages and feeds them to run_query."""
+def _parse_chat_ids(value) -> list[int]:
+    """Accept int, list, or comma-separated string ('123,456,,') → list[int].
+    Empty parts (from trailing commas) are dropped.
+    """
+    if not value:
+        return []
+    if isinstance(value, int):
+        return [value]
+    if isinstance(value, list):
+        out = []
+        for x in value:
+            try:
+                out.append(int(x))
+            except (TypeError, ValueError):
+                continue
+        return out
+    if isinstance(value, str):
+        out = []
+        for p in value.split(","):
+            p = p.strip()
+            if not p:
+                continue
+            try:
+                out.append(int(p))
+            except ValueError:
+                continue
+        return out
+    return []
+
+def _tg_get_chat_ids(config: dict) -> list[int]:
+    """Read configured chat ids from config. Supports legacy single int and
+    new comma-separated string / list."""
+    ids = _parse_chat_ids(config.get("telegram_chat_ids")) or _parse_chat_ids(config.get("telegram_chat_id"))
+    return ids
+
+def _tg_poll_loop(token: str, chat_ids, config: dict):
+    """Long-polling loop. chat_ids: int (legacy) or list[int].
+    All listed users are authorized; replies go back to whoever sent the msg.
+    """
+    if isinstance(chat_ids, int):
+        chat_ids = [chat_ids]
+    chat_ids = list(chat_ids or [])
+    authorized = set(chat_ids)
+
     run_query_cb = config.get("_run_query_callback")
     # Flush old messages so we don't process stale commands on startup
     flush = _tg_api(token, "getUpdates", {"offset": -1, "timeout": 0})
@@ -4757,8 +4802,9 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
         _tg_register_commands(token)
     except Exception:
         pass
-    # Notify user bot is online
-    _tg_send(token, chat_id, "🟢 Dulus\nSend me a message and I'll process it.")
+    # Notify all configured users that the bot is online
+    for cid in chat_ids:
+        _tg_send(token, cid, "🟢 Dulus\nSend me a message and I'll process it.")
 
     while not _telegram_stop.is_set():
         try:
@@ -4779,12 +4825,20 @@ def _tg_poll_loop(token: str, chat_id: int, config: dict):
                 msg_chat_id = msg.get("chat", {}).get("id")
                 text = sanitize_text(msg.get("text", ""))
 
-                if msg_chat_id != chat_id:
+                if msg_chat_id not in authorized:
                     _tg_api(token, "sendMessage", {
                         "chat_id": msg_chat_id,
                         "text": "⛔ Unauthorized."
                     })
                     continue
+
+                # Track who is currently active so other code (permission
+                # prompts, etc.) can reply to the right user.
+                config["_active_tg_chat_id"] = msg_chat_id
+                # Bind chat_id to the originating user so all downstream
+                # references in this iteration (and closures spawned below)
+                # send replies back to whoever messaged.
+                chat_id = msg_chat_id
 
                 # ── Handle photo messages from Telegram ──
                 photo_list = msg.get("photo")
@@ -5040,18 +5094,18 @@ def _run_daemon(config: dict) -> None:
 
     # Start Telegram bridge if previously configured
     token = config.get("telegram_token", "")
-    chat_id = config.get("telegram_chat_id", 0)
-    if token and chat_id:
+    chat_ids = _tg_get_chat_ids(config)
+    if token and chat_ids:
         global _telegram_stop, _telegram_thread
         _telegram_stop = threading.Event()
         _telegram_thread = threading.Thread(
-            target=_tg_poll_loop, args=(token, int(chat_id), config), daemon=True
+            target=_tg_poll_loop, args=(token, chat_ids, config), daemon=True
         )
         _telegram_thread.start()
-        ok(f"Telegram bridge started  →  chat {chat_id}")
+        ok(f"Telegram bridge started  →  chats: {', '.join(str(c) for c in chat_ids)}")
     else:
         warn("No Telegram config found. Bridge not started.")
-        info("Set it later with: /telegram <token> <chat_id>")
+        info("Set it later with: /telegram <token> <chat_id>[,<chat_id>...]")
 
     info("Press Ctrl+C to stop.\n")
 
@@ -5113,34 +5167,37 @@ def cmd_telegram(args: str, _state, config) -> bool:
     if parts and parts[0].lower() == "status":
         running = _telegram_thread and _telegram_thread.is_alive()
         token = config.get("telegram_token", "")
-        chat_id = config.get("telegram_chat_id", 0)
+        chat_ids = _tg_get_chat_ids(config)
+        ids_str = ",".join(str(c) for c in chat_ids) if chat_ids else "(none)"
         if running:
-            ok(f"Telegram bridge is running. Chat ID: {chat_id}")
+            ok(f"Telegram bridge is running. Chat IDs: {ids_str}")
         elif token:
             info(f"Configured but not running. Use /telegram to start.")
         else:
-            info("Not configured. Use /telegram <bot_token> <chat_id>")
+            info("Not configured. Use /telegram <bot_token> <chat_id>[,<chat_id>...]")
         return True
 
-    # /telegram <token> <chat_id> — configure and start
+    # /telegram <token> <chat_id>[,<chat_id>...] — configure and start
     if len(parts) >= 2:
         token = parts[0]
-        try:
-            chat_id = int(parts[1])
-        except ValueError:
-            err("Chat ID must be a number. Send a message to your bot, then check getUpdates.")
+        chat_ids = _parse_chat_ids(parts[1])
+        if not chat_ids:
+            err("Chat ID must be a number (or comma-separated list, e.g. 12345,67890).")
             return True
         config["telegram_token"] = token
-        config["telegram_chat_id"] = chat_id
+        # Persist as comma-separated string in the new key; clear the legacy
+        # single-id key so the file stays clean.
+        config["telegram_chat_ids"] = ",".join(str(c) for c in chat_ids)
+        config.pop("telegram_chat_id", None)
         save_config(config)
-        ok("Telegram config saved.")
+        ok(f"Telegram config saved. Authorized chats: {', '.join(str(c) for c in chat_ids)}")
     else:
         # Try to use saved config
         token = config.get("telegram_token", "")
-        chat_id = config.get("telegram_chat_id", 0)
+        chat_ids = _tg_get_chat_ids(config)
 
-    if not token or not chat_id:
-        err("No config found. Usage: /telegram <bot_token> <chat_id>")
+    if not token or not chat_ids:
+        err("No config found. Usage: /telegram <bot_token> <chat_id>[,<chat_id>...]")
         return True
 
     # Already running?
@@ -5162,10 +5219,10 @@ def cmd_telegram(args: str, _state, config) -> bool:
 
     _telegram_stop = threading.Event()
     _telegram_thread = threading.Thread(
-        target=_tg_poll_loop, args=(token, chat_id, config), daemon=True
+        target=_tg_poll_loop, args=(token, chat_ids, config), daemon=True
     )
     _telegram_thread.start()
-    ok(f"Telegram bridge active. Chat ID: {chat_id}")
+    ok(f"Telegram bridge active. Chat IDs: {', '.join(str(c) for c in chat_ids)}")
     info("Send messages to your bot — they'll be processed here.")
     info("Stop with /telegram stop or send /stop in Telegram.")
     return True
@@ -6907,7 +6964,7 @@ def repl(config: dict, initial_prompt: str = None):
             active_flags.append("proactive")
         if config.get("lite_mode"):
             active_flags.append("lite")
-        if config.get("telegram_token") and config.get("telegram_chat_id"):
+        if config.get("telegram_token") and _tg_get_chat_ids(config):
             active_flags.append("telegram")
         if active_flags:
             flags_str = " · ".join(clr(f, "green") for f in active_flags)
@@ -7330,7 +7387,10 @@ def repl(config: dict, initial_prompt: str = None):
                 if is_background:
                     is_tg_turn = config.get("_in_telegram_turn", False)
                     ttok = config.get("telegram_token")
-                    tchat = config.get("telegram_chat_id")
+                    # Background broadcasts go to whoever was last active in TG
+                    # (or the first configured chat as fallback).
+                    _tids = _tg_get_chat_ids(config)
+                    tchat = config.get("_active_tg_chat_id") or (_tids[0] if _tids else 0)
                     # Check that Telegram is still active (_telegram_stop not set)
                     if not is_tg_turn and ttok and tchat and _telegram_stop and not _telegram_stop.is_set():
                         if state.messages and state.messages[-1].get("role") == "assistant":
@@ -7431,14 +7491,14 @@ def repl(config: dict, initial_prompt: str = None):
     config["_handle_slash_callback"] = _handle_slash_from_telegram
 
     # ── Auto-start Telegram bridge if configured ──────────────────────
-    if config.get("telegram_token") and config.get("telegram_chat_id"):
+    if config.get("telegram_token") and _tg_get_chat_ids(config):
         global _telegram_thread, _telegram_stop
         if not (_telegram_thread and _telegram_thread.is_alive()):
             config["_state"] = state
             _telegram_stop = threading.Event()
             _telegram_thread = threading.Thread(
                 target=_tg_poll_loop,
-                args=(config["telegram_token"], config["telegram_chat_id"], config),
+                args=(config["telegram_token"], _tg_get_chat_ids(config), config),
                 daemon=True
             )
             _telegram_thread.start()

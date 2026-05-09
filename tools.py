@@ -1746,7 +1746,8 @@ def ask_input_interactive(prompt: str, config: dict, menu_text: str = None) -> s
     is_tg = _is_in_tg_turn(config)
     if is_tg and "_tg_send_callback" in config:
         token = config.get("telegram_token")
-        chat_id = config.get("telegram_chat_id")
+        # Reply to the user who triggered the current TG turn (multi-user support).
+        chat_id = config.get("_active_tg_chat_id") or config.get("telegram_chat_id")
         import re, threading
         clean_prompt = re.sub(r'\x1b\[[0-9;]*m', '', prompt).strip()
 
@@ -1981,7 +1982,7 @@ def _print_to_console(content: str = "", style: str = "normal", prefix: str = ""
     # If in Telegram turn, also send to Telegram
     if config and _is_in_tg_turn(config):
         token = config.get("telegram_token")
-        chat_id = config.get("telegram_chat_id")
+        chat_id = config.get("_active_tg_chat_id") or config.get("telegram_chat_id")
         if token and chat_id and "_tg_send_callback" in config:
             import re
             # Clean ANSI codes and send
