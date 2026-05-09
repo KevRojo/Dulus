@@ -3,6 +3,8 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.20**): **IPC port-collision fix on Windows** — `SO_REUSEADDR` on Windows lets two sockets share the same port, which would let a second Dulus instance silently "steal" the IPC listener. Switched to `SO_EXCLUSIVEADDRUSE` so the second instance correctly backs off and acts as a client. Verified end-to-end with the new test harness.
+
 - May 09, 2026 (**v0.2.19**): **Shared sessions via tiny TCP socket — daemon workaround supremo**
   - **One Dulus, many shells.** When a Dulus REPL or `--daemon` is running, it now listens on `127.0.0.1:5151`. Any subsequent `dulus "do X"` from another shell forwards the prompt to that live session over the socket and prints back the reply — same history, same memory, same plugins, same tool state. No session manager, no IPC framework, no systemd unit. 80 lines of plain TCP.
   - **Falls back gracefully.** If no listener is up, the CLI behaves exactly as before (spawns its own `--print` process). Daemon/gui/`--cmd`/`--run-tool` modes intentionally bypass the IPC dispatch — they need their own process.
