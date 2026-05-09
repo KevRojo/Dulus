@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.18"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.19"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -3714,6 +3714,162 @@ def _print_background_notifications(state=None):
     return new_found
 
 
+# ── IPC server: shared session via TCP socket ─────────────────────────────
+# When a Dulus REPL or daemon is running, it listens on 127.0.0.1:5151. Any
+# `dulus "..."` invocation from another shell first probes this port — if the
+# server answers, the prompt is forwarded over the wire and the response is
+# streamed back, so multiple shells share the SAME live session (history,
+# memory, tool state, all of it). If the port is dead, the CLI falls back to
+# spawning its own --print process.
+#
+# This is the dominican workaround: 80 lines of socket code instead of a
+# session manager + IPC framework + daemon orchestrator. Same UX, 1/100th
+# the surface area.
+
+DULUS_IPC_HOST = "127.0.0.1"
+DULUS_IPC_PORT = 5151
+
+
+def _ipc_server_loop(config, state):
+    """Tiny TCP server: accepts one JSON request per connection, runs it on
+    the live session, and writes the assistant reply back as JSON.
+    Robust to port-already-in-use (we just exit silently — another instance
+    is the listener and that's fine)."""
+    import socket as _socket
+    import json as _json
+
+    sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind((DULUS_IPC_HOST, DULUS_IPC_PORT))
+    except OSError:
+        return  # another Dulus already listening — fine, we're the client one
+    sock.listen(4)
+    sock.settimeout(1.0)
+    config["_ipc_listening"] = True
+
+    while not config.get("_ipc_stop"):
+        try:
+            conn, _addr = sock.accept()
+        except _socket.timeout:
+            continue
+        except Exception:
+            continue
+        try:
+            conn.settimeout(60.0)
+            buf = b""
+            while b"\n" not in buf and len(buf) < 64 * 1024:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+            line = buf.split(b"\n", 1)[0].decode("utf-8", errors="ignore").strip()
+            if not line:
+                conn.close()
+                continue
+            try:
+                req = _json.loads(line)
+            except Exception:
+                conn.sendall(b'{"error":"bad json"}\n')
+                conn.close()
+                continue
+
+            prompt = (req.get("prompt") or "").strip()
+            if not prompt:
+                conn.sendall(b'{"error":"empty prompt"}\n')
+                conn.close()
+                continue
+
+            cb = config.get("_run_query_callback")
+            if not cb:
+                conn.sendall(b'{"error":"no run_query callback registered"}\n')
+                conn.close()
+                continue
+
+            # Snapshot the message count so we can lift the new assistant
+            # reply after the turn completes.
+            before = len(state.messages) if state else 0
+            try:
+                cb(prompt)
+            except Exception as e:
+                conn.sendall(_json.dumps({"error": f"{type(e).__name__}: {e}"}).encode() + b"\n")
+                conn.close()
+                continue
+
+            response_text = ""
+            if state and state.messages:
+                for m in reversed(state.messages[before:] or state.messages):
+                    if m.get("role") == "assistant":
+                        content = m.get("content", "")
+                        if isinstance(content, list):
+                            parts = []
+                            for block in content:
+                                if isinstance(block, dict) and block.get("type") == "text":
+                                    parts.append(block["text"])
+                                elif isinstance(block, str):
+                                    parts.append(block)
+                            content = "\n".join(parts)
+                        if content:
+                            response_text = content
+                            break
+            payload = _json.dumps({"response": response_text or "(no reply)"}).encode() + b"\n"
+            try:
+                conn.sendall(payload)
+            except Exception:
+                pass
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    try:
+        sock.close()
+    except Exception:
+        pass
+
+
+def _try_ipc_dispatch(prompt: str, timeout: float = 0.4) -> bool:
+    """Client side: probe the IPC server, send a prompt, print the response,
+    return True if it succeeded. Returns False if no server is listening,
+    so callers can fall back to the in-process --print path."""
+    import socket as _socket
+    import json as _json
+
+    try:
+        sock = _socket.create_connection(
+            (DULUS_IPC_HOST, DULUS_IPC_PORT), timeout=timeout
+        )
+    except (_socket.timeout, ConnectionRefusedError, OSError):
+        return False
+    try:
+        sock.settimeout(180.0)
+        sock.sendall((_json.dumps({"prompt": prompt, "v": 1}) + "\n").encode())
+        buf = b""
+        while True:
+            chunk = sock.recv(8192)
+            if not chunk:
+                break
+            buf += chunk
+            if b"\n" in buf:
+                break
+        line = buf.split(b"\n", 1)[0].decode("utf-8", errors="ignore").strip()
+        try:
+            data = _json.loads(line)
+        except Exception:
+            return False
+        if "error" in data:
+            print(f"[ipc] {data['error']}", flush=True)
+            return True  # we did get a reply, just an error one — don't fall back
+        print(data.get("response", ""), flush=True)
+        return True
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
 def _job_sentinel_loop(config, state):
     """Background daemon that triggers run_query as soon as a job finishes.
     
@@ -5172,6 +5328,15 @@ def _run_daemon(config: dict) -> None:
 
     # Same callback used by the REPL so Telegram can trigger runs
     config["_run_query_callback"] = lambda msg: run_query(msg, is_background=True)
+
+    # IPC server — same socket the REPL uses, so external `dulus "..."` calls
+    # land in this daemon's session.
+    if config.get("_ipc_thread") is None and not config.get("_ipc_disabled"):
+        ti = threading.Thread(
+            target=_ipc_server_loop, args=(config, state), daemon=True
+        )
+        config["_ipc_thread"] = ti
+        ti.start()
 
     print(clr("\n  ▲ DULUS DAEMON", "accent", "bold"))
     print(clr("  " + "─" * 40, "dim"))
@@ -7101,6 +7266,16 @@ def repl(config: dict, initial_prompt: str = None):
         tj = threading.Thread(target=_job_sentinel_loop, args=(config, state), daemon=True)
         config["_job_sentinel_thread"] = tj
         tj.start()
+
+    # IPC server — lets `dulus "..."` from another shell join this REPL's
+    # session instead of spawning a fresh process. Tiny TCP socket on
+    # 127.0.0.1:5151, no daemon manager required.
+    if config.get("_ipc_thread") is None and not config.get("_ipc_disabled"):
+        ti = threading.Thread(
+            target=_ipc_server_loop, args=(config, state), daemon=True
+        )
+        config["_ipc_thread"] = ti
+        ti.start()
     
     def run_query(user_input: str, is_background: bool = False):
         nonlocal verbose
@@ -8651,6 +8826,25 @@ def main():
                  f"Set {env} or run: /config {pname}_api_key=YOUR_KEY")
 
     initial = " ".join(args.prompt) if args.prompt else None
+
+    # ── IPC dispatch: if a Dulus REPL/daemon is already running on
+    # 127.0.0.1:5151, forward this prompt to it (shared session) and exit.
+    # Falls through silently when no listener is up.
+    # Only kicks in for plain `dulus "..."` and `dulus -p "..."` — not for
+    # daemon/gui/cmd/run-tool/job invocations, which need their own process.
+    if (initial
+        and not args.daemon
+        and not args.gui
+        and not args.exec_cmd
+        and not args.run_tool
+        and not args.job_id
+        and not args.job_path
+    ):
+        try:
+            if _try_ipc_dispatch(initial):
+                sys.exit(0)
+        except Exception:
+            pass  # any IPC error → fall through to in-process path
 
     # ── Daemon mode ──
     if args.daemon:
