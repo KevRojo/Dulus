@@ -3,6 +3,14 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.16**): **MemPalace per-session dedup — game changer**
+  - **No more re-injecting the same memory every turn.** MemPalace now keeps a per-session set of content-hashes (`_mp_injected_keys`) — once a memory is injected in this conversation, it won't be re-injected on later turns even if it scores high on a new query. The next-best non-duplicate hit is used instead, so each turn brings *new* context to the model rather than the same 3 hits over and over.
+  - **Within-turn dedup too.** When mempalace's hybrid retriever returns the same chunk twice in a single query (it happens), the duplicate is dropped before injection.
+  - **Why it's a game changer.** In a 20-turn conversation that previously kept re-injecting the same 3 memories, you save ≈8K tokens of duplicates AND the model gets ~30 distinct memories of palace coverage instead of just 3. Compounding context, no extra cost.
+  - **`/mem_palace reset`** — new sub-command to clear the dedup cache mid-session if you want already-seen memories to be re-injectable on the next match.
+
+- May 09, 2026 (**v0.2.15**): Banner image hosted locally so PyPI renders it correctly.
+
 - May 09, 2026 (**v0.2.14**): **Multi-user Telegram bridge**
   - **Telegram bridge now supports multiple authorized chat_ids.** Configure with `/telegram <token> <id1>,<id2>,<id3>` or set `telegram_chat_ids` in `config.json` as a comma-separated string (trailing commas like `717151713,787615162,,` are ignored). Each authorized chat gets its own replies — Dulus tracks who sent each message via `_active_tg_chat_id` and routes the response back to the right user. Welcome message is broadcast to all configured users on bridge start. The legacy single-int `telegram_chat_id` still works for backwards-compat.
   - **Why this matters.** One Dulus instance, multiple humans poking it from their phones — useful for teams sharing a long-running agent, or for paired-up users running the same MemPalace from different devices.
