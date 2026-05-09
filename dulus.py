@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.19"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.20"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -3739,7 +3739,15 @@ def _ipc_server_loop(config, state):
     import json as _json
 
     sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-    sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+    # On Windows, SO_REUSEADDR lets two sockets share a port — wrong here; we
+    # want a hard "port is taken, back off." SO_EXCLUSIVEADDRUSE gives us that.
+    # On Linux, SO_REUSEADDR only matters for TIME_WAIT recovery, so skipping
+    # it is fine — restart cooldown is a few seconds at worst.
+    if hasattr(_socket, "SO_EXCLUSIVEADDRUSE"):
+        try:
+            sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_EXCLUSIVEADDRUSE, 1)
+        except OSError:
+            pass
     try:
         sock.bind((DULUS_IPC_HOST, DULUS_IPC_PORT))
     except OSError:
