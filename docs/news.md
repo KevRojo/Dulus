@@ -3,6 +3,11 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.23**): **Auto-adapter teaches new plugins to declare TmuxOffload-worthy tools**
+  - **The adapter prompt now requires** the model to estimate per-tool runtime. Any tool that typically takes more than ~15 seconds (sherlock, holehe, OSINT crawls, video downloads, full-repo analysis, etc.) must end its `description` with the literal marker `[long-running — wrap in TmuxOffload]`.
+  - **System prompt now honors that marker** at runtime. When the agent sees a tool with that suffix, it wraps the call in TmuxOffload automatically instead of blocking the REPL. No more 90-second sherlock freezes pretending to be productive.
+  - **Why this matters.** New plugins adopted via `/plugin adapt` now self-declare their UX hints. The agent picks them up the moment they install — zero manual config, zero "oh I should have offloaded that" regrets.
+
 - May 09, 2026 (**v0.2.22**): **`/bg start` — one detached daemon for CLI + Web + Telegram**
   - **One command, three doors.** `/bg start` spawns a detached Dulus daemon that simultaneously listens on `127.0.0.1:5151` (IPC for `dulus "..."` from any shell), `127.0.0.1:5000` (WebChat in your browser), and the Telegram bridge if configured. All three entry points hit the SAME live session — same history, memory, plugins, tool state.
   - **`/bg status` / `stop` / `attach`** — small surface, big convenience. `attach` prints how to reach the running daemon (CLI, browser, tail the log).
