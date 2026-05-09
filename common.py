@@ -120,7 +120,11 @@ def apply_theme(name: str) -> bool:
 apply_theme("dulus")
 
 def clr(text: str, *keys: str) -> str:
-    return "".join(C[k] for k in keys) + str(text) + C["reset"]
+    # Defensive: a missing color key (theme-specific names like "accent" or
+    # "orange" in palettes that don't define them) used to raise KeyError and
+    # could crash callers. Skip unknown keys instead so a stale theme name
+    # never takes down the daemon or REPL.
+    return "".join(C.get(k, "") for k in keys) + str(text) + C.get("reset", "")
 
 def info(msg: str):   print(clr(msg, "cyan"))
 def ok(msg: str):     print(clr(msg, "green"))

@@ -296,8 +296,71 @@ _COMPOSIO_TOOLKITS_URL = "https://backend.composio.dev/api/v3/toolkits?cursor=&l
 _COMPOSIO_CACHE = Path.home() / ".dulus" / "cache" / "composio-toolkits.json"
 
 
+# Curated fallback list — used when no Composio API key is available so the
+# /skill list composio command still shows something useful instead of an
+# empty result. ~30 of the most-requested toolkits.
+_COMPOSIO_FALLBACK = [
+    ("gmail", "Gmail email — read, send, label, search messages."),
+    ("googlecalendar", "Google Calendar — events, attendees, schedules."),
+    ("googledrive", "Google Drive — files, folders, sharing."),
+    ("googlesheets", "Google Sheets — read/write spreadsheets."),
+    ("googledocs", "Google Docs — create and edit documents."),
+    ("slack", "Slack — messages, channels, files, search."),
+    ("github", "GitHub — repos, issues, PRs, releases, branches."),
+    ("gitlab", "GitLab — projects, issues, merge requests."),
+    ("notion", "Notion — pages, databases, blocks."),
+    ("linear", "Linear — issues, projects, cycles, teams."),
+    ("asana", "Asana — tasks, projects, sections."),
+    ("trello", "Trello — boards, cards, lists."),
+    ("clickup", "ClickUp — tasks, lists, spaces."),
+    ("jira", "Jira — issues, sprints, projects."),
+    ("confluence", "Confluence — pages, spaces, content."),
+    ("discord", "Discord — guilds, channels, messages."),
+    ("telegram", "Telegram bot API — messages, files."),
+    ("twitter", "Twitter/X — tweets, search, profiles."),
+    ("reddit", "Reddit — posts, comments, subreddits."),
+    ("hackernews", "Hacker News — stories, comments, search."),
+    ("youtube", "YouTube — videos, channels, comments, captions."),
+    ("spotify", "Spotify — playlists, search, playback."),
+    ("hubspot", "HubSpot — contacts, deals, companies."),
+    ("salesforce", "Salesforce — leads, accounts, opportunities."),
+    ("shopify", "Shopify — products, orders, customers."),
+    ("stripe", "Stripe — payments, customers, subscriptions."),
+    ("airtable", "Airtable — bases, tables, records."),
+    ("firebase", "Firebase — Firestore, Realtime DB, Auth."),
+    ("supabase", "Supabase — Postgres, auth, storage."),
+    ("perplexity", "Perplexity — AI-powered web search."),
+    ("firecrawl", "Firecrawl — scrape & crawl websites to markdown."),
+    ("exa", "Exa — semantic web search."),
+]
+
+
+def _load_composio_api_key() -> str:
+    """Load API key from env, ~/.dulus/config.json, or ~/.falcon/config.json."""
+    import os as _os
+    key = _os.environ.get("COMPOSIO_API_KEY", "").strip()
+    if key:
+        return key
+    for cfg_path in (Path.home() / ".dulus" / "config.json",
+                     Path.home() / ".falcon" / "config.json"):
+        if cfg_path.exists():
+            try:
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                k = cfg.get("composio_api_key", "")
+                if k:
+                    return k
+            except Exception:
+                continue
+    return ""
+
+
 def list_composio_toolkits(query: Optional[str] = None, force_refresh: bool = False) -> list[dict]:
-    """Return Composio toolkits as skill-like dicts. Cached 24h."""
+    """Return Composio toolkits as skill-like dicts. Cached 24h.
+
+    Authenticated path (API key set): hit the live `/api/v3/toolkits` endpoint.
+    Unauthenticated path: return the curated _COMPOSIO_FALLBACK list so the
+    /skill list composio UI still shows something useful.
+    """
     import time
     items: list[dict] = []
     if not force_refresh and _COMPOSIO_CACHE.exists():
@@ -308,23 +371,43 @@ def list_composio_toolkits(query: Optional[str] = None, force_refresh: bool = Fa
         except Exception:
             items = []
     if not items:
-        try:
-            with urllib.request.urlopen(_COMPOSIO_TOOLKITS_URL, timeout=15) as resp:
-                payload = json.loads(resp.read())
-        except Exception:
-            return []
-        for tk in payload.get("items", payload.get("data", [])):
-            slug = tk.get("slug") or tk.get("name", "")
-            if not slug:
-                continue
-            items.append({
-                "id": f"composio/{slug}",
-                "plugin": "composio",
-                "skill": slug,
-                "description": tk.get("description") or tk.get("meta", {}).get("description", ""),
-                "path": f"https://composio.dev/apps/{slug}",
-                "source": "composio",
-            })
+        api_key = _load_composio_api_key()
+        if api_key:
+            req = urllib.request.Request(
+                _COMPOSIO_TOOLKITS_URL,
+                headers={"x-api-key": api_key, "Accept": "application/json"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    payload = json.loads(resp.read())
+                for tk in payload.get("items", payload.get("data", [])):
+                    slug = tk.get("slug") or tk.get("name", "")
+                    if not slug:
+                        continue
+                    items.append({
+                        "id": f"composio/{slug}",
+                        "plugin": "composio",
+                        "skill": slug,
+                        "description": tk.get("description") or tk.get("meta", {}).get("description", ""),
+                        "path": f"https://composio.dev/apps/{slug}",
+                        "source": "composio",
+                    })
+            except Exception:
+                pass  # fall through to fallback list below
+
+        # Fallback: no key, or auth call failed — show the curated list so the
+        # user still has something to browse / use as session toolkits.
+        if not items:
+            for slug, desc in _COMPOSIO_FALLBACK:
+                items.append({
+                    "id": f"composio/{slug}",
+                    "plugin": "composio",
+                    "skill": slug,
+                    "description": desc + ("" if api_key else "  [curated fallback — set COMPOSIO_API_KEY for the full live catalog]"),
+                    "path": f"https://composio.dev/apps/{slug}",
+                    "source": "composio-fallback" if not api_key else "composio",
+                })
+
         _COMPOSIO_CACHE.parent.mkdir(parents=True, exist_ok=True)
         try:
             _COMPOSIO_CACHE.write_text(

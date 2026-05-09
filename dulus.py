@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.25"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.26"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -5612,7 +5612,13 @@ def _run_daemon(config: dict) -> None:
         config["_ipc_thread"] = ti
         ti.start()
 
-    print(clr("\n  ▲ DULUS DAEMON", "accent", "bold"))
+    # 'accent' / 'orange' are only present in some custom themes; default
+    # palette is {blue, cyan, gray, green, magenta, red, white, yellow}.
+    # KeyError here would crash the daemon before the user ever sees a prompt.
+    try:
+        print(clr("\n  ▲ DULUS DAEMON", "yellow", "bold"))
+    except KeyError:
+        print("\n  ▲ DULUS DAEMON")
     print(clr("  " + "─" * 40, "dim"))
     info(f"Session: {session_id}")
     info("Daemon active — waiting for triggers…")
