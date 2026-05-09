@@ -3,6 +3,8 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 09, 2026 (**v0.2.28**): **IPC server thread no longer crashes on idle / dropped connections** — `conn.recv()` was hitting its 60s read timeout and raising `TimeoutError` out of the worker, killing the IPC thread silently. After that, the daemon was still running but `dulus "..."` from any shell would hang forever. Caught socket.timeout / ConnectionReset / BrokenPipe / OSError around the request-handling block so a single bad client can't take down the server.
+
 - May 09, 2026 (**v0.2.27**): **`/bg` no longer leaves stale state** — when something else (a REPL, an old daemon) is already on `127.0.0.1:5151`, `/bg start` now refuses to spawn a duplicate that would just fail to bind, explains what's happening, and clears the stale PID file. `/bg status` self-heals: when it sees a stale PID it auto-removes it instead of complaining on every call. The previous "Some Dulus is listening on IPC, but our PID file is stale" warning is gone for good.
 
 - May 09, 2026 (**v0.2.26**): **`/bg start` daemon crash fix + defensive `clr()` + composio fallback**

@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.27"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.28"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -4080,6 +4080,15 @@ def _ipc_server_loop(config, state):
                 conn.sendall(payload)
             except Exception:
                 pass
+        except (_socket.timeout, TimeoutError, ConnectionResetError, BrokenPipeError, OSError):
+            # Common transient socket errors: client opened conn and walked
+            # away (recv timeout), client killed mid-write, etc. Drop this
+            # connection but keep the server thread running.
+            pass
+        except Exception:
+            # Catch-all so a single bad request never takes down the IPC
+            # server thread (which would silently break /bg start's promise).
+            pass
         finally:
             try:
                 conn.close()
