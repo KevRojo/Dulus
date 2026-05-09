@@ -122,6 +122,26 @@ if sys.platform == "win32":
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+# ── Suppress noisy third-party startup warnings ──────────────────────────
+# These don't affect functionality but pollute every Dulus boot (REPL,
+# daemon, --print, every shell call). Filtered globally so logs stay clean.
+import warnings as _warnings
+# requests >= 2.32 nags about urllib3/chardet version pins on Python 3.13+.
+_warnings.filterwarnings("ignore", message=r".*urllib3.*")
+_warnings.filterwarnings("ignore", message=r".*chardet.*charset_normalizer.*")
+_warnings.filterwarnings("ignore", message=r".*RequestsDependencyWarning.*")
+# Dulus's own dev-license warning — only relevant if you're building
+# license keys for production, not noise we want on every boot.
+_warnings.filterwarnings("ignore", message=r".*DULUS_LICENSE_SECRET.*")
+# Catch-all: any RequestsDependencyWarning by category, regardless of msg.
+try:
+    from requests.exceptions import RequestsDependencyWarning as _RDW  # type: ignore
+    _warnings.filterwarnings("ignore", category=_RDW)
+except Exception:
+    pass
+# pkg_resources / setuptools-based deprecations from optional plugins.
+_warnings.filterwarnings("ignore", category=DeprecationWarning, module=r"pkg_resources.*")
 from pathlib import Path
 
 # ── Global Import Hook ───────────────────────────────────────────────────────

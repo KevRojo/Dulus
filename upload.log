@@ -1,0 +1,69 @@
+C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.6.3) or chardet (6.0.0.post1)/charset_normalizer (3.4.7) doesn't match a supported version!
+  warnings.warn(
+Uploading distributions to https://upload.pypi.org/legacy/
+Uploading dulus-0.2.30-py3-none-any.whl
+  0% ---------------------------------------- 0.0/1.2 MB • --:-- • ?  0% ---------------------------------------- 0.0/1.2 MB • --:-- • ?  0% ---------------------------------------- 0.0/1.2 MB • --:-- • ?  0% ---------------------------------------- 0.0/1.2 MB • --:-- • ?  0% ---------------------------------------- 0.0/1.2 MB • --:-- • ?  7% -- ------------------------------------- 0.1/1.2 MB • 00:01 • 145.7 MB/s  7% -- ------------------------------------- 0.1/1.2 MB • 00:01 • 145.7 MB/s
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\twine\__main__.py", line 54, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\twine\__main__.py", line 33, in main
+    error = cli.dispatch(sys.argv[1:])
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\twine\cli.py", line 139, in dispatch
+    return main(args.args)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\twine\commands\upload.py", line 253, in main
+    return upload(upload_settings, parsed_args.dists)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\twine\commands\upload.py", line 197, in upload
+    resp = repository.upload(package)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\twine\repository.py", line 165, in upload
+    resp = self._upload(package)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\twine\repository.py", line 151, in _upload
+    resp = self.session.post(
+        self.url,
+    ...<2 lines>...
+        headers={"Content-Type": monitor.content_type},
+    )
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\requests\sessions.py", line 637, in post
+    return self.request("POST", url, data=data, json=json, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\requests\adapters.py", line 644, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\site-packages\urllib3\connection.py", line 514, in request
+    self.send(chunk)
+    ~~~~~~~~~^^^^^^^
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\http\client.py", line 1077, in send
+    self.sock.sendall(data)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\ssl.py", line 1263, in sendall
+    v = self.send(byte_view[count:])
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\ssl.py", line 1232, in send
+    return self._sslobj.write(data)
+           ~~~~~~~~~~~~~~~~~~^^^^^^
+KeyboardInterrupt
+^C
