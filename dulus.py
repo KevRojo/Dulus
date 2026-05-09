@@ -218,7 +218,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.26"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.27"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -1581,9 +1581,22 @@ def cmd_bg(args: str, _state, config) -> bool:
         elif alive and not ipc:
             warn(f"PID {pid} alive but IPC port not responding (still booting?)")
         elif ipc:
-            warn("Some Dulus is listening on IPC, but our PID file is stale.")
+            warn("Another Dulus (REPL or older daemon) is on the IPC port.")
+            info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT} (responding, but not our daemon)")
+            info("  You can still reach it via `dulus \"...\"` from any shell.")
+            info("  /bg start won't spawn a duplicate — kill the other one first if needed.")
+            # Clear the stale PID file so this warning self-heals next time.
+            try:
+                BG_PID.unlink()
+            except FileNotFoundError:
+                pass
         else:
             info("Dulus background: NOT RUNNING")
+            # Clean up any stale PID file just in case.
+            try:
+                BG_PID.unlink()
+            except FileNotFoundError:
+                pass
         return True
 
     # ── /bg stop ──────────────────────────────────────────────────────────
@@ -1637,6 +1650,21 @@ def cmd_bg(args: str, _state, config) -> bool:
         existing_pid = _read_pid()
         if _is_alive(existing_pid) and _ipc_alive():
             info(f"Already running (PID {existing_pid}).  Use `/bg status` for details.")
+            return True
+
+        # Some other Dulus (a REPL on this machine, an old daemon, etc.) is
+        # holding the IPC port. Spawning a new daemon would just fail to bind
+        # and leave a stale PID. Better: tell the user what's up.
+        if _ipc_alive():
+            warn(f"Port {DULUS_IPC_PORT} is already in use by another Dulus process.")
+            info("If that's a REPL you're running, this Dulus is already reachable")
+            info(f"  via `dulus \"...\"` from any shell — no /bg start needed.")
+            info("If it's a stale daemon, find and kill it manually, then retry.")
+            # Clean up the stale PID file so /bg status stops complaining.
+            try:
+                BG_PID.unlink()
+            except FileNotFoundError:
+                pass
             return True
 
         # Parse --web-port
