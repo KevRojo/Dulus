@@ -45,6 +45,7 @@ SET /sticky_input ON since the first run for the best experience!
 Talent cant be copied.
 
 Dulus Reduce your IA costs by 60% parsing webchats and claude-code directly. Write poetry while Anthropic only see text.
+Use claude-code as an API without the new 'extra-usage' wall <3
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/poetry-banner.png" alt="Anthropic only sees text while you and Claude are writing poetry" width="100%"></p>
 
