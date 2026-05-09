@@ -352,6 +352,13 @@ CRITICAL:
 - plugin.json "dependencies" MUST be a simple LIST of strings
 - Include "ADAPTATION_GUIDE.md" in plugin.json "skills" list
 
+TMUX-OFFLOAD HINT (important for UX):
+- For each tool you generate, ESTIMATE its typical runtime.
+- If a tool typically runs > 15 seconds (network scans, sherlock, full holehe sweeps, large file ingestion, OSINT crawls, video downloads, full-repo analysis, etc.), APPEND the literal marker `[long-running — wrap in TmuxOffload]` at the END of the tool's `description` field in the JSON schema.
+- Tools that are fast (< 5s) do NOT need the marker. Don't be over-cautious — only mark tools where users will visibly wait.
+- The marker is read by Dulus's agent at runtime: when it sees a tool description ending in `[long-running — wrap in TmuxOffload]`, it knows to wrap that call in TmuxOffload instead of blocking the REPL.
+- Example: `"description": "Search for a username across hundreds of social networks. [long-running — wrap in TmuxOffload]"`
+
 Respond with the delimited format:
 ---FILE: ADAPTATION_GUIDE.md---
 (Overview, tool design decisions, error patterns, validation)
