@@ -1563,16 +1563,32 @@ def cmd_bg(args: str, _state, config) -> bool:
     def _is_alive(pid: int) -> bool:
         if pid <= 0:
             return False
-        try:
-            if _sys.platform == "win32":
-                # On Windows, os.kill(pid, 0) raises if the process doesn't exist.
+        if _sys.platform == "win32":
+            # os.kill(pid, 0) on Windows is unreliable for GUI-subsystem
+            # processes (pythonw.exe): it raises OSError(errno=22) even
+            # when the process is alive. Use the native OpenProcess API.
+            try:
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+                if h:
+                    kernel32.CloseHandle(h)
+                    return True
+                # OpenProcess returned 0 — check last error
+                err = kernel32.GetLastError()
+                # ERROR_INVALID_PARAMETER (87) = PID does not exist
+                return err != 87
+            except Exception:
+                # Fallback: if the native API fails, assume alive so we
+                # still attempt taskkill downstream.
+                return True
+        else:
+            try:
                 _os.kill(pid, 0)
                 return True
-            else:
-                _os.kill(pid, 0)
-                return True
-        except (ProcessLookupError, OSError, PermissionError):
-            return False
+            except (ProcessLookupError, OSError):
+                return False
 
     def _read_pid() -> int:
         try:
@@ -1634,19 +1650,34 @@ def cmd_bg(args: str, _state, config) -> bool:
             except FileNotFoundError:
                 pass
             return True
+        sigterm_ok = False
         try:
-            if _sys.platform == "win32":
-                _os.kill(pid, _signal.SIGTERM)
-            else:
-                _os.kill(pid, _signal.SIGTERM)
+            _os.kill(pid, _signal.SIGTERM)
+            sigterm_ok = True
             ok(f"Sent SIGTERM to PID {pid}.")
+        except PermissionError:
+            # On Windows os.kill() to a GUI-subsystem process (pythonw.exe)
+            # often raises PermissionError. Escalate to taskkill immediately.
+            if _sys.platform == "win32":
+                try:
+                    _sp.run(["taskkill", "/F", "/PID", str(pid)],
+                            capture_output=True, timeout=5)
+                    ok(f"Forced stop via taskkill /F on PID {pid}.")
+                except Exception as tk_e:
+                    err(f"Failed to kill {pid}: {tk_e}")
+                    return True
+            else:
+                err(f"Failed to kill {pid}: Permission denied")
+                return True
         except Exception as e:
             err(f"Failed to kill {pid}: {e}")
             return True
-        for _ in range(20):
-            if not _is_alive(pid):
-                break
-            _time.sleep(0.25)
+
+        if sigterm_ok:
+            for _ in range(20):
+                if not _is_alive(pid):
+                    break
+                _time.sleep(0.25)
         try:
             BG_PID.unlink()
         except FileNotFoundError:
@@ -1670,19 +1701,65 @@ def cmd_bg(args: str, _state, config) -> bool:
         return True
 
     # ── /bg kill ──────────────────────────────────────────────────────────
-    # Force-stop the background DAEMON only — never the user's own REPL.
-    # We use the BG_PID file as the source of truth: only /bg start writes
-    # it, so it uniquely identifies the detached daemon. If no BG_PID file
-    # exists, we refuse to kill anything (port may be held by a REPL the
-    # user wants to keep). For SIGKILL escalation we use taskkill on Windows.
+    # Force-stop whatever is holding the IPC port.
+    # Priority 1: BG_PID file (fastest, most reliable).
+    # Priority 2: discover the PID from the OS by scanning port 5151.
+    # We NEVER kill our own REPL process (own_pid check).
+    # For SIGKILL escalation we use taskkill on Windows.
     if sub == "kill":
         f_pid = _read_pid()
         own_pid = _os.getpid()
 
+        def _discover_pid_from_port(port: int) -> int:
+            """Ask the OS which process owns the given TCP port."""
+            try:
+                if _sys.platform == "win32":
+                    # netstat -ano  →  find the line with :5151 in LISTENING state
+                    result = _sp.run(
+                        ["netstat", "-ano"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    for line in result.stdout.splitlines():
+                        if f":{port}" in line and ("LISTENING" in line or "ESTABLISHED" in line):
+                            parts = line.strip().split()
+                            if parts:
+                                try:
+                                    return int(parts[-1])
+                                except ValueError:
+                                    continue
+                else:
+                    # lsof -ti :port  (outputs PID only)
+                    result = _sp.run(
+                        ["lsof", "-ti", f":{port}"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.stdout.strip():
+                        return int(result.stdout.strip().splitlines()[0])
+                    # Fallback to fuser
+                    result = _sp.run(
+                        ["fuser", f"{port}/tcp"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.stdout.strip():
+                        parts = result.stdout.strip().split(":")
+                        if len(parts) > 1:
+                            return int(parts[1].strip().split()[0])
+            except Exception:
+                pass
+            return 0
+
+        # No PID file? Discover from the OS if the port is in use.
+        if not f_pid and _ipc_alive():
+            discovered = _discover_pid_from_port(DULUS_IPC_PORT)
+            if discovered and discovered != own_pid:
+                f_pid = discovered
+                info(f"No PID file — discovered process {f_pid} holding port {DULUS_IPC_PORT}.")
+            elif discovered == own_pid:
+                warn("Port is held by this REPL — close it with /exit instead.")
+                return True
+
         if not f_pid:
-            info("No background daemon to kill (BG_PID file missing).")
-            info(f"  If port {DULUS_IPC_PORT} is in use, it's likely your own REPL.")
-            info("  Close your REPL (/exit) to free the port — /bg kill won't touch it.")
+            info("No background daemon to kill (port free, PID file missing).")
             return True
 
         if f_pid == own_pid:
@@ -1702,29 +1779,48 @@ def cmd_bg(args: str, _state, config) -> bool:
             return True
 
         # Send SIGTERM, give it 1s, escalate to SIGKILL/taskkill if it lingers.
+        # On Windows, os.kill() to a GUI-subsystem process (pythonw.exe) often
+        # raises PermissionError. We catch that immediately and escalate to
+        # taskkill /F instead of giving up.
+        sigterm_ok = False
         try:
             _os.kill(f_pid, _signal.SIGTERM)
+            sigterm_ok = True
             ok(f"Sent SIGTERM to daemon PID {f_pid}.")
-        except (ProcessLookupError, PermissionError, OSError) as e:
+        except PermissionError:
+            if _sys.platform == "win32":
+                warn(f"Permission denied signalling PID {f_pid} — escalating to taskkill /F.")
+                try:
+                    _sp.run(["taskkill", "/F", "/PID", str(f_pid)],
+                            capture_output=True, timeout=5)
+                    ok(f"Forced kill via taskkill /F on PID {f_pid}.")
+                except Exception as tk_e:
+                    err(f"taskkill failed: {tk_e}")
+                    return True
+            else:
+                err(f"Could not signal PID {f_pid}: Permission denied")
+                return True
+        except (ProcessLookupError, OSError) as e:
             err(f"Could not signal PID {f_pid}: {e}")
             return True
 
-        for _ in range(8):
-            if not _is_alive(f_pid):
-                break
-            _time.sleep(0.25)
+        if sigterm_ok:
+            for _ in range(8):
+                if not _is_alive(f_pid):
+                    break
+                _time.sleep(0.25)
 
-        if _is_alive(f_pid):
-            warn(f"PID {f_pid} did not exit on SIGTERM — escalating to SIGKILL.")
-            try:
-                if _sys.platform == "win32":
-                    _sp.run(["taskkill", "/F", "/PID", str(f_pid)],
-                            capture_output=True, timeout=5)
-                else:
-                    _os.kill(f_pid, _signal.SIGKILL)
-            except Exception as e:
-                err(f"SIGKILL failed: {e}")
-                return True
+            if _is_alive(f_pid):
+                warn(f"PID {f_pid} did not exit on SIGTERM — escalating to SIGKILL.")
+                try:
+                    if _sys.platform == "win32":
+                        _sp.run(["taskkill", "/F", "/PID", str(f_pid)],
+                                capture_output=True, timeout=5)
+                    else:
+                        _os.kill(f_pid, _signal.SIGKILL)
+                except Exception as e:
+                    err(f"SIGKILL failed: {e}")
+                    return True
 
         try:
             BG_PID.unlink()
@@ -1786,6 +1882,12 @@ def cmd_bg(args: str, _state, config) -> bool:
         from config import save_config
         save_config(config)
 
+        # Snapshot current REPL session so the daemon can resume it.
+        # This ensures Telegram/Web share the SAME session_id and context.
+        current_sid = config.get("_session_id", "")
+        if current_sid and _state and getattr(_state, "messages", None):
+            save_latest("", _state, config)
+
         # Build the spawn command. On Windows we MUST use pythonw.exe (windowless
         # variant) instead of the console-subsystem python.exe / dulus shim,
         # otherwise Windows creates a visible console window for the daemon
@@ -1817,6 +1919,7 @@ def cmd_bg(args: str, _state, config) -> bool:
         env = _os.environ.copy()
         env["DULUS_BG_AUTO_WEBCHAT"] = "1"
         env["DULUS_BG_WEBCHAT_PORT"] = str(web_port)
+        env["DULUS_BG_SESSION_ID"] = current_sid
 
         # Detach properly per platform.
         log_fp = open(BG_LOG, "ab")
@@ -5740,10 +5843,27 @@ def _run_daemon(config: dict) -> None:
     from checkpoint import set_session
     from common import ok, info, warn, err, clr
 
-    session_id = config.get("_session_id") or uuid.uuid4().hex[:8]
+    import os as _os_env
+    bg_session_id = _os_env.environ.get("DULUS_BG_SESSION_ID", "")
+    session_id = bg_session_id or config.get("_session_id") or uuid.uuid4().hex[:8]
     set_session(session_id)
 
     state = AgentState()
+    # If spawned from /bg start with a session ID, resume that session's state.
+    if bg_session_id:
+        from config import MR_SESSION_DIR
+        latest_path = MR_SESSION_DIR / "session_latest.json"
+        if latest_path.exists():
+            try:
+                import json as _json
+                data = _json.loads(latest_path.read_text(encoding="utf-8", errors="replace"))
+                state.messages = data.get("messages", [])
+                state.turn_count = data.get("turn_count", 0)
+                state.total_input_tokens = data.get("total_input_tokens", 0)
+                state.total_output_tokens = data.get("total_output_tokens", 0)
+                info(f"Resumed session {session_id} ({len(state.messages)} messages)")
+            except Exception as _load_e:
+                warn(f"Could not resume session: {_load_e}")
     config["_state"] = state
     config["_session_id"] = session_id
     config["_last_interaction_time"] = time.time()
