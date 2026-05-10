@@ -17,6 +17,7 @@ from backend.personas import create_persona, get_active_persona, get_all_persona
 from backend.plugins import load_all_plugins, get_plugin_info, start_watcher, stop_watcher, watcher_status, reload_plugin, unload_plugin
 from task import create_task as task_create, list_tasks as task_list, update_task as task_update, get_task as task_get, delete_task as task_delete
 from backend.marketplace import load_registry, search_plugins, get_stats as marketplace_stats, install_plugin, uninstall_plugin
+from gui.session_utils import scan_sessions, save_session, delete_session as _delete_session_disk
 
 def _resolve_dashboard_dir() -> Path:
     """Find docs/dashboard whether running from source or installed package."""
@@ -146,6 +147,95 @@ def _strip_ansi(text: str) -> str:
     return _ANSI_RE.sub('', text)
 
 
+def _inject_mempalace(user_input: str, config: dict) -> str:
+    """Inject relevant memories from MemPalace into the user message.
+    Mirrors the logic in dulus.py REPL for consistent behavior.
+    """
+    if not config.get("mem_palace", True):
+        return user_input
+    if not user_input or len(user_input.strip()) < 12:
+        return user_input
+    _trivial = {"hola", "klk", "gracias", "ok", "si", "no", "dale",
+                "exit", "quit", "help", "thanks", "bien"}
+    _first = user_input.strip().lower().split()[0].strip(".,!?;:")
+    if _first in _trivial:
+        return user_input
+    try:
+        _q = user_input.strip()[:200]
+        _raw_hits = []
+        # Primary: query the real MemPalace (~/.mempalace/palace)
+        try:
+            from mempalace.searcher import search_memories as _mp_search
+            from mempalace.config import MempalaceConfig as _MPCfg
+            _palace = _MPCfg().palace_path
+            _res = _mp_search(_q, _palace, n_results=3)
+            for _hit in (_res or {}).get("results", []):
+                _meta = _hit.get("metadata") or {}
+                _src = _meta.get("source_file") or _meta.get("name") or "palace"
+                _name = str(_src).rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0]
+                _vec = max(0.0, 1.0 - float(_hit.get("distance", 1.0)))
+                _bm = float(_hit.get("bm25_score", 0.0))
+                _raw_hits.append({
+                    "name": _name,
+                    "description": _meta.get("wing") or _meta.get("room") or "",
+                    "content": _hit.get("text", ""),
+                    "keyword_score": max(_vec, _bm),
+                })
+        except Exception:
+            pass
+        # Fallback: Dulus's local memory dir
+        if not _raw_hits:
+            from memory import find_relevant_memories
+            _raw_hits = find_relevant_memories(_q, max_results=3)
+        _MIN_SCORE = 0.15
+        _kept = [h for h in _raw_hits if float(h.get("keyword_score", 0.0)) >= _MIN_SCORE]
+        # Dedup against session cache
+        import hashlib as _hashlib
+        def _mp_dedup_key(h):
+            content = (h.get("content") or "").strip()[:240]
+            return _hashlib.md5(content.encode("utf-8", errors="ignore")).hexdigest()[:12]
+        _seen = config.setdefault("_mp_injected_keys", set())
+        _this_turn = set()
+        _filtered = []
+        for _h in _kept:
+            _k = _mp_dedup_key(_h)
+            if _k in _seen or _k in _this_turn:
+                continue
+            _this_turn.add(_k)
+            _filtered.append(_h)
+        _kept = _filtered
+        if not _kept:
+            return user_input
+        _BODY_BUDGET = 1800
+        _per_hit = max(300, _BODY_BUDGET // len(_kept))
+        _parts = []
+        for _i, _h in enumerate(_kept, 1):
+            _name = _h.get("name", f"hit_{_i}")
+            _desc = _h.get("description", "")
+            _body = _h.get("content", "").strip()
+            _snip = _body[:_per_hit] + ("..." if len(_body) > _per_hit else "")
+            if _desc:
+                _parts.append(f"### {_name}\n_{_desc}_\n{_snip}")
+            else:
+                _parts.append(f"### {_name}\n{_snip}")
+        _hits_str = "\n\n".join(_parts)
+        if len(_hits_str) > 2000:
+            _hits_str = _hits_str[:2000] + "\n[...truncated]"
+        _inject = (
+            "[MemPalace — relevant memories pre-loaded for this turn. "
+            "Do NOT re-query unless the user explicitly asks for more. "
+            "The answer to the user's question is very likely already "
+            "below — read it BEFORE reaching for any tool.]\n\n"
+            + _hits_str
+        )
+        # Mark these as injected so we don't repeat them next turn
+        for _h in _kept:
+            _seen.add(_mp_dedup_key(_h))
+        return _inject + "\n\n---\n\n[USER MESSAGE]\n" + user_input
+    except Exception:
+        return user_input
+
+
 def _run_slash_command(cmd_line: str) -> tuple[str, str | None]:
     """Run a slash command through the REPL's registered handler,
     capturing stdout. Mirrors the Telegram bridge behavior
@@ -221,42 +311,7 @@ def _run_agent_mirror(user_message: str) -> Generator:
             + user_input
         )
 
-    if cfg.get("mem_palace", True) and user_input and len(user_input.strip()) >= 12:
-        _trivial = {
-            "hola", "klk", "gracias", "ok", "si", "no", "dale",
-            "exit", "quit", "help", "thanks", "bien",
-        }
-        _first = user_input.strip().lower().split()[0]
-        if _first not in _trivial:
-            try:
-                from memory import find_relevant_memories
-                _q = user_input.strip()[:200]
-                _raw_hits = find_relevant_memories(_q, max_results=3)
-                _raw_hits = [h for h in _raw_hits if h.get("keyword_score", 0.0) >= 60.0]
-                if _raw_hits:
-                    _parts = []
-                    for _i, _h in enumerate(_raw_hits, 1):
-                        _name = _h.get("name", f"hit_{_i}")
-                        _desc = _h.get("description", "")
-                        _body = _h.get("content", "").strip()
-                        _snip = _body[:300] + ("..." if len(_body) > 300 else "")
-                        if _desc:
-                            _parts.append(f"### {_name}\n_{_desc}_\n{_snip}")
-                        else:
-                            _parts.append(f"### {_name}\n{_snip}")
-                    _hits_str = "\n\n".join(_parts)
-                    if len(_hits_str) > 2000:
-                        _hits_str = _hits_str[:2000] + "\n[...truncated]"
-                    _inject = (
-                        "[MemPalace — relevant memories pre-loaded for this turn. "
-                        "Do NOT re-query unless the user explicitly asks for more.]\n\n"
-                        + _hits_str
-                    )
-                    user_input = (
-                        _inject + "\n\n---\n\n[USER MESSAGE]\n" + user_input
-                    )
-            except Exception:
-                pass
+    user_input = _inject_mempalace(user_input, cfg)
 
     system_prompt = build_system_prompt(cfg)
     cfg.pop("_in_telegram_turn", None)
@@ -419,25 +474,20 @@ def create_app() -> Flask:
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Archivo+Black&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0a0a0a;
-  --bg2:#0f0f12;
-  --bg3:#15151a;
-  --ink:#f0e8df;
-  --dim:#6a6470;
-  --dim2:#3a3840;
-  --accent:#ff6b1f;
-  --accent2:#ffb347;
+  --bg:#0a0a0a;--bg2:#0f0f12;--bg3:#15151a;--bg4:#1a1a20;
+  --ink:#f0e8df;--dim:#6a6470;--dim2:#3a3840;
+  --accent:#ff6b1f;--accent2:#ffb347;
   --mono:'JetBrains Mono',monospace;
   --display:'Archivo Black','Impact',sans-serif;
   --radius:4px;
+  --green:#7cffb5;--red:#ff5a6e;--yellow:#ffd166;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;font-size:16px}
-body{background:var(--bg);color:var(--ink);font-family:var(--mono);height:100vh;display:flex;flex-direction:column;position:relative}
+body{background:var(--bg);color:var(--ink);font-family:var(--mono);height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden}
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
-
 .grid-bg{
   position:fixed;inset:0;pointer-events:none;z-index:0;
   background-image:linear-gradient(rgba(255,107,31,.06) 1px,transparent 1px),
@@ -445,43 +495,275 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);height:100vh;
   background-size:40px 40px;
   mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%);
 }
+#app{display:flex;height:100vh;overflow:hidden;position:relative}
 
-header{padding:0 40px;height:64px;background:rgba(10,10,10,.7);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,107,31,.12);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:100}
-header h1{font-family:var(--display);font-size:18px;letter-spacing:-.02em;color:var(--ink);display:flex;align-items:center;gap:12px}
-header h1::before{content:"▲";font-size:18px;color:#000;background:var(--accent);width:32px;height:32px;display:grid;place-items:center;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);}
+/* ===== Sidebar ===== */
+#sidebar{
+  width:260px;min-width:260px;background:var(--bg2);border-right:1px solid rgba(255,107,31,.12);
+  display:flex;flex-direction:column;transition:width .25s ease,min-width .25s ease;margin-left:0;
+  position:relative;z-index:200;height:100vh
+}
+#sidebar.collapsed{width:48px;min-width:48px}
+#sidebar.collapsed .sidebar-expanded{display:none!important}
+#sidebar:not(.collapsed) .sidebar-collapsed{display:none!important}
+.sidebar-collapsed{display:flex;flex-direction:column;align-items:center;height:100%;padding:12px 0}
+.sidebar-logo-btn{
+  width:32px;height:32px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display:grid;place-items:center;color:#000;font-size:16px;font-weight:800;cursor:pointer;border:none;flex-shrink:0
+}
+.sidebar-collapsed .sidebar-logo-btn{margin-bottom:auto}
+.sidebar-collapsed .sidebar-bottom-btn{
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--dim2);border-radius:var(--radius);
+  color:var(--dim);cursor:pointer;transition:all .2s;margin-top:6px;padding:0
+}
+.sidebar-collapsed .sidebar-bottom-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(255,107,31,.1)}
+.sidebar-expanded{display:flex;flex-direction:column;height:100%}
+.sidebar-header{
+  display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0
+}
+.sidebar-header h2{font-family:var(--display);font-size:14px;letter-spacing:-.01em;color:var(--ink)}
+.sidebar-search{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0}
+.sidebar-search input{
+  width:100%;background:var(--bg3);color:var(--ink);border:1px solid var(--dim2);padding:8px 12px;
+  border-radius:var(--radius);font-family:var(--mono);font-size:12px;outline:none;transition:border-color .2s
+}
+.sidebar-search input:focus{border-color:var(--accent)}
+.sidebar-search input::placeholder{color:var(--dim)}
+#sessionList{flex:1;overflow-y:auto;padding:8px}
+.session-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);
+  cursor:pointer;transition:background .15s;border-left:3px solid transparent;margin-bottom:2px;
+  position:relative;user-select:none
+}
+.session-item:hover{background:rgba(255,255,255,.03)}
+.session-item.active{
+  background:rgba(255,107,31,.08);border-left-color:var(--accent)
+}
+.session-icon{
+  width:28px;height:28px;min-width:28px;border-radius:var(--radius);background:var(--bg3);
+  display:grid;place-items:center;font-size:12px;color:var(--dim);border:1px solid var(--dim2)
+}
+.session-item.active .session-icon{border-color:var(--accent);color:var(--accent)}
+.session-info{flex:1;min-width:0;overflow:hidden}
+.session-title{
+  font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-weight:500;line-height:1.3
+}
+.session-time{font-size:10px;color:var(--dim);margin-top:2px}
+.session-item.active .session-title{color:var(--accent2)}
+.session-actions{
+  display:flex;gap:2px;opacity:0;transition:opacity .15s
+}
+.session-item:hover .session-actions{opacity:1}
+.session-actions button{
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:var(--dim);cursor:pointer;border-radius:3px;transition:all .15s;
+  padding:0
+}
+.session-actions button:hover{background:rgba(255,255,255,.08);color:var(--accent)}
+.session-item.renaming .session-info{display:none}
+.session-item.renaming .session-actions{display:none}
+.session-rename-input{
+  flex:1;background:var(--bg3);color:var(--ink);border:1px solid var(--accent);padding:6px 8px;
+  border-radius:var(--radius);font-family:var(--mono);font-size:12px;outline:none
+}
+.sidebar-bottom{
+  border-top:1px solid rgba(255,255,255,.05);padding:10px 16px;display:flex;gap:6px;flex-shrink:0
+}
+.sidebar-bottom button{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--bg3);color:var(--dim);border:1px solid var(--dim2);padding:8px 0;
+  border-radius:var(--radius);cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;transition:all .2s
+}
+.sidebar-bottom button:hover{background:rgba(255,107,31,.1);border-color:var(--accent);color:var(--accent)}
+.sidebar-bottom button svg{width:14px;height:14px}
 
+/* ===== Main ===== */
+#main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+
+/* ===== Header ===== */
+header{
+  padding:0 24px;height:56px;background:rgba(10,10,10,.7);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,107,31,.12);display:flex;justify-content:space-between;
+  align-items:center;gap:10px;position:relative;z-index:100
+}
+header .header-left{display:flex;align-items:center;gap:12px}
+header h1{
+  font-family:var(--display);font-size:18px;letter-spacing:-.02em;color:var(--ink);
+  display:flex;align-items:center;gap:12px
+}
+header h1::before{
+  content:"\25b2";font-size:18px;color:#000;background:var(--accent);width:32px;height:32px;
+  display:grid;place-items:center;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)
+}
 header .model{font-size:11px;color:var(--dim)}
-header a,header button{background:var(--bg2);color:var(--dim);border:1px solid var(--dim2);padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background .2s,border-color .2s,color .2s}
+header a,header button{
+  background:var(--bg2);color:var(--dim);border:1px solid var(--dim2);padding:6px 12px;
+  border-radius:var(--radius);cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background .2s,border-color .2s,color .2s
+}
 header a:hover,header button:hover{background:rgba(255,107,31,.1);border-color:var(--accent);color:var(--accent)}
+#sidebarToggle{
+  display:none;width:36px;height:36px;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--dim2);border-radius:var(--radius);
+  color:var(--dim);cursor:pointer;transition:all .2s;padding:0
+}
+#sidebarToggle:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ===== Log ===== */
 #log{flex:1;overflow-y:auto;padding:24px 40px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1}
 .msg{max-width:780px;padding:12px 16px;border-radius:6px;white-space:pre-wrap;word-wrap:break-word;font-size:14px}
 .user{align-self:flex-end;background:rgba(255,107,31,.1);border:1px solid rgba(255,107,31,.25)}
 .assistant{align-self:flex-start;background:var(--bg3);border:1px solid var(--dim2)}
 .meta{font-size:10px;color:var(--dim);margin-top:6px}
-.err{color:#ff5a6e;border-color:rgba(255,90,110,.4) !important}
-#inputArea{display:flex;gap:10px;padding:16px 40px;background:var(--bg2);border-top:1px solid var(--dim2);position:relative;z-index:100}
-textarea{flex:1;background:var(--bg3);color:var(--ink);border:1px solid var(--dim2);padding:12px;border-radius:var(--radius);font-family:var(--mono);font-size:14px;resize:none;height:64px;outline:none;transition:border-color .2s}
+.err{color:#ff5a6e;border-color:rgba(255,90,110,.4)!important}
+
+/* ===== Input ===== */
+#inputArea{
+  display:flex;gap:10px;padding:16px 40px;background:var(--bg2);border-top:1px solid var(--dim2);
+  position:relative;z-index:100
+}
+textarea{
+  flex:1;background:var(--bg3);color:var(--ink);border:1px solid var(--dim2);padding:12px;
+  border-radius:var(--radius);font-family:var(--mono);font-size:14px;resize:none;height:64px;
+  outline:none;transition:border-color .2s
+}
 textarea:focus{border-color:var(--accent)}
 textarea::placeholder{color:var(--dim)}
-button.send{background:var(--accent);color:#000;border:none;padding:0 24px;border-radius:var(--radius);font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s}
+button.send{
+  background:var(--accent);color:#000;border:none;padding:0 24px;border-radius:var(--radius);
+  font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  cursor:pointer;transition:background .2s
+}
 button.send:hover{background:var(--accent2)}
 button.send:disabled{opacity:.4;cursor:not-allowed}
-.think{font-size:11px;color:var(--dim);margin-top:8px;padding:8px 12px;border-left:2px solid var(--dim2);background:rgba(0,0,0,.2);white-space:pre-wrap}
-.tool{font-size:11px;color:#a39ca8;margin-top:8px;padding:8px 12px;border-left:2px solid var(--accent);background:rgba(255,107,31,.04);white-space:pre-wrap}
-.tool-result{font-size:11px;color:var(--dim);margin-top:4px;padding:8px 12px;border-left:2px solid var(--dim2);background:rgba(0,0,0,.2);white-space:pre-wrap;max-height:200px;overflow-y:auto}
-.perm{font-size:12px;color:#ffd166;margin-top:8px;padding:12px;border:1px solid rgba(255,209,102,.25);background:rgba(255,209,102,.1);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ===== Extras ===== */
+.think{
+  font-size:11px;color:var(--dim);margin-top:8px;padding:8px 12px;border-left:2px solid var(--dim2);
+  background:rgba(0,0,0,.2);white-space:pre-wrap
+}
+.tool{
+  font-size:11px;color:#a39ca8;margin-top:8px;padding:8px 12px;border-left:2px solid var(--accent);
+  background:rgba(255,107,31,.04);white-space:pre-wrap
+}
+.tool-result{
+  font-size:11px;color:var(--dim);margin-top:4px;padding:8px 12px;border-left:2px solid var(--dim2);
+  background:rgba(0,0,0,.2);white-space:pre-wrap;max-height:200px;overflow-y:auto
+}
+.perm{
+  font-size:12px;color:#ffd166;margin-top:8px;padding:12px;border:1px solid rgba(255,209,102,.25);
+  background:rgba(255,209,102,.1);display:flex;gap:10px;align-items:center;flex-wrap:wrap
+}
 .perm button{background:var(--bg3);color:var(--ink);border:1px solid var(--dim2);padding:6px 14px;border-radius:3px;cursor:pointer;font-weight:700}
 .perm button.approve{background:var(--accent);color:#000;border:none}
-@media(max-width:600px){
-header{padding:0 20px;height:auto;padding-bottom:10px}
-#log{padding:16px 20px}
-.msg{max-width:92%}
-#inputArea{padding:16px 20px}
+
+/* ===== Context Menu ===== */
+#ctxMenu{
+  position:fixed;background:var(--bg4);border:1px solid var(--dim2);border-radius:var(--radius);
+  padding:4px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.5);display:none;min-width:140px
 }
-</style></head><body>
+#ctxMenu .ctx-item{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:3px;
+  cursor:pointer;font-size:12px;color:var(--ink);transition:background .15s;border:none;background:transparent;
+  width:100%;font-family:var(--mono)
+}
+#ctxMenu .ctx-item:hover{background:rgba(255,107,31,.15);color:var(--accent2)}
+#ctxMenu .ctx-item svg{width:14px;height:14px;color:var(--dim);flex-shrink:0}
+#ctxMenu .ctx-item:hover svg{color:var(--accent)}
+#ctxMenu .ctx-separator{height:1px;background:var(--dim2);margin:4px 0}
+
+/* ===== Toast ===== */
+#toastContainer{
+  position:fixed;top:16px;right:16px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none
+}
+.toast{
+  background:var(--bg4);border:1px solid var(--dim2);border-radius:var(--radius);padding:12px 16px;
+  font-size:12px;color:var(--ink);box-shadow:0 4px 16px rgba(0,0,0,.5);
+  display:flex;align-items:center;gap:10px;min-width:240px;max-width:340px;
+  animation:toastIn .25s ease;pointer-events:auto;position:relative;overflow:hidden
+}
+.toast::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dim)}
+.toast.success::before{background:var(--green)}
+.toast.error::before{background:var(--red)}
+.toast.info::before{background:var(--accent)}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+.toast.success svg{color:var(--green)}
+.toast.error svg{color:var(--red)}
+.toast.info svg{color:var(--accent)}
+
+/* ===== Mobile ===== */
+@media(max-width:768px){
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:500;transform:translateX(-100%);transition:transform .3s ease;box-shadow:none}
+  #sidebar.open{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,.5)}
+  #sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;backdrop-filter:blur(2px)}
+  #sidebarOverlay.open{display:block}
+  #sidebarToggle{display:flex}
+  #log{padding:16px 20px}
+  .msg{max-width:92%}
+  #inputArea{padding:16px 20px}
+  header{padding:0 16px;height:52px}
+}
+@media(max-width:600px){
+  header{height:auto;min-height:52px;padding:8px 16px;flex-wrap:wrap}
+  header h1{font-size:15px}
+  header h1::before{width:26px;height:26px;font-size:14px}
+  header a,header button{font-size:10px;padding:5px 8px}
+}
+</style><style id="dynamic-theme"></style></head><body>
 <div class="grid-bg"></div>
+<div id="sidebarOverlay"></div>
+<div id="app">
+<!-- ===== SIDEBAR ===== -->
+<nav id="sidebar">
+  <div class="sidebar-collapsed">
+    <button class="sidebar-logo-btn" onclick="toggleSidebar()" title="Expand">&#9650;</button>
+    <button class="sidebar-bottom-btn" onclick="newChat()" title="New Chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button class="sidebar-bottom-btn" onclick="refreshSessions()" title="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+    <button class="sidebar-bottom-btn" onclick="toggleSidebar()" title="Expand" style="margin-top:auto">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5l7 7-7 7"/><path d="M5 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+  <div class="sidebar-expanded">
+    <div class="sidebar-header">
+      <div class="sidebar-logo-btn" style="cursor:default">&#9650;</div>
+      <h2>DULUS</h2>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="searchInput" placeholder="Search chats..." oninput="filterSessions()">
+    </div>
+    <div id="sessionList"></div>
+    <div class="sidebar-bottom">
+      <button onclick="newChat()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>New</span>
+      </button>
+      <button onclick="refreshSessions()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+      <button onclick="toggleSidebar()" title="Collapse">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+<!-- ===== MAIN ===== -->
+<div id="main">
 <header>
-  <h1>DULUS WEBCHAT</h1>
+  <div class="header-left">
+    <button id="sidebarToggle" onclick="toggleSidebar()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <h1>DULUS WEBCHAT</h1>
+  </div>
   <select id="personaSelect" style="background:var(--bg3);color:var(--dim);border:1px solid var(--dim2);padding:4px 10px;border-radius:var(--radius);font-family:var(--mono);font-size:12px;outline:none;cursor:pointer;flex:1;max-width:250px;margin:0 15px;text-align:center"></select>
   <div>
     <a href="/roundtable">Mesa Redonda</a>
@@ -494,216 +776,588 @@ header{padding:0 20px;height:auto;padding-bottom:10px}
   <textarea id="inp" placeholder="Mensaje a Dulus... (Enter envia, Shift+Enter nueva linea)" autofocus></textarea>
   <button class="send" id="sendBtn">SEND</button>
 </div>
-<script>
-const log=document.getElementById('log');
-const inp=document.getElementById('inp');
-const btn=document.getElementById('sendBtn');
+</div>
+</div>
 
-function add(role,text,extra){
-  const d=document.createElement('div');
-  d.className='msg '+role;
-  d.textContent=text;
+<!-- Context Menu -->
+<div id="ctxMenu">
+  <button class="ctx-item" onclick="ctxRename()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+    Rename
+  </button>
+  <div class="ctx-separator"></div>
+  <button class="ctx-item" onclick="ctxDelete()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    Delete
+  </button>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+<script>
+// ===== THEME SYNC =====
+(function(){
+  function ensureThemeStyle(){
+    var el = document.getElementById('dynamic-theme');
+    if(!el){
+      el = document.createElement('style');
+      el.id = 'dynamic-theme';
+      document.head.appendChild(el);
+    }
+    return el;
+  }
+  async function applyTheme(name){
+    name = name || localStorage.getItem('dulus-theme') || 'dulus';
+    try{
+      var res = await fetch('/api/themes/' + encodeURIComponent(name) + '/css');
+      var css = await res.text();
+      if(css){
+        ensureThemeStyle().textContent = css;
+        localStorage.setItem('dulus-theme', name);
+      }
+    }catch(e){}
+  }
+  applyTheme();
+})();
+
+// ===== STATE =====
+const ACTIVE_KEY = 'dulus_active_session';
+const SIDEBAR_COLLAPSED_KEY = 'dulus_sidebar_collapsed';
+const DEFAULT_SESSION_ID = 'default';
+
+let sessions = [];
+let activeSessionId = DEFAULT_SESSION_ID;
+let ctxTargetId = null;
+let isMobile = window.innerWidth < 768;
+let renamingId = null;
+
+// ===== TOAST =====
+function showToast(message, type){
+  var c = document.getElementById('toastContainer');
+  var t = document.createElement('div');
+  t.className = 'toast ' + (type || 'info');
+  var icon = '';
+  if(type === 'success'){
+    icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  }else if(type === 'error'){
+    icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  }else{
+    icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  }
+  t.innerHTML = icon + '<span>' + escapeHtml(message) + '</span>';
+  c.appendChild(t);
+  setTimeout(function(){ t.classList.add('exit'); setTimeout(function(){ t.remove(); }, 250); }, 3000);
+}
+
+// ===== UTILS =====
+function escapeHtml(t){
+  var d = document.createElement('div');
+  d.textContent = t;
+  return d.innerHTML;
+}
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function formatTime(ts){
+  var d = new Date(ts);
+  var now = new Date();
+  if(d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+  var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  if(d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], {month: 'short', day: 'numeric'});
+}
+
+// ===== SESSION STORAGE =====
+function loadSessions(){
+  // Server is the source of truth; localStorage no longer caches session data
+  fetch('/api/sessions')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.length){
+        sessions = data.map(function(s){
+          return {
+            id: s.id,
+            title: s.title,
+            timestamp: s.saved_at ? new Date(s.saved_at).getTime() : Date.now(),
+            messages: s.messages || []
+          };
+        });
+        var savedActive = localStorage.getItem(ACTIVE_KEY);
+        if(savedActive && sessions.some(function(s){ return s.id === savedActive; })){
+          activeSessionId = savedActive;
+        }else{
+          activeSessionId = sessions[0].id;
+        }
+        renderSessions();
+        selectSession(activeSessionId);
+        return;
+      }
+      // Server empty — create a default session
+      sessions = [{id: DEFAULT_SESSION_ID, title: 'Chat', timestamp: Date.now(), messages: []}];
+      activeSessionId = DEFAULT_SESSION_ID;
+      renderSessions();
+      selectSession(activeSessionId);
+    })
+    .catch(function(e){
+      // Network down — start with a blank default session
+      sessions = [{id: DEFAULT_SESSION_ID, title: 'Chat', timestamp: Date.now(), messages: []}];
+      activeSessionId = DEFAULT_SESSION_ID;
+      renderSessions();
+    });
+}
+function saveActive(){ localStorage.setItem(ACTIVE_KEY, activeSessionId); }
+function getActiveSession(){
+  return sessions.find(function(s){ return s.id === activeSessionId; }) || sessions[0];
+}
+function updateActiveMessages(msgs){
+  var s = getActiveSession();
+  if(s){ s.messages = msgs; s.timestamp = Date.now(); }
+}
+function updateSessionTitleFromMessages(){
+  var s = getActiveSession();
+  if(!s) return;
+  var firstUser = s.messages.find(function(m){ return m.role === 'user'; });
+  if(firstUser && s.title === 'Chat'){
+    var txt = (typeof firstUser.content === 'string' ? firstUser.content : '').slice(0, 40);
+    if(txt) s.title = txt;
+    renderSessions();
+  }
+}
+
+// ===== SIDEBAR UI =====
+function renderSessions(){
+  var list = document.getElementById('sessionList');
+  var q = document.getElementById('searchInput').value.toLowerCase();
+  var filtered = sessions.filter(function(s){ return !q || s.title.toLowerCase().indexOf(q) >= 0; });
+  if(!filtered.length){
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--dim);font-size:11px">No chats found</div>';
+    return;
+  }
+  var html = '';
+  for(var i = 0; i < filtered.length; i++){
+    var s = filtered[i];
+    var isActive = s.id === activeSessionId;
+    var isRenaming = s.id === renamingId;
+    if(isRenaming){
+      html += '<div class="session-item active renaming" data-id="' + s.id + '">' +
+        '<div class="session-icon">&#9650;</div>' +
+        '<input class="session-rename-input" value="' + escapeHtml(s.title) + '" ' +
+        'onkeydown="renameKey(event,\'' + s.id + '\')" onblur="finishRename(\'' + s.id + '\')" id="rename-' + s.id + '">' +
+        '</div>';
+      continue;
+    }
+    html += '<div class="session-item ' + (isActive ? 'active' : '') + '" data-id="' + s.id + '" ' +
+      'onclick="selectSession(\'' + s.id + '\')" oncontextmenu="showCtx(event,\'' + s.id + '\')">' +
+      '<div class="session-icon">&#9650;</div>' +
+      '<div class="session-info">' +
+        '<div class="session-title">' + escapeHtml(s.title) + '</div>' +
+        '<div class="session-time">' + formatTime(s.timestamp) + '</div>' +
+      '</div>' +
+      '<div class="session-actions" onclick="event.stopPropagation()">' +
+        '<button onclick="startRename(\'' + s.id + '\')" title="Rename">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>' +
+        '</button>' +
+        '<button onclick="deleteSession(\'' + s.id + '\')" title="Delete">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  }
+  list.innerHTML = html;
+  if(renamingId){
+    var inp = document.getElementById('rename-' + renamingId);
+    if(inp){ inp.focus(); inp.select(); }
+  }
+}
+
+function startRename(id){
+  renamingId = id; renderSessions();
+}
+function finishRename(id){
+  var inp = document.getElementById('rename-' + id);
+  if(inp){
+    var v = inp.value.trim();
+    if(v){
+      var s = sessions.find(function(x){ return x.id === id; });
+      if(s){ s.title = v; }
+    }
+  }
+  renamingId = null; renderSessions();
+}
+function renameKey(e, id){
+  if(e.key === 'Enter'){ e.preventDefault(); finishRename(id); }
+  else if(e.key === 'Escape'){ renamingId = null; renderSessions(); }
+}
+function filterSessions(){ renderSessions(); }
+
+async function selectSession(id){
+  activeSessionId = id; saveActive();
+  renderSessions();
+  var s = getActiveSession();
+  if(s && s.messages){
+    log.innerHTML = '';
+    currentAssistant = null;
+    currentText = '';
+    for(var i = 0; i < s.messages.length; i++){
+      var m = s.messages[i];
+      if(m.role === 'user') add('user', m.content);
+      else if(m.role === 'assistant'){
+        var text = typeof m.content === 'string' ? m.content : '';
+        if(Array.isArray(m.content)){
+          var tc = m.content.find(function(c){ return c.type === 'text'; });
+          if(tc) text = tc.text;
+        }
+        if(text) add('assistant', text);
+      }
+    }
+  }
+  closeMobileSidebar();
+  // Sync server state with this session so the backend talks to the right conversation
+  try{
+    await fetch('/api/session/load', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({messages: s ? s.messages : []})
+    });
+  }catch(_){}
+}
+
+function newChat(){
+  fetch('/clear', {method: 'POST'}).then(function(){
+    var newS = {id: genId(), title: 'Chat', timestamp: Date.now(), messages: []};
+    sessions.unshift(newS); activeSessionId = newS.id;
+    saveActive();
+    log.innerHTML = '';
+    currentAssistant = null;
+    currentText = '';
+    renderSessions();
+    closeMobileSidebar();
+    showToast('New chat started', 'success');
+  });
+}
+
+function deleteSession(id){
+  var s = sessions.find(function(x){ return x.id === id; });
+  if(!s) return;
+  if(!confirm('Delete "' + s.title + '"?')) return;
+  fetch('/api/sessions/' + encodeURIComponent(id), {method: 'DELETE'}).catch(function(){});
+  sessions = sessions.filter(function(x){ return x.id !== id; });
+  if(sessions.length === 0){
+    var ns = {id: genId(), title: 'Chat', timestamp: Date.now(), messages: []};
+    sessions.push(ns); activeSessionId = ns.id;
+  }else if(activeSessionId === id){
+    activeSessionId = sessions[0].id;
+  }
+  saveActive();
+  selectSession(activeSessionId);
+  renderSessions();
+  showToast('Chat deleted', 'info');
+}
+
+function refreshSessions(){
+  syncWithServer(function(){
+    showToast('Chats refreshed', 'success');
+  });
+}
+
+// ===== CONTEXT MENU =====
+function showCtx(e, id){
+  e.preventDefault();
+  ctxTargetId = id;
+  var menu = document.getElementById('ctxMenu');
+  menu.style.display = 'block';
+  var x = e.clientX, y = e.clientY;
+  if(x + 160 > window.innerWidth) x = window.innerWidth - 170;
+  if(y + 80 > window.innerHeight) y = window.innerHeight - 90;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+function hideCtx(){ document.getElementById('ctxMenu').style.display = 'none'; ctxTargetId = null; }
+function ctxRename(){ if(ctxTargetId) startRename(ctxTargetId); hideCtx(); }
+function ctxDelete(){ if(ctxTargetId) deleteSession(ctxTargetId); hideCtx(); }
+document.addEventListener('click', function(e){
+  if(!e.target.closest('#ctxMenu')) hideCtx();
+});
+
+// ===== SIDEBAR TOGGLE =====
+function toggleSidebar(){
+  if(window.innerWidth < 768){
+    var sb = document.getElementById('sidebar');
+    if(sb.classList.contains('open')) closeMobileSidebar();
+    else openMobileSidebar();
+  }else{
+    var sb = document.getElementById('sidebar');
+    sb.classList.toggle('collapsed');
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sb.classList.contains('collapsed') ? '1' : '0');
+  }
+}
+function initSidebar(){
+  var collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+  if(collapsed === '1') document.getElementById('sidebar').classList.add('collapsed');
+}
+
+// ===== MOBILE SIDEBAR =====
+function openMobileSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeMobileSidebar(){
+  if(window.innerWidth >= 768) return;
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+document.getElementById('sidebarOverlay').addEventListener('click', closeMobileSidebar);
+
+// ===== CHAT FUNCTIONS =====
+var log = document.getElementById('log');
+var inp = document.getElementById('inp');
+var btn = document.getElementById('sendBtn');
+var currentAssistant = null;
+var currentText = '';
+
+function add(role, text, extra){
+  var d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.textContent = text;
   if(extra){
-    const m=document.createElement('div');
-    m.className='meta';
-    m.textContent=extra;
+    var m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = extra;
     d.appendChild(m);
   }
   log.appendChild(d);
-  log.scrollTop=log.scrollHeight;
+  log.scrollTop = log.scrollHeight;
   return d;
 }
 
-let currentAssistant=null;
-let currentText='';
-
 function ensureAssistant(){
   if(!currentAssistant){
-    currentAssistant=add('assistant','');
+    currentAssistant = add('assistant', '');
   }
   return currentAssistant;
 }
 
 function appendText(text){
   ensureAssistant();
-  currentText+=text;
-  currentAssistant.textContent=currentText;
-  log.scrollTop=log.scrollHeight;
+  currentText += text;
+  currentAssistant.textContent = currentText;
+  log.scrollTop = log.scrollHeight;
 }
 
 function appendThinking(text){
   ensureAssistant();
-  let th=currentAssistant.querySelector('.think');
+  var th = currentAssistant.querySelector('.think');
   if(!th){
-    th=document.createElement('div');
-    th.className='think';
-    th.textContent='[thinking]\n';
+    th = document.createElement('div');
+    th.className = 'think';
+    th.textContent = '[thinking]';
     currentAssistant.appendChild(th);
   }
-  th.textContent+=text;
-  log.scrollTop=log.scrollHeight;
+  th.textContent += text;
+  log.scrollTop = log.scrollHeight;
 }
 
-function startTool(name,inputs){
+function startTool(name, inputs){
   ensureAssistant();
-  const t=document.createElement('div');
-  t.className='tool';
-  t.textContent='🔧 '+name+'\n'+JSON.stringify(inputs,null,2);
+  var t = document.createElement('div');
+  t.className = 'tool';
+  t.textContent = '\ud83d\udd27 ' + name + '\n' + JSON.stringify(inputs, null, 2);
   currentAssistant.appendChild(t);
-  log.scrollTop=log.scrollHeight;
+  log.scrollTop = log.scrollHeight;
 }
 
-function endTool(name,result,permitted){
+function endTool(name, result, permitted){
   ensureAssistant();
-  const r=document.createElement('div');
-  r.className='tool-result';
-  r.textContent=(permitted?'✅':'❌')+' '+result;
+  var r = document.createElement('div');
+  r.className = 'tool-result';
+  r.textContent = (permitted ? '\u2705' : '\u274c') + ' ' + result;
   currentAssistant.appendChild(r);
-  log.scrollTop=log.scrollHeight;
+  log.scrollTop = log.scrollHeight;
 }
 
-function showPermission(id,desc){
+function showPermission(id, desc){
   ensureAssistant();
-  const p=document.createElement('div');
-  p.className='perm';
-  p.innerHTML='<span>⛔ '+desc+'</span>';
-  const yes=document.createElement('button');
-  yes.textContent='Approve';
-  yes.className='approve';
-  yes.onclick=function(){sendPermission(id,true);p.remove();};
-  const no=document.createElement('button');
-  no.textContent='Deny';
-  no.onclick=function(){sendPermission(id,false);p.remove();};
+  var p = document.createElement('div');
+  p.className = 'perm';
+  p.innerHTML = '<span>\u26d4 ' + desc + '</span>';
+  var yes = document.createElement('button');
+  yes.textContent = 'Approve';
+  yes.className = 'approve';
+  yes.onclick = function(){ sendPermission(id, true); p.remove(); };
+  var no = document.createElement('button');
+  no.textContent = 'Deny';
+  no.onclick = function(){ sendPermission(id, false); p.remove(); };
   p.appendChild(yes);
   p.appendChild(no);
   currentAssistant.appendChild(p);
-  log.scrollTop=log.scrollHeight;
+  log.scrollTop = log.scrollHeight;
 }
 
-async function sendPermission(id,granted){
-  await fetch('/permission',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({id:id,granted:granted})
+async function sendPermission(id, granted){
+  await fetch('/permission', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, granted: granted})
   });
 }
 
 async function sendMessage(){
-  const t=inp.value.trim();
+  var t = inp.value.trim();
   if(!t) return;
-  add('user',t);
-  inp.value='';
-  btn.disabled=true;
-  currentAssistant=null;
-  currentText='';
+  add('user', t);
+  inp.value = '';
+  btn.disabled = true;
+  currentAssistant = null;
+  currentText = '';
   try{
-    const resp=await fetch('/chat',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:t})
+    var resp = await fetch('/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: t})
     });
-    const reader=resp.body.getReader();
-    const decoder=new TextDecoder();
-    let buf='';
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = '';
     while(true){
-      const chunk=await reader.read();
+      var chunk = await reader.read();
       if(chunk.done) break;
-      buf+=decoder.decode(chunk.value,{stream:true});
-      const lines=buf.split('\n');
-      buf=lines.pop();
-      for(let i=0;i<lines.length;i++){
-        const line=lines[i];
+      buf += decoder.decode(chunk.value, {stream: true});
+      var lines = buf.split('\n');
+      buf = lines.pop();
+      for(var i = 0; i < lines.length; i++){
+        var line = lines[i];
         if(!line.startsWith('data: ')) continue;
-        let d;
-        try{d=JSON.parse(line.slice(6));}catch(_){continue;}
-        if(d.type==='text') appendText(d.text);
-        else if(d.type==='thinking') appendThinking(d.text);
-        else if(d.type==='tool_start') startTool(d.name,d.inputs);
-        else if(d.type==='tool_end') endTool(d.name,d.result,d.permitted);
-        else if(d.type==='permission') showPermission(d.id,d.description);
-        else if(d.type==='turn_done'){
-          const meta=document.createElement('div');
-          meta.className='meta';
-          let txt = 'in:'+d.in+' out:'+d.out;
-          if (d.cache_read) txt += ' [cache hit: ' + d.cache_read + ']';
-          if (d.cache_write) txt += ' [cache new: ' + d.cache_write + ']';
-          meta.textContent=txt;
+        var d;
+        try{ d = JSON.parse(line.slice(6)); }catch(_){ continue; }
+        if(d.type === 'text') appendText(d.text);
+        else if(d.type === 'thinking') appendThinking(d.text);
+        else if(d.type === 'tool_start') startTool(d.name, d.inputs);
+        else if(d.type === 'tool_end') endTool(d.name, d.result, d.permitted);
+        else if(d.type === 'permission') showPermission(d.id, d.description);
+        else if(d.type === 'turn_done'){
+          var meta = document.createElement('div');
+          meta.className = 'meta';
+          var txt = 'in:' + d.in + ' out:' + d.out;
+          if(d.cache_read) txt += ' [cache hit: ' + d.cache_read + ']';
+          if(d.cache_write) txt += ' [cache new: ' + d.cache_write + ']';
+          meta.textContent = txt;
           ensureAssistant().appendChild(meta);
         }
-        else if(d.type==='error') appendText('\n[error] '+d.message);
+        else if(d.type === 'error') appendText('\n[error] ' + d.message);
       }
     }
   }catch(err){
-    add('assistant','[network] '+err,'').classList.add('err');
+    add('assistant', '[network] ' + err, '').classList.add('err');
   }finally{
-    btn.disabled=false;
+    btn.disabled = false;
     inp.focus();
+    syncWithServer();
   }
 }
 
 async function clearChat(){
-  await fetch('/clear',{method:'POST'});
-  log.innerHTML='';
-  currentAssistant=null;
-  currentText='';
+  await fetch('/clear', {method: 'POST'});
+  log.innerHTML = '';
+  currentAssistant = null;
+  currentText = '';
+  var s = getActiveSession();
+  if(s){ s.messages = []; s.timestamp = Date.now(); }
+  showToast('Chat cleared', 'info');
 }
 
-async function syncChat(){
+async function syncWithServer(cb){
   if(btn.disabled) return;
   try{
-    const rh = await fetch('/api/chat/history');
-    if (rh.ok) {
-      const ht = await rh.json();
-      const currentMsgs = log.querySelectorAll('.msg').length;
-      if (ht.messages.length !== currentMsgs) {
-        const wasNearBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 50;
-        log.innerHTML='';
-        currentAssistant=null;
-        currentText='';
-        for (const m of ht.messages) {
-          if (m.role === 'user') add('user', m.content);
-          else if (m.role === 'assistant') {
-            let text = typeof m.content === 'string' ? m.content : '';
-            if (Array.isArray(m.content)) {
-              const tc = m.content.find(c => c.type === 'text');
-              if (tc) text = tc.text;
+    var rh = await fetch('/api/chat/history');
+    if(rh.ok){
+      var ht = await rh.json();
+      var s = getActiveSession();
+      var localCount = s ? s.messages.length : 0;
+      // Only overwrite local session if server has more messages (new turn completed)
+      if(ht.messages.length > localCount){
+        updateActiveMessages(ht.messages);
+        updateSessionTitleFromMessages();
+        var wasNearBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 50;
+        log.innerHTML = '';
+        currentAssistant = null;
+        currentText = '';
+        for(var i = 0; i < ht.messages.length; i++){
+          var m = ht.messages[i];
+          if(m.role === 'user') add('user', m.content);
+          else if(m.role === 'assistant'){
+            var text = typeof m.content === 'string' ? m.content : '';
+            if(Array.isArray(m.content)){
+              var tc = m.content.find(function(c){ return c.type === 'text'; });
+              if(tc) text = tc.text;
             }
-            if (text) add('assistant', text);
+            if(text) add('assistant', text);
           }
         }
-        if(wasNearBottom) log.scrollTop=log.scrollHeight;
+        if(wasNearBottom) log.scrollTop = log.scrollHeight;
+        renderSessions();
       }
     }
-    const rp = await fetch('/api/personas');
-    if (rp.ok) {
-      const jp = await rp.json();
-      const sel = document.getElementById('personaSelect');
-      sel.innerHTML = jp.personas.map(p => {
-        const isSelected = jp.active[p.name] ? 'selected' : '';
-        return `<option value="${p.name}" ${isSelected}>${p.name} (${p.role})</option>`;
+    var rp = await fetch('/api/personas');
+    if(rp.ok){
+      var jp = await rp.json();
+      var sel = document.getElementById('personaSelect');
+      var activeKeys = Object.keys(jp.active || {});
+      sel.innerHTML = jp.personas.map(function(p){
+        var isSelected = activeKeys.indexOf(p.name) >= 0 ? 'selected' : '';
+        return '<option value="' + p.name + '" ' + isSelected + '>' + p.name + ' (' + p.role + ')</option>';
       }).join('');
-      sel.onchange = async (e) => {
-         await fetch('/api/personas/activate', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({name:e.target.value})
-         });
+      sel.onchange = async function(e){
+        await fetch('/api/personas/activate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({id: e.target.value})
+        });
       };
     }
   }catch(_){}
+  // Persist current session to server disk
+  fetch('/api/sessions/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({session_id: activeSessionId})
+  }).catch(function(){});
+  if(cb) cb();
 }
 
-async function loadHist(){ return syncChat(); }
+async function loadHist(){ return syncWithServer(); }
 
-inp.addEventListener('keydown',function(e){
-  if(e.key==='Enter' && !e.shiftKey){
+inp.addEventListener('keydown', function(e){
+  if(e.key === 'Enter' && !e.shiftKey){
     e.preventDefault();
     sendMessage();
   }
 });
+btn.addEventListener('click', sendMessage);
 
+// ===== MOBILE =====
+window.addEventListener('resize', function(){
+  var nowMobile = window.innerWidth < 768;
+  if(nowMobile !== isMobile){
+    isMobile = nowMobile;
+    if(!isMobile) closeMobileSidebar();
+  }
+});
+
+// ===== INIT =====
+loadSessions();
+initSidebar();
+renderSessions();
 loadHist();
-setInterval(syncChat, 5000);
+// Ensure server state matches the active session on startup
+(function(){
+  var s = getActiveSession();
+  if(s){
+    fetch('/api/session/load', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({messages: s.messages || []})
+    }).catch(function(){});
+  }
+})();
+setInterval(function(){ syncWithServer(); }, 5000);
 </script>
 </body></html>"""
 
@@ -785,7 +1439,7 @@ header{padding:10px 20px;height:auto}
 #grid{padding:16px 20px}
 #inputArea{padding:16px 20px}
 }
-</style></head><body>
+</style><style id="dynamic-theme"></style></head><body>
 <div class="grid-bg"></div>
 <header>
   <h1>DULUS MESA REDONDA</h1>
@@ -811,6 +1465,31 @@ header{padding:10px 20px;height:auto}
   <button class="send" id="sendBtn" onclick="sendTurn()">SEND</button>
 </div>
 <script>
+// ===== THEME SYNC =====
+(function(){
+  function ensureThemeStyle(){
+    var el = document.getElementById('dynamic-theme');
+    if(!el){
+      el = document.createElement('style');
+      el.id = 'dynamic-theme';
+      document.head.appendChild(el);
+    }
+    return el;
+  }
+  async function applyTheme(name){
+    name = name || localStorage.getItem('dulus-theme') || 'dulus';
+    try{
+      var res = await fetch('/api/themes/' + encodeURIComponent(name) + '/css');
+      var css = await res.text();
+      if(css){
+        ensureThemeStyle().textContent = css;
+        localStorage.setItem('dulus-theme', name);
+      }
+    }catch(e){}
+  }
+  applyTheme();
+})();
+
 let agents=[];
 let active=false;
 let proactiveMode=false;
@@ -1498,6 +2177,35 @@ restoreRt();
             for m in STATE.messages:
                 msgs.append({"role": m.get("role", ""), "content": m.get("content", "")})
         return jsonify({"messages": msgs})
+
+    @app.route("/api/session/load", methods=["POST"])
+    def api_session_load():
+        body = request.get_json(silent=True) or {}
+        msgs = body.get("messages", [])
+        with _LOCK:
+            if STATE:
+                STATE.messages.clear()
+                for m in msgs:
+                    STATE.messages.append(m)
+        return jsonify(ok=True)
+
+    @app.route("/api/sessions", methods=["GET"])
+    def api_sessions_list():
+        return jsonify(scan_sessions())
+
+    @app.route("/api/sessions/save", methods=["POST"])
+    def api_sessions_save():
+        body = request.get_json(silent=True) or {}
+        sid = body.get("session_id", "default")
+        with _LOCK:
+            if STATE and CONFIG:
+                save_session(STATE, CONFIG, sid)
+        return jsonify(ok=True)
+
+    @app.route("/api/sessions/<sid>", methods=["DELETE"])
+    def api_sessions_delete(sid):
+        _delete_session_disk(sid)
+        return jsonify(ok=True)
 
     @app.route("/api/smart-context", methods=["GET"])
     def api_smart_context():

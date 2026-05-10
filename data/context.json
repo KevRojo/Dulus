@@ -9,68 +9,25 @@
   "project": {
     "name": "Dulus Command Center",
     "repo_stats": {
-      "files": 194,
-      "lines": 283472,
+      "files": 204,
+      "lines": 98972,
       "languages": {
         ".example": 5,
-        ".py": 44493,
-        ".wasm": 982,
-        ".html": 14583,
-        ".zip": 141436,
-        "no_ext": 674,
-        ".md": 1842,
-        ".txt": 39,
-        ".json": 781,
-        ".svg": 1124,
-        ".sh": 144,
-        ".exe": 48344,
-        ".png": 29025
+        "no_ext": 694,
+        ".py": 47851,
+        ".html": 14582,
+        ".in": 2,
+        ".toml": 123,
+        ".md": 2042,
+        ".txt": 40,
+        ".json": 727,
+        ".svg": 1123,
+        ".png": 31639,
+        ".sh": 144
       }
     },
-    "recent_commits": [
-      {
-        "hash": "f41f924",
-        "subject": "readme: restore website link block (mistakenly dropped in prev commit)",
-        "author": "KevRojo",
-        "date": "2026-05-02"
-      },
-      {
-        "hash": "f4bc03b",
-        "subject": "license: switch to GPLv3",
-        "author": "KevRojo",
-        "date": "2026-05-02"
-      },
-      {
-        "hash": "b1a80d8",
-        "subject": "readme: add prominent link to website with features not in README",
-        "author": "KevRojo",
-        "date": "2026-05-02"
-      },
-      {
-        "hash": "59cddb5",
-        "subject": "rename Dulus.html to index.html for GitHub Pages root",
-        "author": "KevRojo",
-        "date": "2026-05-02"
-      },
-      {
-        "hash": "4433f39",
-        "subject": "docs: add index.html landing page",
-        "author": "KevRojo",
-        "date": "2026-05-02"
-      }
-    ],
-    "recent_changes": [
-      "README.md",
-      "auto_context_loader.py",
-      "context_integration.py",
-      "data/context.json",
-      "memory/__pycache__/context.cpython-314.pyc",
-      "memory/__pycache__/store.cpython-314.pyc",
-      "memory/context.py",
-      "memory/store.py",
-      "providers.py",
-      "startup_context.py"
-    ]
+    "recent_commits": [],
+    "recent_changes": []
   },
   "tasks": {
     "active": [
@@ -96,7 +53,7 @@
       "name": "Dulus",
       "role": "primary",
       "color": "#ff6b1f",
-      "status": "active",
+      "status": "idle",
       "avatar": "[F]",
       "active": true
     },
