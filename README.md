@@ -101,10 +101,6 @@ Dulus is a **lightweight Python reimplementation of Claude Code** that isn't loc
 
 <img alt="image" src="https://github.com/user-attachments/assets/72526ae1-b69f-4529-adc7-eef1cd3876c8" />
 
-<img alt="image" src="https://github.com/user-attachments/assets/6baf90e5-a163-4a38-bdde-3d77c0a87281" />
-
-<img alt="image" src="https://github.com/user-attachments/assets/453c1aad-b777-4d9a-98b8-40edbadb5079" />
-
 <img alt="image" src="https://github.com/user-attachments/assets/eb11cb86-2f53-4979-b7bf-5bd1f97ed5fc" />
 
 <img alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
