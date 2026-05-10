@@ -1898,8 +1898,22 @@ def cmd_bg(args: str, _state, config) -> bool:
                 pass
             return True
 
-        # Parse --web-port
+        # Guard against duplicate webchat servers
+        def _wc_port_alive(p):
+            import urllib.request
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{p}/api/health", timeout=0.5).read(1)
+                return True
+            except Exception:
+                return False
+
         web_port = config.get("_webchat_port", 5000)
+        if _wc_port_alive(web_port):
+            info(f"WebChat already running on port {web_port}.")
+            info(f"  URL: http://127.0.0.1:{web_port}/")
+            info("Use `/webchat stop` to stop it, or pick a different port with `--web-port`.")
+            return True
+
         if "--web-port" in parts:
             try:
                 web_port = int(parts[parts.index("--web-port") + 1])
@@ -2046,6 +2060,22 @@ def cmd_webchat(args: str, state, config) -> bool:
         return True
 
     active_model = config.get("model", "")
+
+    # Guard against duplicate webchat servers across processes (/bg vs /webchat)
+    def _wc_port_alive(p):
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{p}/api/health", timeout=0.5).read(1)
+            return True
+        except Exception:
+            return False
+
+    if _wc_port_alive(port):
+        info(f"WebChat already running on port {port} (started by /bg or another process).")
+        info(f"  URL: http://127.0.0.1:{port}/")
+        lan = _lan_ip()
+        if lan:
+            info(f"  LAN: http://{lan}:{port}/")
+        return True
 
     if webchat_server.is_running():
         # If model changed since last spawn, auto-restart so webchat stays synced
@@ -5964,11 +5994,16 @@ def _run_daemon(config: dict) -> None:
             except ValueError:
                 pass
         try:
-            import webchat_server as _wc
+            import urllib.request
             _wc_port = int(config.get("_webchat_port", 5000))
-            if not _wc.is_running():
-                _wc.start(state, config, port=_wc_port)
-                ok(f"WebChat started → http://127.0.0.1:{_wc_port}/")
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{_wc_port}/api/health", timeout=0.5).read(1)
+                info(f"WebChat already running on port {_wc_port} — not starting a second one.")
+            except Exception:
+                import webchat_server as _wc
+                if not _wc.is_running():
+                    _wc.start(state, config, port=_wc_port)
+                    ok(f"WebChat started → http://127.0.0.1:{_wc_port}/")
         except Exception as _wce:
             warn(f"WebChat auto-start failed: {_wce}")
 
