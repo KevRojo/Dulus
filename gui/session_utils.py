@@ -107,6 +107,13 @@ def save_session(state, config: dict, session_id: str | None = None) -> str:
     # 3. Save to daily folder
     day_dir = DAILY_DIR / date_str
     day_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Prune old copies for this session ID
+    for old_copy in day_dir.glob(f"session_*_{sid}.json"):
+        try:
+            old_copy.unlink()
+        except: pass
+
     daily_path = day_dir / f"session_{ts}_{sid}.json"
     daily_path.write_text(payload, encoding="utf-8")
 
