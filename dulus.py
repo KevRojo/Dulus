@@ -1688,16 +1688,44 @@ def cmd_bg(args: str, _state, config) -> bool:
     # ── /bg attach ────────────────────────────────────────────────────────
     if sub == "attach":
         pid = _read_pid()
-        if not _is_alive(pid):
-            warn("Dulus background not running. Use `/bg start` first.")
+        if not _is_alive(pid) or not _ipc_alive():
+            warn("No background daemon running. Use `/bg start` first.")
             return True
-        port = config.get("_webchat_port", 5000)
-        info("Attach options:")
-        info(f"  • From any shell:  dulus \"your prompt\"   (joins via IPC)")
-        info(f"  • Browser:         http://127.0.0.1:{port}/")
-        if _sys.platform != "win32":
-            info(f"  • Tmux (if used):  tmux attach -t dulus-bg")
-        info(f"  • Tail log:        tail -f {BG_LOG}")
+        # Enter a mini-REPL that dispatches to the daemon via IPC
+        ok("Attached to background daemon. Type your prompts (Ctrl+C to detach).")
+        info(f"  PID: {pid}  |  IPC: 127.0.0.1:{DULUS_IPC_PORT}")
+        info(f"  Web: http://127.0.0.1:{config.get('_webchat_port', 5000)}/")
+        info("  /exit or /detach to disconnect.")
+        while True:
+            try:
+                line = input(clr("  bg> ", "cyan"))
+            except (KeyboardInterrupt, EOFError):
+                print()
+                info("Detached.")
+                break
+            line = line.strip()
+            if not line:
+                continue
+            if line.lower() in ("/exit", "/detach", "/quit"):
+                info("Detached.")
+                break
+            # Send to daemon via IPC
+            try:
+                s = _socket.create_connection(("127.0.0.1", DULUS_IPC_PORT), timeout=5)
+                s.sendall(_json.dumps({"prompt": line}).encode() + b"\n")
+                s.settimeout(300)
+                buf = b""
+                while b"\n" not in buf:
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                s.close()
+                resp = _json.loads(buf.split(b"\n")[0])
+                reply = resp.get("response", resp.get("error", "(no response)"))
+                print(reply)
+            except Exception as e:
+                err(f"IPC error: {e}")
         return True
 
     # ── /bg kill ──────────────────────────────────────────────────────────
@@ -5888,6 +5916,33 @@ def _run_daemon(config: dict) -> None:
         except Exception as _e:
             err(f"daemon run_query error: {type(_e).__name__}: {_e}")
     config["_run_query_callback"] = _daemon_run_query
+
+    # Register slash-command callback so Telegram and WebChat can run
+    # /commands in daemon mode (without this, slash_cb is None and
+    # commands are silently dropped).
+    def _daemon_handle_slash(line: str):
+        """Process a /command in daemon mode — mirrors the REPL callback."""
+        result = handle_slash(line, state, config)
+        if not isinstance(result, tuple):
+            return "simple"
+        if result[0] == "__brainstorm__":
+            _, brain_prompt, brain_out_file = result
+            _daemon_run_query(brain_prompt)
+            _save_synthesis(state, brain_out_file)
+            _todo_path = str(Path(brain_out_file).parent / "todo_list.txt")
+            _daemon_run_query(
+                f"Based on the Master Plan you just synthesized, generate a todo list file at {_todo_path}. "
+                "Format: one task per line, each starting with '- [ ] '. "
+                "Order by priority. Include ALL actionable items from the plan. "
+                "Use the Write tool to create the file. Do NOT explain, just write the file now."
+            )
+        elif result[0] == "__worker__":
+            _, worker_tasks = result
+            for i, (line_idx, task_text, prompt) in enumerate(worker_tasks):
+                _daemon_run_query(prompt)
+        return "query"
+
+    config["_handle_slash_callback"] = _daemon_handle_slash
 
     # Auto-start the webchat server alongside the daemon — always, by default.
     # The whole point of daemon mode is "headless Dulus serving every entry
