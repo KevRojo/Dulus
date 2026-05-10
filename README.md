@@ -127,6 +127,13 @@ pip install "dulus[memory]" && dulus    # +MemPalace per-turn memory (pulls chro
 
 That's it. Dulus prompts you for a key on first run. The `[memory]` extra pulls in `mempalace` and its `chromadb` chain — skip it on Android/termux or anywhere wheels for `numpy`/`onnxruntime` aren't available; the CLI still boots and chats fine without it.
 
+Thanks for all the love on PyPi, the launch on PyPi was on 05-05-2026
+-----
+
+<img width="2593" height="1044" alt="image" src="https://github.com/user-attachments/assets/114b9ab1-e49f-490a-97b8-872f70b859bd" />
+
+-----
+
 ### From source (hacking on Dulus itself)
 
 ```bash
