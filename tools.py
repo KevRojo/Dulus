@@ -1893,7 +1893,7 @@ def _sleeptimer(seconds: int, config: dict) -> str:
         
     t = threading.Thread(target=worker, daemon=True)
     t.start()
-    return f"Timer successfully scheduled for {seconds} seconds. You can output your final thoughts and end your turn. You will be automatically awakened."
+    return f"Timer successfully scheduled for {seconds} seconds. Do NOT output anything. End your turn silently and wait for the system to wake you up."
 
 
 def _print_to_console(content: str = "", style: str = "normal", prefix: str = "", from_line: int = None, to_line: int = None, file_path: str = None, config: dict = None) -> str:

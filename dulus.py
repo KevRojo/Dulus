@@ -154,11 +154,11 @@ if str(DULUS_CODE_ROOT) not in sys.path:
 from tools import ask_input_interactive, _tg_thread_local, _is_in_tg_turn
 import input as dulus_input
 try:
-    import paste_placeholders as _paste_ph
+    import paste_placeholders as _paste_ph  # type: ignore
 except ImportError:
     _paste_ph = None  # type: ignore[assignment]
 try:
-    import git_prompt as _git_prompt
+    import git_prompt as _git_prompt  # type: ignore
 except ImportError:
     _git_prompt = None  # type: ignore[assignment]
 try:
@@ -1187,7 +1187,9 @@ def save_latest(args: str, state, config=None) -> bool:
 
     import uuid
     now = datetime.now()
-    sid = uuid.uuid4().hex[:8]
+    sid = cfg.get("_session_id") or uuid.uuid4().hex[:8]
+    # Ensure config has it for consistency
+    cfg["_session_id"] = sid
     ts  = now.strftime("%H%M%S")
     date_str = now.strftime("%Y-%m-%d")
     data = _build_session_data(state, session_id=sid)
@@ -1201,6 +1203,14 @@ def save_latest(args: str, state, config=None) -> bool:
     # 2. daily/YYYY-MM-DD/session_HHMMSS_sid.json
     day_dir = DAILY_DIR / date_str
     day_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Delete older copies of this same session ID to prevent duplication
+    for old_copy in day_dir.glob(f"session_*_{sid}.json"):
+        try:
+            old_copy.unlink()
+        except Exception:
+            pass
+
     daily_path = day_dir / f"session_{ts}_{sid}.json"
     daily_path.write_text(payload)
 
@@ -3856,7 +3866,7 @@ def cmd_exit(_args: str, _state, config) -> bool:
         session_data = _build_session_data(_state)
         gist_id, err_msg = upload_session(
             session_data, config["gist_token"],
-            existing_gist_id=config.get("cloudsave_last_gist_id"),
+            gist_id=config.get("cloudsave_last_gist_id"),
         )
         if err_msg:
             err(f"Cloud sync failed: {err_msg}")
@@ -5932,19 +5942,85 @@ def _run_daemon(config: dict) -> None:
     # `is_background` kwarg, which made every Telegram/IPC turn raise
     # silently and never actually answer the user. Fixed now.
     def _daemon_run_query(msg):
+        qlock = config.get("_query_lock")
+        if qlock:
+            qlock.acquire()
         try:
+            import sys
+            import checkpoint as ckpt
             from agent import run as agent_run
             from context import build_system_prompt
+            from dulus import save_latest, _tg_get_chat_ids, _telegram_stop, _tg_send
+            
             sys_prompt = build_system_prompt(config)
-            # Append the user message to state so build_system_prompt-aware
-            # turns and history work correctly.
+            is_telegram_turn = config.get("_telegram_incoming", False)
+            # Basic heuristic: if the message starts with System Automated Event, it's a background event
+            is_background = msg.startswith("(System Automated Event)")
+            
+            if is_background and not is_telegram_turn:
+                ttok = config.get("telegram_token")
+                _tids = _tg_get_chat_ids(config)
+                tchat = config.get("_active_tg_chat_id") or (_tids[0] if _tids else 0)
+                if ttok and tchat and _telegram_stop and not _telegram_stop.is_set():
+                    import threading as _tg_thread
+                    from dulus import _tg_send
+                    _tg_thread.Thread(target=_tg_send, args=(ttok, tchat, f"⚙ {msg}"), daemon=True).start()
+            
             for ev in agent_run(msg, state, config, sys_prompt):
-                # Drain the generator — we don't need to render in daemon mode,
-                # the Telegram bridge / IPC server reads the final assistant
-                # message off `state.messages` after this returns.
+                if "webchat_server" in sys.modules and sys.modules["webchat_server"].is_running():
+                    try:
+                        import webchat_server as _wcs
+                        r = _wcs._event_to_dict(ev)
+                        if r:
+                            if isinstance(r, tuple):
+                                payload, wait_event = r
+                                _wcs.broadcast_event("chunk", payload)
+                                wait_event.wait(timeout=2.0)
+                            else:
+                                _wcs.broadcast_event("chunk", r)
+                    except Exception:
+                        pass
                 _ = ev
+            
+            try:
+                tracked = ckpt.get_tracked_edits()
+                last_snaps = ckpt.list_snapshots(session_id)
+                skip = False
+                if not tracked and last_snaps:
+                    if len(state.messages) == last_snaps[-1].get("message_index", -1):
+                        skip = True
+                if not skip:
+                    ckpt.make_snapshot(session_id, state, config, msg, tracked_edits=tracked)
+                ckpt.reset_tracked()
+            except Exception:
+                pass
+            
+            try:
+                save_latest("", state, config)
+            except Exception:
+                pass
+
+            # Broadcast background notifications to Telegram to maintain parity with REPL
+            if is_background and not is_telegram_turn:
+                ttok = config.get("telegram_token")
+                _tids = _tg_get_chat_ids(config)
+                tchat = config.get("_active_tg_chat_id") or (_tids[0] if _tids else 0)
+                
+                if ttok and tchat and _telegram_stop and not _telegram_stop.is_set():
+                    if state.messages and state.messages[-1].get("role") == "assistant":
+                        ans_content = state.messages[-1].get("content", "")
+                        if isinstance(ans_content, list):
+                            parts = [b["text"] if isinstance(b, dict) else str(b) for b in ans_content if (isinstance(b, dict) and b.get("type") == "text") or isinstance(b, str)]
+                            ans_content = "\n".join(parts)
+                        if ans_content:
+                            import threading as _tg_thread
+                            _tg_thread.Thread(target=_tg_send, args=(ttok, tchat, ans_content), daemon=True).start()
+
         except Exception as _e:
             err(f"daemon run_query error: {type(_e).__name__}: {_e}")
+        finally:
+            if qlock:
+                qlock.release()
     config["_run_query_callback"] = _daemon_run_query
 
     # Register slash-command callback so Telegram and WebChat can run
@@ -6015,6 +6091,12 @@ def _run_daemon(config: dict) -> None:
         )
         config["_ipc_thread"] = ti
         ti.start()
+
+    # Job Sentinel: Detect background completions and wake up the agent
+    if config.get("_job_sentinel_thread") is None:
+        tj = threading.Thread(target=_job_sentinel_loop, args=(config, state), daemon=True)
+        config["_job_sentinel_thread"] = tj
+        tj.start()
 
     # 'accent' / 'orange' are only present in some custom themes; default
     # palette is {blue, cyan, gray, green, magenta, red, white, yellow}.
@@ -6413,6 +6495,7 @@ def cmd_voice(args: str, state, config) -> bool:
                 name = next(d["name"] for d in devices if d["index"] == idx)
                 ok(f"Microphone set to: [{idx}] {name}")
                 try:
+                    from config import save_config
                     save_config(config)
                 except Exception:
                     pass
