@@ -127,6 +127,26 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
     """
     cfg = config or load_config()
 
+    # ── Ensure MemPalace is initialized for fresh installs ──────────────────
+    try:
+        from pathlib import Path as _Path
+        import subprocess as _sp, sys as _sys, os as _os
+        _mp_cfg = _Path.home() / ".mempalace" / "config.json"
+        if not _mp_cfg.exists():
+            _mem_dir = _Path.home() / ".dulus" / "memory"
+            _mem_dir.mkdir(parents=True, exist_ok=True)
+            _env = {**_os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+            _sp.run(
+                [_sys.executable, "-X", "utf8", "-m", "mempalace", "init",
+                 str(_mem_dir), "--yes", "--no-llm"],
+                stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                env=_env,
+                creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0),
+                check=False,
+            )
+    except Exception:
+        pass  # best-effort; don't block GUI startup
+
     # Theme
     ctk.set_appearance_mode(cfg.get("appearance", "dark"))
     ctk.set_default_color_theme("dark-blue")
@@ -266,11 +286,14 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
                     itok = event.get("input_tokens", 0)
                     otok = event.get("output_tokens", 0)
                     app.set_status(f"Listo  (+{itok}/{otok} tok)", t["success"])
-                    
-                    # Refresh sessions list to show the newly saved session (with its title)
-                    app.set_sessions(scan_sessions())
-                    if event.get("session_id"):
-                        app.set_active_session(event.get("session_id"))
+
+                    # Only rebuild sidebar if this is a brand-new session not yet in the list.
+                    # Rebuilding after every message causes annoying flicker.
+                    sid = event.get("session_id")
+                    if sid and sid not in app.sidebar._session_buttons:
+                        app.set_sessions(scan_sessions())
+                    if sid:
+                        app.set_active_session(sid)
 
                 elif etype == "permission":
                     _show_perm(event.get("description", ""))
