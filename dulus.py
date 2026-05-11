@@ -238,7 +238,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.30"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.36"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -7674,7 +7674,10 @@ def setup_readline(history_file: Path):
                 sys.stdout.write(f"  {m}\n")
         sys.stdout.flush()
 
-    readline.set_completion_display_matches_hook(display_matches)
+    try:
+        readline.set_completion_display_matches_hook(display_matches)
+    except AttributeError:
+        pass  # pyreadline3 on Windows doesn't support this hook
     readline.set_completer(completer)
     # Autosuggestion-feel: first Tab shows full match list (no beep), case-insensitive,
     # coloured prefix, and "/" anywhere triggers an implicit completion hint on Tab.
