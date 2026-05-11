@@ -1459,11 +1459,20 @@ def cmd_context(_args: str, state, config) -> bool:
 
 def cmd_cost(_args: str, state, config) -> bool:
     from config import calc_cost
-    cost = calc_cost(config["model"],
-                     state.total_input_tokens,
-                     state.total_output_tokens)
-    info(f"Input tokens:  {state.total_input_tokens:,}")
-    info(f"Output tokens: {state.total_output_tokens:,}")
+    from compaction import estimate_tokens
+
+    # The accumulated counters (total_input_tokens etc.) sum the provider's
+    # reported "tokens in this request" which includes the ENTIRE context
+    # window every turn. That creates a quadratic explosion and is useless
+    # for cost estimation. Instead, estimate from the actual message list.
+    est_input = estimate_tokens(state.messages, model=config.get("model", ""), config=config)
+    # Output is trickier to estimate from history alone; use the accumulated
+    # counter as a lower-bound fallback but cap it to something sane.
+    est_output = min(state.total_output_tokens, est_input)
+
+    cost = calc_cost(config["model"], est_input, est_output)
+    info(f"Input tokens:  ~{est_input:,} (estimated from {len(state.messages)} messages)")
+    info(f"Output tokens: ~{est_output:,}")
     c_read = getattr(state, "total_cache_read_tokens", 0)
     c_write = getattr(state, "total_cache_creation_tokens", 0)
     if c_read > 0 or c_write > 0:
