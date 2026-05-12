@@ -1070,6 +1070,12 @@ function newChat(){
     renderSessions();
     closeMobileSidebar();
     showToast('New chat started', 'success');
+    // Sync new session id with server so backend knows we switched
+    fetch('/api/session/load', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({messages: [], session_id: activeSessionId})
+    }).catch(function(){});
   });
 }
 
@@ -2451,6 +2457,12 @@ function newChat(){
     renderSessions();
     closeMobileSidebar();
     showToast('New chat started', 'success');
+    // Sync new session id with server so backend knows we switched
+    fetch('/api/session/load', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({messages: [], session_id: activeSessionId})
+    }).catch(function(){});
   });
 }
 
@@ -3435,6 +3447,8 @@ restoreRt();
         with _LOCK:
             if STATE:
                 STATE.messages.clear()
+            if CONFIG:
+                CONFIG.pop("_session_id", None)
         return jsonify(ok=True)
 
     @app.route("/shutdown", methods=["POST"])
@@ -3827,7 +3841,7 @@ restoreRt();
     @app.route("/api/sessions/save", methods=["POST"])
     def api_sessions_save():
         body = request.get_json(silent=True) or {}
-        sid = body.get("session_id", "default")
+        sid = body.get("session_id") or "default"
         with _LOCK:
             if STATE and CONFIG:
                 save_session(STATE, CONFIG, sid)
