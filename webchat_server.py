@@ -3293,7 +3293,24 @@ restoreRt();
         return Response(RT_PAGE, mimetype="text/html")
 
     # ── Sandbox (Mini OS) ─────────────────────────────────────────────────────
-    _SANDBOX_DIST = Path(__file__).parent / "sandbox" / "dist"
+    def _resolve_sandbox_dist() -> Path:
+        """Find sandbox/dist whether running from source or installed package."""
+        # 1. Source layout (repo root next to webchat_server.py)
+        src = Path(__file__).parent / "sandbox" / "dist"
+        if src.exists():
+            return src
+        # 2. Installed package (sandbox is now a sub-package)
+        try:
+            import sandbox as _sandbox_pkg
+            pkg = Path(_sandbox_pkg.__file__).parent / "dist"
+            if pkg.exists():
+                return pkg
+        except Exception:
+            pass
+        # 3. Fallback — will 404 gracefully
+        return src
+
+    _SANDBOX_DIST = _resolve_sandbox_dist()
 
     @app.route("/sandbox")
     @app.route("/sandbox/")
