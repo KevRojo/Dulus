@@ -19,22 +19,25 @@ class TestEstimateTokens:
             {"role": "assistant", "content": "Hi there!"},       # 9 chars
         ]
         result = estimate_tokens(msgs)
-        # (11 + 9) / 3.5 = 5.71 -> 5
-        assert result == int(20 / 3.5)
+        # chars/2.8 + msg_count*4, then *1.1
+        # (20/2.8=7) + (2*4=8) = 15 -> 15*1.1=16.5 -> 16
+        assert result == 16
 
     def test_empty_messages(self):
         assert estimate_tokens([]) == 0
 
     def test_empty_content(self):
         msgs = [{"role": "user", "content": ""}]
-        assert estimate_tokens(msgs) == 0
+        # empty content still has framing overhead: 0/2.8=0 + 1*4=4 -> 4*1.1=4.4 -> 4
+        assert estimate_tokens(msgs) == 4
 
     def test_tool_result_messages(self):
         msgs = [
             {"role": "tool", "tool_call_id": "abc", "name": "Read", "content": "x" * 350},
         ]
         result = estimate_tokens(msgs)
-        assert result == int(350 / 3.5)
+        # 350/2.8=125 + 1*4=4 -> 129*1.1=141.9 -> 141
+        assert result == 141
 
     def test_structured_content(self):
         """Content that is a list of dicts (e.g. Anthropic tool_result blocks)."""
@@ -47,8 +50,8 @@ class TestEstimateTokens:
             },
         ]
         result = estimate_tokens(msgs)
-        # "tool_result" (11) + "id1" (3) + "A"*70 (70) = 84  -> 84/3.5 = 24
-        assert result == int(84 / 3.5)
+        # "tool_result" (11) + "id1" (3) + "A"*70 (70) = 84  -> 84/2.8=30 + 1*4=4 -> 34*1.1=37.4 -> 37
+        assert result == 37
 
     def test_with_tool_calls(self):
         msgs = [
@@ -61,8 +64,8 @@ class TestEstimateTokens:
             },
         ]
         result = estimate_tokens(msgs)
-        # content "ok" (2) + tool_calls string values: "c1" (2) + "Bash" (4) = 8
-        assert result == int(8 / 3.5)
+        # content "ok" (2) + tool_calls string values: "c1" (2) + "Bash" (4) = 8 -> 8/2.8=2 + 1*4=4 -> 6*1.1=6.6 -> 6
+        assert result == 6
 
 
 # ── get_context_limit ─────────────────────────────────────────────────────
@@ -88,7 +91,7 @@ class TestGetContextLimit:
         assert get_context_limit("some-random-model-xyz") == 128000
 
     def test_explicit_provider_prefix(self):
-        assert get_context_limit("ollama/llama3.3") == 128000
+        assert get_context_limit("ollama/llama3.3") == 250000
 
 
 # ── snip_old_tool_results ─────────────────────────────────────────────────

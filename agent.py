@@ -116,6 +116,8 @@ def run(
     pending_img = config.pop("_pending_image", None)
     if pending_img:
         user_msg["images"] = [pending_img]
+    
+    initial_msg_count = len(state.messages)
     state.messages.append(user_msg)
 
     # Inject runtime metadata into config so tools (e.g. Agent) can access it
@@ -156,9 +158,8 @@ def run(
             break
 
         if assistant_turn.error:
-            # Rollback: remove the user message that caused the error to prevent loops.
-            # (e.g. sending an image to a model that doesn't support it)
-            if state.messages and state.messages[-1]["role"] == "user":
+            # Rollback: remove anything added during this turn sequence to prevent corrupted history
+            while len(state.messages) > initial_msg_count:
                 state.messages.pop()
             break
 

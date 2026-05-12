@@ -374,9 +374,10 @@ sys.stdout.flush()
         script = tmp_path / "echo_server.py"
         script.write_text(self.ECHO_SERVER)
 
+        import sys
         cfg = MCPServerConfig.from_dict("echo", {
             "type": "stdio",
-            "command": "python3",
+            "command": sys.executable,
             "args": [str(script)],
             "timeout": 5,
         })

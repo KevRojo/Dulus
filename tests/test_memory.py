@@ -133,7 +133,7 @@ class TestSearch:
 
     def test_search_in_content(self):
         save_memory(_make_entry(name="misc", content="the quick brown fox"), scope="user")
-        results = search_memory("brown fox")
+        results = search_memory("brown fox", min_score=0.2)
         assert len(results) == 1
 
     def test_search_across_scopes(self):

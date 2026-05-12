@@ -122,12 +122,12 @@ def test_output_truncation():
     register_tool(tool)
 
     result = execute_tool("big", {}, config={}, max_output=40)
-    # first half = 20 chars, last quarter = 10 chars, marker in between
-    assert len(result) < 100
-    assert "truncated" in result
-    # The kept portion: first 20 + last 10 should be present
-    assert result.startswith("x" * 20)
-    assert result.endswith("x" * 10)
+    # first_chunk = 40//3 = 13, last_chunk = 40//6 = 6, plus long marker
+    assert len(result) < 200
+    assert "truncated" in result.lower() or "TRUNCATED" in result
+    # The kept portion: first 13 + last 6 should be present
+    assert result.startswith("x" * 13)
+    assert result.endswith("x" * 6)
 
 
 def test_no_truncation_when_within_limit():

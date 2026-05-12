@@ -309,7 +309,7 @@ class TestAskUserQuestion:
         import time; time.sleep(0.05)  # let _submit block on event
 
         # Simulate REPL drain with user input "yes"
-        with patch("builtins.input", return_value="yes"):
+        with patch("tools.ask_input_interactive", return_value="yes"):
             _tools.drain_pending_questions({})
 
         answered.wait(timeout=2)
@@ -337,7 +337,7 @@ class TestAskUserQuestion:
 
         import time; time.sleep(0.05)
 
-        with patch("builtins.input", return_value="1"):
+        with patch("tools.ask_input_interactive", return_value="1"):
             _tools.drain_pending_questions({})
 
         answered.wait(timeout=2)

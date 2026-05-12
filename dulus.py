@@ -53,6 +53,8 @@ Slash commands in REPL:
   /auto_show  Toggle auto-show for visual tools (ASCII art, etc.)
   /ultra_search Toggle ULTRA_SEARCH mode
   /permissions [mode]  Set permission mode
+  /afk       Toggle AFK mode (auto-dismiss questions, auto-approve tools)
+  /yolo      Toggle YOLO mode (auto-approve ALL actions without prompts)
   /cwd [path] Show or change working directory
   /memory [query]         Search persistent memories
   /memory list            List all stored memories formatted
@@ -97,8 +99,14 @@ Slash commands in REPL:
   /cloudsave list   List your dulus Gists
   /cloudsave load <gist_id>  Download and load a session from Gist
   /kill_tmux        Kill all stuck tmux/psmux sessions (cleanup)
+  /shell [cmd|on|off] Toggle shell mode or execute shell command
+  /copy [file]      Copy last response or file content to clipboard
   /batch            Manage Kimi Batch tasks (list, status, fetch)
   /roundtable       Start a multi-model roundtable discussion
+  /fork             Fork session at a given turn
+  /undo             Undo last turn
+  /add-dir [path]   Manage additional workspace directories
+  /import <file>    Import conversation from file or session
   /harvest          Harvest Claude.ai cookies (alias: /harvest-claude)
   /harvest-claude   Harvest Claude.ai cookies
   /harvest-kimi     Harvest Kimi.com (Consumer) session/gRPC tokens
@@ -727,6 +735,8 @@ def cmd_help(_args: str, _state, config) -> bool:
         ("brave_search_enabled", False, "/brave",      "Brave Search API integration"),
         ("tts_enabled",     False, "/tts",             "Automatic Text-to-Speech"),
         ("daemon",          False, "/daemon",          "Allow external triggers when no REPL is open"),
+        ("afk_mode",        False, "/afk",             "AFK mode (auto-dismiss, auto-approve tools)"),
+        ("yolo_mode",       False, "/yolo",            "YOLO mode (auto-approve ALL actions)"),
         ("rtk_enabled",     True,  "/rtk",             "RTK token-optimized shell command rewriting"),
     ]
     print(clr("\n  ── Toggles ──", "cyan", "bold"))
@@ -1175,25 +1185,38 @@ def cmd_save(args: str, state, config) -> bool:
     ok(f"Session saved → {path}  (id: {sid})"  )
     return True
 
-def save_latest(args: str, state, config=None) -> bool:
-    """Save session on exit: session_latest.json + daily/ copy + append to history.json."""
-    from config import MR_SESSION_DIR, DAILY_DIR, SESSION_HIST_FILE
+def save_latest(args: str, state, config=None, mode: str = "full") -> bool:
+    """Save session on exit.
+
+    mode="full"  → session_latest.json + daily/ copy + append to history.json (REPL default)
+    mode="daemon"→ only overwrite SESSIONS_DIR/session_<sid>.json, skip latest/history/daily.
+    """
+    from config import MR_SESSION_DIR, DAILY_DIR, SESSION_HIST_FILE, SESSIONS_DIR
     if not state.messages:
         return True
 
     cfg = config or {}
+    import uuid
+    sid = cfg.get("_session_id") or uuid.uuid4().hex[:8]
+    cfg["_session_id"] = sid
+    data = _build_session_data(state, session_id=sid)
+    payload = json.dumps(data, indent=2, default=str)
+
+    # ── Daemon mode: single file, no history/latest noise ──
+    if mode == "daemon":
+        SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+        sess_path = SESSIONS_DIR / f"session_{sid}.json"
+        sess_path.write_text(payload)
+        ok(f"Session saved → {sess_path}  (id: {sid})")
+        return True
+
+    # ── Full mode (REPL exit) ──
     daily_limit   = cfg.get("session_daily_limit",   5)
     history_limit = cfg.get("session_history_limit", 100)
 
-    import uuid
     now = datetime.now()
-    sid = cfg.get("_session_id") or uuid.uuid4().hex[:8]
-    # Ensure config has it for consistency
-    cfg["_session_id"] = sid
     ts  = now.strftime("%H%M%S")
     date_str = now.strftime("%Y-%m-%d")
-    data = _build_session_data(state, session_id=sid)
-    payload = json.dumps(data, indent=2, default=str)
 
     # 1. session_latest.json — always overwrite for quick /resume
     MR_SESSION_DIR.mkdir(parents=True, exist_ok=True)
@@ -1203,7 +1226,7 @@ def save_latest(args: str, state, config=None) -> bool:
     # 2. daily/YYYY-MM-DD/session_HHMMSS_sid.json
     day_dir = DAILY_DIR / date_str
     day_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Delete older copies of this same session ID to prevent duplication
     for old_copy in day_dir.glob(f"session_*_{sid}.json"):
         try:
@@ -1549,71 +1572,19 @@ def cmd_daemon(args: str, _state, config) -> bool:
     return True
 
 def cmd_bg(args: str, _state, config) -> bool:
-    """Background Dulus — one detached daemon serving CLI (IPC), Web (browser),
-    and Telegram simultaneously.
+    """Background Dulus via tmux session.
 
-    /bg start [--web-port PORT]  — spawn detached daemon + webchat
-    /bg stop                     — kill the background daemon (uses PID file)
-    /bg kill                     — nuke whatever's on port 5151 (no PID file needed)
-    /bg status                   — is it alive? on which ports?
-    /bg attach                   — print how to attach (tmux on unix, URL on win)
-
-    The detached process listens on:
-      • 127.0.0.1:5151  → IPC socket   (`dulus "..."` from any shell joins this)
-      • 127.0.0.1:5000  → WebChat      (open http://localhost:5000/ in browser)
-      • Telegram bridge if configured
-
-    All three entry points share the SAME live session. No session manager,
-    no service installer, no XML config — just a detached process and three
-    listeners. Workaround supremo.
+    /bg start [--web-port PORT]  — create detached tmux session running daemon
+    /bg stop                     — kill tmux session
+    /bg kill                     — alias of stop
+    /bg status                   — tmux session alive? IPC responding?
+    /bg attach                   — attach to tmux session synchronously
     """
-    import os as _os, sys as _sys, json as _json, subprocess as _sp, socket as _socket, time as _time
-    import signal as _signal
-    from pathlib import Path as _Path
-
-    BG_DIR = _Path.home() / ".dulus"
-    BG_DIR.mkdir(parents=True, exist_ok=True)
-    BG_PID = BG_DIR / "bg.pid"
-    BG_LOG = BG_DIR / "bg.log"
+    import subprocess as _sp, socket as _socket, time as _time
 
     parts = (args or "").strip().split()
     sub = parts[0].lower() if parts else "status"
-
-    def _is_alive(pid: int) -> bool:
-        if pid <= 0:
-            return False
-        if _sys.platform == "win32":
-            # os.kill(pid, 0) on Windows is unreliable for GUI-subsystem
-            # processes (pythonw.exe): it raises OSError(errno=22) even
-            # when the process is alive. Use the native OpenProcess API.
-            try:
-                import ctypes
-                kernel32 = ctypes.windll.kernel32
-                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-                h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-                if h:
-                    kernel32.CloseHandle(h)
-                    return True
-                # OpenProcess returned 0 — check last error
-                err = kernel32.GetLastError()
-                # ERROR_INVALID_PARAMETER (87) = PID does not exist
-                return err != 87
-            except Exception:
-                # Fallback: if the native API fails, assume alive so we
-                # still attempt taskkill downstream.
-                return True
-        else:
-            try:
-                _os.kill(pid, 0)
-                return True
-            except (ProcessLookupError, OSError):
-                return False
-
-    def _read_pid() -> int:
-        try:
-            return int(BG_PID.read_text().strip())
-        except Exception:
-            return 0
+    TMUX_SESSION = "dulus"
 
     def _ipc_alive() -> bool:
         try:
@@ -1623,274 +1594,71 @@ def cmd_bg(args: str, _state, config) -> bool:
         except Exception:
             return False
 
+    def _wc_port_alive(p: int) -> bool:
+        import urllib.request
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{p}/api/health", timeout=0.5).read(1)
+            return True
+        except Exception:
+            return False
+
+    def _tmux_session_exists() -> bool:
+        try:
+            result = _sp.run(["tmux", "has-session", "-t", TMUX_SESSION],
+                             capture_output=True, timeout=2)
+            return result.returncode == 0
+        except Exception:
+            return False
+
     # ── /bg status ────────────────────────────────────────────────────────
-    # Source of truth for "is a real detached daemon running": the BG_PID
-    # file. A REPL also binds 5151 but doesn't write the PID file, so we
-    # can distinguish "the user's own REPL" from "a true headless daemon".
     if sub == "status":
-        pid = _read_pid()
-        alive = _is_alive(pid)
+        tmux_alive = _tmux_session_exists()
         ipc = _ipc_alive()
-        if alive and ipc:
-            ok(f"Dulus background daemon: RUNNING")
-            info(f"  PID: {pid}")
+        if tmux_alive and ipc:
+            ok("Dulus background daemon: RUNNING")
             info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT} (responding)")
             info(f"  Web: http://127.0.0.1:{config.get('_webchat_port', 5000)}/")
-            info(f"  Log: {BG_LOG}")
-        elif alive and not ipc:
-            warn(f"Daemon PID {pid} alive but IPC not responding (still booting?)")
+        elif tmux_alive and not ipc:
+            warn("tmux session exists but IPC not responding (still booting?)")
         elif ipc:
-            # No PID file (or stale) but port is in use — this is almost
-            # certainly the user's own REPL serving IPC, not a daemon.
-            info("No background daemon running.")
-            info(f"  But port {DULUS_IPC_PORT} is in use — likely your own Dulus REPL.")
-            info("  `dulus \"...\"` from any shell still works (it'll hit your REPL).")
-            info("  For a TRUE headless daemon (Telegram surviving close), start it from")
-            info("  a fresh shell with no REPL open: `dulus --daemon` or `/bg start`.")
-            try:
-                BG_PID.unlink()
-            except FileNotFoundError:
-                pass
+            info("No tmux session running, but IPC port is in use.")
+            info(f"  Likely your own Dulus REPL on port {DULUS_IPC_PORT}.")
         else:
             info("Dulus background daemon: NOT RUNNING")
-            try:
-                BG_PID.unlink()
-            except FileNotFoundError:
-                pass
         return True
 
-    # ── /bg stop ──────────────────────────────────────────────────────────
-    if sub == "stop":
-        pid = _read_pid()
-        if not _is_alive(pid):
-            info("Dulus background not running.")
-            try:
-                BG_PID.unlink()
-            except FileNotFoundError:
-                pass
+    # ── /bg stop / kill ───────────────────────────────────────────────────
+    if sub in ("stop", "kill"):
+        if not _tmux_session_exists():
+            info("No background daemon to stop.")
             return True
-        sigterm_ok = False
         try:
-            _os.kill(pid, _signal.SIGTERM)
-            sigterm_ok = True
-            ok(f"Sent SIGTERM to PID {pid}.")
-        except PermissionError:
-            # On Windows os.kill() to a GUI-subsystem process (pythonw.exe)
-            # often raises PermissionError. Escalate to taskkill immediately.
-            if _sys.platform == "win32":
-                try:
-                    _sp.run(["taskkill", "/F", "/PID", str(pid)],
-                            capture_output=True, timeout=5)
-                    ok(f"Forced stop via taskkill /F on PID {pid}.")
-                except Exception as tk_e:
-                    err(f"Failed to kill {pid}: {tk_e}")
-                    return True
-            else:
-                err(f"Failed to kill {pid}: Permission denied")
-                return True
+            _sp.run(["tmux", "kill-session", "-t", TMUX_SESSION],
+                    capture_output=True, timeout=5)
+            ok("Dulus background stopped.")
         except Exception as e:
-            err(f"Failed to kill {pid}: {e}")
-            return True
-
-        if sigterm_ok:
-            for _ in range(20):
-                if not _is_alive(pid):
-                    break
-                _time.sleep(0.25)
-        try:
-            BG_PID.unlink()
-        except FileNotFoundError:
-            pass
-        ok("Dulus background stopped.")
+            err(f"Failed to kill tmux session: {e}")
         return True
 
     # ── /bg attach ────────────────────────────────────────────────────────
     if sub == "attach":
-        pid = _read_pid()
-        if not _is_alive(pid) or not _ipc_alive():
+        if not _tmux_session_exists():
             warn("No background daemon running. Use `/bg start` first.")
             return True
-        # Enter a mini-REPL that dispatches to the daemon via IPC
-        ok("Attached to background daemon. Type your prompts (Ctrl+C to detach).")
-        info(f"  PID: {pid}  |  IPC: 127.0.0.1:{DULUS_IPC_PORT}")
-        info(f"  Web: http://127.0.0.1:{config.get('_webchat_port', 5000)}/")
-        info("  /exit or /detach to disconnect.")
-        while True:
-            try:
-                line = input(clr("  bg> ", "cyan"))
-            except (KeyboardInterrupt, EOFError):
-                print()
-                info("Detached.")
-                break
-            line = line.strip()
-            if not line:
-                continue
-            if line.lower() in ("/exit", "/detach", "/quit"):
-                info("Detached.")
-                break
-            # Send to daemon via IPC
-            try:
-                s = _socket.create_connection(("127.0.0.1", DULUS_IPC_PORT), timeout=5)
-                s.sendall(_json.dumps({"prompt": line}).encode() + b"\n")
-                s.settimeout(300)
-                buf = b""
-                while b"\n" not in buf:
-                    chunk = s.recv(4096)
-                    if not chunk:
-                        break
-                    buf += chunk
-                s.close()
-                resp = _json.loads(buf.split(b"\n")[0])
-                reply = resp.get("response", resp.get("error", "(no response)"))
-                print(reply)
-            except Exception as e:
-                err(f"IPC error: {e}")
-        return True
-
-    # ── /bg kill ──────────────────────────────────────────────────────────
-    # Force-stop whatever is holding the IPC port.
-    # Priority 1: BG_PID file (fastest, most reliable).
-    # Priority 2: discover the PID from the OS by scanning port 5151.
-    # We NEVER kill our own REPL process (own_pid check).
-    # For SIGKILL escalation we use taskkill on Windows.
-    if sub == "kill":
-        f_pid = _read_pid()
-        own_pid = _os.getpid()
-
-        def _discover_pid_from_port(port: int) -> int:
-            """Ask the OS which process owns the given TCP port."""
-            try:
-                if _sys.platform == "win32":
-                    # netstat -ano  →  find the line with :5151 in LISTENING state
-                    result = _sp.run(
-                        ["netstat", "-ano"],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    for line in result.stdout.splitlines():
-                        if f":{port}" in line and ("LISTENING" in line or "ESTABLISHED" in line):
-                            parts = line.strip().split()
-                            if parts:
-                                try:
-                                    return int(parts[-1])
-                                except ValueError:
-                                    continue
-                else:
-                    # lsof -ti :port  (outputs PID only)
-                    result = _sp.run(
-                        ["lsof", "-ti", f":{port}"],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    if result.stdout.strip():
-                        return int(result.stdout.strip().splitlines()[0])
-                    # Fallback to fuser
-                    result = _sp.run(
-                        ["fuser", f"{port}/tcp"],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    if result.stdout.strip():
-                        parts = result.stdout.strip().split(":")
-                        if len(parts) > 1:
-                            return int(parts[1].strip().split()[0])
-            except Exception:
-                pass
-            return 0
-
-        # No PID file? Discover from the OS if the port is in use.
-        if not f_pid and _ipc_alive():
-            discovered = _discover_pid_from_port(DULUS_IPC_PORT)
-            if discovered and discovered != own_pid:
-                f_pid = discovered
-                info(f"No PID file — discovered process {f_pid} holding port {DULUS_IPC_PORT}.")
-            elif discovered == own_pid:
-                warn("Port is held by this REPL — close it with /exit instead.")
-                return True
-
-        if not f_pid:
-            info("No background daemon to kill (port free, PID file missing).")
-            return True
-
-        if f_pid == own_pid:
-            warn("Refusing to kill the current process (that's me, the REPL you're in).")
-            try:
-                BG_PID.unlink()
-            except FileNotFoundError:
-                pass
-            return True
-
-        if not _is_alive(f_pid):
-            info(f"Daemon PID {f_pid} is already dead. Cleaning up PID file.")
-            try:
-                BG_PID.unlink()
-            except FileNotFoundError:
-                pass
-            return True
-
-        # Send SIGTERM, give it 1s, escalate to SIGKILL/taskkill if it lingers.
-        # On Windows, os.kill() to a GUI-subsystem process (pythonw.exe) often
-        # raises PermissionError. We catch that immediately and escalate to
-        # taskkill /F instead of giving up.
-        sigterm_ok = False
+        ok("Attaching to tmux session 'dulus' (Ctrl+B D to detach)...")
         try:
-            _os.kill(f_pid, _signal.SIGTERM)
-            sigterm_ok = True
-            ok(f"Sent SIGTERM to daemon PID {f_pid}.")
-        except PermissionError:
-            if _sys.platform == "win32":
-                warn(f"Permission denied signalling PID {f_pid} — escalating to taskkill /F.")
-                try:
-                    _sp.run(["taskkill", "/F", "/PID", str(f_pid)],
-                            capture_output=True, timeout=5)
-                    ok(f"Forced kill via taskkill /F on PID {f_pid}.")
-                except Exception as tk_e:
-                    err(f"taskkill failed: {tk_e}")
-                    return True
-            else:
-                err(f"Could not signal PID {f_pid}: Permission denied")
-                return True
-        except (ProcessLookupError, OSError) as e:
-            err(f"Could not signal PID {f_pid}: {e}")
-            return True
-
-        if sigterm_ok:
-            for _ in range(8):
-                if not _is_alive(f_pid):
-                    break
-                _time.sleep(0.25)
-
-            if _is_alive(f_pid):
-                warn(f"PID {f_pid} did not exit on SIGTERM — escalating to SIGKILL.")
-                try:
-                    if _sys.platform == "win32":
-                        _sp.run(["taskkill", "/F", "/PID", str(f_pid)],
-                                capture_output=True, timeout=5)
-                    else:
-                        _os.kill(f_pid, _signal.SIGKILL)
-                except Exception as e:
-                    err(f"SIGKILL failed: {e}")
-                    return True
-
-        try:
-            BG_PID.unlink()
-        except FileNotFoundError:
-            pass
-        ok(f"Daemon (PID {f_pid}) stopped.")
+            _sp.run(["tmux", "attach", "-t", TMUX_SESSION], capture_output=False)
+        except Exception as e:
+            err(f"Failed to attach: {e}")
         return True
 
     # ── /bg start ─────────────────────────────────────────────────────────
     if sub == "start":
-        # Already running?
-        existing_pid = _read_pid()
-        if _is_alive(existing_pid) and _ipc_alive() and existing_pid != _os.getpid():
-            info(f"Already running (PID {existing_pid}).  Use `/bg status` for details.")
+        if _tmux_session_exists():
+            info("Background daemon already running.  Use `/bg status` for details.")
             return True
 
-        # If THIS REPL owns the IPC port, release it first so the spawned
-        # daemon can bind. Without this, /bg start from inside a REPL would
-        # always fail because the very REPL invoking it is holding 5151.
-        # We stop our own IPC server thread, give the OS a moment to free
-        # the socket, and then proceed to spawn the daemon. The REPL keeps
-        # running fine — it just becomes a normal client (its `dulus "..."`
-        # dispatches still work, they just go to the daemon now).
+        # If this REPL owns the IPC port, release it first
         if _ipc_alive() and config.get("_ipc_thread") is not None:
             info("Releasing this REPL's IPC port so the daemon can take over...")
             config["_ipc_stop"] = True
@@ -1899,32 +1667,14 @@ def cmd_bg(args: str, _state, config) -> bool:
                 ipc_thread.join(timeout=2.5)
             except Exception:
                 pass
-            # Clear the marker so a future /bg stop or restart doesn't reuse it.
             config["_ipc_thread"] = None
             config.pop("_ipc_listening", None)
-            # Brief sleep to let the OS reclaim the port (TIME_WAIT etc.).
             _time.sleep(0.6)
 
-        # If something *else* still holds the port (an external Dulus, a
-        # stale daemon from a crash, etc.), refuse cleanly so we don't leave
-        # a stale PID file.
         if _ipc_alive():
-            warn(f"Port {DULUS_IPC_PORT} is in use by another process I don't own.")
-            info("Run `/bg kill` first if it's a stale daemon, or close the other Dulus.")
-            try:
-                BG_PID.unlink()
-            except FileNotFoundError:
-                pass
+            warn(f"Port {DULUS_IPC_PORT} is in use by another process.")
+            info("Run `/bg kill` first if it's a stale daemon.")
             return True
-
-        # Guard against duplicate webchat servers
-        def _wc_port_alive(p):
-            import urllib.request
-            try:
-                urllib.request.urlopen(f"http://127.0.0.1:{p}/api/health", timeout=0.5).read(1)
-                return True
-            except Exception:
-                return False
 
         web_port = config.get("_webchat_port", 5000)
         if _wc_port_alive(web_port):
@@ -1943,90 +1693,27 @@ def cmd_bg(args: str, _state, config) -> bool:
         from config import save_config
         save_config(config)
 
-        # Snapshot current REPL session so the daemon can resume it.
-        # This ensures Telegram/Web share the SAME session_id and context.
-        current_sid = config.get("_session_id", "")
-        if current_sid and _state and getattr(_state, "messages", None):
-            save_latest("", _state, config)
-
-        # Build the spawn command. On Windows we MUST use pythonw.exe (windowless
-        # variant) instead of the console-subsystem python.exe / dulus shim,
-        # otherwise Windows creates a visible console window for the daemon
-        # and closing it kills the process. The shim itself runs python.exe,
-        # so we go around it by invoking pythonw -m dulus directly.
-        if _sys.platform == "win32":
-            pythonw = _sys.executable.replace("python.exe", "pythonw.exe")
-            if not _os.path.exists(pythonw):
-                # Fall back to python.exe if pythonw isn't shipped (rare;
-                # mostly happens on stripped embeddable distributions).
-                pythonw = _sys.executable
-            dulus_script = _os.path.abspath(__file__)
-            cmd = [pythonw, dulus_script, "--daemon"]
-        else:
-            from shutil import which
-            dulus_bin = None
-            for cand in ["dulus", "dulus.exe"]:
-                p = which(cand)
-                if p:
-                    dulus_bin = p
-                    break
-            if dulus_bin:
-                cmd = [dulus_bin, "--daemon"]
-            else:
-                dulus_script = _os.path.abspath(__file__)
-                cmd = [_sys.executable, dulus_script, "--daemon"]
-
-        # Pass the auto-webchat hint via env so the daemon picks it up.
-        env = _os.environ.copy()
-        env["DULUS_BG_AUTO_WEBCHAT"] = "1"
-        env["DULUS_BG_WEBCHAT_PORT"] = str(web_port)
-        env["DULUS_BG_SESSION_ID"] = current_sid
-
-        # Detach properly per platform.
-        log_fp = open(BG_LOG, "ab")
+        cmd = "python dulus.py --daemon"
         try:
-            if _sys.platform == "win32":
-                # CREATE_NO_WINDOW (0x08000000) suppresses the console window
-                # entirely — cannot be combined with DETACHED_PROCESS, but
-                # because we're invoking pythonw.exe (a GUI-subsystem binary)
-                # there is no console to inherit from in the first place.
-                # CREATE_NEW_PROCESS_GROUP keeps Ctrl+C in the parent shell
-                # from killing the daemon when the parent later exits.
-                CREATE_NO_WINDOW = 0x08000000
-                NEW_GROUP = 0x00000200
-                proc = _sp.Popen(
-                    cmd,
-                    stdout=log_fp, stderr=log_fp, stdin=_sp.DEVNULL,
-                    creationflags=CREATE_NO_WINDOW | NEW_GROUP,
-                    close_fds=True,
-                    env=env,
-                )
-            else:
-                proc = _sp.Popen(
-                    cmd,
-                    stdout=log_fp, stderr=log_fp, stdin=_sp.DEVNULL,
-                    start_new_session=True,
-                    close_fds=True,
-                    env=env,
-                )
+            result = _sp.run(["tmux", "new-session", "-d", "-s", TMUX_SESSION, cmd],
+                             capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                err(f"tmux failed: {result.stderr.strip() or result.stdout.strip()}")
+                return True
         except Exception as e:
-            err(f"Failed to spawn daemon: {e}")
-            log_fp.close()
+            err(f"Failed to start tmux session: {e}")
             return True
 
-        BG_PID.write_text(str(proc.pid))
-
         # Wait briefly for the IPC port to come up
-        for _ in range(40):  # up to 10 seconds
+        for _ in range(40):
             if _ipc_alive():
                 break
             _time.sleep(0.25)
 
-        ok(f"Dulus background started.  PID {proc.pid}")
+        ok("Dulus background started in tmux session 'dulus'.")
         info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT}")
         info(f"  Web: http://127.0.0.1:{web_port}/")
-        info(f"  Log: {BG_LOG}")
-        info("  Stop with `/bg stop`.")
+        info("  Stop with `/bg stop`.  Attach with `/bg attach`.")
         return True
 
     err(f"Unknown subcommand: {sub}.  Use start | stop | status | attach")
@@ -3670,6 +3357,52 @@ def cmd_permissions(args: str, _state, config) -> bool:
             save_config(config)
             ok(f"Permission mode set to: {m}")
     return True
+
+def _import_dulus_module(mod_name: str):
+    """Import a module from the dulus_tools/ package, handling dulus.py name shadow."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parent
+    mod_path = root / "dulus_tools" / f"{mod_name}.py"
+    spec = importlib.util.spec_from_file_location(f"dulus_{mod_name}", mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[f"dulus_{mod_name}"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def cmd_afk(_args: str, _state, config) -> bool:
+    """Toggle AFK mode - auto-dismiss AskUserQuestion and auto-approve tool calls."""
+    from config import save_config
+    afk_mod = _import_dulus_module("afk_mode")
+    afk = afk_mod.AFKMode()
+    afk._enabled = config.get("afk_mode", False)
+    new_state = afk.toggle()
+    config["afk_mode"] = new_state
+    save_config(config)
+    status = clr("ENABLED", "green", "bold") if new_state else clr("DISABLED", "red", "bold")
+    ok(f"AFK mode {status}")
+    if new_state:
+        info("  AskUserQuestion will be auto-dismissed, tool calls auto-approved.")
+    return True
+
+
+def cmd_yolo(_args: str, _state, config) -> bool:
+    """Toggle YOLO mode - auto-approve ALL actions without prompts."""
+    from config import save_config
+    yolo_mod = _import_dulus_module("yolo_mode")
+    yolo = yolo_mod.YOLOMode()
+    yolo._enabled = config.get("yolo_mode", False)
+    new_state = yolo.toggle()
+    config["yolo_mode"] = new_state
+    save_config(config)
+    status = clr("ENABLED", "green", "bold") if new_state else clr("DISABLED", "red", "bold")
+    ok(f"YOLO mode {status}")
+    if new_state:
+        warn("  ALL actions will be approved without prompts. Use with caution!")
+    return True
+
 
 def cmd_cwd(args: str, _state, config) -> bool:
     if not args.strip():
@@ -5920,27 +5653,10 @@ def _run_daemon(config: dict) -> None:
     from checkpoint import set_session
     from common import ok, info, warn, err, clr
 
-    import os as _os_env
-    bg_session_id = _os_env.environ.get("DULUS_BG_SESSION_ID", "")
-    session_id = bg_session_id or config.get("_session_id") or uuid.uuid4().hex[:8]
+    session_id = config.get("_session_id") or uuid.uuid4().hex[:8]
     set_session(session_id)
 
     state = AgentState()
-    # If spawned from /bg start with a session ID, resume that session's state.
-    if bg_session_id:
-        from config import MR_SESSION_DIR
-        latest_path = MR_SESSION_DIR / "session_latest.json"
-        if latest_path.exists():
-            try:
-                import json as _json
-                data = _json.loads(latest_path.read_text(encoding="utf-8", errors="replace"))
-                state.messages = data.get("messages", [])
-                state.turn_count = data.get("turn_count", 0)
-                state.total_input_tokens = data.get("total_input_tokens", 0)
-                state.total_output_tokens = data.get("total_output_tokens", 0)
-                info(f"Resumed session {session_id} ({len(state.messages)} messages)")
-            except Exception as _load_e:
-                warn(f"Could not resume session: {_load_e}")
     config["_state"] = state
     config["_session_id"] = session_id
     config["_last_interaction_time"] = time.time()
@@ -6005,7 +5721,7 @@ def _run_daemon(config: dict) -> None:
                 pass
             
             try:
-                save_latest("", state, config)
+                save_latest("", state, config, mode="daemon")
             except Exception:
                 pass
 
@@ -6965,12 +6681,207 @@ def cmd_export(args: str, state, config) -> bool:
     return True
 
 
-def cmd_copy(args: str, state, config) -> bool:
-    """Copy the last assistant response to clipboard.
+def cmd_fork(args: str, state, config) -> bool:
+    """Fork the current session at a given turn.
 
-    /copy   — copy last assistant message to clipboard
+    /fork              - list turns and prompt for which to fork at
+    /fork <turn_index> - fork at the specified turn (0-based)
     """
-    # Find last assistant message
+    import asyncio
+    from pathlib import Path
+
+    _sf_path = Path(__file__).resolve().parent / "dulus" / "session_fork.py"
+    _sf_spec = __import__('importlib.util').util.spec_from_file_location("session_fork", _sf_path)
+    _sf_mod = __import__('importlib.util').util.module_from_spec(_sf_spec)
+    _sf_spec.loader.exec_module(_sf_mod)
+    SessionFork = _sf_mod.SessionFork
+
+    session_id = config.get("_session_id", "")
+    if not session_id:
+        err("No active session to fork.")
+        return True
+
+    from config import MR_SESSION_DIR
+    session_dir = MR_SESSION_DIR / session_id
+    if not session_dir.exists():
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+    forker = SessionFork(str(session_dir))
+    turns = forker.enumerate_turns()
+
+    if not turns:
+        err("No turns found in current session.")
+        return True
+
+    arg = args.strip()
+    if arg:
+        try:
+            turn_index = int(arg)
+        except ValueError:
+            err(f"Invalid turn index: {arg}")
+            return True
+        if turn_index < 0 or turn_index >= len(turns):
+            err(f"Turn index {turn_index} out of range (0-{len(turns) - 1}).")
+            return True
+    else:
+        print("  Available turns:")
+        for t in turns:
+            print(f"    [{t.index}] {t.user_text}")
+        try:
+            choice = input("  Fork at turn: ").strip()
+            turn_index = int(choice)
+        except (ValueError, EOFError):
+            err("Invalid selection.")
+            return True
+        if turn_index < 0 or turn_index >= len(turns):
+            err(f"Turn index {turn_index} out of range.")
+            return True
+
+    try:
+        new_sid = asyncio.get_event_loop().run_until_complete(forker.fork(turn_index=turn_index))
+        ok(f"Forked session: {new_sid}")
+    except Exception as exc:
+        err(f"Fork failed: {exc}")
+
+    return True
+
+
+def cmd_undo(_args: str, state, config) -> bool:
+    """Undo the last turn by forking at the second-to-last turn.
+
+    /undo - remove the most recent turn
+    """
+    import asyncio
+    from pathlib import Path
+
+    _sf_path = Path(__file__).resolve().parent / "dulus" / "session_fork.py"
+    _sf_spec = __import__('importlib.util').util.spec_from_file_location("session_fork", _sf_path)
+    _sf_mod = __import__('importlib.util').util.module_from_spec(_sf_spec)
+    _sf_spec.loader.exec_module(_sf_mod)
+    SessionFork = _sf_mod.SessionFork
+
+    session_id = config.get("_session_id", "")
+    if not session_id:
+        err("No active session to undo.")
+        return True
+
+    from config import MR_SESSION_DIR
+    session_dir = MR_SESSION_DIR / session_id
+    if not session_dir.exists():
+        err("Session directory not found.")
+        return True
+
+    forker = SessionFork(str(session_dir))
+    try:
+        new_sid = asyncio.get_event_loop().run_until_complete(forker.undo())
+        ok(f"Undone last turn. New session: {new_sid}")
+    except ValueError as exc:
+        err(str(exc))
+    except Exception as exc:
+        err(f"Undo failed: {exc}")
+
+    return True
+
+
+def cmd_add_dir(args: str, _state, config) -> bool:
+    """Manage additional workspace directories.
+
+    /add-dir <path>  - add a directory to the workspace
+    /add-dir list    - list added directories
+    /add-dir remove <path> - remove a directory
+    """
+    from pathlib import Path
+    _adm_path = Path(__file__).resolve().parent / "dulus" / "add_dir_manager.py"
+    _adm_spec = __import__('importlib.util').util.spec_from_file_location("add_dir_manager", _adm_path)
+    _adm_mod = __import__('importlib.util').util.module_from_spec(_adm_spec)
+    _adm_spec.loader.exec_module(_adm_mod)
+    AddDirManager = _adm_mod.AddDirManager
+
+    manager_key = "_add_dir_manager"
+    manager = config.get(manager_key)
+    if manager is None:
+        manager = AddDirManager(str(Path.cwd()))
+        config[manager_key] = manager
+
+    arg = args.strip()
+    if not arg or arg == "list":
+        dirs = manager.list()
+        if not dirs:
+            info("No additional directories in workspace.")
+        else:
+            print(f"  Working directory: {Path.cwd()}")
+            for d in dirs:
+                print(f"  + {d}")
+        return True
+
+    if arg.startswith("remove "):
+        path = arg[7:].strip()
+        if manager.remove(path):
+            ok(f"Removed directory: {path}")
+        else:
+            err(f"Directory not in workspace: {path}")
+        return True
+
+    success, msg = manager.add(arg)
+    if success:
+        ok(msg)
+    else:
+        err(msg)
+    return True
+
+
+def cmd_import(args: str, state, config) -> bool:
+    """Import conversation data from a file or another session.
+
+    /import <file_path>  - import from .json, .md, or .txt
+    /import <session_id> - import from another Dulus session
+    """
+    from pathlib import Path
+    _ei_path = Path(__file__).resolve().parent / "dulus" / "export_import.py"
+    _ei_spec = __import__('importlib.util').util.spec_from_file_location("export_import", _ei_path)
+    _ei_mod = __import__('importlib.util').util.module_from_spec(_ei_spec)
+    _ei_spec.loader.exec_module(_ei_mod)
+    SessionImporter = _ei_mod.SessionImporter
+
+    arg = args.strip()
+    if not arg:
+        err("Usage: /import <file_path_or_session_id>")
+        return True
+
+    importer = SessionImporter()
+    path = Path(arg)
+    if path.exists():
+        desc, length = importer.import_from_file(arg)
+    elif (Path.home() / ".dulus" / "sessions" / arg).exists():
+        desc, length = importer.import_from_session_id(arg)
+    else:
+        desc, length = importer.import_from_file(arg)
+
+    if desc.startswith("Error:"):
+        err(desc)
+        return True
+
+    ok(f"Imported from {desc}")
+    return True
+
+
+def cmd_copy(args: str, state, config) -> bool:
+    """Copy the last assistant response or file content to clipboard.
+
+    /copy         - copy last assistant message
+    /copy <file>  - copy file contents
+    """
+    from dulus_tools.clipboard_utils import ClipboardUtils
+
+    if args.strip():
+        file_path = args.strip()
+        success = ClipboardUtils.copy_file_content(file_path)
+        if success:
+            info(f"Copied file to clipboard: {file_path}")
+        else:
+            err(f"Failed to copy file: {file_path}")
+        return True
+
     last_reply = None
     for m in reversed(state.messages):
         if m.get("role") == "assistant":
@@ -6983,30 +6894,58 @@ def cmd_copy(args: str, state, config) -> bool:
         err("No assistant response to copy.")
         return True
 
-    try:
-        import subprocess as _sp
-        import sys as _sys
-        if _sys.platform == "win32":
-            proc = _sp.Popen(["clip"], stdin=_sp.PIPE)
-            proc.communicate(last_reply.encode("utf-16le"))
-        elif _sys.platform == "darwin":
-            proc = _sp.Popen(["pbcopy"], stdin=_sp.PIPE)
-            proc.communicate(last_reply.encode("utf-8"))
-        else:
-            # Linux: try xclip, then xsel
-            for cmd in (["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]):
-                try:
-                    proc = _sp.Popen(cmd, stdin=_sp.PIPE)
-                    proc.communicate(last_reply.encode("utf-8"))
-                    break
-                except FileNotFoundError:
-                    continue
-            else:
-                err("No clipboard tool found. Install xclip or xsel.")
-                return True
+    success = ClipboardUtils.copy_text(last_reply)
+    if success:
         info(f"Copied {len(last_reply)} chars to clipboard.")
-    except Exception as e:
-        err(f"Failed to copy: {e}")
+    else:
+        err("Failed to copy: clipboard tool not available.")
+    return True
+
+
+def cmd_shell(args: str, state, config) -> bool:
+    """Toggle or use shell mode for direct command execution.
+
+    /shell           - toggle shell mode
+    /shell on|off    - activate/deactivate
+    /shell <command> - execute directly
+    """
+    from dulus_tools.shell_mode import ShellMode
+
+    if not hasattr(state, "_shell_mode") or state._shell_mode is None:
+        state._shell_mode = ShellMode()
+
+    shell = state._shell_mode
+
+    if not args:
+        new_state = shell.toggle()
+        info(f"Shell mode: {'ON' if new_state else 'OFF'}")
+        return True
+
+    subcmd = args.strip().lower()
+    if subcmd == "on":
+        shell.activate()
+        info("Shell mode: ON")
+        return True
+    elif subcmd == "off":
+        shell.deactivate()
+        info("Shell mode: OFF")
+        return True
+
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    result = loop.run_until_complete(shell.execute(args))
+    output = result.get("output", "")
+    if output:
+        print(output)
+    if result.get("exit_code", 0) != 0:
+        err(result.get("message", ""))
+    else:
+        info(result.get("message", ""))
     return True
 
 
@@ -7482,6 +7421,8 @@ COMMANDS = {
     "schema_autoload": cmd_schema_autoload,
     "ultra_search": cmd_ultra_search,
     "permissions": cmd_permissions,
+    "afk":         cmd_afk,
+    "yolo":        cmd_yolo,
     "cwd":         cmd_cwd,
     "skills":      cmd_skills,
     "skill":       cmd_skill,
@@ -7515,7 +7456,12 @@ COMMANDS = {
     "compact":     cmd_compact,
     "init":        cmd_init,
     "export":      cmd_export,
+    "fork":        cmd_fork,
+    "undo":        cmd_undo,
+    "add-dir":     cmd_add_dir,
+    "import":      cmd_import,
     "copy":        cmd_copy,
+    "shell":       cmd_shell,
     "status":      cmd_status,
     "doctor":      cmd_doctor,
     "exit":        cmd_exit,
@@ -7579,6 +7525,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "deep_tools":  ("Toggle DeepSeek auto tool-wrap",     []),
     "autojob":     ("Toggle auto-job printer",            []),
     "permissions": ("Set permission mode",                ["auto", "accept-all", "manual"]),
+    "afk":         ("Toggle AFK mode (auto-dismiss, auto-approve)", []),
+    "yolo":        ("Toggle YOLO mode (auto-approve ALL)", []),
     "cwd":         ("Show / change working directory",    []),
     "skills":      ("List available skills",              []),
     "skill":       ("Manage skills",                      ["list", "get", "use", "remove", "info"]),
@@ -7615,7 +7563,12 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "compact":     ("Compact conversation history",         []),
     "init":        ("Initialize DULUS.md template",        []),
     "export":      ("Export conversation to file",          []),
-    "copy":        ("Copy last response to clipboard",      []),
+    "fork":        ("Fork session at a turn",               []),
+    "undo":        ("Undo last turn",                       []),
+    "add-dir":     ("Manage additional workspace dirs",     ["list", "remove"]),
+    "import":      ("Import from file or session",          []),
+    "copy":        ("Copy last response or file to clipboard", ["file"]),
+    "shell":       ("Toggle shell mode or run command",     ["on", "off"]),
     "status":      ("Show session status and model info",   []),
     "doctor":      ("Diagnose installation health",         []),
     "exit":        ("Exit dulus",              []),
