@@ -1,0 +1,169 @@
+/* ============================================================
+   Dulus OS — Global Styles & Design Tokens
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark mode (default) — Dulus Midnight */
+    --bg-desktop: #0F0F14;
+    --bg-panel: #1A1A23;
+    --bg-window: #16161F;
+    --bg-window-active: #1C1C27;
+    --bg-titlebar: #13131A;
+    --bg-app-grid: rgba(15,15,20,0.96);
+    --bg-context-menu: #1E1E28;
+    --bg-notification: #1A1A23;
+    --bg-tooltip: #13131A;
+    --bg-input: #13131A;
+    --bg-hover: rgba(255,255,255,0.06);
+    --bg-active: rgba(255,255,255,0.10);
+    --bg-selected: rgba(99,102,241,0.15);
+
+    --accent-primary: #6366F1;
+    --accent-primary-hover: #818CF8;
+    --accent-primary-active: #4F46E5;
+    --accent-secondary: #22D3EE;
+    --accent-secondary-hover: #67E8F9;
+    --accent-success: #34D399;
+    --accent-error: #F87171;
+    --accent-warning: #FBBF24;
+    --accent-info: #60A5FA;
+
+    --text-primary: #E2E2E8;
+    --text-secondary: #8E8EA0;
+    --text-disabled: #5A5A6E;
+    --text-inverse: #0F0F14;
+
+    --border-subtle: rgba(255,255,255,0.05);
+    --border-default: rgba(255,255,255,0.08);
+    --border-focus: #6366F1;
+
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+    --shadow-xl: 0 16px 48px rgba(0,0,0,0.7);
+
+    --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+    --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+    --duration-instant: 50ms;
+    --duration-fast: 150ms;
+    --duration-normal: 250ms;
+    --duration-slow: 400ms;
+    --duration-slower: 600ms;
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+  }
+
+  /* Light mode — Dulus Day */
+  .light {
+    --bg-desktop: #F0F0F5;
+    --bg-panel: #FFFFFF;
+    --bg-window: #FFFFFF;
+    --bg-titlebar: #F5F5FA;
+    --bg-app-grid: rgba(240,240,245,0.96);
+    --bg-context-menu: #FFFFFF;
+    --bg-input: #F5F5FA;
+    --bg-hover: rgba(0,0,0,0.04);
+    --bg-active: rgba(0,0,0,0.08);
+    --bg-selected: rgba(99,102,241,0.10);
+
+    --text-primary: #1A1A24;
+    --text-secondary: #6B6B80;
+    --text-disabled: #A0A0B0;
+
+    --border-subtle: rgba(0,0,0,0.05);
+    --border-default: rgba(0,0,0,0.08);
+
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+    --shadow-xl: 0 16px 48px rgba(0,0,0,0.12);
+  }
+
+  html, body, #root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.22);
+  }
+  .light .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.12);
+  }
+  .light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.22);
+  }
+}
+
+@layer utilities {
+  /* Line clamp utility */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}

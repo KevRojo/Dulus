@@ -26,6 +26,15 @@ _TASK_CREATE_SCHEMA = {
                 "type": "string",
                 "description": "What needs to be done",
             },
+            "status": {
+                "type": "string",
+                "enum": ["pending", "in_progress", "completed", "cancelled"],
+                "description": "Current state of the task (default is 'pending')",
+            },
+            "owner": {
+                "type": "string",
+                "description": "The agent or user responsible (e.g. 'A', 'B', 'User')",
+            },
             "active_form": {
                 "type": "string",
                 "description": (
@@ -38,7 +47,7 @@ _TASK_CREATE_SCHEMA = {
                 "description": "Arbitrary key-value metadata to attach to the task",
             },
         },
-        "required": ["subject", "description"],
+        "required": ["subject", "description", "status", "owner"],
     },
 }
 
@@ -128,9 +137,9 @@ _TASK_LIST_SCHEMA = {
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
-def _task_create(subject: str, description: str, active_form: str = "", metadata: dict = None) -> str:
-    task = create_task(subject, description, active_form=active_form, metadata=metadata)
-    return f"Task #{task.id} created: {task.subject}"
+def _task_create(subject: str, description: str, status: str = "pending", owner: str = "", active_form: str = "", metadata: dict = None) -> str:
+    task = create_task(subject, description, status=status, owner=owner, active_form=active_form, metadata=metadata)
+    return f"Task #{task.id} created: {task.subject} (Owner: {task.owner}, Status: {task.status.value})"
 
 
 def _task_update(
@@ -220,8 +229,10 @@ def _register() -> None:
             func=lambda p, c: _task_create(
                 p["subject"],
                 p["description"],
-                p.get("active_form", ""),
-                p.get("metadata"),
+                status=p.get("status", "pending"),
+                owner=p.get("owner", ""),
+                active_form=p.get("active_form", ""),
+                metadata=p.get("metadata"),
             ),
             read_only=False,
             concurrent_safe=True,

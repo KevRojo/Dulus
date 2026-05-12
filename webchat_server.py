@@ -38,7 +38,7 @@ def _resolve_dashboard_dir() -> Path:
 
 DASHBOARD_DIR = _resolve_dashboard_dir()
 
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
 
 from agent import (
     run as agent_run,
@@ -411,32 +411,36 @@ def _sanitize_for_api(text: str) -> str:
     return text.strip()
 
 
-def _build_roundtable_prompt(agent: RoundtableAgent, user_msg: str, history: list[tuple[str, str]]) -> str:
+def _build_roundtable_prompt(agent: RoundtableAgent, user_msg: str, history: list[dict]) -> str:
+    """Build a lean prompt with ONLY the last text message per member.
+    history items: {"agent": str, "text": str}
+    """
     user_msg = _sanitize_for_api(user_msg)
     ctx_parts = []
-    for author, text in history:
-        text = _sanitize_for_api(text)
-        if text:
+    # history is already pruned to last-message-per-agent before calling this
+    for item in history:
+        author = item.get("agent", "")
+        text = _sanitize_for_api(item.get("text", ""))
+        if author and text:
             ctx_parts.append(f"[{author}]: {text}")
+
     if ctx_parts:
         ctx = "\n".join(ctx_parts)
         return (
-            f"[Mesa Redonda - Contexto Compartido]\n\n"
-            f"Historial:\n{ctx}\n\n"
+            f"[Mesa Redonda]\n"
+            f"Historial (ultimo mensaje de cada miembro):\n{ctx}\n\n"
             f"Usuario ahora: {user_msg}\n\n"
-            f"Instrucción individual: Eres el miembro {agent.id}. Responde desde tu perspectiva."
+            f"Eres el miembro {agent.id}. Responde desde tu perspectiva."
         )
     return (
-        f"[Mesa Redonda - Contexto Compartido]\n\n"
-        f"Estás en una mesa redonda junto con otros agentes. "
-        f"Cada uno de ustedes aportará su perspectiva sobre el tema. "
-        f"Sé conciso pero completo en tu respuesta.\n\n"
+        f"[Mesa Redonda]\n"
+        f"Eres parte de una mesa redonda con otros agentes.\n\n"
         f"Usuario ahora: {user_msg}\n\n"
-        f"Instrucción individual: Eres el miembro {agent.id}. Responde desde tu perspectiva."
+        f"Eres el miembro {agent.id}. Responde desde tu perspectiva."
     )
 
 
-def _run_agent_for_roundtable(agent: RoundtableAgent, user_msg: str, history: list[tuple[str, str]], q: queue.Queue):
+def _run_agent_for_roundtable(agent: RoundtableAgent, user_msg: str, history: list[dict], q: queue.Queue):
     stop_evt = threading.Event()
     with _STOP_EVENTS_LOCK:
         _AGENT_STOP_EVENTS[agent.id] = stop_evt
@@ -452,9 +456,9 @@ def _run_agent_for_roundtable(agent: RoundtableAgent, user_msg: str, history: li
         cfg.pop("_in_telegram_turn", None)
         cfg["_last_interaction_time"] = time.time()
 
-        # Optimize tokens: clear state to prevent N^2 duplication of history
-        # and to dump bulky transient tool outputs (e.g. bash stdout).
-        agent.state.messages.clear()
+        # DO NOT clear agent.state.messages — we need prior turns for KV cache reuse.
+        # The prompt itself is lean (only last msg per agent), so context stays small.
+        # Agent SDK appends user+assistant to .messages automatically, giving cache hits.
 
         stopped = False
         for event in agent_run(prompt, agent.state, cfg, system_prompt):
@@ -1837,11 +1841,11 @@ async function restoreRt(){
       });
       if(j.history && j.history.length){
         j.history.forEach(function(h){
-          if(h.author === 'Usuario'){
+          if(h.agent === 'Usuario'){
             addUserToAll(h.text);
           } else {
-            appendToAgent(h.author, 'text', {text: h.text});
-            const col = document.getElementById('col-' + h.author);
+            appendToAgent(h.agent, 'text', {text: h.text});
+            const col = document.getElementById('col-' + h.agent);
             if(col && col._lastBubble){
               col._lastBubble.dataset.done = '1';
             }
@@ -2784,12 +2788,30 @@ window.addEventListener('resize', function(){
 });
 
 // ===== INIT =====
+(function(){
+  // Prune legacy/bloated localStorage keys from older versions
+  try {
+    const keysToRemove = [];
+    for(let i=0; i<localStorage.length; i++){
+      const k = localStorage.key(i);
+      // Remove keys that are not our standard ones if they are large or match legacy patterns
+      if(k !== ACTIVE_KEY && k !== SIDEBAR_COLLAPSED_KEY && k !== 'dulus-theme' && k.startsWith('dulus_')){
+          const val = localStorage.getItem(k);
+          if(val && val.length > 5000) keysToRemove.push(k); // Likely old bulky session data
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  } catch(e) {}
+
+  // Restore active session ID
+  var savedId = localStorage.getItem(ACTIVE_KEY);
+  if(savedId && savedId !== 'null') activeSessionId = savedId;
+})();
+
 loadSessions();
 initSidebar();
 renderSessions();
 loadHist();
-// Ensure server state matches the active session on startup -> Removed to avoid backend override
-// syncWithServer() handles pulling the correct session from the backend automatically on load.
 setInterval(function(){ syncWithServer(); }, 5000);
 </script>
 </body></html>"""
@@ -3236,11 +3258,11 @@ async function restoreRt(){
       });
       if(j.history && j.history.length){
         j.history.forEach(function(h){
-          if(h.author === 'Usuario'){
+          if(h.agent === 'Usuario'){
             addUserToAll(h.text);
           } else {
-            appendToAgent(h.author, 'text', {text: h.text});
-            const col = document.getElementById('col-' + h.author);
+            appendToAgent(h.agent, 'text', {text: h.text});
+            const col = document.getElementById('col-' + h.agent);
             if(col && col._lastBubble){
               col._lastBubble.dataset.done = '1';
             }
@@ -3269,6 +3291,136 @@ restoreRt();
     @app.route("/roundtable")
     def roundtable_page() -> Response:
         return Response(RT_PAGE, mimetype="text/html")
+
+    # ── Sandbox (Mini OS) ─────────────────────────────────────────────────────
+    _SANDBOX_DIST = Path(__file__).parent / "sandbox" / "dist"
+
+    @app.route("/sandbox")
+    @app.route("/sandbox/")
+    def sandbox_index() -> Response:
+        return send_from_directory(_SANDBOX_DIST, "index.html")
+
+    @app.route("/sandbox/<path:path>")
+    def sandbox_static(path) -> Response:
+        return send_from_directory(_SANDBOX_DIST, path)
+
+    # ── Sandbox Filesystem API ────────────────────────────────────────────────
+    import os as _os
+
+    @app.route("/api/sandbox/fs/list", methods=["GET"])
+    def sandbox_fs_list():
+        """List directory contents. ?path= relative to project root."""
+        rel = request.args.get("path", "/")
+        base = Path(__file__).parent
+        target = (base / rel.lstrip("/")).resolve()
+        # Safety: must stay within project root
+        try:
+            target.relative_to(base)
+        except ValueError:
+            return jsonify(error="Access denied"), 403
+        if not target.exists():
+            return jsonify(error="Not found"), 404
+        if target.is_file():
+            return jsonify([{"name": target.name, "type": "file", "size": target.stat().st_size}])
+        entries = []
+        for item in sorted(target.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
+            try:
+                stat = item.stat()
+                entries.append({
+                    "name": item.name,
+                    "type": "folder" if item.is_dir() else "file",
+                    "size": stat.st_size if item.is_file() else 0,
+                    "modified": stat.st_mtime,
+                })
+            except OSError:
+                pass
+        return jsonify(entries)
+
+    @app.route("/api/sandbox/fs/read", methods=["GET"])
+    def sandbox_fs_read():
+        """Read a file. ?path= relative to project root."""
+        rel = request.args.get("path", "")
+        if not rel:
+            return jsonify(error="path required"), 400
+        base = Path(__file__).parent
+        target = (base / rel.lstrip("/")).resolve()
+        try:
+            target.relative_to(base)
+        except ValueError:
+            return jsonify(error="Access denied"), 403
+        if not target.exists() or not target.is_file():
+            return jsonify(error="Not found"), 404
+        try:
+            content = target.read_text(encoding="utf-8", errors="replace")
+            return jsonify({"path": rel, "content": content})
+        except Exception as e:
+            return jsonify(error=str(e)), 500
+
+    @app.route("/api/sandbox/fs/write", methods=["POST"])
+    def sandbox_fs_write():
+        """Write a file. Body: {path, content}."""
+        body = request.get_json(silent=True) or {}
+        rel = body.get("path", "")
+        content = body.get("content", "")
+        if not rel:
+            return jsonify(error="path required"), 400
+        base = Path(__file__).parent
+        target = (base / rel.lstrip("/")).resolve()
+        try:
+            target.relative_to(base)
+        except ValueError:
+            return jsonify(error="Access denied"), 403
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+            return jsonify(ok=True, path=rel)
+        except Exception as e:
+            return jsonify(error=str(e)), 500
+
+    @app.route("/api/sandbox/exec", methods=["POST"])
+    def sandbox_exec():
+        """Execute a command string through the Dulus agent (streaming SSE)."""
+        body = request.get_json(silent=True) or {}
+        cmd = (body.get("command") or "").strip()
+        if not cmd:
+            return jsonify(error="command required"), 400
+        # Run via agent mirror so it has full tool access
+        def generate():
+            q: queue.Queue = queue.Queue(maxsize=512)
+            exc_holder = [None]
+            def producer():
+                try:
+                    for ev in _run_agent_mirror(cmd):
+                        result = _event_to_dict(ev)
+                        if result is None:
+                            continue
+                        if isinstance(result, tuple):
+                            payload, evt = result
+                            # auto-approve in exec mode
+                            perm_req = _PENDING_PERMISSIONS.get(payload["id"])
+                            if perm_req:
+                                perm_req[0].granted = True
+                            evt.set()
+                            continue
+                        q.put(result)
+                except Exception as e:
+                    exc_holder[0] = e
+                finally:
+                    q.put(None)
+            t = threading.Thread(target=producer, daemon=True)
+            t.start()
+            yield 'data: {"type":"start"}\n\n'
+            while True:
+                item = q.get()
+                if item is None:
+                    break
+                yield f"data: {json.dumps(item)}\n\n"
+            if exc_holder[0]:
+                err = exc_holder[0]
+                yield f'data: {json.dumps({"type":"error","message":str(err)})}\n\n'
+            yield 'data: {"type":"done"}\n\n'
+        return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
 
     @app.route("/state")
     def state_endpoint() -> Response:
@@ -3417,9 +3569,12 @@ restoreRt();
                     if assistant_reply:
                         chunks.append(assistant_reply)
                     full = "\n\n".join(chunks) if chunks else f"✅ {msg.split()[0]} executed."
-                    for ag in agents:
-                        yield f"data: {json.dumps({'type':'text','text':full,'agent':ag.id})}\n\n"
-                        yield f"data: {json.dumps({'type':'agent_done','agent':ag.id,'text':full})}\n\n"
+                    with ROUNDTABLE_LOCK:
+                        for ag in agents:
+                            evt = {"type": "text", "text": full, "agent": ag.id}
+                            ROUNDTABLE_HISTORY.append(evt)
+                            yield f"data: {json.dumps(evt)}\n\n"
+                            yield f"data: {json.dumps({'type':'agent_done','agent':ag.id,'text':full})}\n\n"
                 except Exception as e:
                     err = f"{type(e).__name__}: {e}"
                     for ag in agents:
@@ -3430,11 +3585,19 @@ restoreRt();
                 mimetype="text/event-stream",
             )
 
-        # Snapshot history BEFORE this turn, then add user message
+        # Build lean history: only last text message per agent (for prompt building)
         msg = _sanitize_for_api(msg)
         with ROUNDTABLE_LOCK:
-            history_snapshot = list(ROUNDTABLE_HISTORY)
-            ROUNDTABLE_HISTORY.append(("Usuario", msg))
+            # Build last-msg-per-agent snapshot for prompt
+            last_per_agent: dict[str, str] = {}
+            for item in ROUNDTABLE_HISTORY:
+                a = item.get("agent", "")
+                t = item.get("text", "")
+                if a and t:
+                    last_per_agent[a] = t
+            history_snapshot = [{"agent": a, "text": t} for a, t in last_per_agent.items()]
+            # Store user message in history (lean)
+            ROUNDTABLE_HISTORY.append({"agent": "Usuario", "text": msg, "type": "text"})
 
         def generate():
             q: queue.Queue = queue.Queue(maxsize=1024)
@@ -3461,17 +3624,19 @@ restoreRt();
                     item = q.get(timeout=0.2)
                 except queue.Empty:
                     continue
-                if item.get("type") == "agent_done":
-                    agent_results[item["agent"]] = item.get("text", "")
-                yield f"data: {json.dumps(item)}\n\n"
+                if item:
+                    # Stream event to frontend but do NOT store every event
+                    yield f"data: {json.dumps(item)}\n\n"
+                    # Only persist final text per agent to keep history lean
+                    if item.get("type") == "agent_done":
+                        agent_results[item["agent"]] = item.get("text", "")
 
-            # All done — save responses to global history for next turn
+            # Save only final text per agent to shared history
             with ROUNDTABLE_LOCK:
                 for agent in agents:
-                    text = agent_results.get(agent.id, "")
-                    text = _sanitize_for_api(text)
+                    text = _sanitize_for_api(agent_results.get(agent.id, ""))
                     if text:
-                        ROUNDTABLE_HISTORY.append((agent.id, text))
+                        ROUNDTABLE_HISTORY.append({"agent": agent.id, "text": text, "type": "text"})
 
             yield 'data: {"type":"done"}\n\n'
 
@@ -3504,7 +3669,7 @@ restoreRt();
         with ROUNDTABLE_LOCK:
             active = len(ROUNDTABLE_AGENTS) > 0
             agents = [a.id for a in ROUNDTABLE_AGENTS]
-            history = [{"author": h[0], "text": h[1]} for h in ROUNDTABLE_HISTORY]
+            history = list(ROUNDTABLE_HISTORY)
         return jsonify(active=active, agents=agents, history=history)
 
     @app.route("/roundtable/direct", methods=["POST"])
@@ -3526,8 +3691,17 @@ restoreRt();
 
         msg = _sanitize_for_api(msg)
         with ROUNDTABLE_LOCK:
-            history_snapshot = list(ROUNDTABLE_HISTORY)
-            ROUNDTABLE_HISTORY.append(("Usuario", f"[{target.id}] {msg}"))
+            # Lean history for prompts
+            last_per_agent: dict[str, str] = {}
+            for item in ROUNDTABLE_HISTORY:
+                a = item.get("agent", "")
+                t = item.get("text", "")
+                if a and t:
+                    last_per_agent[a] = t
+            history_snapshot = [{"agent": a, "text": t} for a, t in last_per_agent.items()]
+            
+            # Store user direct message
+            ROUNDTABLE_HISTORY.append({"agent": "Usuario", "text": f"[→ {target.id}] {msg}", "type": "text"})
 
         def generate():
             q: queue.Queue = queue.Queue(maxsize=1024)
@@ -3551,14 +3725,19 @@ restoreRt();
                     continue
                 if item is None:
                     break
+                
+                # Stream to frontend
+                yield f"data: {json.dumps(item)}\n\n"
+                
+                # Capture result
                 if item.get("type") == "agent_done":
                     final_text[0] = item.get("text", "")
-                yield f"data: {json.dumps(item)}\n\n"
 
+            # Persist final result only
             with ROUNDTABLE_LOCK:
                 text = _sanitize_for_api(final_text[0])
                 if text:
-                    ROUNDTABLE_HISTORY.append((target.id, text))
+                    ROUNDTABLE_HISTORY.append({"agent": target.id, "text": text, "type": "text"})
 
             yield 'data: {"type":"done"}\n\n'
 

@@ -18,3 +18,12 @@ build/
 deepseek_pow.wasm
 sha3_wasm_bg.*.wasm
 *.zip
+
+# Local Context
+.dulus-context/
+
+# Sandbox
+sandbox/node_modules/
+sandbox/dist/
+sandbox/vite.log
+

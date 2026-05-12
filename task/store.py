@@ -61,15 +61,25 @@ def _next_id() -> str:
 def create_task(
     subject: str,
     description: str,
+    status: str = "pending",
+    owner: str = "",
     active_form: str = "",
     metadata: dict[str, Any] | None = None,
 ) -> Task:
     with _lock:
         _load()
+        # Validate status enum
+        try:
+            task_status = TaskStatus(status)
+        except ValueError:
+            task_status = TaskStatus.PENDING
+
         task = Task(
             id=_next_id(),
             subject=subject,
             description=description,
+            status=task_status,
+            owner=owner,
             active_form=active_form,
             metadata=metadata or {},
         )
