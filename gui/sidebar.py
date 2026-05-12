@@ -18,7 +18,7 @@ except ImportError:
     from tkinter import ttk
     HAS_CTK = False
 
-from config import CONFIG_DIR, SESSIONS_DIR, DAILY_DIR, MR_SESSION_DIR, load_config
+from config import CONFIG_DIR, SESSIONS_DIR, DAILY_DIR, load_config
 from tool_registry import get_all_tools
 from providers import PROVIDERS, list_ollama_models
 from gui.themes import get_theme, CURATED_MODELS
@@ -255,63 +255,89 @@ class DulusSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
 
     # ── Refresh helpers ───────────────────────────────────────────────────────
 
-    def set_sessions(self, sessions: list[dict]) -> None:
-        """Update the session history list in the sidebar."""
-        # Clear existing buttons
-        for widget in getattr(self.session_frame, "winfo_children", lambda: [])():
-            widget.destroy()
-        self._session_buttons.clear()
-        self._sessions = []
-
-        if not sessions:
-            lbl = ctk.CTkLabel if HAS_CTK else ctk.Label
-            lbl(self.session_frame, text="(sin sesiones)", font=FONT_SMALL,
-                text_color=TEXT_DIM if HAS_CTK else TEXT_DIM).pack(anchor="w")
-            return
-
+    def _create_session_row(self, sid: str, title: str) -> None:
+        """Create a single session row (button + delete) in the sidebar."""
         btn_cls = ctk.CTkButton if HAS_CTK else ctk.Button
         frm_cls = ctk.CTkFrame if HAS_CTK else ctk.Frame
-        
+
+        row = frm_cls(self.session_frame, fg_color="transparent" if HAS_CTK else CARD_COLOR)
+        row.pack(fill="x", pady=1)
+        row.grid_columnconfigure(0, weight=1)
+
+        btn = btn_cls(
+            row,
+            text=title,
+            font=FONT_SMALL,
+            fg_color="transparent" if HAS_CTK else CARD_COLOR,
+            hover_color=BORDER_COLOR if HAS_CTK else BORDER_COLOR,
+            text_color=TEXT_DIM if HAS_CTK else TEXT_DIM,
+            **({"bg": CARD_COLOR} if not HAS_CTK else {}),
+            anchor="w",
+            height=28,
+            command=lambda s=sid: self._on_session_click(s),
+        )
+        btn.grid(row=0, column=0, sticky="ew")
+        self._session_buttons[sid] = btn
+
+        del_btn = btn_cls(
+            row,
+            text=" \u2715 ",
+            width=24,
+            height=24,
+            font=(FONT_FAMILY, 10, "bold"),
+            fg_color="transparent" if HAS_CTK else CARD_COLOR,
+            hover_color="#aa3333",
+            text_color=TEXT_DIM if HAS_CTK else TEXT_DIM,
+            command=lambda s=sid: self._on_delete_click(s),
+        )
+        del_btn.grid(row=0, column=1, padx=(0, 2))
+
+    def set_sessions(self, sessions: list[dict]) -> None:
+        """Update the session history list in the sidebar (incremental diff)."""
+        new_ids = {s.get("id", "") for s in sessions}
+        old_ids = set(self._sessions)
+
+        # Remove rows that no longer exist
+        for sid in old_ids - new_ids:
+            btn = self._session_buttons.pop(sid, None)
+            if btn:
+                # Destroy parent row frame (button is inside a frame)
+                try:
+                    btn.master.destroy()
+                except Exception:
+                    pass
+            if sid in self._sessions:
+                self._sessions.remove(sid)
+
+        # Add or update rows
         for sess in sessions:
             sid = sess.get("id", "")
             title = sess.get("title", "Untitled")
-            self._sessions.append(sid)
-            
-            # Row container for button + delete
-            row = frm_cls(self.session_frame, fg_color="transparent" if HAS_CTK else CARD_COLOR)
-            row.pack(fill="x", pady=1)
-            row.grid_columnconfigure(0, weight=1)
-            
-            # Main session button
-            btn = btn_cls(
-                row,
-                text=title,
-                font=FONT_SMALL,
-                fg_color="transparent" if HAS_CTK else CARD_COLOR,
-                hover_color=BORDER_COLOR if HAS_CTK else BORDER_COLOR,
-                text_color=TEXT_DIM if HAS_CTK else TEXT_DIM,
-                **({"bg": CARD_COLOR} if not HAS_CTK else {}),
-                anchor="w",
-                height=28,
-                command=lambda s=sid: self._on_session_click(s),
-            )
-            btn.grid(row=0, column=0, sticky="ew")
-            self._session_buttons[sid] = btn
-            
-            # Delete button (X)
-            del_btn = btn_cls(
-                row,
-                text=" \u2715 ", # Unicode X
-                width=24,
-                height=24,
-                font=(FONT_FAMILY, 10, "bold"),
-                fg_color="transparent" if HAS_CTK else CARD_COLOR,
-                hover_color="#aa3333", # Reddish on hover
-                text_color=TEXT_DIM if HAS_CTK else TEXT_DIM,
-                command=lambda s=sid: self._on_delete_click(s),
-            )
-            del_btn.grid(row=0, column=1, padx=(0, 2))
-            
+            if sid in self._session_buttons:
+                # Update text if changed
+                try:
+                    current = self._session_buttons[sid].cget("text")
+                    if current != title:
+                        self._session_buttons[sid].configure(text=title)
+                except Exception:
+                    pass
+            else:
+                self._sessions.append(sid)
+                self._create_session_row(sid, title)
+
+        # Show placeholder if empty
+        if not sessions and not any(
+            isinstance(w, (ctk.CTkLabel if HAS_CTK else ctk.Label)) and w.cget("text") == "(sin sesiones)"
+            for w in getattr(self.session_frame, "winfo_children", lambda: [])()
+        ):
+            for widget in getattr(self.session_frame, "winfo_children", lambda: [])():
+                widget.destroy()
+            self._session_buttons.clear()
+            self._sessions.clear()
+            lbl = ctk.CTkLabel if HAS_CTK else ctk.Label
+            lbl(self.session_frame, text="(sin sesiones)", font=FONT_SMALL,
+                text_color=TEXT_DIM if HAS_CTK else TEXT_DIM).pack(anchor="w")
+
         self._highlight_active_session()
 
     def _on_delete_click(self, session_id: str) -> None:

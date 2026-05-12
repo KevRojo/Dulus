@@ -7,8 +7,10 @@ Usage:
 from __future__ import annotations
 
 import datetime
+import json
 import queue
 import sys
+import threading
 import traceback
 from pathlib import Path
 from typing import Callable
@@ -27,7 +29,7 @@ from gui.themes import get_theme, set_theme
 from gui.session_utils import scan_sessions
 
 # Session directories
-from config import SESSIONS_DIR, DAILY_DIR, MR_SESSION_DIR
+from config import SESSIONS_DIR, DAILY_DIR
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -163,6 +165,35 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
     # Wire bridge into sidebar so context bar / model list work
     app.sidebar.bridge = bridge
 
+    # ── Sidebar refresh (non-blocking) ────────────────────────────────────────
+    _sidebar_refresh_pending = False
+
+    def _refresh_sidebar_async() -> None:
+        """Run scan_sessions in a background thread so the UI never freezes."""
+        nonlocal _sidebar_refresh_pending
+        if _sidebar_refresh_pending:
+            return
+        _sidebar_refresh_pending = True
+
+        def _do_scan():
+            try:
+                data = scan_sessions()
+                # Update UI from main thread
+                app.after(0, lambda: app.set_sessions(data))
+            finally:
+                nonlocal _sidebar_refresh_pending
+                _sidebar_refresh_pending = False
+
+        threading.Thread(target=_do_scan, daemon=True).start()
+
+    def _load_session_messages(path: str) -> list[dict]:
+        """Load messages directly from a session file."""
+        try:
+            data = json.loads(Path(path).read_text(encoding="utf-8", errors="replace"))
+            return data.get("messages", [])
+        except Exception:
+            return []
+
     # ── Wire callbacks ────────────────────────────────────────────────────────
 
     def _on_send(text: str) -> None:
@@ -176,8 +207,8 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
         sid = bridge.save_current_session()
         if sid:
             # If a new session was created, refresh sidebar to show it
-            app.set_sessions(scan_sessions())
-            
+            _refresh_sidebar_async()
+
         app.hide_thinking()
         app.chat.clear_chat()
         bridge.clear_session()
@@ -188,36 +219,38 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
     def _on_session_select(session_id: str) -> None:
         # Save current session before switching to ensure no loss
         sid = bridge.save_current_session()
-        
+
         # If we were in a new chat that just got saved, refresh sidebar to show it
         if sid:
-            app.set_sessions(scan_sessions())
-            
+            _refresh_sidebar_async()
+
         app.hide_thinking()
-        
-        # 1. Use cached data from sidebar for instant switching
-        session_data = app.sidebar._session_cache.get(session_id)
-        if not session_data:
-            # Fallback to scanning if cache missed (rare)
+
+        # 1. Find the session file path (from cache or scan)
+        session_path = None
+        cached = app.sidebar._session_cache.get(session_id)
+        if cached:
+            session_path = cached.get("path")
+        if not session_path:
             for s in scan_sessions():
                 if s["id"] == session_id:
-                    session_data = s
+                    session_path = s.get("path")
                     break
-        
-        if not session_data:
+
+        if not session_path:
             return
 
-        # 2. Update UI instantly (fluid)
-        messages = session_data.get("messages", [])
+        # 2. Load messages directly from disk (avoids keeping all messages in memory)
+        messages = _load_session_messages(session_path)
         app.chat.load_messages(messages)
-        
+
         # 3. Defer bridge loading until first message (user request)
         bridge.pending_history = messages
         bridge.session_id = session_id
         # Important: clear actual AI state so it's fresh until sync
         from agent import AgentState
         bridge.state = AgentState()
-        
+
         app.set_active_session(session_id)
         app.sidebar.update_context_bar()
         app.set_status("Sesión lista (Contexto diferido)", t["success"])
@@ -236,8 +269,8 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
     app.on_model_change = _on_model_change
     app.on_session_select = _on_session_select
 
-    # Load existing sessions into sidebar
-    app.set_sessions(scan_sessions())
+    # Load existing sessions into sidebar (async so GUI shows immediately)
+    _refresh_sidebar_async()
     app.sidebar._refresh_model_list()
     app.sidebar.update_context_bar()
 
@@ -291,7 +324,7 @@ def launch_gui(config: dict | None = None, initial_prompt: str | None = None) ->
                     # Rebuilding after every message causes annoying flicker.
                     sid = event.get("session_id")
                     if sid and sid not in app.sidebar._session_buttons:
-                        app.set_sessions(scan_sessions())
+                        _refresh_sidebar_async()
                     if sid:
                         app.set_active_session(sid)
 

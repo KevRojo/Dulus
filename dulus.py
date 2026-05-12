@@ -1158,7 +1158,7 @@ def _atomic_write_json(path: Path, data) -> None:
 def _save_roundtable_session(log: list, save_path=None):
     """Save the full roundtable session log to a JSON file.
 
-    Sessions go under config.MR_SESSION_DIR (~/.dulus/sessions/mr_sessions/),
+    Sessions go under config.SESSIONS_DIR (~/.dulus/sessions/),
     consistent with /save and other session artifacts. Pass an explicit
     save_path to override (used to keep all turns of one debate in one file).
     """
@@ -1166,9 +1166,9 @@ def _save_roundtable_session(log: list, save_path=None):
         return
     if save_path is None:
         from datetime import datetime as _dt
-        from config import MR_SESSION_DIR
-        MR_SESSION_DIR.mkdir(parents=True, exist_ok=True)
-        save_path = MR_SESSION_DIR / f"round_table_{_dt.now().strftime('%Y%m%d_%H%M%S')}.json"
+        from config import SESSIONS_DIR
+        SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+        save_path = SESSIONS_DIR / f"round_table_{_dt.now().strftime('%Y%m%d_%H%M%S')}.json"
     try:
         _atomic_write_json(save_path, log)
         ok(f"Sesión de Mesa Redonda guardada en: {save_path}")
@@ -1193,7 +1193,7 @@ def save_latest(args: str, state, config=None, mode: str = "full") -> bool:
     mode="full"  → session_latest.json + daily/ copy + append to history.json (REPL default)
     mode="daemon"→ only overwrite SESSIONS_DIR/session_<sid>.json, skip latest/history/daily.
     """
-    from config import MR_SESSION_DIR, DAILY_DIR, SESSION_HIST_FILE, SESSIONS_DIR
+    from config import DAILY_DIR, SESSION_HIST_FILE, SESSIONS_DIR
     if not state.messages:
         return True
 
@@ -1213,16 +1213,16 @@ def save_latest(args: str, state, config=None, mode: str = "full") -> bool:
         return True
 
     # ── Full mode (REPL exit) ──
-    daily_limit   = cfg.get("session_daily_limit",   5)
-    history_limit = cfg.get("session_history_limit", 100)
+    daily_limit   = cfg.get("session_limit_daily",   10)
+    history_limit = cfg.get("session_limit_history", 200)
 
     now = datetime.now()
     ts  = now.strftime("%H%M%S")
     date_str = now.strftime("%Y-%m-%d")
 
     # 1. session_latest.json — always overwrite for quick /resume
-    MR_SESSION_DIR.mkdir(parents=True, exist_ok=True)
-    latest_path = MR_SESSION_DIR / "session_latest.json"
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    latest_path = SESSIONS_DIR / "session_latest.json"
     latest_path.write_text(payload)
 
     # 2. daily/YYYY-MM-DD/session_HHMMSS_sid.json
@@ -1267,22 +1267,16 @@ def save_latest(args: str, state, config=None, mode: str = "full") -> bool:
     ok(f"             → {SESSION_HIST_FILE}  ({len(hist['sessions'])} sessions / {hist['total_turns']} total turns)")
     return True
 def cmd_load(args: str, state, config) -> bool:
-    from config import SESSIONS_DIR, MR_SESSION_DIR, DAILY_DIR
+    from config import SESSIONS_DIR, DAILY_DIR
 
     path = None
     if not args.strip():
-        # Collect sessions from daily/ folders, newest first
+        # Collect sessions from daily/ folders only (single source of truth for listing)
         sessions: list[Path] = []
         if DAILY_DIR.exists():
             for day_dir in sorted(DAILY_DIR.iterdir(), reverse=True):
                 if day_dir.is_dir():
                     sessions.extend(sorted(day_dir.glob("session_*.json"), reverse=True))
-        # Fall back to legacy mr_sessions/ if daily/ is empty
-        if not sessions and MR_SESSION_DIR.exists():
-            sessions = [s for s in sorted(MR_SESSION_DIR.glob("*.json"), reverse=True)
-                        if s.name != "session_latest.json"]
-        # Also include manually /save'd sessions from SESSIONS_DIR root
-        sessions.extend(sorted(SESSIONS_DIR.glob("session_*.json"), reverse=True))
 
         if not sessions:
             info("No saved sessions found.")
@@ -1403,8 +1397,7 @@ def cmd_load(args: str, state, config) -> bool:
         fname = args.strip()
         path = Path(fname) if "/" in fname or "\\" in fname else SESSIONS_DIR / fname
         if not path.exists() and ("/" not in fname and "\\" not in fname):
-            for alt in [MR_SESSION_DIR / fname,
-                        *(d / fname for d in DAILY_DIR.iterdir()
+            for alt in [*(d / fname for d in DAILY_DIR.iterdir()
                           if DAILY_DIR.exists() and d.is_dir())]:
                 if alt.exists():
                     path = alt
@@ -1422,16 +1415,16 @@ def cmd_load(args: str, state, config) -> bool:
     return True
 
 def cmd_resume(args: str, state, config) -> bool:
-    from config import MR_SESSION_DIR
+    from config import SESSIONS_DIR
 
     if not args.strip():
-        path = MR_SESSION_DIR / "session_latest.json"
+        path = SESSIONS_DIR / "session_latest.json"
         if not path.exists():
             info("No auto-saved sessions found.")
             return True
     else:
         fname = args.strip()
-        path = Path(fname) if "/" in fname else MR_SESSION_DIR / fname
+        path = Path(fname) if "/" in fname else SESSIONS_DIR / fname
 
     if not path.exists():
         err(f"File not found: {path}")

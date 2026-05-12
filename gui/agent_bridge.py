@@ -162,9 +162,9 @@ class DulusBridge:
 
     def _process_turn(self, user_message: str) -> None:
         # Assign session_id immediately to prevent UI duplication during turn
+        # Use "default" as fallback so New Chat doesn't spawn random UUIDs
         if not self.session_id:
-            import uuid
-            self.session_id = uuid.uuid4().hex[:8]
+            self.session_id = "default"
 
         # ── Skill inject (one-shot) ────────────────────────────────────────
         skill_body = self._skill_inject

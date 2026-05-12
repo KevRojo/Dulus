@@ -3,7 +3,11 @@ import json
 import datetime
 import uuid
 from pathlib import Path
-from config import SESSIONS_DIR, DAILY_DIR, MR_SESSION_DIR, SESSION_HIST_FILE
+from config import SESSIONS_DIR, DAILY_DIR, SESSION_HIST_FILE
+
+# File-mtime cache: path -> (mtime, result) to avoid re-reading unchanged files
+_scan_cache: dict[str, tuple[float, dict]] = {}
+
 
 def build_title(messages: list[dict]) -> str:
     """Generate a descriptive title from the first user message."""
@@ -15,60 +19,71 @@ def build_title(messages: list[dict]) -> str:
                 text = " ".join(part.get("text", "") for part in content if isinstance(part, dict))
             else:
                 text = str(content)
-            
+
             if text.strip():
                 clean = text.strip().replace("\n", " ")
                 return clean[:40] + ("..." if len(clean) > 40 else "")
     return "Nueva conversación"
 
+
+def _read_session_meta(path: Path) -> dict | None:
+    """Read session metadata with mtime caching."""
+    global _scan_cache
+    try:
+        mtime = path.stat().st_mtime
+        key = str(path)
+        if key in _scan_cache:
+            cached_mtime, cached = _scan_cache[key]
+            if cached_mtime == mtime:
+                return cached
+
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        sid = data.get("session_id", path.stem)
+        messages = data.get("messages", [])
+        title = build_title(messages)
+        saved_at = data.get("saved_at", "")
+        if saved_at and len(saved_at) >= 19:
+            title = f"{saved_at[11:16]}  {title}"
+
+        result = {
+            "id": sid,
+            "title": title,
+            "path": str(path),
+            "saved_at": saved_at,
+            "turn_count": data.get("turn_count", len(messages) // 2),
+        }
+        _scan_cache[key] = (mtime, result)
+        return result
+    except Exception:
+        return None
+
+
 def scan_sessions() -> list[dict]:
-    """Scan session directories and return sorted list of metadata."""
+    """Scan daily session directories and return sorted list of metadata.
+
+    Single source of truth for listing: only daily/ folder is scanned.
+    Other locations (root sessions/, checkpoints) continue to exist for
+    internal use but are not listed to avoid duplicates.
+    """
     sessions: list[dict] = []
     seen: set[str] = set()
     files: list[Path] = []
 
-    # Daily sessions (newest first)
+    # Daily sessions only (newest first)
     if DAILY_DIR.exists():
         for day_dir in sorted(DAILY_DIR.iterdir(), reverse=True):
             if day_dir.is_dir():
                 files.extend(sorted(day_dir.glob("session_*.json"), reverse=True))
 
-    # MR sessions
-    if MR_SESSION_DIR.exists():
-        files.extend(
-            s for s in sorted(MR_SESSION_DIR.glob("*.json"), reverse=True)
-            if s.name != "session_latest.json"
-        )
-
-    # Root sessions
-    if SESSIONS_DIR.exists():
-        files.extend(sorted(SESSIONS_DIR.glob("session_*.json"), reverse=True))
-
     for path in files:
-        try:
-            data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
-            sid = data.get("session_id", path.stem)
-            if sid in seen:
-                continue
-            seen.add(sid)
-            
-            messages = data.get("messages", [])
-            title = build_title(messages)
-            
-            saved_at = data.get("saved_at", "")
-            if saved_at and len(saved_at) >= 19:
-                # Add time prefix: "HH:MM  Title"
-                title = f"{saved_at[11:16]}  {title}"
-            
-            sessions.append({
-                "id": sid, 
-                "title": title, 
-                "path": str(path), 
-                "messages": messages,
-                "saved_at": saved_at
-            })
-        except Exception:
+        meta = _read_session_meta(path)
+        if not meta:
             continue
+        sid = meta["id"]
+        if sid in seen:
+            continue
+        seen.add(sid)
+        sessions.append(meta)
 
     # Sort all found sessions by saved_at DESC
     sessions.sort(key=lambda x: x.get("saved_at", ""), reverse=True)
@@ -101,8 +116,8 @@ def save_session(state, config: dict, session_id: str | None = None) -> str:
     payload = json.dumps(data, indent=2, default=str)
 
     # 2. Save latest for /resume
-    MR_SESSION_DIR.mkdir(parents=True, exist_ok=True)
-    (MR_SESSION_DIR / "session_latest.json").write_text(payload, encoding="utf-8")
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    (SESSIONS_DIR / "session_latest.json").write_text(payload, encoding="utf-8")
 
     # 3. Save to daily folder
     day_dir = DAILY_DIR / date_str
@@ -155,16 +170,8 @@ def delete_session(session_id: str) -> bool:
         return False
 
     deleted = False
-    
-    # 1. Scan and delete in MR_SESSION_DIR (except latest maybe?)
-    if MR_SESSION_DIR.exists():
-        for p in MR_SESSION_DIR.glob(f"*{session_id}*"):
-            try:
-                p.unlink()
-                deleted = True
-            except: pass
 
-    # 2. Daily sessions
+    # 1. Daily sessions
     if DAILY_DIR.exists():
         for d in DAILY_DIR.iterdir():
             if d.is_dir():
@@ -174,7 +181,7 @@ def delete_session(session_id: str) -> bool:
                         deleted = True
                     except: pass
 
-    # 3. Root sessions
+    # 2. Root sessions (includes session_latest.json and manual /save files)
     if SESSIONS_DIR.exists():
         for p in SESSIONS_DIR.glob(f"*{session_id}*"):
             try:
@@ -182,7 +189,7 @@ def delete_session(session_id: str) -> bool:
                 deleted = True
             except: pass
 
-    # 4. Update history.json
+    # 3. Update history.json
     if SESSION_HIST_FILE.exists():
         try:
             hist = json.loads(SESSION_HIST_FILE.read_text())
