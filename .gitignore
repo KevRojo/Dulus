@@ -10,8 +10,8 @@ __pycache__/
 *.pyd
 
 # Python build artifacts
-dist/
-build/
+/dist/
+/build/
 *.egg-info/
 
 # Project-specific binaries / archives
