@@ -4,7 +4,7 @@ import os
 import queue
 import threading
 import time
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -199,6 +199,30 @@ class DulusHandler(SimpleHTTPRequestHandler):
                 self._error(f"MemPalace error: {e}", 500)
             return
 
+        # ── Skills ──
+        if path == "/api/skills":
+            try:
+                from skill.loader import load_skills
+                skills = load_skills()
+                result = [
+                    {
+                        "id": s.name,
+                        "name": s.name,
+                        "description": s.description,
+                        "category": s.source.capitalize() if s.source else "Utility",
+                        "triggers": s.triggers,
+                        "argument_hint": s.argument_hint,
+                        "source": s.source,
+                        "user_invocable": s.user_invocable,
+                    }
+                    for s in skills
+                    if s.user_invocable
+                ]
+                self._json_response(result)
+            except Exception as e:
+                self._error(f"Skills error: {e}", 500)
+            return
+
         # ── Themes ──
         if path == "/api/themes":
             try:
@@ -248,6 +272,34 @@ class DulusHandler(SimpleHTTPRequestHandler):
                 self._json_response(get_stats())
             except Exception as e:
                 self._error(f"Marketplace error: {e}", 500)
+            return
+
+        # ── Static files from Sandbox (Web OS) ──
+        SANDBOX_DIR = Path(__file__).parent.parent / "sandbox" / "dist"
+        if path.startswith("/sandbox/"):
+            sandbox_path = path[len("/sandbox/"):]
+            if sandbox_path == "" or sandbox_path.endswith("/"):
+                sandbox_path = "index.html"
+            target = SANDBOX_DIR / sandbox_path
+            if target.exists() and target.is_file():
+                self.send_response(200)
+                ctype = "text/html"
+                if path.endswith(".css"):
+                    ctype = "text/css"
+                elif path.endswith(".js"):
+                    ctype = "application/javascript"
+                elif path.endswith(".json"):
+                    ctype = "application/json"
+                elif path.endswith(".png"):
+                    ctype = "image/png"
+                elif path.endswith(".jpg") or path.endswith(".jpeg"):
+                    ctype = "image/jpeg"
+                self.send_header("Content-Type", ctype)
+                self.end_headers()
+                with open(target, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            self.send_error(404)
             return
 
         # ── Static files from dashboard ──
@@ -362,6 +414,39 @@ class DulusHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._error(str(e), 500)
 
+        # ── Skills Invoke ──
+        if path == "/api/skills/invoke":
+            skill_name = data.get("name", "").strip()
+            args = data.get("arguments", {})
+            args_str = data.get("args", "")
+            if not skill_name:
+                return self._error("Missing skill name")
+            try:
+                from skill.loader import load_skills, find_skill, substitute_arguments
+                from skill.tools import _skill_tool
+
+                skill = None
+                for s in load_skills():
+                    if s.name == skill_name:
+                        skill = s
+                        break
+                if skill is None:
+                    skill = find_skill(skill_name)
+                if skill is None:
+                    return self._error(f"Skill '{skill_name}' not found", 404)
+
+                # Build args string from dict if provided
+                if isinstance(args, dict) and args:
+                    parts = []
+                    for k, v in args.items():
+                        parts.append(str(v))
+                    args_str = " ".join(parts)
+
+                result = _skill_tool({"name": skill_name, "args": args_str}, {})
+                self._json_response({"success": True, "result": result, "skill": skill_name})
+            except Exception as e:
+                return self._error(f"Skill execution error: {e}", 500)
+
         self._error("Not found", 404)
 
     def do_GET(self):
@@ -383,7 +468,7 @@ def run_server(port: int = 8000):
     started = start_watcher(broadcast_event)
     if started:
         print("[DULUS] Plugin hot-reload watcher started")
-    server = HTTPServer(("", port), DulusHandler)
+    server = ThreadingHTTPServer(("", port), DulusHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     print(f"[DULUS] Server running at http://localhost:{port}")
@@ -397,6 +482,7 @@ def run_server(port: int = 8000):
     print(f"   Plugins:     http://localhost:{port}/api/plugins")
     print(f"   Marketplace: http://localhost:{port}/api/marketplace")
     print(f"   MemPalace:   http://localhost:{port}/api/mempalace")
+    print(f"   Skills:      http://localhost:{port}/api/skills")
     print(f"   SSE Events:  http://localhost:{port}/api/events")
     print("   Press Ctrl+C to stop")
     try:

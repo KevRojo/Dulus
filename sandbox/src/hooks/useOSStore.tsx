@@ -37,13 +37,27 @@ const createWindow = (state: OSState, appId: string, title?: string): Window => 
 
 // ---- Initial State ----
 const defaultDesktopIcons: DesktopIcon[] = [
+  // Column 1
   { id: 'desk-home', name: 'Home', icon: 'Home', appId: 'filemanager', position: { x: 16, y: 16 }, isSelected: false },
   { id: 'desk-trash', name: 'Trash', icon: 'Trash2', appId: 'filemanager', position: { x: 16, y: 106 }, isSelected: false },
   { id: 'desk-text', name: 'Text Editor', icon: 'FileText', appId: 'texteditor', position: { x: 16, y: 196 }, isSelected: false },
   { id: 'desk-terminal', name: 'Terminal', icon: 'Terminal', appId: 'terminal', position: { x: 16, y: 286 }, isSelected: false },
+  { id: 'desk-calc', name: 'Calculator', icon: 'Calculator', appId: 'calculator', position: { x: 16, y: 376 }, isSelected: false },
+  // Column 2
   { id: 'desk-settings', name: 'Settings', icon: 'Settings', appId: 'settings', position: { x: 96, y: 16 }, isSelected: false },
   { id: 'desk-browser', name: 'Web Browser', icon: 'Globe', appId: 'browser', position: { x: 96, y: 106 }, isSelected: false },
   { id: 'desk-calendar', name: 'Calendar', icon: 'Calendar', appId: 'calendar', position: { x: 96, y: 196 }, isSelected: false },
+  { id: 'desk-notes', name: 'Notes', icon: 'StickyNote', appId: 'notes', position: { x: 96, y: 286 }, isSelected: false },
+  { id: 'desk-chat', name: 'Chat', icon: 'MessageSquare', appId: 'chat', position: { x: 96, y: 376 }, isSelected: false },
+  // Column 3 — Dulus Native + Productivity
+  { id: 'desk-todo', name: 'Todo', icon: 'CheckSquare', appId: 'todo', position: { x: 176, y: 16 }, isSelected: false },
+  { id: 'desk-weather', name: 'Weather', icon: 'CloudSun', appId: 'weather', position: { x: 176, y: 106 }, isSelected: false },
+  { id: 'desk-sysmon', name: 'System Monitor', icon: 'Activity', appId: 'systemmonitor', position: { x: 176, y: 196 }, isSelected: false },
+  { id: 'desk-tasks', name: 'Task Manager', icon: 'ListChecks', appId: 'taskmanager', position: { x: 176, y: 286 }, isSelected: false },
+  { id: 'desk-memory', name: 'Memory Manager', icon: 'Brain', appId: 'memorymanager', position: { x: 176, y: 376 }, isSelected: false },
+  // Column 4 — Dulus Native
+  { id: 'desk-agents', name: 'Agent Monitor', icon: 'Bot', appId: 'agentmonitor', position: { x: 256, y: 16 }, isSelected: false },
+  { id: 'desk-skills', name: 'Skills Launcher', icon: 'Wand2', appId: 'skillslauncher', position: { x: 256, y: 106 }, isSelected: false },
 ];
 
 const createInitialDockItems = (): DockItem[] => {
@@ -57,11 +71,19 @@ const createInitialDockItems = (): DockItem[] => {
   }));
 };
 
+const DESKTOP_ICONS_VERSION = 2; // bump when defaultDesktopIcons changes
+
 const loadDesktopIcons = (): DesktopIcon[] => {
   try {
     const saved = localStorage.getItem('dulus_desktop_icons');
-    if (saved) return JSON.parse(saved) as DesktopIcon[];
+    const savedVersion = localStorage.getItem('dulus_desktop_icons_version');
+    if (saved && savedVersion && parseInt(savedVersion, 10) === DESKTOP_ICONS_VERSION) {
+      return JSON.parse(saved) as DesktopIcon[];
+    }
   } catch { /* ignore */ }
+  // Reset to defaults on first run or version mismatch
+  localStorage.setItem('dulus_desktop_icons', JSON.stringify(defaultDesktopIcons));
+  localStorage.setItem('dulus_desktop_icons_version', String(DESKTOP_ICONS_VERSION));
   return defaultDesktopIcons;
 };
 

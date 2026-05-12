@@ -556,4 +556,9 @@ export const getDefaultDockApps = (): string[] => [
   'texteditor',
   'browser',
   'settings',
+  'chat',
+  'taskmanager',
+  'memorymanager',
+  'agentmonitor',
+  'skillslauncher',
 ];
