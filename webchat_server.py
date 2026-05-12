@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Generator
 
+from backend.agents_bridge import build_agent_info_list
 from backend.context import build_context, build_smart_context, get_compact_context
 from backend.personas import create_persona, get_active_persona, get_all_personas, get_persona, load_personas, set_active_persona, update_persona
 from backend.plugins import load_all_plugins, get_plugin_info, start_watcher, stop_watcher, watcher_status, reload_plugin, unload_plugin
@@ -3869,7 +3870,7 @@ restoreRt();
 
     @app.route("/api/agents", methods=["GET"])
     def api_agents():
-        return jsonify(build_context().get("agents", []))
+        return jsonify(build_agent_info_list())
 
     @app.route("/api/personas", methods=["GET"])
     def api_get_personas():
@@ -4109,7 +4110,9 @@ restoreRt();
                 parts = [str(v) for v in args.values()]
                 args_str = " ".join(parts)
 
-            result = _skill_tool({"name": skill_name, "args": args_str}, {})
+            if CONFIG is None:
+                return jsonify({"error": "Server not initialized"}), 500
+            result = _skill_tool({"name": skill_name, "args": args_str}, dict(CONFIG))
             return jsonify({"success": True, "result": result, "skill": skill_name})
         except Exception as e:
             return jsonify({"error": f"Skill execution error: {e}"}), 500

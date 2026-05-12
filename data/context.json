@@ -9,30 +9,29 @@
   "project": {
     "name": "Dulus Command Center",
     "repo_stats": {
-      "files": 26676,
-      "lines": 3423021,
+      "files": 26839,
+      "lines": 3480088,
       "languages": {
         ".example": 5,
         "no_ext": 16435,
-        ".py": 60352,
-        ".html": 15960,
+        ".py": 104091,
+        ".html": 26658,
         ".in": 3,
         ".toml": 131,
-        ".md": 79661,
+        ".md": 80795,
         ".txt": 1042,
-        ".json": 133614,
-        ".whl": 16199,
-        ".gz": 15931,
-        ".svg": 1168,
-        ".png": 31639,
+        ".json": 142884,
+        ".whl": 16227,
+        ".svg": 2291,
+        ".png": 34253,
         ".sh": 144,
-        ".js": 1937132,
-        ".ts": 571042,
+        ".js": 1937605,
+        ".ts": 571158,
         ".log": 1,
-        ".jpg": 1076,
-        ".tsx": 34494,
-        ".css": 2848,
-        ".jpeg": 5084,
+        ".jpg": 2152,
+        ".tsx": 34509,
+        ".css": 3018,
+        ".jpeg": 7626,
         ".cmd": 476,
         ".ps1": 784,
         ".mts": 29541,
@@ -59,6 +58,18 @@
     },
     "recent_commits": [
       {
+        "hash": "d68e870",
+        "subject": "chore(release): bump v0.2.45",
+        "author": "KevRojo",
+        "date": "2026-05-12"
+      },
+      {
+        "hash": "dfa9c49",
+        "subject": "fix(sandbox): wallpapers jpeg extension, SSE events hook, various OS improvements",
+        "author": "KevRojo",
+        "date": "2026-05-12"
+      },
+      {
         "hash": "8c31a24",
         "subject": "bump: 0.2.44",
         "author": "KevRojo",
@@ -75,41 +86,14 @@
         "subject": "bump: 0.2.43",
         "author": "KevRojo",
         "date": "2026-05-12"
-      },
-      {
-        "hash": "1ff5719",
-        "subject": "Merge remote-tracking branch 'origin/main'",
-        "author": "KevRojo",
-        "date": "2026-05-12"
-      },
-      {
-        "hash": "a2d585e",
-        "subject": "fix(sandbox): include static assets in pip wheel and resolve dist path for installed packages",
-        "author": "KevRojo",
-        "date": "2026-05-12"
       }
     ],
     "recent_changes": [
-      "README.md",
       "backend/server.py",
-      "common.py",
-      "data/active_persona.json",
       "data/context.json",
-      "data/personas.json",
       "pyproject.toml",
-      "sandbox/dist/assets/index-Duhscm3W.js",
       "sandbox/dist/index.html",
-      "sandbox/package-lock.json",
-      "sandbox/src/App.tsx",
-      "sandbox/src/apps/AgentMonitor.tsx",
-      "sandbox/src/apps/MemoryManager.tsx",
-      "sandbox/src/apps/SkillsLauncher.tsx",
-      "sandbox/src/apps/TaskManager.tsx",
-      "sandbox/src/apps/registry.ts",
-      "sandbox/src/hooks/index.ts",
-      "sandbox/src/hooks/useOSStore.tsx",
-      "sandbox/src/lib/dulus-api.ts",
-      "sandbox/vite.config.ts",
+      "sandbox/src/apps/Weather.tsx",
       "webchat_server.py"
     ]
   },
@@ -179,5 +163,18 @@
     "wings": [],
     "count": 0,
     "memories": []
+  },
+  "smart_context": {
+    "tokens_used": 238,
+    "tokens_max": 250000,
+    "usage_percent": 0.0086,
+    "mode": "normal",
+    "thresholds": {
+      "compact": 0.75,
+      "emergency": 0.9
+    },
+    "compact_text": "[DULUS CONTEXT]\nSession: proactive | Agent: Dulus | User: KevRojo\nProject: Dulus Command Center | Files: 26839 | Lines: 3480088\nActive Tasks:\n  • T-009 [in_progress] Test Coverage Expansion (kimi-code, Quality)\n  • T-010 [in_progress] Multi-Agent Mesa Redonda (Dulus, Core)\nAgents:\n  • [F] Dulus (primary) - active [ACTIVE]\n  • [K1] kimi-code (coder) - idle\n  • [K2] kimi-code2 (designer) - idle\n  • [K3] kimi-code3 (integrator) - idle\nRecent Commits:\n  • d68e870 chore(release): bump v0.2.45 by KevRojo\n  • dfa9c49 fix(sandbox): wallpapers jpeg extension, SSE events hook, various OS improvements by KevRojo\n  • 8c31a24 bump: 0.2.44 by KevRojo\n[Persona: [F] Dulus | primary | dominicano_coder | es_DO]\n  Eres Dulus, el command center de KevRojo. Hablas en español dominicano con jerga tech. Eres proactivo, directo, y no pierdes tiempo. Usas emoji 🔥🦅💜🇩🇴. Piensas en inglés, respondes en español DO.\n[MemPalace: disconnected — run refresh from AI runtime]",
+    "compressor_method": "none",
+    "compaction_history": []
   }
 }
