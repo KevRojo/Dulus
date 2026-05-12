@@ -3,7 +3,8 @@
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Sparkles, Trash2, Copy, CheckCircle2, Loader2, Terminal } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Trash2, Copy, CheckCircle2, Loader2, Terminal, Wand2 } from 'lucide-react';
+import { useSkillBridge, type SkillInjectPayload } from '@/hooks/useSkillBridge';
 
 interface ChatMessage {
   id: string;
@@ -136,12 +137,25 @@ function useDulusChat() {
   return { messages, isStreaming, backendAvailable, sendMessage, clearChat, checkBackend };
 }
 
-export default function Chat() {
+interface ChatProps {
+  windowId?: string;
+}
+
+export default function Chat({ windowId }: ChatProps) {
   const { messages, isStreaming, backendAvailable, sendMessage, clearChat, checkBackend } = useDulusChat();
   const [input, setInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [injectedSkill, setInjectedSkill] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Listen for skill injection events
+  useSkillBridge(useCallback((payload: SkillInjectPayload) => {
+    const skillText = `/${payload.skillName}`;
+    setInjectedSkill(skillText);
+    // Auto-send the skill as a message
+    sendMessage(`Execute skill: ${payload.skillName}`);
+  }, [sendMessage]));
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -185,6 +199,12 @@ export default function Chat() {
               <span className="text-[10px] text-[var(--text-secondary)]">
                 {backendAvailable === true ? 'Connected' : backendAvailable === false ? 'Offline' : 'Checking...'}
               </span>
+              {injectedSkill && (
+                <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ml-2" style={{ background: 'var(--accent-secondary)20', color: 'var(--accent-secondary)' }}>
+                  <Wand2 size={10} />
+                  Skill: {injectedSkill}
+                </span>
+              )}
             </div>
           </div>
         </div>

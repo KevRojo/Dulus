@@ -7,9 +7,11 @@ import {
   Wand2, Search, Play, Star, Clock, Zap, Shield, Code,
   GitBranch, MessageSquare, FileSearch, Bug, Terminal,
   RefreshCw, AlertCircle, CheckCircle2, XCircle, Loader2,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { useDulusSkills } from '@/hooks/useDulusSkills';
+import { emitSkillInject, shouldSendToChat } from '@/hooks/useSkillBridge';
 import type { SkillInfo } from '@/lib/dulus-api';
 
 interface SkillView extends SkillInfo {
@@ -73,9 +75,24 @@ export default function SkillsLauncher() {
     });
   };
 
-  const runSkill = useCallback(async (skill: SkillView) => {
+  const runSkill = useCallback(async (skill: SkillView, sendToChat = false) => {
     setRunningId(skill.id || skill.name);
     setLastResult(null);
+
+    // If sendToChat is true or skill is Chat category, emit injection event
+    const autoSend = sendToChat || shouldSendToChat(skill.name, skill.category);
+    if (autoSend) {
+      emitSkillInject(skill.name, { description: skill.description, category: skill.category });
+      setLastResult({ id: skill.id || skill.name, success: true, message: `Sent "${skill.name}" to Chat 💬` });
+      setRunningId(null);
+      // Still track usage
+      const now = new Date().toISOString();
+      const saved = localStorage.getItem('dulus_skills_lastUsed');
+      const parsed = saved ? JSON.parse(saved) : {};
+      parsed[skill.name] = now;
+      localStorage.setItem('dulus_skills_lastUsed', JSON.stringify(parsed));
+      return;
+    }
 
     const result = await invoke(skill.name, {});
 
@@ -197,7 +214,7 @@ export default function SkillsLauncher() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
                   {favoriteSkills.map((skill) => (
-                    <SkillCard key={skill.id || skill.name} skill={skill} isFavorite={true} isRunning={runningId === (skill.id || skill.name)} onRun={() => runSkill(skill)} onToggleFav={() => toggleFavorite(skill.id || skill.name)} />
+                    <SkillCard key={skill.id || skill.name} skill={skill} isFavorite={true} isRunning={runningId === (skill.id || skill.name)} onRun={() => runSkill(skill)} onSendToChat={() => runSkill(skill, true)} onToggleFav={() => toggleFavorite(skill.id || skill.name)} />
                   ))}
                 </div>
               </>
@@ -212,7 +229,7 @@ export default function SkillsLauncher() {
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {regularSkills.map((skill) => (
-                    <SkillCard key={skill.id || skill.name} skill={skill} isFavorite={false} isRunning={runningId === (skill.id || skill.name)} onRun={() => runSkill(skill)} onToggleFav={() => toggleFavorite(skill.id || skill.name)} />
+                    <SkillCard key={skill.id || skill.name} skill={skill} isFavorite={false} isRunning={runningId === (skill.id || skill.name)} onRun={() => runSkill(skill)} onSendToChat={() => runSkill(skill, true)} onToggleFav={() => toggleFavorite(skill.id || skill.name)} />
                   ))}
                 </div>
               </>
@@ -231,11 +248,12 @@ export default function SkillsLauncher() {
   );
 }
 
-function SkillCard({ skill, isFavorite, isRunning, onRun, onToggleFav }: {
+function SkillCard({ skill, isFavorite, isRunning, onRun, onSendToChat, onToggleFav }: {
   skill: SkillView;
   isFavorite: boolean;
   isRunning: boolean;
   onRun: () => void;
+  onSendToChat: () => void;
   onToggleFav: () => void;
 }) {
   const catStyle = CATEGORY_COLORS[skill.category || 'Utility'] || CATEGORY_COLORS.Utility;
@@ -271,15 +289,27 @@ function SkillCard({ skill, isFavorite, isRunning, onRun, onToggleFav }: {
             </span>
           )}
         </div>
-        <button
-          onClick={onRun}
-          disabled={isRunning}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: 'var(--accent-primary)' }}
-        >
-          {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-          {isRunning ? 'Running...' : 'Run'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onSendToChat}
+            disabled={isRunning}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ background: 'var(--accent-secondary)20', color: 'var(--accent-secondary)' }}
+            title="Send to Chat"
+          >
+            <MessageCircle size={12} />
+            Chat
+          </button>
+          <button
+            onClick={onRun}
+            disabled={isRunning}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ background: 'var(--accent-primary)' }}
+          >
+            {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+            {isRunning ? 'Running...' : 'Run'}
+          </button>
+        </div>
       </div>
     </div>
   );
