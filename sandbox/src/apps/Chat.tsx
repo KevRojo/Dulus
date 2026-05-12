@@ -4,7 +4,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User, Sparkles, Trash2, Copy, CheckCircle2, Loader2, Terminal, Wand2 } from 'lucide-react';
-import { useSkillBridge, type SkillInjectPayload } from '@/hooks/useSkillBridge';
+import { useSkillBridge, useMemoryBridge, type SkillInjectPayload, type MemoryInjectPayload } from '@/hooks/useSkillBridge';
 
 interface ChatMessage {
   id: string;
@@ -155,6 +155,12 @@ export default function Chat({ windowId }: ChatProps) {
     setInjectedSkill(skillText);
     // Auto-send the skill as a message
     sendMessage(`Execute skill: ${payload.skillName}`);
+  }, [sendMessage]));
+
+  // Listen for memory injection events — push the .md content as a user message
+  useMemoryBridge(useCallback((payload: MemoryInjectPayload) => {
+    setInjectedSkill(`memory:${payload.name}`);
+    sendMessage(`Para contexto, te paso esta memoria "${payload.name}":\n\n${payload.content}`);
   }, [sendMessage]));
 
   useEffect(() => {

@@ -272,6 +272,31 @@ class DulusHandler(SimpleHTTPRequestHandler):
                 self._error(f"Wings error: {e}", 500)
             return
 
+        # ── Memory file list (disk-direct, mirrors /memory CLI) ──
+        if path == "/api/memory/files":
+            try:
+                from memory.store import load_index
+                scope = parse_qs(urlparse(self.path).query).get("scope", ["all"])[0]
+                entries = load_index(scope)
+                self._json_response([
+                    {
+                        "name": e.name,
+                        "description": e.description,
+                        "type": e.type,
+                        "scope": e.scope,
+                        "hall": e.hall,
+                        "created": e.created,
+                        "confidence": e.confidence,
+                        "gold": e.gold,
+                        "file_path": e.file_path,
+                        "content": e.content,
+                    }
+                    for e in entries
+                ])
+            except Exception as exc:
+                self._error(f"Memory files error: {exc}", 500)
+            return
+
         # ── Skills ──
         if path == "/api/skills":
             try:

@@ -226,6 +226,33 @@ export async function listWings(): Promise<ToolResult<WingInfo[]>> {
   return invokeTool<WingInfo[]>('list_wings', {});
 }
 
+// ---- Memory Files (disk-direct, mirrors /memory CLI) -------
+export interface MemoryFile {
+  name: string;
+  description: string;
+  type: string;        // user | feedback | project | reference
+  scope: string;       // user | project
+  hall: string;
+  created: string;
+  confidence: number;
+  gold: boolean;
+  file_path: string;
+  content: string;     // raw markdown body
+}
+
+export async function listMemoryFiles(
+  scope: 'all' | 'user' | 'project' = 'all',
+): Promise<ToolResult<MemoryFile[]>> {
+  try {
+    const qs = scope === 'all' ? '' : `?scope=${encodeURIComponent(scope)}`;
+    const r = await fetchWithTimeout(`${API_BASE}/api/memory/files${qs}`, {}, 4000);
+    if (!r.ok) throw new DulusAPIError(r.status, `Memory files fetch failed: ${r.statusText}`);
+    return { success: true, data: await r.json() };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ---- Tasks System (REST + SSE) -----------------------------
 export interface DulusTask {
   id: string;
