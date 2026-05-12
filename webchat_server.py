@@ -4025,6 +4025,31 @@ restoreRt();
         except Exception as e:
             return jsonify(error=f"MemPalace error: {e}"), 500
 
+    # ── Memory file list (disk-direct, mirrors /memory CLI) ──
+    @app.route("/api/memory/files", methods=["GET"])
+    def api_memory_files():
+        try:
+            from memory.store import load_index
+            scope = request.args.get("scope", "all")
+            entries = load_index(scope)
+            return jsonify([
+                {
+                    "name": e.name,
+                    "description": e.description,
+                    "type": e.type,
+                    "scope": e.scope,
+                    "hall": e.hall,
+                    "created": e.created,
+                    "confidence": e.confidence,
+                    "gold": e.gold,
+                    "file_path": e.file_path,
+                    "content": e.content,
+                }
+                for e in entries
+            ])
+        except Exception as exc:
+            return jsonify(error=f"Memory files error: {exc}"), 500
+
     # ── Themes ──
     @app.route("/api/themes", methods=["GET"])
     def api_themes():
