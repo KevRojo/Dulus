@@ -49,7 +49,7 @@ const LoginScreen = memo(function LoginScreen() {
     <div
       className="fixed inset-0 z-[9998] flex items-center justify-center"
       style={{
-        backgroundImage: `url(${getAssetPath('/wallpapers/default.png')})`,
+        backgroundImage: `url(${getAssetPath('/wallpapers/default.jpeg')})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}

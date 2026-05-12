@@ -74,7 +74,7 @@ const initialState: OSState = {
   theme: {
     mode: 'dark',
     accent: '#6366F1',
-    wallpaper: getAssetPath('/wallpapers/default.png'),
+    wallpaper: getAssetPath('/wallpapers/default.jpeg'),
   },
   notifications: [],
   dockItems: createInitialDockItems(),

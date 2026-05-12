@@ -148,7 +148,7 @@ export default function MemoryManager() {
                         background: 'var(--bg-hover)',
                         borderColor: expandedEntry === entry.id ? 'var(--accent-primary)' : 'var(--border-default)',
                       }}
-                      onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
+                      onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id ?? null)}
                     >
                       <div className="px-3 py-2.5 flex items-start gap-2">
                         <Sparkles size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--accent-secondary)' }} />

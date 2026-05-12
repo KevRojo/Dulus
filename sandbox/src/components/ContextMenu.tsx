@@ -15,10 +15,10 @@ const DynamicIcon = ({ name, ...props }: { name: string } & LucideProps) => {
 };
 
 const WALLPAPERS = [
-  getAssetPath('/wallpapers/default.png'),
-  getAssetPath('/wallpapers/light.png'),
-  getAssetPath('/wallpapers/nature.png'),
-  getAssetPath('/wallpapers/tech.png')
+  getAssetPath('/wallpapers/default.jpeg'),
+  getAssetPath('/wallpapers/light.jpeg'),
+  getAssetPath('/wallpapers/nature.jpeg'),
+  getAssetPath('/wallpapers/tech.jpeg')
 ];
 
 const GRID_X = 80;
