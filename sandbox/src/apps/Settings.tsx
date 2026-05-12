@@ -49,10 +49,10 @@ const ACCENT_COLORS = [
 ];
 
 const WALLPAPERS = [
-  { id: getAssetPath('/wallpapers/default.png'), name: 'Dulus' },
-  { id: getAssetPath('/wallpapers/light.png'), name: 'Light' },
-  { id: getAssetPath('/wallpapers/nature.png'), name: 'Nature' },
-  { id: getAssetPath('/wallpapers/tech.png'), name: 'Tech' },
+  { id: getAssetPath('/wallpapers/default.jpeg'), name: 'Dulus' },
+  { id: getAssetPath('/wallpapers/light.jpeg'), name: 'Light' },
+  { id: getAssetPath('/wallpapers/nature.jpeg'), name: 'Nature' },
+  { id: getAssetPath('/wallpapers/tech.jpeg'), name: 'Tech' },
 ];
 
 const Toggle: React.FC<{ value: boolean; onChange: (v: boolean) => void }> = ({ value, onChange }) => (
