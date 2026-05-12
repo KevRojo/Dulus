@@ -1,2 +1,3 @@
 recursive-include docs *
 recursive-include data *
+recursive-include sandbox/dist *

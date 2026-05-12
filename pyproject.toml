@@ -112,12 +112,20 @@ include = [
     "memory*",
     "multi_agent*",
     "plugin*",
+    "sandbox*",
     "skill*",
     "task*",
     "ui*",
     "voice*",
 ]
-exclude = ["tests*", "__pycache__*"]
+exclude = [
+    "tests*",
+    "__pycache__*",
+    "sandbox/node_modules*",
+    "sandbox/src*",
+    "sandbox/public*",
+    "sandbox/.dulus-context*",
+]
 
 [tool.setuptools.package-data]
 "*" = ["*.html", "*.css", "*.js", "*.svg", "*.json", "*.md", "*.png", "*.jpg", "*.txt", "*.py"]
