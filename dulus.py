@@ -115,6 +115,8 @@ Slash commands in REPL:
   /kimi_chats       List recent Kimi conversations
   /webchat [port]   Spawn web chat UI (background Flask server)
   /webchat stop     Kill the webchat server
+  /sandbox          Open Dulus Sandbox OS in browser (starts webchat if needed)
+  /sandbox stop     Stop the webchat server
   /rtk [on|off]     Toggle RTK token-optimized shell command rewriting
   /exit /quit Exit
 """
@@ -1826,6 +1828,46 @@ def cmd_webchat(args: str, state, config) -> bool:
                 config.pop("_webchat_proc", None)
                 return True
     info(f"WebChat spawn timed out -- try opening {local_url} manually or check :{port}")
+    return True
+
+
+def cmd_sandbox(args: str, state, config) -> bool:
+    """Open the Dulus Sandbox OS in the browser.
+
+    /sandbox          — Ensure webchat is running, open /sandbox in browser
+    /sandbox stop     — Alias for /webchat stop
+    """
+    import webbrowser, time, urllib.request
+
+    arg = (args or "").strip().lower()
+
+    if arg in ("stop", "kill", "off"):
+        return cmd_webchat("stop", state, config)
+
+    # Make sure webchat is running first
+    import webchat_server
+    port = config.get("_webchat_port", 5000)
+
+    def _wc_alive(p):
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{p}/api/health", timeout=0.5).read(1)
+            return True
+        except Exception:
+            return False
+
+    if not _wc_alive(port):
+        ok("Starting WebChat first...")
+        cmd_webchat("", state, config)
+        # Wait up to 5s for it to be ready
+        for _ in range(20):
+            if _wc_alive(port):
+                break
+            time.sleep(0.25)
+
+    sandbox_url = f"http://127.0.0.1:{port}/sandbox"
+    ok(f"Opening Sandbox OS -> {sandbox_url}")
+    webbrowser.open(sandbox_url)
+    info("Mini OS running in your browser. Use /sandbox stop to shut down the server.")
     return True
 
 def cmd_gui(_args: str, _state, config) -> bool:
@@ -7440,6 +7482,7 @@ COMMANDS = {
     "voice":       cmd_voice,
     "git":         cmd_git,
     "webchat":     cmd_webchat,
+    "sandbox":     cmd_sandbox,
     "gui":         cmd_gui,
     "brave":       cmd_brave,
     "rtk":         cmd_rtk,
@@ -7579,7 +7622,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "gemini_chats": ("Manage Gemini Web conversations",    ["new"]),
     "gemini_harvest": ("Harvest Gemini Web cookies (alias)", []),
     "harvest-claude": ("Harvest Claude.ai cookies (alias)", []),
-    "webchat":       ("Spawn web chat UI",                 ["stop"]),
+    "webchat":       ("Spawn web chat UI",                 ["stop", "lan"]),
+    "sandbox":       ("Open Dulus Sandbox OS in browser",  ["stop"]),
     "gui":           ("Launch desktop GUI",                 []),
 }
 

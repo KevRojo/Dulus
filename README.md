@@ -22,7 +22,7 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
   <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
-  <img src="https://img.shields.io/badge/version-v0.2.30-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
+  <img src="https://img.shields.io/badge/version-v0.2.42-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
   <img src="https://img.shields.io/badge/providers-11-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-27-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
@@ -179,6 +179,13 @@ echo "explain this diff" | git diff | dulus -p --accept-all
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/terminal-boot.svg" alt="Dulus booting into session" width="100%"></p>
 
 <p align="center"><sub>↑ session boot. soul loaded, gold memory warm, shell sniffed. the little circles are real buttons on your Mac.</sub></p>
+
+### 💻 Dulus OS (Sandbox)
+> [!NOTE]
+> **Experimental features:** The folder `sandbox/` contains the early implementation of **Dulus OS** — a mini-operating system that runs entirely in your browser. It is currently in heavy development and not 100% functional yet. It will serve as a secure, isolated environment for browser-based tool execution and visualizations.
+
+---
+
 
 ---
 

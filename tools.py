@@ -59,7 +59,20 @@ def _is_in_tg_turn(config: dict) -> bool:
 
 # ── Tool JSON schemas (sent to Claude API) ─────────────────────────────────
 
+_LAUNCH_SANDBOX_SCHEMA = {
+    "name": "LaunchSandbox",
+    "description": "Start the Dulus Sandbox (mini-OS) web interface in the browser. "
+                   "Provides a visual desktop experience with integrated Dulus Terminal.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "stop": {"type": "boolean", "description": "If true, stop the server instead of starting it."}
+        },
+    },
+}
+
 TOOL_SCHEMAS = [
+    _LAUNCH_SANDBOX_SCHEMA,
     {
         "name": "Read",
         "description": (
@@ -2683,6 +2696,30 @@ register_tool(ToolDef(name="GitStatus", schema=_GIT_STATUS_SCHEMA, func=_git_sta
 register_tool(ToolDef(name="GitLog", schema=_GIT_LOG_SCHEMA, func=_git_log, read_only=True, concurrent_safe=True))
 
 
+def _launch_sandbox(params: dict, config: dict) -> str:
+    # Use the existing command handler from dulus.py
+    try:
+        from dulus import COMMANDS
+        handler = COMMANDS.get("sandbox")
+        if not handler:
+            return "Error: /sandbox command not found in Dulus."
+        
+        stop = params.get("stop", False)
+        args = "stop" if stop else ""
+        
+        state = config.get("_state")
+        if not state:
+            return "Error: Dulus session state not available to tool."
+            
+        handler(args, state, config)
+        return "Dulus Sandbox OS opened in browser." if not stop else "Sandbox stopped."
+    except Exception as e:
+        return f"Error launching sandbox: {e}"
+
+
+register_tool(ToolDef(name="LaunchSandbox", schema=_LAUNCH_SANDBOX_SCHEMA, func=_launch_sandbox))
+
+
 # Plugins are loaded once when Dulus starts (not on every reload to avoid overhead)
 try:
     from plugin.loader import register_plugin_tools
@@ -2699,4 +2736,6 @@ try:
 except Exception:
     # If plugin system fails, continue with core tools only
     _plugin_count = 0
+
+
 
