@@ -8,12 +8,14 @@ from http.server import HTTPServer, ThreadingHTTPServer, SimpleHTTPRequestHandle
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from backend.agents_bridge import build_agent_info_list
 from backend.context import build_context, build_smart_context, get_compact_context
 from backend.personas import create_persona, get_active_persona, get_all_personas, get_persona, load_personas, set_active_persona, update_persona
 from backend.plugins import load_all_plugins, get_plugin_info, start_watcher, stop_watcher, watcher_status, reload_plugin, unload_plugin
 from backend.tasks import create_task, load_tasks, update_task
 
 DASHBOARD_DIR = Path(__file__).parent.parent / "docs" / "dashboard"
+
 
 # ─────────── SSE Broadcast System ───────────
 _sse_clients: list[queue.Queue] = []
@@ -159,8 +161,7 @@ class DulusHandler(SimpleHTTPRequestHandler):
 
         # ── Agents ──
         if path == "/api/agents":
-            ctx = build_context()
-            self._json_response(ctx.get("agents", []))
+            self._json_response(build_agent_info_list())
             return
 
         # ── Personas ──

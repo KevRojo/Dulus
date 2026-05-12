@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dulus Agent Explorer</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --sidebar-bg: #161b22;
+            --accent: #58a6ff;
+            --text: #c9d1d9;
+            --border: #30363d;
+            --panel-header: #21262d;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Controls */
+        #controls {
+            width: 320px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        h2 { font-size: 1.2rem; margin: 0; color: var(--accent); }
+        .group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 0.85rem; font-weight: 600; opacity: 0.8; }
+        
+        select, input, textarea {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .tool-chip {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: 0.2s;
+        }
+
+        .tool-chip.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Main View */
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        #preview-container {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .terminal-line {
+            display: flex;
+            gap: 10px;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .prompt-symbol { color: var(--accent); }
+        .agent-thought { color: #8b949e; font-style: italic; }
+        .agent-tool { color: #d2a8ff; }
+        .agent-result { color: #7ee787; }
+
+        /* Prompt Output */
+        #output-panel {
+            height: 180px;
+            background: var(--sidebar-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: var(--panel-header);
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        #prompt-text {
+            padding: 15px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            overflow-y: auto;
+            flex: 1;
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        button#copy-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div id="controls">
+    <h2>Dulus Explorer</h2>
+
+    <div class="group">
+        <label>Configuration Presets</label>
+        <select id="preset">
+            <option value="coder">The Coder (Claude + Bash)</option>
+            <option value="researcher">The Researcher (Search + Gemini)</option>
+            <option value="ghost">The Stealth (Local + Stealth)</option>
+            <option value="collab">The Round Table (All Models)</option>
+        </select>
+    </div>
+
+    <div class="group">
+        <label>Primary Model</label>
+        <select id="primaryModel">
+            <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+            <option value="ollama/qwen2.5-coder">Qwen 2.5 (Local)</option>
+        </select>
+    </div>
+
+    <div class="group">
+        <label>Round Table (Collaboration)</label>
+        <select id="collaboration">
+            <option value="none">Single Brain</option>
+            <option value="consensus">Consensus (Vote on logic)</option>
+            <option value="critique">Critique (One builds, one checks)</option>
+        </select>
+    </div>
+
+    <div class="group">
+        <label>Active Talons (Tools)</label>
+        <div class="tool-grid" id="tool-grid">
+            <div class="tool-chip active" data-tool="Bash">Bash</div>
+            <div class="tool-chip active" data-tool="Edit">Edit</div>
+            <div class="tool-chip active" data-tool="WebSearch">Search</div>
+            <div class="tool-chip" data-tool="Telegram">Telegram</div>
+            <div class="tool-chip" data-tool="Voice">Voice</div>
+            <div class="tool-chip active" data-tool="MemPalace">Memory</div>
+        </div>
+    </div>
+
+    <div class="group">
+        <label>Context Compression</label>
+        <input type="range" id="compression" min="0" max="100" value="60">
+    </div>
+</div>
+
+<div id="main">
+    <div id="preview-container">
+        <div class="terminal-line">
+            <span class="prompt-symbol">&gt;</span>
+            <span>dulus --model <span id="view-model">claude-3-5-sonnet</span></span>
+        </div>
+        <div class="terminal-line">
+            <span class="agent-thought">[MemPalace] Loading persistent history...</span>
+        </div>
+        <div class="terminal-line">
+            <span class="agent-thought">[Dulus] Soul loaded. Gold memory warm.</span>
+        </div>
+        <div id="dynamic-lines"></div>
+    </div>
+
+    <div id="output-panel">
+        <div class="panel-header">
+            GENERATED PROMPT
+            <button id="copy-btn">Copy Prompt</button>
+        </div>
+        <p id="prompt-text"></p>
+    </div>
+</div>
+
+<script>
+    const DEFAULTS = {
+        primaryModel: 'claude-3-5-sonnet',
+        collaboration: 'none',
+        compression: 60,
+        tools: ['Bash', 'Edit', 'WebSearch', 'MemPalace']
+    };
+
+    const state = { ...DEFAULTS };
+
+    const presets = {
+        coder: { primaryModel: 'claude-3-5-sonnet', collaboration: 'none', compression: 80, tools: ['Bash', 'Edit', 'MemPalace'] },
+        researcher: { primaryModel: 'gemini-1.5-pro', collaboration: 'consensus', compression: 40, tools: ['WebSearch', 'MemPalace'] },
+        ghost: { primaryModel: 'ollama/qwen2.5-coder', collaboration: 'none', compression: 100, tools: ['Bash', 'Edit'] },
+        collab: { primaryModel: 'claude-3-5-sonnet', collaboration: 'critique', compression: 60, tools: ['Bash', 'Edit', 'WebSearch', 'MemPalace', 'Voice'] }
+    };
+
+    function updateAll() {
+        renderPreview();
+        updatePrompt();
+    }
+
+    function renderPreview() {
+        document.getElementById('view-model').textContent = state.primaryModel;
+        const dynamic = document.getElementById('dynamic-lines');
+        let html = '';
+
+        if (state.collaboration !== 'none') {
+            html += `<div class="terminal-line"><span class="agent-thought">[RoundTable] Initializing ${state.collaboration} mode with supplementary models...</span></div>`;
+        }
+
+        state.tools.forEach(t => {
+            html += `<div class="terminal-line"><span class="agent-tool">[Tool] Attached ${t} talon.</span></div>`;
+        });
+
+        if (state.compression > 70) {
+            html += `<div class="terminal-line"><span class="agent-result">[Opt] Aggressive context pruning active (-${state.compression}% tokens).</span></div>`;
+        }
+
+        dynamic.innerHTML = html;
+    }
+
+    function updatePrompt() {
+        const promptEl = document.getElementById('prompt-text');
+        let parts = [];
+
+        parts.push(`Configure a Dulus AI agent session using **${state.primaryModel}** as the primary engine.`);
+
+        if (state.collaboration !== 'none') {
+            parts.push(`Enable **${state.collaboration}** collaboration strategy to involve cross-model verification.`);
+        }
+
+        const toolsList = state.tools.join(', ');
+        parts.push(`Equip the agent with the following talons: **${toolsList}**.`);
+
+        if (state.compression != DEFAULTS.compression) {
+            const level = state.compression > 75 ? 'aggressive' : 'standard';
+            parts.push(`Apply ${level} context compression (targeted at **${state.compression}%** token savings).`);
+        }
+
+        promptEl.innerHTML = `I want to set up a Dulus workflow. ${parts.join(' ')} Generate the config.json and the /bg start command for this setup.`;
+    }
+
+    // Event Listeners
+    document.getElementById('primaryModel').addEventListener('change', e => { state.primaryModel = e.target.value; updateAll(); });
+    document.getElementById('collaboration').addEventListener('change', e => { state.collaboration = e.target.value; updateAll(); });
+    document.getElementById('compression').addEventListener('input', e => { state.compression = e.target.value; updateAll(); });
+
+    document.querySelectorAll('.tool-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const tool = chip.dataset.tool;
+            if (state.tools.includes(tool)) {
+                state.tools = state.tools.filter(t => t !== tool);
+                chip.classList.remove('active');
+            } else {
+                state.tools.push(tool);
+                chip.classList.add('active');
+            }
+            updateAll();
+        });
+    });
+
+    document.getElementById('preset').addEventListener('change', e => {
+        const p = presets[e.target.value];
+        state.primaryModel = p.primaryModel;
+        state.collaboration = p.collaboration;
+        state.compression = p.compression;
+        state.tools = [...p.tools];
+
+        // Sync UI
+        document.getElementById('primaryModel').value = p.primaryModel;
+        document.getElementById('collaboration').value = p.collaboration;
+        document.getElementById('compression').value = p.compression;
+        document.querySelectorAll('.tool-chip').forEach(chip => {
+            chip.classList.toggle('active', state.tools.includes(chip.dataset.tool));
+        });
+
+        updateAll();
+    });
+
+    document.getElementById('copy-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText(document.getElementById('prompt-text').innerText);
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy Prompt', 2000);
+    });
+
+    // Init
+    updateAll();
+</script>
+</body>
+</html>

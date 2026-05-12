@@ -1,14 +1,17 @@
 // ============================================================
-// Weather — City search with realistic mock weather data
+// Weather — Real weather data via Open-Meteo (no API key needed)
 // ============================================================
 
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import {
-  Search, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Wind, Droplets, Thermometer, Eye, Gauge, Sunrise, Sunset, MapPin, RefreshCw
+  Search, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Wind, Droplets,
+  Thermometer, Eye, Gauge, Sunrise, Sunset, MapPin, RefreshCw, Loader2, CloudSun
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // ---- Types ----
+type WeatherCondition = 'sunny' | 'cloudy' | 'rainy' | 'snowy' | 'stormy' | 'partly-cloudy';
+
 interface HourlyForecast {
   time: string;
   temp: number;
@@ -21,8 +24,6 @@ interface DailyForecast {
   high: number;
   condition: WeatherCondition;
 }
-
-type WeatherCondition = 'sunny' | 'cloudy' | 'rainy' | 'snowy' | 'stormy' | 'partly-cloudy';
 
 interface CityWeather {
   name: string;
@@ -41,12 +42,48 @@ interface CityWeather {
   daily: DailyForecast[];
 }
 
+interface GeoResult {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country: string;
+  admin1?: string;
+}
+
+// ---- WMO Weather Code Mapping ----
+function wmoToCondition(code: number): WeatherCondition {
+  if (code === 0 || code === 1) return 'sunny';
+  if (code === 2) return 'partly-cloudy';
+  if (code === 3 || code === 45 || code === 48) return 'cloudy';
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rainy';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snowy';
+  if ([95, 96, 99].includes(code)) return 'stormy';
+  return 'partly-cloudy';
+}
+
+function wmoToLabel(code: number): string {
+  const labels: Record<number, string> = {
+    0: 'Clear Sky', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
+    45: 'Fog', 48: 'Depositing Rime Fog',
+    51: 'Light Drizzle', 53: 'Moderate Drizzle', 55: 'Dense Drizzle',
+    56: 'Light Freezing Drizzle', 57: 'Dense Freezing Drizzle',
+    61: 'Slight Rain', 63: 'Moderate Rain', 65: 'Heavy Rain',
+    66: 'Light Freezing Rain', 67: 'Heavy Freezing Rain',
+    71: 'Slight Snow', 73: 'Moderate Snow', 75: 'Heavy Snow',
+    77: 'Snow Grains', 80: 'Slight Rain Showers', 81: 'Moderate Rain Showers', 82: 'Violent Rain Showers',
+    85: 'Slight Snow Showers', 86: 'Heavy Snow Showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm with Hail', 99: 'Heavy Thunderstorm with Hail',
+  };
+  return labels[code] || 'Unknown';
+}
+
 // ---- Weather Icon Mapping ----
 const WeatherIcon = memo(function WeatherIcon({ condition, size = 24, className = '' }: { condition: WeatherCondition; size?: number; className?: string }) {
   const icons: Record<WeatherCondition, LucideIcon> = {
     sunny: Sun,
     cloudy: Cloud,
-    'partly-cloudy': Cloud,
+    'partly-cloudy': CloudSun,
     rainy: CloudRain,
     snowy: CloudSnow,
     stormy: CloudLightning,
@@ -63,7 +100,7 @@ const WeatherIcon = memo(function WeatherIcon({ condition, size = 24, className 
   return <Icon size={size} className={className} style={{ color: colors[condition] }} />;
 });
 
-// ---- Mock Weather Data ----
+// ---- Mock Fallback Data ----
 const CITY_DATA: Record<string, CityWeather> = {
   'san francisco': {
     name: 'San Francisco', country: 'United States', condition: 'partly-cloudy', temp: 18, feelsLike: 16,
@@ -86,195 +123,6 @@ const CITY_DATA: Record<string, CityWeather> = {
       { day: 'Sun', low: 10, high: 18, condition: 'sunny' },
     ],
   },
-  'new york': {
-    name: 'New York', country: 'United States', condition: 'sunny', temp: 24, feelsLike: 26,
-    humidity: 55, wind: 12, pressure: 1020, visibility: 20, uvIndex: 7, sunrise: '5:55 AM', sunset: '8:12 PM',
-    hourly: [
-      { time: 'Now', temp: 24, condition: 'sunny' }, { time: '1PM', temp: 25, condition: 'sunny' },
-      { time: '2PM', temp: 26, condition: 'sunny' }, { time: '3PM', temp: 26, condition: 'sunny' },
-      { time: '4PM', temp: 25, condition: 'partly-cloudy' }, { time: '5PM', temp: 24, condition: 'partly-cloudy' },
-      { time: '6PM', temp: 23, condition: 'partly-cloudy' }, { time: '7PM', temp: 22, condition: 'cloudy' },
-      { time: '8PM', temp: 21, condition: 'cloudy' }, { time: '9PM', temp: 20, condition: 'cloudy' },
-      { time: '10PM', temp: 19, condition: 'partly-cloudy' }, { time: '11PM', temp: 18, condition: 'partly-cloudy' },
-    ],
-    daily: [
-      { day: 'Today', low: 18, high: 26, condition: 'sunny' },
-      { day: 'Tue', low: 19, high: 27, condition: 'sunny' },
-      { day: 'Wed', low: 20, high: 28, condition: 'partly-cloudy' },
-      { day: 'Thu', low: 18, high: 25, condition: 'rainy' },
-      { day: 'Fri', low: 17, high: 24, condition: 'stormy' },
-      { day: 'Sat', low: 16, high: 23, condition: 'cloudy' },
-      { day: 'Sun', low: 18, high: 25, condition: 'sunny' },
-    ],
-  },
-  'london': {
-    name: 'London', country: 'United Kingdom', condition: 'rainy', temp: 14, feelsLike: 12,
-    humidity: 82, wind: 16, pressure: 1008, visibility: 10, uvIndex: 2, sunrise: '5:18 AM', sunset: '9:12 PM',
-    hourly: [
-      { time: 'Now', temp: 14, condition: 'rainy' }, { time: '1PM', temp: 14, condition: 'rainy' },
-      { time: '2PM', temp: 15, condition: 'cloudy' }, { time: '3PM', temp: 15, condition: 'cloudy' },
-      { time: '4PM', temp: 14, condition: 'rainy' }, { time: '5PM', temp: 13, condition: 'rainy' },
-      { time: '6PM', temp: 13, condition: 'cloudy' }, { time: '7PM', temp: 12, condition: 'cloudy' },
-      { time: '8PM', temp: 12, condition: 'cloudy' }, { time: '9PM', temp: 11, condition: 'rainy' },
-      { time: '10PM', temp: 11, condition: 'rainy' }, { time: '11PM', temp: 10, condition: 'rainy' },
-    ],
-    daily: [
-      { day: 'Today', low: 9, high: 15, condition: 'rainy' },
-      { day: 'Tue', low: 8, high: 14, condition: 'cloudy' },
-      { day: 'Wed', low: 9, high: 16, condition: 'partly-cloudy' },
-      { day: 'Thu', low: 10, high: 17, condition: 'sunny' },
-      { day: 'Fri', low: 11, high: 18, condition: 'partly-cloudy' },
-      { day: 'Sat', low: 10, high: 16, condition: 'rainy' },
-      { day: 'Sun', low: 9, high: 15, condition: 'cloudy' },
-    ],
-  },
-  'tokyo': {
-    name: 'Tokyo', country: 'Japan', condition: 'cloudy', temp: 22, feelsLike: 24,
-    humidity: 68, wind: 8, pressure: 1012, visibility: 18, uvIndex: 4, sunrise: '4:38 AM', sunset: '6:52 PM',
-    hourly: [
-      { time: 'Now', temp: 22, condition: 'cloudy' }, { time: '1PM', temp: 23, condition: 'partly-cloudy' },
-      { time: '2PM', temp: 24, condition: 'partly-cloudy' }, { time: '3PM', temp: 24, condition: 'sunny' },
-      { time: '4PM', temp: 23, condition: 'sunny' }, { time: '5PM', temp: 22, condition: 'partly-cloudy' },
-      { time: '6PM', temp: 21, condition: 'cloudy' }, { time: '7PM', temp: 20, condition: 'cloudy' },
-      { time: '8PM', temp: 19, condition: 'cloudy' }, { time: '9PM', temp: 19, condition: 'cloudy' },
-      { time: '10PM', temp: 18, condition: 'rainy' }, { time: '11PM', temp: 18, condition: 'rainy' },
-    ],
-    daily: [
-      { day: 'Today', low: 17, high: 24, condition: 'cloudy' },
-      { day: 'Tue', low: 18, high: 25, condition: 'partly-cloudy' },
-      { day: 'Wed', low: 19, high: 26, condition: 'sunny' },
-      { day: 'Thu', low: 20, high: 27, condition: 'sunny' },
-      { day: 'Fri', low: 18, high: 24, condition: 'rainy' },
-      { day: 'Sat', low: 17, high: 23, condition: 'rainy' },
-      { day: 'Sun', low: 18, high: 25, condition: 'partly-cloudy' },
-    ],
-  },
-  'sydney': {
-    name: 'Sydney', country: 'Australia', condition: 'sunny', temp: 26, feelsLike: 28,
-    humidity: 60, wind: 22, pressure: 1018, visibility: 22, uvIndex: 9, sunrise: '6:05 AM', sunset: '8:08 PM',
-    hourly: [
-      { time: 'Now', temp: 26, condition: 'sunny' }, { time: '1PM', temp: 27, condition: 'sunny' },
-      { time: '2PM', temp: 28, condition: 'sunny' }, { time: '3PM', temp: 28, condition: 'sunny' },
-      { time: '4PM', temp: 27, condition: 'sunny' }, { time: '5PM', temp: 26, condition: 'partly-cloudy' },
-      { time: '6PM', temp: 25, condition: 'partly-cloudy' }, { time: '7PM', temp: 24, condition: 'partly-cloudy' },
-      { time: '8PM', temp: 23, condition: 'cloudy' }, { time: '9PM', temp: 22, condition: 'cloudy' },
-      { time: '10PM', temp: 21, condition: 'cloudy' }, { time: '11PM', temp: 21, condition: 'cloudy' },
-    ],
-    daily: [
-      { day: 'Today', low: 19, high: 28, condition: 'sunny' },
-      { day: 'Tue', low: 20, high: 29, condition: 'sunny' },
-      { day: 'Wed', low: 21, high: 30, condition: 'partly-cloudy' },
-      { day: 'Thu', low: 20, high: 27, condition: 'rainy' },
-      { day: 'Fri', low: 19, high: 26, condition: 'stormy' },
-      { day: 'Sat', low: 18, high: 25, condition: 'cloudy' },
-      { day: 'Sun', low: 19, high: 27, condition: 'sunny' },
-    ],
-  },
-  'paris': {
-    name: 'Paris', country: 'France', condition: 'partly-cloudy', temp: 19, feelsLike: 18,
-    humidity: 65, wind: 10, pressure: 1016, visibility: 14, uvIndex: 4, sunrise: '5:52 AM', sunset: '9:35 PM',
-    hourly: [
-      { time: 'Now', temp: 19, condition: 'partly-cloudy' }, { time: '1PM', temp: 20, condition: 'sunny' },
-      { time: '2PM', temp: 21, condition: 'sunny' }, { time: '3PM', temp: 21, condition: 'partly-cloudy' },
-      { time: '4PM', temp: 20, condition: 'partly-cloudy' }, { time: '5PM', temp: 19, condition: 'cloudy' },
-      { time: '6PM', temp: 18, condition: 'cloudy' }, { time: '7PM', temp: 17, condition: 'partly-cloudy' },
-      { time: '8PM', temp: 16, condition: 'partly-cloudy' }, { time: '9PM', temp: 15, condition: 'cloudy' },
-      { time: '10PM', temp: 15, condition: 'cloudy' }, { time: '11PM', temp: 14, condition: 'cloudy' },
-    ],
-    daily: [
-      { day: 'Today', low: 12, high: 21, condition: 'partly-cloudy' },
-      { day: 'Tue', low: 13, high: 22, condition: 'sunny' },
-      { day: 'Wed', low: 14, high: 23, condition: 'sunny' },
-      { day: 'Thu', low: 12, high: 20, condition: 'rainy' },
-      { day: 'Fri', low: 11, high: 19, condition: 'cloudy' },
-      { day: 'Sat', low: 12, high: 21, condition: 'partly-cloudy' },
-      { day: 'Sun', low: 13, high: 22, condition: 'sunny' },
-    ],
-  },
-  'dubai': {
-    name: 'Dubai', country: 'UAE', condition: 'sunny', temp: 38, feelsLike: 42,
-    humidity: 45, wind: 14, pressure: 1005, visibility: 18, uvIndex: 11, sunrise: '5:35 AM', sunset: '7:10 PM',
-    hourly: [
-      { time: 'Now', temp: 38, condition: 'sunny' }, { time: '1PM', temp: 39, condition: 'sunny' },
-      { time: '2PM', temp: 40, condition: 'sunny' }, { time: '3PM', temp: 40, condition: 'sunny' },
-      { time: '4PM', temp: 39, condition: 'sunny' }, { time: '5PM', temp: 38, condition: 'sunny' },
-      { time: '6PM', temp: 36, condition: 'sunny' }, { time: '7PM', temp: 34, condition: 'sunny' },
-      { time: '8PM', temp: 32, condition: 'partly-cloudy' }, { time: '9PM', temp: 31, condition: 'partly-cloudy' },
-      { time: '10PM', temp: 30, condition: 'partly-cloudy' }, { time: '11PM', temp: 29, condition: 'cloudy' },
-    ],
-    daily: [
-      { day: 'Today', low: 28, high: 40, condition: 'sunny' },
-      { day: 'Tue', low: 29, high: 41, condition: 'sunny' },
-      { day: 'Wed', low: 30, high: 42, condition: 'sunny' },
-      { day: 'Thu', low: 29, high: 41, condition: 'sunny' },
-      { day: 'Fri', low: 28, high: 40, condition: 'sunny' },
-      { day: 'Sat', low: 28, high: 39, condition: 'partly-cloudy' },
-      { day: 'Sun', low: 27, high: 39, condition: 'sunny' },
-    ],
-  },
-  'singapore': {
-    name: 'Singapore', country: 'Singapore', condition: 'stormy', temp: 31, feelsLike: 38,
-    humidity: 85, wind: 6, pressure: 1009, visibility: 8, uvIndex: 6, sunrise: '6:55 AM', sunset: '7:10 PM',
-    hourly: [
-      { time: 'Now', temp: 31, condition: 'stormy' }, { time: '1PM', temp: 30, condition: 'stormy' },
-      { time: '2PM', temp: 30, condition: 'rainy' }, { time: '3PM', temp: 29, condition: 'rainy' },
-      { time: '4PM', temp: 29, condition: 'rainy' }, { time: '5PM', temp: 29, condition: 'cloudy' },
-      { time: '6PM', temp: 28, condition: 'cloudy' }, { time: '7PM', temp: 28, condition: 'cloudy' },
-      { time: '8PM', temp: 27, condition: 'cloudy' }, { time: '9PM', temp: 27, condition: 'cloudy' },
-      { time: '10PM', temp: 27, condition: 'rainy' }, { time: '11PM', temp: 26, condition: 'rainy' },
-    ],
-    daily: [
-      { day: 'Today', low: 25, high: 32, condition: 'stormy' },
-      { day: 'Tue', low: 25, high: 31, condition: 'rainy' },
-      { day: 'Wed', low: 26, high: 32, condition: 'rainy' },
-      { day: 'Thu', low: 25, high: 31, condition: 'cloudy' },
-      { day: 'Fri', low: 25, high: 32, condition: 'partly-cloudy' },
-      { day: 'Sat', low: 26, high: 33, condition: 'sunny' },
-      { day: 'Sun', low: 26, high: 32, condition: 'stormy' },
-    ],
-  },
-  'berlin': {
-    name: 'Berlin', country: 'Germany', condition: 'cloudy', temp: 16, feelsLike: 14,
-    humidity: 70, wind: 18, pressure: 1014, visibility: 12, uvIndex: 3, sunrise: '4:58 AM', sunset: '9:25 PM',
-    hourly: [
-      { time: 'Now', temp: 16, condition: 'cloudy' }, { time: '1PM', temp: 17, condition: 'partly-cloudy' },
-      { time: '2PM', temp: 18, condition: 'partly-cloudy' }, { time: '3PM', temp: 18, condition: 'sunny' },
-      { time: '4PM', temp: 17, condition: 'sunny' }, { time: '5PM', temp: 16, condition: 'partly-cloudy' },
-      { time: '6PM', temp: 15, condition: 'cloudy' }, { time: '7PM', temp: 14, condition: 'cloudy' },
-      { time: '8PM', temp: 14, condition: 'cloudy' }, { time: '9PM', temp: 13, condition: 'rainy' },
-      { time: '10PM', temp: 12, condition: 'rainy' }, { time: '11PM', temp: 12, condition: 'cloudy' },
-    ],
-    daily: [
-      { day: 'Today', low: 10, high: 18, condition: 'cloudy' },
-      { day: 'Tue', low: 11, high: 19, condition: 'partly-cloudy' },
-      { day: 'Wed', low: 12, high: 20, condition: 'sunny' },
-      { day: 'Thu', low: 13, high: 21, condition: 'sunny' },
-      { day: 'Fri', low: 11, high: 19, condition: 'rainy' },
-      { day: 'Sat', low: 10, high: 18, condition: 'cloudy' },
-      { day: 'Sun', low: 11, high: 19, condition: 'partly-cloudy' },
-    ],
-  },
-  'mumbai': {
-    name: 'Mumbai', country: 'India', condition: 'rainy', temp: 29, feelsLike: 34,
-    humidity: 88, wind: 11, pressure: 1006, visibility: 6, uvIndex: 3, sunrise: '6:08 AM', sunset: '7:18 PM',
-    hourly: [
-      { time: 'Now', temp: 29, condition: 'rainy' }, { time: '1PM', temp: 29, condition: 'rainy' },
-      { time: '2PM', temp: 28, condition: 'stormy' }, { time: '3PM', temp: 28, condition: 'rainy' },
-      { time: '4PM', temp: 28, condition: 'rainy' }, { time: '5PM', temp: 27, condition: 'rainy' },
-      { time: '6PM', temp: 27, condition: 'cloudy' }, { time: '7PM', temp: 27, condition: 'cloudy' },
-      { time: '8PM', temp: 26, condition: 'cloudy' }, { time: '9PM', temp: 26, condition: 'cloudy' },
-      { time: '10PM', temp: 26, condition: 'rainy' }, { time: '11PM', temp: 25, condition: 'rainy' },
-    ],
-    daily: [
-      { day: 'Today', low: 24, high: 30, condition: 'rainy' },
-      { day: 'Tue', low: 24, high: 29, condition: 'stormy' },
-      { day: 'Wed', low: 24, high: 30, condition: 'rainy' },
-      { day: 'Thu', low: 25, high: 31, condition: 'cloudy' },
-      { day: 'Fri', low: 25, high: 31, condition: 'partly-cloudy' },
-      { day: 'Sat', low: 24, high: 30, condition: 'rainy' },
-      { day: 'Sun', low: 24, high: 29, condition: 'rainy' },
-    ],
-  },
 };
 
 const CONDITION_LABELS: Record<WeatherCondition, string> = {
@@ -286,22 +134,169 @@ const CONDITION_LABELS: Record<WeatherCondition, string> = {
   stormy: 'Thunderstorm',
 };
 
+// ---- Open-Meteo API ----
+async function fetchGeoCity(name: string): Promise<GeoResult | null> {
+  try {
+    const r = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=en&format=json`
+    );
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (!data.results || data.results.length === 0) return null;
+    const res = data.results[0];
+    return {
+      id: res.id,
+      name: res.name,
+      latitude: res.latitude,
+      longitude: res.longitude,
+      country: res.country || '',
+      admin1: res.admin1 || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWeather(lat: number, lon: number): Promise<CityWeather | null> {
+  try {
+    const url =
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,pressure_msl,visibility` +
+      `&hourly=temperature_2m,weather_code` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
+      `&timezone=auto&forecast_days=7`;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const data = await r.json();
+
+    const current = data.current;
+    const hourly = data.hourly;
+    const daily = data.daily;
+
+    // Build hourly forecast: next 12 hours from now
+    const nowHourIdx = Math.max(0, hourly.time.findIndex((t: string) => {
+      const ht = new Date(t);
+      const now = new Date();
+      return ht >= now;
+    }));
+    const hourlyForecasts: HourlyForecast[] = [];
+    for (let i = nowHourIdx; i < nowHourIdx + 12 && i < hourly.time.length; i++) {
+      const t = hourly.time[i];
+      const date = new Date(t);
+      const isNow = i === nowHourIdx;
+      hourlyForecasts.push({
+        time: isNow ? 'Now' : date.toLocaleTimeString([], { hour: 'numeric', hour12: true }),
+        temp: Math.round(hourly.temperature_2m[i]),
+        condition: wmoToCondition(hourly.weather_code[i]),
+      });
+    }
+
+    // Build daily forecast
+    const dailyForecasts: DailyForecast[] = daily.time.map((t: string, i: number) => {
+      const date = new Date(t);
+      const today = new Date();
+      const isToday = date.toDateString() === today.toDateString();
+      return {
+        day: isToday ? 'Today' : date.toLocaleDateString([], { weekday: 'short' }),
+        low: Math.round(daily.temperature_2m_min[i]),
+        high: Math.round(daily.temperature_2m_max[i]),
+        condition: wmoToCondition(daily.weather_code[i]),
+      };
+    });
+
+    // Format sunrise/sunset
+    const fmtTime = (iso: string) => {
+      const d = new Date(iso);
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    };
+
+    return {
+      name: '', // filled later
+      country: '',
+      condition: wmoToCondition(current.weather_code),
+      temp: Math.round(current.temperature_2m),
+      feelsLike: Math.round(current.apparent_temperature),
+      humidity: current.relative_humidity_2m,
+      wind: Math.round(current.wind_speed_10m),
+      pressure: Math.round(current.pressure_msl),
+      visibility: current.visibility ? Math.round(current.visibility / 1000) : 10,
+      uvIndex: 0, // Open-Meteo UV requires separate param, skip for simplicity
+      sunrise: fmtTime(daily.sunrise[0]),
+      sunset: fmtTime(daily.sunset[0]),
+      hourly: hourlyForecasts,
+      daily: dailyForecasts,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ---- Main Weather Component ----
 export default function Weather() {
   const [currentCity, setCurrentCity] = useState<CityWeather>(CITY_DATA['san francisco']);
   const [searchQuery, setSearchQuery] = useState('');
   const [unit, setUnit] = useState<'C' | 'F'>('C');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isRealData, setIsRealData] = useState(false);
 
-  const convert = useCallback((temp: number) => unit === 'C' ? temp : Math.round(temp * 9 / 5 + 32), [unit]);
+  const convert = useCallback((temp: number) => (unit === 'C' ? temp : Math.round(temp * 9 / 5 + 32)), [unit]);
+
+  const loadCity = useCallback(async (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+
+    // Try Open-Meteo first
+    const geo = await fetchGeoCity(q);
+    if (geo) {
+      const weather = await fetchWeather(geo.latitude, geo.longitude);
+      if (weather) {
+        weather.name = geo.name;
+        weather.country = geo.country;
+        setCurrentCity(weather);
+        setIsRealData(true);
+        setLoading(false);
+        setSearchQuery('');
+        return;
+      }
+    }
+
+    // Fallback to mock data
+    const key = q.toLowerCase();
+    if (CITY_DATA[key]) {
+      setCurrentCity(CITY_DATA[key]);
+      setIsRealData(false);
+      setLoading(false);
+      setSearchQuery('');
+      return;
+    }
+
+    setError(`City "${q}" not found. Try: San Francisco, New York, London, Tokyo...`);
+    setLoading(false);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const key = searchQuery.toLowerCase().trim();
-    if (CITY_DATA[key]) {
-      setCurrentCity(CITY_DATA[key]);
-      setSearchQuery('');
+    loadCity(searchQuery);
+  };
+
+  const handleRefresh = () => {
+    if (isRealData && currentCity.name) {
+      loadCity(currentCity.name);
+    } else {
+      // Simulate refresh for mock data
+      setLoading(true);
+      setTimeout(() => setLoading(false), 800);
     }
   };
+
+  // Load default city on mount with real data
+  useEffect(() => {
+    loadCity('San Francisco');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const tempRange = useMemo(() => {
     const allTemps = currentCity.daily.flatMap((d) => [d.low, d.high]);
@@ -330,10 +325,30 @@ export default function Weather() {
         >
           °{unit}
         </button>
-        <button className="flex items-center justify-center rounded-lg transition-all hover:bg-[var(--bg-hover)]" style={{ width: 32, height: 32 }}>
-          <RefreshCw size={14} style={{ color: 'var(--text-secondary)' }} />
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="flex items-center justify-center rounded-lg transition-all hover:bg-[var(--bg-hover)] disabled:opacity-50"
+          style={{ width: 32, height: 32 }}
+        >
+          {loading ? <Loader2 size={14} className="animate-spin" style={{ color: 'var(--text-secondary)' }} /> : <RefreshCw size={14} style={{ color: 'var(--text-secondary)' }} />}
         </button>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mx-4 mt-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'var(--accent-error)15', color: 'var(--accent-error)', border: '1px solid var(--accent-error)30' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Real Data Badge */}
+      {isRealData && (
+        <div className="mx-4 mt-2 flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent-success)' }} />
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Live data via Open-Meteo</span>
+        </div>
+      )}
 
       {/* Current Weather */}
       <div className="flex flex-col items-center py-6">
@@ -360,7 +375,7 @@ export default function Weather() {
           <DetailItem icon={Thermometer} label="Feels Like" value={`${convert(currentCity.feelsLike)}°`} />
           <DetailItem icon={Droplets} label="Humidity" value={`${currentCity.humidity}%`} />
           <DetailItem icon={Wind} label="Wind" value={`${currentCity.wind} km/h`} />
-          <DetailItem icon={Sun} label="UV Index" value={`${currentCity.uvIndex}`} />
+          <DetailItem icon={Sun} label="UV Index" value={`${currentCity.uvIndex || '-'}`} />
         </div>
 
         <div className="grid grid-cols-2 gap-3 w-full px-6 mt-3" style={{ maxWidth: 400 }}>
