@@ -2,7 +2,7 @@
 // OS State Management — React Context + useReducer
 // ============================================================
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import type { OSState, OSAction, Window, DesktopIcon, Notification, DockItem, WindowState } from '@/types';
 import { APP_REGISTRY, getAppById, getDefaultDockApps } from '@/apps/registry';
 import { getAssetPath } from '@/utils/assets';
@@ -490,6 +490,25 @@ const OSContext = createContext<OSContextType | null>(null);
 
 export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(osReducer, initialState);
+
+  // Listen for open-chat events to auto-open Chat app
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const payload = (e as CustomEvent).detail;
+      const chatWindow = state.windows.find((w) => w.appId === 'chat');
+      if (!chatWindow) {
+        dispatch({ type: 'OPEN_WINDOW', appId: 'chat', title: payload?.skillName ? `Chat — ${payload.skillName}` : undefined });
+      } else if (chatWindow.state === 'minimized') {
+        dispatch({ type: 'RESTORE_WINDOW', windowId: chatWindow.id });
+        dispatch({ type: 'FOCUS_WINDOW', windowId: chatWindow.id });
+      } else {
+        dispatch({ type: 'FOCUS_WINDOW', windowId: chatWindow.id });
+      }
+    };
+    window.addEventListener('dulus:open-chat', handler);
+    return () => window.removeEventListener('dulus:open-chat', handler);
+  }, [state.windows]);
+
   return (
     <OSContext.Provider value={{ state, dispatch }}>
       {children}

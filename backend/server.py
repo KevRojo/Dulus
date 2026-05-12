@@ -161,7 +161,10 @@ class DulusHandler(SimpleHTTPRequestHandler):
 
         # ── Agents ──
         if path == "/api/agents":
-            self._json_response(build_agent_info_list())
+            try:
+                self._json_response(build_agent_info_list())
+            except Exception as e:
+                self._error(f"Agents error: {e}", 500)
             return
 
         # ── Personas ──
@@ -193,11 +196,80 @@ class DulusHandler(SimpleHTTPRequestHandler):
         if path == "/api/mempalace":
             try:
                 from backend.mempalace_bridge import load_cache, get_mempalace_compact_text
-                data = load_cache()
-                data["compact_text"] = get_mempalace_compact_text()
+                raw = load_cache()
+                # Normalize to frontend shape
+                memories = raw.get("memories", [])
+                wings = raw.get("wings", [])
+                data = {
+                    "entries": [
+                        {
+                            "id": f"mem-{i}",
+                            "name": m.get("name", "unnamed"),
+                            "content": m.get("body", ""),
+                            "wing": m.get("wing", "memory"),
+                            "type": m.get("type", "unknown"),
+                            "hall": m.get("hall", "general"),
+                            "confidence": m.get("confidence", 0.8),
+                            "description": m.get("description", ""),
+                            "source": m.get("source", "wakeup"),
+                            "relevance": m.get("relevance"),
+                        }
+                        for i, m in enumerate(memories)
+                    ],
+                    "wings": [{"name": w, "count": sum(1 for m in memories if m.get("wing") == w)} for w in wings],
+                    "stats": {"total": raw.get("count", len(memories)), "wings": len(wings)},
+                    "compact_text": get_mempalace_compact_text(),
+                    "connected": raw.get("connected", False),
+                }
                 self._json_response(data)
             except Exception as e:
                 self._error(f"MemPalace error: {e}", 500)
+            return
+
+        # ── MemPalace Search ──
+        if path == "/api/memory/search":
+            try:
+                from backend.mempalace_bridge import load_cache
+                query = parse_qs(urlparse(self.path).query).get("query", [""])[0].lower()
+                limit = int(parse_qs(urlparse(self.path).query).get("limit", ["10"])[0])
+                wing_filter = parse_qs(urlparse(self.path).query).get("wing", [None])[0]
+                raw = load_cache()
+                memories = raw.get("memories", [])
+                results = []
+                for m in memories:
+                    text = f"{m.get('name','')} {m.get('body','')} {m.get('wing','')} {m.get('type','')}"
+                    if query in text.lower():
+                        if wing_filter and m.get("wing") != wing_filter:
+                            continue
+                        results.append({
+                            "id": f"mem-{len(results)}",
+                            "name": m.get("name", "unnamed"),
+                            "content": m.get("body", ""),
+                            "wing": m.get("wing", "memory"),
+                            "type": m.get("type", "unknown"),
+                            "hall": m.get("hall", "general"),
+                            "confidence": m.get("confidence", 0.8),
+                            "description": m.get("description", ""),
+                            "source": m.get("source", "wakeup"),
+                        })
+                        if len(results) >= limit:
+                            break
+                self._json_response(results)
+            except Exception as e:
+                self._error(f"Memory search error: {e}", 500)
+            return
+
+        # ── MemPalace Wings ──
+        if path == "/api/memory/wings":
+            try:
+                from backend.mempalace_bridge import load_cache
+                raw = load_cache()
+                wings = raw.get("wings", [])
+                memories = raw.get("memories", [])
+                result = [{"name": w, "count": sum(1 for m in memories if m.get("wing") == w)} for w in wings]
+                self._json_response(result)
+            except Exception as e:
+                self._error(f"Wings error: {e}", 500)
             return
 
         # ── Skills ──

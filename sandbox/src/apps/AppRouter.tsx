@@ -69,7 +69,7 @@ interface AppRouterProps {
   windowId: string;
 }
 
-const AppRouter: FC<AppRouterProps> = ({ appId }) => {
+const AppRouter: FC<AppRouterProps> = ({ appId, windowId }) => {
   switch (appId) {
     case 'filemanager':
       return <FileManager />;
@@ -100,7 +100,7 @@ const AppRouter: FC<AppRouterProps> = ({ appId }) => {
     case 'email':
       return <Email />;
     case 'chat':
-      return <Chat />;
+      return <Chat windowId={windowId} />;
     case 'weather':
       return <Weather />;
     case 'musicplayer':

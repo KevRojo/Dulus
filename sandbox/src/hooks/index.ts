@@ -22,6 +22,9 @@ export type { UseDulusAgentsReturn } from './useDulusAgents';
 
 export { useDulusEvents } from './useDulusEvents';
 
+export { useSkillBridge, emitSkillInject, shouldSendToChat } from './useSkillBridge';
+export type { SkillInjectPayload } from './useSkillBridge';
+
 // Legacy hooks
 export { useFileSystem } from './useFileSystem';
 export { useOS, useWindows, useNotifications } from './useOSStore';
