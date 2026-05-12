@@ -186,7 +186,26 @@ export default function TaskManager() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {viewMode === 'kanban' ? (
+        {tasks.length === 0 && !loading ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-[var(--text-secondary)]">
+            <CheckCircle2 size={40} opacity={0.4} />
+            <p className="text-sm font-medium">No tasks yet</p>
+            <p className="text-xs opacity-70">Create your first task to get started</p>
+            <button
+              onClick={() => setShowNewForm(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white mt-1"
+              style={{ background: 'var(--accent-primary)' }}
+            >
+              <Plus size={14} /> New Task
+            </button>
+          </div>
+        ) : filtered.length === 0 && !loading ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-[var(--text-secondary)]">
+            <Search size={40} opacity={0.4} />
+            <p className="text-sm font-medium">No tasks match</p>
+            <p className="text-xs opacity-70">Try adjusting your search or filter</p>
+          </div>
+        ) : viewMode === 'kanban' ? (
           <div className="flex gap-3 h-full min-w-max">
             {COLUMNS.map((col) => (
               <div key={col} className="w-64 flex flex-col">

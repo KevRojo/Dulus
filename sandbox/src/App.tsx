@@ -4,6 +4,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { OSProvider, useOS } from '@/hooks/useOSStore';
+import { useDulusEvents } from '@/hooks/useDulusEvents';
 import BootSequence from '@/components/BootSequence';
 import LoginScreen from '@/components/LoginScreen';
 import Desktop from '@/components/Desktop';
@@ -31,6 +32,10 @@ function AppShell() {
   const handleBootComplete = useCallback(() => {
     setBootComplete(true);
   }, []);
+
+  // SSE Events Bridge — connect to Dulus backend notifications
+  const eventsEnabled = bootPhase === 'desktop' || bootPhase === 'complete';
+  useDulusEvents(eventsEnabled);
 
   // Keyboard shortcuts
   useEffect(() => {

@@ -9,39 +9,39 @@
   "project": {
     "name": "Dulus Command Center",
     "repo_stats": {
-      "files": 26697,
-      "lines": 3602498,
+      "files": 26676,
+      "lines": 3423021,
       "languages": {
         ".example": 5,
-        "no_ext": 16410,
-        ".py": 60171,
+        "no_ext": 16435,
+        ".py": 60352,
         ".html": 15960,
-        ".in": 2,
-        ".toml": 123,
-        ".md": 79646,
-        ".txt": 1018,
-        ".json": 133634,
-        ".whl": 17908,
-        ".gz": 18064,
+        ".in": 3,
+        ".toml": 131,
+        ".md": 79661,
+        ".txt": 1042,
+        ".json": 133614,
+        ".whl": 16199,
+        ".gz": 15931,
         ".svg": 1168,
-        ".png": 157513,
+        ".png": 31639,
         ".sh": 144,
-        ".js": 1992568,
-        ".ts": 570599,
+        ".js": 1937132,
+        ".ts": 571042,
         ".log": 1,
         ".jpg": 1076,
-        ".tsx": 34508,
+        ".tsx": 34494,
         ".css": 2848,
+        ".jpeg": 5084,
         ".cmd": 476,
         ".ps1": 784,
-        ".tsbuildinfo": 2,
         ".mts": 29541,
         ".yml": 250,
         ".markdown": 763,
         ".flow": 21999,
         ".cjs": 150052,
         ".cts": 44618,
-        ".map": 5059,
+        ".map": 4989,
         ".mjs": 102525,
         ".BSD": 59,
         ".lock": 2598,
@@ -57,8 +57,61 @@
         ".exe": 98693
       }
     },
-    "recent_commits": [],
-    "recent_changes": []
+    "recent_commits": [
+      {
+        "hash": "8c31a24",
+        "subject": "bump: 0.2.44",
+        "author": "KevRojo",
+        "date": "2026-05-12"
+      },
+      {
+        "hash": "9d4edc9",
+        "subject": "fix(sandbox): rebuild with jpeg wallpapers, remove node_modules, drop png refs",
+        "author": "KevRojo",
+        "date": "2026-05-12"
+      },
+      {
+        "hash": "7fc2387",
+        "subject": "bump: 0.2.43",
+        "author": "KevRojo",
+        "date": "2026-05-12"
+      },
+      {
+        "hash": "1ff5719",
+        "subject": "Merge remote-tracking branch 'origin/main'",
+        "author": "KevRojo",
+        "date": "2026-05-12"
+      },
+      {
+        "hash": "a2d585e",
+        "subject": "fix(sandbox): include static assets in pip wheel and resolve dist path for installed packages",
+        "author": "KevRojo",
+        "date": "2026-05-12"
+      }
+    ],
+    "recent_changes": [
+      "README.md",
+      "backend/server.py",
+      "common.py",
+      "data/active_persona.json",
+      "data/context.json",
+      "data/personas.json",
+      "pyproject.toml",
+      "sandbox/dist/assets/index-Duhscm3W.js",
+      "sandbox/dist/index.html",
+      "sandbox/package-lock.json",
+      "sandbox/src/App.tsx",
+      "sandbox/src/apps/AgentMonitor.tsx",
+      "sandbox/src/apps/MemoryManager.tsx",
+      "sandbox/src/apps/SkillsLauncher.tsx",
+      "sandbox/src/apps/TaskManager.tsx",
+      "sandbox/src/apps/registry.ts",
+      "sandbox/src/hooks/index.ts",
+      "sandbox/src/hooks/useOSStore.tsx",
+      "sandbox/src/lib/dulus-api.ts",
+      "sandbox/vite.config.ts",
+      "webchat_server.py"
+    ]
   },
   "tasks": {
     "active": [
@@ -84,7 +137,7 @@
       "name": "Dulus",
       "role": "primary",
       "color": "#ff6b1f",
-      "status": "idle",
+      "status": "active",
       "avatar": "[F]",
       "active": true
     },

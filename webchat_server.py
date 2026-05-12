@@ -3293,24 +3293,7 @@ restoreRt();
         return Response(RT_PAGE, mimetype="text/html")
 
     # ── Sandbox (Mini OS) ─────────────────────────────────────────────────────
-    def _resolve_sandbox_dist() -> Path:
-        """Find sandbox/dist whether running from source or installed package."""
-        # 1. Source layout (repo root next to webchat_server.py)
-        src = Path(__file__).parent / "sandbox" / "dist"
-        if src.exists():
-            return src
-        # 2. Installed package (sandbox is now a sub-package)
-        try:
-            import sandbox as _sandbox_pkg
-            pkg = Path(_sandbox_pkg.__file__).parent / "dist"
-            if pkg.exists():
-                return pkg
-        except Exception:
-            pass
-        # 3. Fallback — will 404 gracefully
-        return src
-
-    _SANDBOX_DIST = _resolve_sandbox_dist()
+    _SANDBOX_DIST = Path(__file__).parent / "sandbox" / "dist"
 
     @app.route("/sandbox")
     @app.route("/sandbox/")
@@ -4075,6 +4058,61 @@ restoreRt();
             return Response(css, mimetype="text/css")
         except Exception:
             return Response("", mimetype="text/css")
+
+    # ── Skills ──
+    @app.route("/api/skills", methods=["GET"])
+    def api_skills():
+        try:
+            from skill.loader import load_skills
+            skills = load_skills()
+            result = [
+                {
+                    "id": s.name,
+                    "name": s.name,
+                    "description": s.description,
+                    "category": s.source.capitalize() if s.source else "Utility",
+                    "triggers": s.triggers,
+                    "argument_hint": s.argument_hint,
+                    "source": s.source,
+                    "user_invocable": s.user_invocable,
+                }
+                for s in skills
+                if s.user_invocable
+            ]
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/skills/invoke", methods=["POST"])
+    def api_skills_invoke():
+        data = request.get_json(silent=True) or {}
+        skill_name = data.get("name", "").strip()
+        args = data.get("arguments", {})
+        args_str = data.get("args", "")
+        if not skill_name:
+            return jsonify({"error": "Missing skill name"}), 400
+        try:
+            from skill.loader import load_skills, find_skill
+            from skill.tools import _skill_tool
+
+            skill = None
+            for s in load_skills():
+                if s.name == skill_name:
+                    skill = s
+                    break
+            if skill is None:
+                skill = find_skill(skill_name)
+            if skill is None:
+                return jsonify({"error": f"Skill '{skill_name}' not found"}), 404
+
+            if isinstance(args, dict) and args:
+                parts = [str(v) for v in args.values()]
+                args_str = " ".join(parts)
+
+            result = _skill_tool({"name": skill_name, "args": args_str}, {})
+            return jsonify({"success": True, "result": result, "skill": skill_name})
+        except Exception as e:
+            return jsonify({"error": f"Skill execution error: {e}"}), 500
 
     # ── Dashboard static serving ──
     @app.route("/dashboard")

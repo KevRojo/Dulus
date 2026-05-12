@@ -19,6 +19,20 @@ const ENDPOINTS = {
   events: `${API_BASE}/api/events`,
 } as const;
 
+// ---- Helpers -----------------------------------------------
+export async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 5000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { ...init, signal: ctrl.signal });
+    clearTimeout(timer);
+    return r;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
 // ---- Errors ------------------------------------------------
 export class DulusAPIError extends Error {
   status: number;
@@ -92,12 +106,12 @@ export interface ExecResult {
   exitCode: number;
 }
 
-export async function execCommand(command: string, cwd?: string): Promise<ExecResult> {
-  const r = await fetch(ENDPOINTS.exec, {
+export async function execCommand(command: string, cwd?: string, timeoutMs = 30000): Promise<ExecResult> {
+  const r = await fetchWithTimeout(ENDPOINTS.exec, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ command, cwd }),
-  });
+  }, timeoutMs);
   if (!r.ok) throw new DulusAPIError(r.status, `Exec failed: ${r.statusText}`);
   return r.json();
 }
@@ -138,17 +152,12 @@ export interface ToolResult<T = unknown> {
 
 export async function invokeTool<T = unknown>(toolName: string, args: Record<string, unknown>): Promise<ToolResult<T>> {
   try {
-    const r = await fetch(ENDPOINTS.toolInvoke, {
+    const r = await fetchWithTimeout(ENDPOINTS.toolInvoke, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool: toolName, arguments: args }),
-    });
-    if (!r.ok) {
-      // Fallback: try via exec as dulus CLI
-      const fallback = await execCommand(`dulus -c "${toolName} ${JSON.stringify(args)}"`);
-      if (fallback.exitCode !== 0) throw new Error(fallback.stderr || fallback.stdout);
-      return { success: true, data: JSON.parse(fallback.stdout) as T };
-    }
+    }, 8000);
+    if (!r.ok) throw new DulusAPIError(r.status, `Tool invoke failed: ${r.statusText}`);
     const data = await r.json();
     return { success: true, data: data as T };
   } catch (err) {
@@ -187,7 +196,7 @@ export interface MemPalaceData {
 
 export async function fetchMemPalace(): Promise<ToolResult<MemPalaceData>> {
   try {
-    const r = await fetch(ENDPOINTS.mempalace);
+    const r = await fetchWithTimeout(ENDPOINTS.mempalace, {}, 4000);
     if (!r.ok) throw new DulusAPIError(r.status, `MemPalace fetch failed: ${r.statusText}`);
     const data = await r.json();
     return { success: true, data };
@@ -233,7 +242,7 @@ export interface DulusTask {
 
 export async function listTasks(): Promise<ToolResult<DulusTask[]>> {
   try {
-    const r = await fetch(ENDPOINTS.tasks);
+    const r = await fetchWithTimeout(ENDPOINTS.tasks, {}, 4000);
     if (!r.ok) throw new DulusAPIError(r.status, `Tasks list failed: ${r.statusText}`);
     const data = await r.json();
     const list = Array.isArray(data) ? data : data.tasks || [];
@@ -298,7 +307,7 @@ export interface SkillInfo {
 
 export async function listSkills(): Promise<ToolResult<SkillInfo[]>> {
   try {
-    const r = await fetch(`${API_BASE}/api/skills`);
+    const r = await fetchWithTimeout(`${API_BASE}/api/skills`, {}, 4000);
     if (r.ok) return { success: true, data: await r.json() };
   } catch { /* fallback to tool invoke */ }
   return invokeTool<SkillInfo[]>('SkillList', {});
@@ -306,11 +315,11 @@ export async function listSkills(): Promise<ToolResult<SkillInfo[]>> {
 
 export async function invokeSkill(skillName: string, args?: Record<string, unknown>): Promise<ToolResult<unknown>> {
   try {
-    const r = await fetch(`${API_BASE}/api/skills/invoke`, {
+    const r = await fetchWithTimeout(`${API_BASE}/api/skills/invoke`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: skillName, arguments: args || {} }),
-    });
+    }, 15000);
     if (!r.ok) throw new DulusAPIError(r.status, `Skill invoke failed: ${r.statusText}`);
     return { success: true, data: await r.json() };
   } catch (err) {
@@ -342,7 +351,7 @@ export interface AgentTaskInfo {
 
 export async function listAgents(): Promise<ToolResult<AgentInfo[]>> {
   try {
-    const r = await fetch(ENDPOINTS.agents);
+    const r = await fetchWithTimeout(ENDPOINTS.agents, {}, 3000);
     if (!r.ok) throw new DulusAPIError(r.status, `Agents list failed: ${r.statusText}`);
     const data = await r.json();
     const list = Array.isArray(data) ? data : data.agents || [];

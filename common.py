@@ -3,7 +3,7 @@ import json
 
 # ── Import slash completer helpers ──
 try:
-    from ui.input import (
+    from backend.ui.input import (
         setup as _setup_slash_complete,
         read_line as _read_line_pt,
         reset_session as _reset_pt_session,

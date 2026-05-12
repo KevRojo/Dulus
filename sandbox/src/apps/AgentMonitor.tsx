@@ -102,7 +102,13 @@ export default function AgentMonitor() {
       <div className="flex-1 flex overflow-hidden">
         {/* Agent list */}
         <div className="w-72 flex-shrink-0 overflow-auto border-r" style={{ borderColor: 'var(--border-default)' }}>
-          {filtered.length === 0 ? (
+          {agents.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)] gap-2 p-4">
+              <Bot size={32} opacity={0.4} />
+              <p className="text-xs text-center font-medium">No agents running</p>
+              <p className="text-[10px] text-center opacity-70">Agents will appear here when started</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)] gap-2 p-4">
               <Bot size={24} />
               <p className="text-xs text-center">No agents match this filter</p>

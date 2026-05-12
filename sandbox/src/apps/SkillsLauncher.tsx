@@ -79,10 +79,21 @@ export default function SkillsLauncher() {
 
     const result = await invoke(skill.name, {});
 
-    if (result !== null) {
-      setLastResult({ id: skill.id || skill.name, success: true, message: 'Skill executed successfully' });
+    if (result !== null && typeof result === 'object' && 'success' in result) {
+      const res = result as { success: boolean; result?: string; skill?: string; error?: string };
+      if (res.success && res.result) {
+        const preview = res.result.length > 120 ? res.result.slice(0, 120) + '...' : res.result;
+        setLastResult({ id: skill.id || skill.name, success: true, message: preview });
+      } else if (res.error) {
+        setLastResult({ id: skill.id || skill.name, success: false, message: res.error });
+      } else {
+        setLastResult({ id: skill.id || skill.name, success: true, message: `Skill "${skill.name}" executed` });
+      }
+    } else if (result !== null) {
+      const preview = String(result).length > 120 ? String(result).slice(0, 120) + '...' : String(result);
+      setLastResult({ id: skill.id || skill.name, success: true, message: preview });
     } else {
-      setLastResult({ id: skill.id || skill.name, success: true, message: `Skill "${skill.name}" launched` });
+      setLastResult({ id: skill.id || skill.name, success: false, message: `Skill "${skill.name}" failed` });
     }
 
     setRunningId(null);
@@ -170,6 +181,12 @@ export default function SkillsLauncher() {
           <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)] gap-2">
             <Loader2 size={24} className="animate-spin" />
             <p className="text-xs">Loading skills...</p>
+          </div>
+        ) : skills.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)] gap-2">
+            <Wand2 size={32} opacity={0.4} />
+            <p className="text-sm font-medium">No skills found</p>
+            <p className="text-xs opacity-70">Add skills to ~/.dulus/skills to see them here</p>
           </div>
         ) : (
           <>

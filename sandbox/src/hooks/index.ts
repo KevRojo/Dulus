@@ -20,6 +20,8 @@ export type { UseDulusSkillsReturn } from './useDulusSkills';
 export { useDulusAgents } from './useDulusAgents';
 export type { UseDulusAgentsReturn } from './useDulusAgents';
 
+export { useDulusEvents } from './useDulusEvents';
+
 // Legacy hooks
 export { useFileSystem } from './useFileSystem';
 export { useOS, useWindows, useNotifications } from './useOSStore';
