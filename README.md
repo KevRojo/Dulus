@@ -184,8 +184,16 @@ echo "explain this diff" | git diff | dulus -p --accept-all
 > [!NOTE]
 > **Experimental features:** The folder `sandbox/` contains the early implementation of **Dulus OS** — a mini-operating system that runs entirely in your browser. It is currently in heavy development and not 100% functional yet. It will serve as a secure, isolated environment for browser-based tool execution and visualizations.
 
----
+<img width="1309" height="778" alt="image" src="https://github.com/user-attachments/assets/1c627990-7f87-489b-a0a2-14ad62fe2bb8" />
 
+---
+<img width="1608" height="1903" alt="image" src="https://github.com/user-attachments/assets/450defa2-437b-470d-891a-9285d9e5e312" />
+
+---
+<img width="3763" height="1975" alt="image" src="https://github.com/user-attachments/assets/10752aa2-6837-4097-a9a8-e02938992174" />
+
+---
+The dulus sandbox is an early feature, expect bugs
 
 ---
 
