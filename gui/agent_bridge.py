@@ -161,6 +161,11 @@ class DulusBridge:
                 self._emit("error", message=str(exc))
 
     def _process_turn(self, user_message: str) -> None:
+        # Assign session_id immediately to prevent UI duplication during turn
+        if not self.session_id:
+            import uuid
+            self.session_id = uuid.uuid4().hex[:8]
+
         # ── Skill inject (one-shot) ────────────────────────────────────────
         skill_body = self._skill_inject
         self._skill_inject = ""
@@ -207,7 +212,8 @@ class DulusBridge:
 
             elif isinstance(event, TurnDone):
                 # Auto-save session to disk
-                self.session_id = save_session(self.state, self.config, self.session_id)
+                sid = save_session(self.state, self.config, self.session_id)
+                if sid: self.session_id = sid
                 self._emit(
                     "turn_done",
                     input_tokens=event.input_tokens,

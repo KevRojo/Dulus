@@ -9,18 +9,19 @@
   "project": {
     "name": "Dulus Command Center",
     "repo_stats": {
-      "files": 204,
-      "lines": 98972,
+      "files": 241,
+      "lines": 110197,
       "languages": {
         ".example": 5,
-        "no_ext": 694,
-        ".py": 47851,
+        ".py": 58599,
         ".html": 14582,
+        "no_ext": 1158,
         ".in": 2,
         ".toml": 123,
-        ".md": 2042,
+        ".md": 2050,
         ".txt": 40,
-        ".json": 727,
+        ".TAG": 4,
+        ".json": 728,
         ".svg": 1123,
         ".png": 31639,
         ".sh": 144
