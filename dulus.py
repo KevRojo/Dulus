@@ -784,6 +784,7 @@ _HELP_PAGES = [
         ("/wake calibrate",         "Measure mic 5s, suggest threshold"),
         ("/wake test",              "Debug mode (RMS + STT for 10s)"),
         ("/wake threshold <n>",     "Tune mic sensitivity (0.001–1.0)"),
+        ("/wake feedback on|off",   "TTS reply on wake (off = beep only)"),
     ]),
     ("Web · Sandbox · Cloud · Harvest", [
         ("/webchat [port]",         "Spawn web chat UI (Flask)"),
@@ -6683,11 +6684,38 @@ def cmd_wake(args: str, state, config) -> bool:
     /wake status   — show whether listener is active
     /wake phrases  — list recognised wake phrases
     /wake threshold <0.01-0.20> — tune mic sensitivity (default 0.035)
+    /wake feedback [on|off] — toggle TTS "¿Dime, papi?" reply on wake
+                              (off = only beep, no spoken response)
     """
     global _wake_listener
 
     subcmd = args.strip().lower().split()[0] if args.strip() else ""
     rest = args.strip()[len(subcmd):].strip()
+
+    # ── /wake feedback ──
+    # ON  (default): wake event = beep + TTS "¿Dime, papi?"
+    # OFF          : wake event = beep only (silent confirmation)
+    if subcmd == "feedback":
+        if not rest:
+            current = bool(config.get("wake_feedback", True))
+            info(f"Wake feedback (TTS reply on wake): {'ON' if current else 'OFF'}")
+            info("Toggle with /wake feedback on|off  (off = only beep, no spoken reply)")
+            return True
+        val = rest.lower()
+        if val in ("on", "true", "1", "yes"):
+            config["wake_feedback"] = True
+        elif val in ("off", "false", "0", "no"):
+            config["wake_feedback"] = False
+        else:
+            err("Use: /wake feedback on  |  /wake feedback off")
+            return True
+        try:
+            from config import save_config
+            save_config(config)
+        except Exception as e:
+            warn(f"Could not save config: {e}")
+        ok(f"Wake feedback: {'ON (TTS reply)' if config['wake_feedback'] else 'OFF (beep only)'}")
+        return True
 
     # ── /wake threshold ──
     if subcmd == "threshold":
@@ -9591,12 +9619,15 @@ def repl(config: dict, initial_prompt: str = None):
                 # TTS feedback
                 # NOTE: say() is blocking, which correctly delays the command recording 
                 # in WakeWordListener until after the response is finished.
-                try:
-                    from voice import say
-                    _resp = config.get("wake_response", "¿Dime, papi?")
-                    say(_resp, provider=config.get("tts_provider", "auto"))
-                except Exception:
-                    pass
+                # Gate on wake_feedback toggle — when OFF the beep above is
+                # the only confirmation, no spoken reply.
+                if config.get("wake_feedback", True):
+                    try:
+                        from voice import say
+                        _resp = config.get("wake_response", "¿Dime, papi?")
+                        say(_resp, provider=config.get("tts_provider", "auto"))
+                    except Exception:
+                        pass
 
             def _on_command(text: str) -> None:
                 # Filter common Whisper hallucinations on silence/noise
