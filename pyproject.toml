@@ -90,6 +90,7 @@ py-modules = [
     "offload_helper",
     "providers",
     "skills",
+    "soul",
     "spinner",
     "string_utils",
     "subagent",
@@ -99,6 +100,7 @@ py-modules = [
     "tools",
     "webchat",
     "webchat_server",
+    "welcome",
 ]
 
 [tool.setuptools.packages.find]
