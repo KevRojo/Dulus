@@ -258,10 +258,18 @@ def _transcribe_faster_whisper(
     initial_prompt = _keyterms_to_prompt(keyterms)
     lang = None if not language or language == "auto" else language
 
+    # Force Spanish context when language is set to "es" — prevents
+    # the model from hallucinating English on short wake-word utterances.
+    if lang == "es" and not initial_prompt:
+        initial_prompt = "Transcripción en español."
+    elif lang == "es":
+        initial_prompt = "Transcripción en español: " + initial_prompt
+
     segments, _info = model.transcribe(
         audio,
         language=lang,
         initial_prompt=initial_prompt,
+        condition_on_previous_text=False,  # avoid language drift on short audio
         vad_filter=True,          # skip silent regions
         vad_parameters=dict(
             min_silence_duration_ms=300,
@@ -291,6 +299,13 @@ def _transcribe_openai_whisper(
     audio = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
     initial_prompt = _keyterms_to_prompt(keyterms)
+
+    # Force Spanish context when language is set to "es"
+    if language == "es" and not initial_prompt:
+        initial_prompt = "Transcripción en español."
+    elif language == "es":
+        initial_prompt = "Transcripción en español: " + initial_prompt
+
     options: dict = {"initial_prompt": initial_prompt} if initial_prompt else {}
     if language and language != "auto":
         options["language"] = language
@@ -356,7 +371,9 @@ def transcribe(
     lang = None if language == "auto" else language
 
     # NVIDIA Riva (whisper-large-v3, cloud) — preferred when configured
-    if _riva_available():
+    # Skip Riva for wake-word detection if DULUS_WAKE_FORCE_LOCAL is set
+    # (avoids cloud latency / 502 errors on hotword path)
+    if _riva_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
         try:
             return _transcribe_nvidia_riva(pcm_bytes, lang)
         except Exception as e:

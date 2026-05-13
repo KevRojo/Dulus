@@ -31,6 +31,7 @@ Usage
 
 from __future__ import annotations
 
+import os
 import sys
 import threading
 import time
@@ -44,8 +45,23 @@ from .stt import transcribe
 # ── Config ────────────────────────────────────────────────────────────────
 
 WAKE_PHRASES: list[str] = [
+    # --- Variantes con "dulus" (S) ---
     "hey dulus", "okey dulus", "ok dulus", "dale dulus",
     "oye dulus", "escucha dulus", "dulus",
+    "dolus", "daulus", "doiulus",
+    # --- Variantes con "duluz" (Z) ---
+    "hey duluz", "okey duluz", "ok duluz", "dale duluz",
+    "oye duluz", "escucha duluz", "duluz",
+    "dolus", "dauluz", "doiuluz",
+    # --- Variantes con signos de exclamación (como transcribe Whisper) ---
+    "¡oye! ¡dulus!", "¡oye! ¡duluz!",
+    "¡okey dulus!", "¡okey duluz!",
+    "¡ok dulus!", "¡ok duluz!",
+    "¡dale dulus!", "¡dale duluz!",
+    "¡hey dulus!", "¡hey duluz!",
+    # --- Variantes cortas / slang ---
+    "dulus", "duluz", "dolus", "dulús", "dulúz",
+    "oye", "okey", "ok", "dale", "escucha",
 ]
 
 # VAD: chunk size and energy threshold.
@@ -125,6 +141,10 @@ class WakeWordListener:
         # Wake-phrase detection uses a fixed language so short utterances
         # like "Hey Dulus" don't get mis-detected by Whisper's auto-lang.
         self._wake_lang = "es" if language in ("auto", "") else language
+
+        # Force local STT (Whisper) for wake-word — avoids cloud latency
+        # and 502 errors from NVIDIA Riva on the hotword path.
+        os.environ["DULUS_WAKE_FORCE_LOCAL"] = "1"
 
         self._thread: threading.Thread | None = None
         self._stop_evt = threading.Event()
