@@ -89,13 +89,15 @@ Dulus is a **lightweight Python reimplementation of Claude Code** that isn't loc
 
 <img alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
 
+-----
 
 <img alt="image" src="https://github.com/user-attachments/assets/72526ae1-b69f-4529-adc7-eef1cd3876c8" />
 
-<img alt="image" src="https://github.com/user-attachments/assets/eb11cb86-2f53-4979-b7bf-5bd1f97ed5fc" />
+-----
 
 <img alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
 
+-----
 
 ROUND TABLE (DULUS UNIQUE FEATURE)
 
