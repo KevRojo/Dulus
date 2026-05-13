@@ -8346,7 +8346,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
     "tts":         ("Toggle automatic TTS + lang/provider/auto", ["lang", "provider", "voice", "auto"]),
     "voice":       ("Voice input (record → STT)",         ["lang", "status", "device"]),
-    "wake":        ("Wake-word hotword detection",        ["on", "off", "status", "phrases", "calibrate", "test", "threshold"]),
+    "wake":        ("Wake-word hotword detection",        ["on", "off", "status", "phrases", "calibrate", "test", "threshold", "feedback"]),
     "image":       ("Send clipboard image to model",      []),
     "img":         ("Send clipboard image (alias)",       []),
     "batch":       ("Manage Kimi Batch tasks",            ["status", "list", "fetch"]),
