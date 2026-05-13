@@ -1,0 +1,261 @@
+"""WebBridge tools registered in Dulus tool registry.
+
+Provides 7 AI-callable tools for browser automation:
+  WebBridgeNavigate  → open a URL
+  WebBridgeClick     → click an element
+  WebBridgeType      → type text into an input
+  WebBridgeScreenshot→ capture a screenshot
+  WebBridgeExtract   → extract page text or DOM structure
+  WebBridgeScroll    → scroll up/down
+  WebBridgeClose     → close the browser
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from tool_registry import ToolDef, register_tool
+
+from .core import DulusWebBridge
+
+_bridge = DulusWebBridge()
+
+# ── Tool schemas (JSON format sent to the LLM) ───────────────────────────────
+
+_TOOL_SCHEMAS = [
+    {
+        "name": "WebBridgeNavigate",
+        "description": (
+            "Navigate to a URL in the browser. Opens the browser if not already open. "
+            "Returns the page title, URL, and HTTP status."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to navigate to (e.g. https://example.com)",
+                },
+                "headless": {
+                    "type": "boolean",
+                    "description": "Run without visible window. Default false (window visible).",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "WebBridgeClick",
+        "description": (
+            "Click an element on the current page using a CSS selector. "
+            "Use WebBridgeExtract with mode='dom' first to discover selectors. "
+            "Set force=true to bypass visibility checks (useful for overlays)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector of the element to click (e.g. '#submit', 'button.primary')",
+                },
+                "force": {
+                    "type": "boolean",
+                    "description": "Bypass Playwright's actionability checks. Default false.",
+                },
+            },
+            "required": ["selector"],
+        },
+    },
+    {
+        "name": "WebBridgeEvaluate",
+        "description": (
+            "Execute raw JavaScript in the browser and return the result. "
+            "Use this when Playwright clicks fail due to overlays, anti-bot measures, "
+            "or when you need to access page internals. Example: "
+            "document.querySelector('.ytp-large-play-button').click()"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "script": {
+                    "type": "string",
+                    "description": "JavaScript code to execute in the browser context",
+                },
+            },
+            "required": ["script"],
+        },
+    },
+    {
+        "name": "WebBridgeType",
+        "description": (
+            "Type text into an input field, textarea, or content-editable element "
+            "on the current page."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector of the input field",
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Text to type into the element",
+                },
+            },
+            "required": ["selector", "text"],
+        },
+    },
+    {
+        "name": "WebBridgeScreenshot",
+        "description": (
+            "Take a screenshot of the current page. "
+            "If path is provided, saves to file. Otherwise returns base64 data."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Optional file path to save the screenshot (e.g. /tmp/screenshot.png)",
+                },
+            },
+        },
+    },
+    {
+        "name": "WebBridgeExtract",
+        "description": (
+            "Extract content from the current page. "
+            "mode='text' returns visible text content. "
+            "mode='dom' returns a list of interactive elements with selectors."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["text", "dom"],
+                    "description": "Extraction mode: 'text' for page text, 'dom' for interactive elements",
+                },
+            },
+        },
+    },
+    {
+        "name": "WebBridgeScroll",
+        "description": "Scroll the current page up or down by one viewport height.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "direction": {
+                    "type": "string",
+                    "enum": ["up", "down"],
+                    "description": "Scroll direction",
+                },
+            },
+        },
+    },
+    {
+        "name": "WebBridgeClose",
+        "description": "Close the browser and release all resources.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+]
+
+
+# ── Tool callbacks (sync, receive params+config dicts) ───────────────────────
+
+def _webbridge_navigate(params: dict, config: dict) -> str:
+    url = params.get("url", "")
+    headless = params.get("headless", False)
+    result = _bridge.navigate_sync(url, headless=headless)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_click(params: dict, config: dict) -> str:
+    selector = params.get("selector", "")
+    force = params.get("force", False)
+    result = _bridge.click_sync(selector, force=force)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_evaluate(params: dict, config: dict) -> str:
+    script = params.get("script", "")
+    result = _bridge.evaluate_sync(script)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_type(params: dict, config: dict) -> str:
+    selector = params.get("selector", "")
+    text = params.get("text", "")
+    result = _bridge.type_sync(selector, text)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_screenshot(params: dict, config: dict) -> str:
+    path = params.get("path")
+    result = _bridge.screenshot_sync(path=path)
+    if path:
+        return json.dumps({"ok": True, "saved_to": path}, ensure_ascii=False)
+    # Return base64 but truncate the data to avoid token bloat
+    b64 = result.get("base64", "") if isinstance(result, dict) else ""
+    if b64:
+        preview = b64[:80] + "..." if len(b64) > 80 else b64
+        return json.dumps(
+            {"ok": True, "format": "png", "base64_preview": preview, "base64_length": len(b64)},
+            ensure_ascii=False,
+        )
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_extract(params: dict, config: dict) -> str:
+    mode = params.get("mode", "text")
+    if mode == "dom":
+        result = _bridge.get_dom_sync()
+    else:
+        result = _bridge.get_text_sync()
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_scroll(params: dict, config: dict) -> str:
+    direction = params.get("direction", "down")
+    result = _bridge.scroll_sync(direction=direction)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_close(params: dict, config: dict) -> str:
+    result = _bridge.close_sync()
+    return json.dumps(result, ensure_ascii=False)
+
+
+# ── Registration ─────────────────────────────────────────────────────────────
+
+_CALLBACK_MAP = {
+    "WebBridgeNavigate": _webbridge_navigate,
+    "WebBridgeClick": _webbridge_click,
+    "WebBridgeEvaluate": _webbridge_evaluate,
+    "WebBridgeType": _webbridge_type,
+    "WebBridgeScreenshot": _webbridge_screenshot,
+    "WebBridgeExtract": _webbridge_extract,
+    "WebBridgeScroll": _webbridge_scroll,
+    "WebBridgeClose": _webbridge_close,
+}
+
+
+def register_webbridge_tools() -> None:
+    """Register all WebBridge tools into the Dulus tool registry."""
+    for schema in _TOOL_SCHEMAS:
+        name = schema["name"]
+        register_tool(ToolDef(
+            name=name,
+            schema=schema,
+            func=_CALLBACK_MAP[name],
+            read_only=False,
+            concurrent_safe=False,
+        ))
+
+
+# Auto-register on import
+register_webbridge_tools()

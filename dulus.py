@@ -7714,6 +7714,141 @@ def cmd_batch(args: str, _state, config) -> bool:
     return True
 
 
+def cmd_webbridge(args: str, state, config) -> bool:
+    """Control the Dulus WebBridge browser automation."""
+    from os import makedirs, path, getenv
+    from datetime import datetime
+    try:
+        from webbridge.core import DulusWebBridge
+    except ImportError:
+        err("WebBridge not available. Install dependencies: pip install playwright")
+        return True
+
+    bridge = DulusWebBridge()
+    parts = (args or "").strip().split()
+    sub = parts[0].lower() if parts else "status"
+
+    if sub in ("status", ""):
+        try:
+            st = bridge.status()
+            if st.get("browser_open"):
+                ok("Browser: OPEN")
+                info(f"  URL: {st.get('url', 'N/A')}")
+            else:
+                info("Browser: CLOSED")
+        except Exception as e:
+            err(f"Status check failed: {e}")
+        return True
+
+    if sub == "open":
+        if len(parts) < 2:
+            err("Usage: /webbridge open <url>")
+            return True
+        url = parts[1]
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+        try:
+            bridge.navigate_sync(url)
+            ok(f"Opened: {url}")
+        except Exception as e:
+            err(f"Failed to open URL: {e}")
+        return True
+
+    if sub == "click":
+        if len(parts) < 2:
+            err("Usage: /webbridge click <selector>")
+            return True
+        selector = parts[1]
+        try:
+            bridge.click_sync(selector)
+            ok(f"Clicked: {selector}")
+        except Exception as e:
+            err(f"Click failed: {e}")
+        return True
+
+    if sub == "type":
+        if len(parts) < 3:
+            err("Usage: /webbridge type <selector> <text>")
+            return True
+        selector = parts[1]
+        text = " ".join(parts[2:])
+        try:
+            bridge.type_sync(selector, text)
+            ok(f"Typed into: {selector}")
+        except Exception as e:
+            err(f"Type failed: {e}")
+        return True
+
+    if sub == "screenshot":
+        save_path = None
+        if len(parts) >= 2:
+            save_path = parts[1]
+        else:
+            screenshots_dir = path.join(getenv("USERPROFILE", getenv("HOME", ".")), ".dulus", "screenshots")
+            makedirs(screenshots_dir, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            save_path = path.join(screenshots_dir, f"webbridge_{ts}.png")
+        try:
+            bridge.screenshot_sync(save_path)
+            ok(f"Screenshot saved: {save_path}")
+        except Exception as e:
+            err(f"Screenshot failed: {e}")
+        return True
+
+    if sub == "extract":
+        mode = parts[1].lower() if len(parts) >= 2 else "text"
+        if mode not in ("text", "dom"):
+            mode = "text"
+        try:
+            if mode == "text":
+                content = bridge.get_text_sync()
+            else:
+                content = bridge.get_dom_sync()
+            preview = content[:2000]
+            ok(f"Extracted ({mode}) — {len(content)} chars")
+            info(preview)
+            if len(content) > 2000:
+                info(f"... ({len(content) - 2000} more chars)")
+        except Exception as e:
+            err(f"Extract failed: {e}")
+        return True
+
+    if sub == "scroll":
+        direction = parts[1].lower() if len(parts) >= 2 else "down"
+        if direction not in ("up", "down"):
+            direction = "down"
+        try:
+            bridge.scroll_sync(direction)
+            ok(f"Scrolled {direction}")
+        except Exception as e:
+            err(f"Scroll failed: {e}")
+        return True
+
+    if sub == "close":
+        try:
+            bridge.close_sync()
+            ok("Browser closed")
+        except Exception as e:
+            err(f"Close failed: {e}")
+        return True
+
+    if sub == "help":
+        info("WebBridge commands:")
+        info("  /webbridge status          — Show browser status")
+        info("  /webbridge open <url>      — Open URL")
+        info("  /webbridge click <sel>     — Click element")
+        info("  /webbridge type <sel> <t>  — Type text")
+        info("  /webbridge screenshot [p]  — Take screenshot")
+        info("  /webbridge extract [t|d]   — Extract text or DOM")
+        info("  /webbridge scroll [u|d]    — Scroll page")
+        info("  /webbridge close           — Close browser")
+        info("  /webbridge help            — Show this help")
+        return True
+
+    err(f"Unknown subcommand: {sub}.  Use /webbridge help")
+    return True
+
+
 COMMANDS = {
     "tts":         cmd_tts,
     "say":         cmd_say,
@@ -7776,6 +7911,7 @@ COMMANDS = {
     "wake":        cmd_wake,
     "git":         cmd_git,
     "webchat":     cmd_webchat,
+    "webbridge":   cmd_webbridge,
     "sandbox":     cmd_sandbox,
     "gui":         cmd_gui,
     "brave":       cmd_brave,
