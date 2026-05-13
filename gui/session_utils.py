@@ -51,6 +51,7 @@ def _read_session_meta(path: Path) -> dict | None:
             "path": str(path),
             "saved_at": saved_at,
             "turn_count": data.get("turn_count", len(messages) // 2),
+            "messages": messages,
         }
         _scan_cache[key] = (mtime, result)
         return result
@@ -87,7 +88,7 @@ def scan_sessions() -> list[dict]:
 
     # Sort all found sessions by saved_at DESC
     sessions.sort(key=lambda x: x.get("saved_at", ""), reverse=True)
-    return sessions[:50]
+    return sessions
 
 def save_session(state, config: dict, session_id: str | None = None) -> str:
     """Save AgentState to disk in standard Dulus format. Returns the session_id."""
