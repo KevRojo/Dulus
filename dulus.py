@@ -5566,7 +5566,10 @@ def _tg_poll_loop(token: str, chat_ids, config: dict):
                                 audio_bytes = resp.read()
                             size_kb = len(audio_bytes) / 1024
                             _tg_send(token, chat_id, f"🎙 Voice received ({duration}s, {size_kb:.0f} KB) — transcribing...")
-                            print(clr(f"\n  📩 Telegram: 🎙 voice ({duration}s, {size_kb:.0f} KB)", "cyan"))
+                            # NOTE: We intentionally do NOT print the intermediate
+                            # voice notification to the CLI. Only the final transcription
+                            # (handled below at line ~5663) is shown locally to avoid
+                            # accumulation of Telegram notifications in the terminal.
                             from voice import transcribe_audio_file
                             suffix = ".ogg" if msg.get("voice") else ".mp3"
                             transcribed = transcribe_audio_file(audio_bytes, suffix=suffix)
@@ -9139,10 +9142,11 @@ def repl(config: dict, initial_prompt: str = None):
 
         if _wake_listener is not None and not _wake_listener.is_running():
             def _on_wake(phrase: str) -> None:
-                # Use safe_print_notification to avoid ghosting/re-printing in sticky mode
                 import input as _dulus_input
-                _dulus_input.safe_print_notification(clr(f"\x1b[32m ✅ WAKE DETECTED: '{phrase}'\x1b[0m", "bold"))
                 _dulus_input.set_toolbar_status(clr("Waking up...", "cyan"))
+                # NOTE: We intentionally do NOT print the wake detection to the CLI.
+                # The audible feedback (beep + TTS) is sufficient. This avoids
+                # accumulation of wake notifications in the terminal buffer.
                 
                 # Immediate audible feedback — universal beep
                 try:
