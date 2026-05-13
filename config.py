@@ -44,10 +44,13 @@ DEFAULTS = {
     "brave_search_key": "",
     "brave_search_enabled": False,
     "tts_enabled":          False,
-    "tts_provider":         "auto",   # auto | azure | openai | gtts | pyttsx3 | riva
+    "tts_provider":         "auto",   # auto | azure | openai | gtts | pyttsx3 | riva | edge | elevenlabs
     "azure_speech_key":     "",
     "azure_speech_region":  "",
     "azure_tts_voice":      "",       # e.g. es-ES-AlvaroNeural, es-MX-JorgeNeural
+    "elevenlabs_api_key":   "",
+    "elevenlabs_voice_id":  "qEWvRpD5bptlI1hEomR7",   # default: KevRojo's clone
+    "elevenlabs_model_id":  "eleven_multilingual_v2",
     # WebFetch/WebSearch settings
     "webfetch_compress": False,   # Enable Ollama compression for WebFetch
     "webfetch_translate": False,  # Translate to Spanish when compressing

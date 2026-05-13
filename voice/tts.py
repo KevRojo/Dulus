@@ -539,6 +539,88 @@ def _clean_for_tts(text: str) -> str:
     return text.strip()
 
 
+# ── ElevenLabs ────────────────────────────────────────────────────────────
+# Default voice (KevRojo's cloned voice). Override via config.elevenlabs_voice_id
+# or the ELEVENLABS_VOICE_ID env var, or pass voice= explicitly to say().
+_ELEVENLABS_DEFAULT_VOICE = "qEWvRpD5bptlI1hEomR7"
+_ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2"
+
+
+def _elevenlabs_available() -> bool:
+    """True iff the elevenlabs SDK is importable AND an API key is configured."""
+    try:
+        import elevenlabs  # noqa: F401
+    except Exception:
+        return False
+    if os.environ.get("ELEVENLABS_API_KEY"):
+        return True
+    try:
+        from config import load_config
+        return bool(load_config().get("elevenlabs_api_key", ""))
+    except Exception:
+        return False
+
+
+def _say_elevenlabs(text: str, voice: Optional[str] = None) -> bool:
+    """Synthesize via ElevenLabs and play the resulting MP3.
+
+    Reads API key from env first, config second. Voice resolution order:
+    explicit arg > env var > config > module default (KevRojo's clone).
+    Returns True on successful playback.
+    """
+    if not _elevenlabs_available():
+        return False
+    tmp_path: Optional[str] = None
+    try:
+        from elevenlabs.client import ElevenLabs
+
+        api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+        voice_id = voice or os.environ.get("ELEVENLABS_VOICE_ID", "")
+        model_id = os.environ.get("ELEVENLABS_MODEL_ID", "")
+        if not api_key or not voice_id or not model_id:
+            try:
+                from config import load_config
+                cfg = load_config()
+                api_key = api_key or cfg.get("elevenlabs_api_key", "")
+                voice_id = voice_id or cfg.get("elevenlabs_voice_id", "")
+                model_id = model_id or cfg.get("elevenlabs_model_id", "")
+            except Exception:
+                pass
+        voice_id = voice_id or _ELEVENLABS_DEFAULT_VOICE
+        model_id = model_id or _ELEVENLABS_DEFAULT_MODEL
+        if not api_key:
+            return False
+
+        client = ElevenLabs(api_key=api_key)
+        audio = client.text_to_speech.convert(
+            text=text,
+            voice_id=voice_id,
+            model_id=model_id,
+            output_format="mp3_44100_128",
+        )
+
+        # `audio` is a generator of bytes — stream it into a temp .mp3 and
+        # play via the shared player (interruptible with 'c').
+        fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
+        with os.fdopen(fd, "wb") as f:
+            for chunk in audio:
+                if chunk:
+                    f.write(chunk)
+        _play_audio_file(tmp_path)
+        return True
+    except Exception as e:
+        print(f"  [ElevenLabs TTS] Error: {e}")
+        return False
+    finally:
+        if tmp_path:
+            for _ in range(5):
+                try:
+                    os.unlink(tmp_path)
+                    break
+                except Exception:
+                    time.sleep(0.2)
+
+
 # ── Public Entry Point ────────────────────────────────────────────────────
 
 def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = "es", provider: Optional[str] = None) -> None:
@@ -588,7 +670,13 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
             if _stop_event.is_set():
                 return
 
-            # 4. OpenAI (high quality, needs key)
+            # 4. ElevenLabs (premium voice cloning, needs API key)
+            if _should_try("elevenlabs") and _say_elevenlabs(text, voice=voice):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 5. OpenAI (high quality, needs key)
             if _should_try("openai") and _say_openai(text, voice=(voice or "alloy"), speed=speed):
                 return
             if _stop_event.is_set():
@@ -630,6 +718,9 @@ def check_tts_availability() -> tuple[bool, str | None]:
         return True, "gTTS (cloud)"
     except ImportError:
         pass
+
+    if _elevenlabs_available():
+        return True, "ElevenLabs TTS (cloud, voice cloning)"
 
     if os.environ.get("OPENAI_API_KEY"):
         return True, "OpenAI TTS (cloud)"

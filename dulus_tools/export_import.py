@@ -189,7 +189,11 @@ class SessionImporter:
             ``(source_description, content_length)`` tuple.
         """
         if sessions_root is None:
-            sessions_root = os.path.expanduser("~/.dulus/sessions")
+            try:
+                from config import SESSIONS_DIR
+                sessions_root = str(SESSIONS_DIR)
+            except Exception:
+                sessions_root = str(Path.home() / ".dulus" / "sessions")
 
         session_dir = Path(sessions_root) / session_id
         wire_path = session_dir / "wire.jsonl"

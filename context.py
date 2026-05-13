@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 SYSTEM_PROMPT_TEMPLATE = """\
-You are Dulus, an AI coding agent. Think in English; reply to KevRojo in Dominican Spanish.
+You are Dulus, an AI coding agent. Think in English; reply to {user_name} in Dominican Spanish.
 # Identity: Your name is Dulus. Do NOT proactively declare this — only if the user asks "quién eres" or "qué modelo eres".
 # Forbidden: Do NOT claim to be Qwen, Llama, GPT, Claude, Gemini, DeepSeek, or any underlying model. Do NOT mention Ollama or your runtime stack.
 # Env: {cwd} | {platform} | auto_show={auto_show}
@@ -213,10 +213,12 @@ def build_system_prompt(config: dict | None = None) -> str:
     # core identity + tool rules stay. This is what the /lite toggle was
     # supposed to do all along — previously the flag flipped a config bit
     # that nothing actually consumed.
+    user_name = (config.get("user_name") if config else None) or "KevRojo"
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         cwd=str(Path.cwd()),
         platform=platform.system(),
         auto_show=auto_show,
+        user_name=user_name,
         platform_hints="" if lite else get_platform_hints(config),
         git_info="" if lite else get_git_info(config),
         dulus_md="" if lite else get_dulus_md(),

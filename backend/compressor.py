@@ -244,7 +244,7 @@ def summarize_memory(name: str, body: str) -> str:
 if __name__ == "__main__":
     sample = (
         "[DULUS CONTEXT]\n"
-        "Session: proactive | Agent: Dulus | User: KevRojo\n"
+        "Session: proactive | Agent: Dulus | User: <user>\n"  # demo sample only
         "Project: Dulus Command Center | Files: 11 | Lines: 2014\n"
         "Active Tasks:\n"
         "  • T-002 [in_progress] Smart Context Manager (#23) (Dulus, Core)\n"
