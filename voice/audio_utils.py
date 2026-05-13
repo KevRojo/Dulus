@@ -27,14 +27,30 @@ def beep(frequency: int = 1000, duration: int = 150) -> None:
         try:
             import winsound
             winsound.Beep(frequency, duration)
+            return
         except Exception:
             pass
-    else:
-        # On Linux/WSL, we only write \a if we are in a TTY that supports it,
-        # otherwise it shows up as ^G.
-        try:
-            if sys.stdout.isatty():
-                sys.stdout.write("\a")
-                sys.stdout.flush()
-        except Exception:
-            pass
+
+    # Cross-platform synth fallback via sounddevice (already a voice dep).
+    # This is what saves WSL where ffplay is rarely installed and the
+    # terminal bell is silent — synthesize a sine and push it to the
+    # default output device directly.
+    try:
+        import numpy as np
+        import sounddevice as sd
+        sr = 22050
+        t = np.linspace(0, duration / 1000.0, int(sr * duration / 1000.0), endpoint=False)
+        tone = (0.25 * np.sin(2 * np.pi * frequency * t)).astype("float32")
+        sd.play(tone, sr, blocking=True)
+        return
+    except Exception:
+        pass
+
+    # Last resort: terminal bell. Often silent in modern terminals but
+    # at least visible as ^G in some.
+    try:
+        if sys.stdout.isatty():
+            sys.stdout.write("\a")
+            sys.stdout.flush()
+    except Exception:
+        pass
