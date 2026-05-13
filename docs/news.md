@@ -3,6 +3,8 @@
 ## 🔥🔥🔥 News (Pacific Time)
 
 
+- May 13, 2026 (**v0.2.62**): **Wake-word engine rebuilt — zero-gap continuous stream + better phrase detection** — Replaced the old start/stop InputStream loop with a single continuous callback stream using a ring-buffer pre-roll. This eliminates all audio gaps and ensures we never miss the start of an utterance. Added visual energy bar (🎙️) while recording commands. Expanded wake phrases: `adulus`, `aduluz`, `DOLOS`. Removed `¡!` punctuation from phrases since Whisper doesn't transcribe them. Extended wake-record window from 2.5s to 4.5s for better catch rate. Also cleaned up `MANIFEST.in`: include `pyproject.toml` in sdist and global-exclude `__pycache__` / `*.pyc`.
+
 - May 09, 2026 (**v0.2.30**): **`/bg start` daemon is now truly windowless on Windows** — `python.exe` is a console-subsystem binary, so even with `DETACHED_PROCESS` Windows still spun up a visible console window for the daemon. Closing that window killed the daemon. Switched to `pythonw.exe` (the GUI-subsystem variant) + `CREATE_NO_WINDOW` so the daemon spawns with NO console window at all. Verified: `Get-Process` reports `MainWindowHandle = 0` after spawn — there's literally nothing to close. Telegram + WebChat + IPC keep running in background until `/bg stop` or `/bg kill`.
 
 - May 09, 2026 (**v0.2.29**): **`/bg start` actually works from inside a REPL + daemon-mode webchat default-on + tested end-to-end this time**
