@@ -927,8 +927,21 @@ def append_output(text: str) -> None:
     # Sanitize: strip \r and split on embedded \n so no ^M or ^J leaks
     text = text.replace("\r", "")
     for line in text.split("\n"):
-        if line:
-            _output_buffer.append(line)
+        if not line:
+            continue
+        # Deduplicate Telegram/voice notifications — if an identical line
+        # already exists in the buffer, skip it to prevent re-rendering
+        # duplicates every time the split layout redraws.
+        _tg_markers = (" Telegram:", " Transcribed:")
+        if any(m in line for m in _tg_markers):
+            # Strip ANSI for comparison (emojis may be corrupted on Windows)
+            _clean = lambda s: re.sub(r'\x1b\[[0-9;]*m', '', s).strip()
+            line_clean = _clean(line)
+            # Check last 50 lines for duplicate (recent only, not full buffer)
+            _buf_clean = [_clean(ln) for ln in _output_buffer[-50:]]
+            if line_clean in _buf_clean:
+                continue
+        _output_buffer.append(line)
     # Keep last 1000 lines
     if len(_output_buffer) > 1000:
         _output_buffer = _output_buffer[-1000:]
@@ -1019,7 +1032,7 @@ def drain_notifications() -> list[str]:
 def safe_print_notification(text: str, end: str = "\n", flush: bool = False) -> None:
     """Print a notification in a prompt_toolkit-safe way.
     
-    If split layout is active, uses append_output.
+    If split layout is active, uses run_in_terminal.
     Otherwise prints directly (which may cause display issues in sticky mode).
     """
     global _split_app, _original_stdout

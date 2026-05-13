@@ -604,8 +604,9 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
             if _should_try("riva") and _say_nvidia_riva(text, lang=lang):
                 return
 
-            # Final fallback
-            print(f"\n📢 {text}")
+            # Final fallback — we intentionally do NOT print the spoken text
+            # to the CLI. The "📢 Speaking: ..." notification above is sufficient.
+            # This prevents accumulation of TTS notifications in the terminal.
         finally:
             _stop_event.set()  # stop watcher thread if playback ended naturally
 
