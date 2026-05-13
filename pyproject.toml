@@ -56,7 +56,8 @@ dependencies = [
 [project.optional-dependencies]
 memory = ["mempalace>=3.3.4"]
 voice = ["sounddevice"]
-full = ["mempalace>=3.3.4", "sounddevice"]
+webbridge = ["playwright>=1.40.0"]
+full = ["mempalace>=3.3.4", "sounddevice", "playwright>=1.40.0"]
 
 [project.scripts]
 dulus = "dulus:main"

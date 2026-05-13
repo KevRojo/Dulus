@@ -2259,6 +2259,13 @@ except Exception as _plugin_err:
 # task/tools.py registers all four tools into the central registry on import.
 import task.tools as _task_tools  # noqa: F401
 
+# ── WebBridge tools (browser automation via Playwright) ────────────────────────
+# webbridge/tools.py registers WebBridgeNavigate, WebBridgeClick, etc.
+try:
+    import webbridge.tools as _webbridge_tools  # noqa: F401
+except Exception:
+    pass  # Playwright may not be installed; skip gracefully
+
 
 # ── Checkpoint hooks (backup files before Write/Edit/NotebookEdit) ───────────
 from checkpoint.hooks import install_hooks as _install_checkpoint_hooks
@@ -2737,5 +2744,12 @@ except Exception:
     # If plugin system fails, continue with core tools only
     _plugin_count = 0
 
+
+# ── WebBridge tool schemas (append to TOOL_SCHEMAS so AI sees them) ──────────
+try:
+    from webbridge.tools import _TOOL_SCHEMAS as _WEBBRIDGE_SCHEMAS
+    TOOL_SCHEMAS.extend(_WEBBRIDGE_SCHEMAS)
+except Exception:
+    pass  # Playwright not installed; skip gracefully
 
 
