@@ -198,6 +198,12 @@ def get_stt_backend_name() -> str:
 def _get_faster_whisper_model():
     global _faster_whisper_model
     if _faster_whisper_model is None:
+        try:
+            import input as _dulus_input
+            _dulus_input.safe_print_notification("\n  ⏳ Loading Whisper model (" + DEFAULT_MODEL_SIZE + ")...")
+        except Exception:
+            pass
+
         from faster_whisper import WhisperModel
         # Use CPU by default; set device="cuda" if GPU available.
         device = "cuda" if _has_cuda() else "cpu"
@@ -207,6 +213,20 @@ def _get_faster_whisper_model():
             device=device,
             compute_type=compute,
         )
+        
+        # Warm-up: perform a dummy transcription to initialize CUDA/buffers
+        try:
+            import numpy as np
+            _empty = np.zeros(1600, dtype=np.float32) # 0.1s of silence
+            _faster_whisper_model.transcribe(_empty)
+        except Exception:
+            pass
+
+        try:
+            import input as _dulus_input
+            _dulus_input.safe_print_notification("  ✅ Whisper model loaded and ready.\n")
+        except Exception:
+            pass
     return _faster_whisper_model
 
 

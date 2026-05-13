@@ -6,12 +6,17 @@ check_voice_deps()   → (available: bool, reason: str | None)
 record_once(...)     → raw PCM bytes  (int16, 16 kHz, mono)
 transcribe(...)      → text string
 voice_input(...)     → transcribed text (record + transcribe in one call)
+WakeWordListener     → background wake-word (hotword) detector
 """
 
 from .recorder import check_recording_availability, record_until_silence, list_input_devices
 from .stt import check_stt_availability, transcribe, transcribe_audio_file
 from .tts import check_tts_availability, say
 from .keyterms import get_voice_keyterms
+from .wake_word import WakeWordListener, listen_once, WAKE_PHRASES
+from .audio_utils import beep
+
+
 
 
 def check_voice_deps() -> tuple[bool, str | None]:
@@ -53,4 +58,7 @@ __all__ = [
     "get_voice_keyterms",
     "voice_input",
     "say",
+    "WakeWordListener",
+    "listen_once",
+    "WAKE_PHRASES",
 ]

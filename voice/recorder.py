@@ -79,12 +79,13 @@ def _record_sounddevice(
     max_seconds: int = 30,
     on_energy: "callable | None" = None,
     device_index: "int | None" = None,
+    silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
     import sounddevice as sd
     import numpy as np
 
     chunk_samples = int(SAMPLE_RATE * CHUNK_SECS)
-    silence_chunks_needed = int(SILENCE_DURATION_SECS / CHUNK_SECS)
+    silence_chunks_needed = int(silence_secs / CHUNK_SECS)
     max_chunks = int(max_seconds / CHUNK_SECS)
 
     chunks: list[bytes] = []
@@ -135,6 +136,7 @@ def _record_sounddevice(
 def _record_arecord(
     max_seconds: int = 30,
     on_energy: "callable | None" = None,
+    silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
     """Record via arecord.  Silence detection done in Python on the piped PCM."""
     import numpy as np
@@ -152,7 +154,7 @@ def _record_arecord(
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     chunk_bytes = int(SAMPLE_RATE * CHUNK_SECS) * BYTES_PER_SAMPLE
-    silence_chunks_needed = int(SILENCE_DURATION_SECS / CHUNK_SECS)
+    silence_chunks_needed = int(silence_secs / CHUNK_SECS)
 
     chunks: list[bytes] = []
     silence_count = 0
@@ -192,11 +194,12 @@ def _record_arecord(
 def _record_sox(
     max_seconds: int = 30,
     on_energy: "callable | None" = None,
+    silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
     """Record via SoX `rec` with built-in silence detection."""
     silence_threshold = "3%"
     silence_pre_duration = "0.1"
-    silence_post_duration = str(SILENCE_DURATION_SECS)
+    silence_post_duration = str(silence_secs)
 
     cmd = [
         "rec",
@@ -231,6 +234,7 @@ def record_until_silence(
     max_seconds: int = 30,
     on_energy: "callable | None" = None,
     device_index: "int | None" = None,
+    silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
     """Record from microphone until silence or max_seconds.
 
@@ -240,20 +244,20 @@ def record_until_silence(
     """
     try:
         import sounddevice  # noqa: F401
-        return _record_sounddevice(max_seconds=max_seconds, on_energy=on_energy, device_index=device_index)
+        return _record_sounddevice(max_seconds=max_seconds, on_energy=on_energy, device_index=device_index, silence_secs=silence_secs)
     except (ImportError, OSError):
         pass
 
     if _has_cmd("arecord"):
         try:
             import numpy  # noqa: F401
-            return _record_arecord(max_seconds=max_seconds, on_energy=on_energy)
+            return _record_arecord(max_seconds=max_seconds, on_energy=on_energy, silence_secs=silence_secs)
         except ImportError:
             # numpy missing — fall through to sox (no RMS feedback)
-            return _record_arecord(max_seconds=max_seconds, on_energy=None)
+            return _record_arecord(max_seconds=max_seconds, on_energy=None, silence_secs=silence_secs)
 
     if _has_cmd("rec"):
-        return _record_sox(max_seconds=max_seconds, on_energy=on_energy)
+        return _record_sox(max_seconds=max_seconds, on_energy=on_energy, silence_secs=silence_secs)
 
     raise RuntimeError(
         "No audio recording backend found.\n"
