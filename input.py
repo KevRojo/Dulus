@@ -826,14 +826,22 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
 
     # Build layout: output on top, separator, recent-strip + input at bottom
     def _get_toolbar_text():
+        # Get base text from provider
+        base_text = ""
         provider = _toolbar_provider
-        if provider is None:
-            return ""
-        try:
-            text = provider()
-            return ANSI(text) if text else ""
-        except Exception:
-            return ""
+        if provider:
+            try:
+                base_text = str(provider())
+            except Exception:
+                pass
+        
+        # Combine with background status (e.g. wake energy bar)
+        global _toolbar_status
+        status = _toolbar_status or ""
+        
+        # Format: [Base]  [Status]
+        combined = f" {base_text}   {status}".strip()
+        return ANSI(combined) if combined else ""
 
     toolbar_window = ConditionalContainer(
         content=Window(
@@ -1037,6 +1045,8 @@ def safe_print_notification(text: str, end: str = "\n", flush: bool = False) -> 
                 
         def _schedule():
             try:
+                # run_in_terminal temporarily suspends the UI bar,
+                # prints our text, then restores the bar.
                 task = run_in_terminal(_target)
                 if asyncio.iscoroutine(task):
                     _split_app.create_background_task(task)

@@ -30,8 +30,11 @@ def beep(frequency: int = 1000, duration: int = 150) -> None:
         except Exception:
             pass
     else:
+        # On Linux/WSL, we only write \a if we are in a TTY that supports it,
+        # otherwise it shows up as ^G.
         try:
-            sys.stdout.write("\a")
-            sys.stdout.flush()
+            if sys.stdout.isatty():
+                sys.stdout.write("\a")
+                sys.stdout.flush()
         except Exception:
             pass

@@ -498,6 +498,7 @@ def _say_edge_tts(text: str, lang: str = "es") -> bool:
 # ── pyttsx3 ───────────────────────────────────────────────────────────────
 
 def _say_pyttsx3(text: str, rate: Optional[int] = None) -> bool:
+    global _pyttsx3_engine
     try:
         engine = _get_pyttsx3_engine()
         if rate:
@@ -505,11 +506,9 @@ def _say_pyttsx3(text: str, rate: Optional[int] = None) -> bool:
         engine.say(text)
         engine.runAndWait()
         return True
-    except ImportError:
-        return False
-    except Exception as e:
-        print(f"  [pyttsx3] Error: {e}")
-        global _pyttsx3_engine
+    except (ImportError, Exception) as e:
+        if not isinstance(e, ImportError):
+            print(f"  [pyttsx3] Error: {e}")
         _pyttsx3_engine = None
         return False
 
