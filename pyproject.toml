@@ -55,9 +55,9 @@ dependencies = [
 # (or `dulus[full]`) when they want MemPalace per-turn injection.
 [project.optional-dependencies]
 memory = ["mempalace>=3.3.4"]
-voice = ["sounddevice"]
+voice = ["sounddevice", "elevenlabs>=1.0.0"]
 webbridge = ["playwright>=1.40.0"]
-full = ["mempalace>=3.3.4", "sounddevice", "playwright>=1.40.0"]
+full = ["mempalace>=3.3.4", "sounddevice", "elevenlabs>=1.0.0", "playwright>=1.40.0"]
 
 [project.scripts]
 dulus = "dulus:main"
