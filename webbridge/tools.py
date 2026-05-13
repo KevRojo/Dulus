@@ -40,6 +40,10 @@ _TOOL_SCHEMAS = [
                     "type": "boolean",
                     "description": "Run without visible window. Default false (window visible).",
                 },
+                "tab_id": {
+                    "type": "string",
+                    "description": "Optional tab ID to navigate in. Uses active tab if omitted.",
+                },
             },
             "required": ["url"],
         },
@@ -62,6 +66,10 @@ _TOOL_SCHEMAS = [
                     "type": "boolean",
                     "description": "Bypass Playwright's actionability checks. Default false.",
                 },
+                "tab_id": {
+                    "type": "string",
+                    "description": "Optional tab ID to click in. Uses active tab if omitted.",
+                },
             },
             "required": ["selector"],
         },
@@ -80,6 +88,10 @@ _TOOL_SCHEMAS = [
                 "script": {
                     "type": "string",
                     "description": "JavaScript code to execute in the browser context",
+                },
+                "tab_id": {
+                    "type": "string",
+                    "description": "Optional tab ID to execute in. Uses active tab if omitted.",
                 },
             },
             "required": ["script"],
@@ -102,6 +114,10 @@ _TOOL_SCHEMAS = [
                     "type": "string",
                     "description": "Text to type into the element",
                 },
+                "tab_id": {
+                    "type": "string",
+                    "description": "Optional tab ID to type in. Uses active tab if omitted.",
+                },
             },
             "required": ["selector", "text"],
         },
@@ -118,6 +134,10 @@ _TOOL_SCHEMAS = [
                 "path": {
                     "type": "string",
                     "description": "Optional file path to save the screenshot (e.g. /tmp/screenshot.png)",
+                },
+                "tab_id": {
+                    "type": "string",
+                    "description": "Optional tab ID to screenshot. Uses active tab if omitted.",
                 },
             },
         },
@@ -137,6 +157,10 @@ _TOOL_SCHEMAS = [
                     "enum": ["text", "dom"],
                     "description": "Extraction mode: 'text' for page text, 'dom' for interactive elements",
                 },
+                "tab_id": {
+                    "type": "string",
+                    "description": "Optional tab ID to extract from. Uses active tab if omitted.",
+                },
             },
         },
     },
@@ -151,12 +175,65 @@ _TOOL_SCHEMAS = [
                     "enum": ["up", "down"],
                     "description": "Scroll direction",
                 },
+                "tab_id": {
+                    "type": "string",
+                    "description": "Optional tab ID to scroll. Uses active tab if omitted.",
+                },
             },
         },
     },
     {
         "name": "WebBridgeClose",
         "description": "Close the browser and release all resources.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "WebBridgeNewTab",
+        "description": "Open a new browser tab. Optionally navigate to a URL immediately.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Optional URL to open in the new tab. Defaults to about:blank.",
+                },
+            },
+        },
+    },
+    {
+        "name": "WebBridgeSwitchTab",
+        "description": "Switch the active tab to a different tab by ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tab_id": {
+                    "type": "string",
+                    "description": "Tab ID to switch to (e.g. 'tab_1', 'default')",
+                },
+            },
+            "required": ["tab_id"],
+        },
+    },
+    {
+        "name": "WebBridgeCloseTab",
+        "description": "Close a specific tab by ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tab_id": {
+                    "type": "string",
+                    "description": "Tab ID to close (e.g. 'tab_1')",
+                },
+            },
+            "required": ["tab_id"],
+        },
+    },
+    {
+        "name": "WebBridgeListTabs",
+        "description": "List all open tabs with their IDs, URLs, and active status.",
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -170,33 +247,38 @@ _TOOL_SCHEMAS = [
 def _webbridge_navigate(params: dict, config: dict) -> str:
     url = params.get("url", "")
     headless = params.get("headless", False)
-    result = _bridge.navigate_sync(url, headless=headless)
+    tab_id = params.get("tab_id")
+    result = _bridge.navigate_sync(url, headless=headless, tab_id=tab_id)
     return json.dumps(result, ensure_ascii=False)
 
 
 def _webbridge_click(params: dict, config: dict) -> str:
     selector = params.get("selector", "")
     force = params.get("force", False)
-    result = _bridge.click_sync(selector, force=force)
+    tab_id = params.get("tab_id")
+    result = _bridge.click_sync(selector, force=force, tab_id=tab_id)
     return json.dumps(result, ensure_ascii=False)
 
 
 def _webbridge_evaluate(params: dict, config: dict) -> str:
     script = params.get("script", "")
-    result = _bridge.evaluate_sync(script)
+    tab_id = params.get("tab_id")
+    result = _bridge.evaluate_sync(script, tab_id=tab_id)
     return json.dumps(result, ensure_ascii=False)
 
 
 def _webbridge_type(params: dict, config: dict) -> str:
     selector = params.get("selector", "")
     text = params.get("text", "")
-    result = _bridge.type_sync(selector, text)
+    tab_id = params.get("tab_id")
+    result = _bridge.type_sync(selector, text, tab_id=tab_id)
     return json.dumps(result, ensure_ascii=False)
 
 
 def _webbridge_screenshot(params: dict, config: dict) -> str:
     path = params.get("path")
-    result = _bridge.screenshot_sync(path=path)
+    tab_id = params.get("tab_id")
+    result = _bridge.screenshot_sync(path=path, tab_id=tab_id)
     if path:
         return json.dumps({"ok": True, "saved_to": path}, ensure_ascii=False)
     # Return base64 but truncate the data to avoid token bloat
@@ -212,21 +294,46 @@ def _webbridge_screenshot(params: dict, config: dict) -> str:
 
 def _webbridge_extract(params: dict, config: dict) -> str:
     mode = params.get("mode", "text")
+    tab_id = params.get("tab_id")
     if mode == "dom":
-        result = _bridge.get_dom_sync()
+        result = _bridge.get_dom_sync(tab_id=tab_id)
     else:
-        result = _bridge.get_text_sync()
+        result = _bridge.get_text_sync(tab_id=tab_id)
     return json.dumps(result, ensure_ascii=False)
 
 
 def _webbridge_scroll(params: dict, config: dict) -> str:
     direction = params.get("direction", "down")
-    result = _bridge.scroll_sync(direction=direction)
+    tab_id = params.get("tab_id")
+    result = _bridge.scroll_sync(direction=direction, tab_id=tab_id)
     return json.dumps(result, ensure_ascii=False)
 
 
 def _webbridge_close(params: dict, config: dict) -> str:
     result = _bridge.close_sync()
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_new_tab(params: dict, config: dict) -> str:
+    url = params.get("url", "about:blank")
+    result = _bridge.new_tab_sync(url)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_switch_tab(params: dict, config: dict) -> str:
+    tab_id = params.get("tab_id", "")
+    result = _bridge.switch_tab_sync(tab_id)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_close_tab(params: dict, config: dict) -> str:
+    tab_id = params.get("tab_id", "")
+    result = _bridge.close_tab_sync(tab_id)
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _webbridge_list_tabs(params: dict, config: dict) -> str:
+    result = _bridge.list_tabs_sync()
     return json.dumps(result, ensure_ascii=False)
 
 
@@ -241,6 +348,10 @@ _CALLBACK_MAP = {
     "WebBridgeExtract": _webbridge_extract,
     "WebBridgeScroll": _webbridge_scroll,
     "WebBridgeClose": _webbridge_close,
+    "WebBridgeNewTab": _webbridge_new_tab,
+    "WebBridgeSwitchTab": _webbridge_switch_tab,
+    "WebBridgeCloseTab": _webbridge_close_tab,
+    "WebBridgeListTabs": _webbridge_list_tabs,
 }
 
 

@@ -58,7 +58,10 @@ class DulusWebBridge:
     _playwright: Any = None
     _context: Any = None   # BrowserContext from launch_persistent_context
     _browser: Any = None
-    _page: Any = None
+
+    # Multi-tab support
+    _tabs: dict[str, Any] = {}
+    _active_tab_id: str = "default"
 
     # Dedicated worker thread + event loop
     _worker_thread: Optional[threading.Thread] = None
@@ -78,22 +81,31 @@ class DulusWebBridge:
                 "Install with: pip install playwright && playwright install chromium"
             )
 
+    @property
+    def _active_page(self) -> Any:
+        """Return the currently active page/tab."""
+        return self._tabs.get(self._active_tab_id)
+
     def _is_browser_alive(self) -> bool:
         """Check if the browser process is still responsive."""
-        if self._browser is None or self._page is None:
+        if self._browser is None or not self._tabs:
             return False
         try:
+            page = self._active_page
+            if page is None:
+                return False
             # Quick health check — run in the worker thread so we don't
             # create a foreign event loop that confuses Playwright.
             async def _check():
-                await self._page.evaluate("1 + 1")
+                await page.evaluate("1 + 1")
                 return True
             return self._sync(_check())
         except Exception:
             # Browser is dead — clean up stale references
             self._context = None
             self._browser = None
-            self._page = None
+            self._tabs.clear()
+            self._active_tab_id = "default"
             self._playwright = None
             return False
 
@@ -158,14 +170,17 @@ class DulusWebBridge:
         3. Launch new browser if none exists
         """
         # 1. Same-process singleton check
-        if self._browser is not None and self._page is not None:
+        if self._browser is not None and self._tabs:
             try:
-                await self._page.evaluate("1 + 1")
-                return
+                page = self._active_page
+                if page:
+                    await page.evaluate("1 + 1")
+                    return
             except Exception:
                 self._context = None
                 self._browser = None
-                self._page = None
+                self._tabs.clear()
+                self._active_tab_id = "default"
                 self._playwright = None
 
         self._ensure_playwright()
@@ -210,7 +225,9 @@ class DulusWebBridge:
         self._context = context
         self._browser = context.browser
         pages = context.pages
-        self._page = pages[0] if pages else await context.new_page()
+        default_page = pages[0] if pages else await context.new_page()
+        self._tabs["default"] = default_page
+        self._active_tab_id = "default"
         
         # Write lock so other processes know we're running
         self._write_lock_info()
@@ -248,22 +265,26 @@ class DulusWebBridge:
 
     # ── Public async API ──────────────────────────────────────────────────────
 
-    async def navigate(self, url: str, headless: bool = False) -> dict[str, Any]:
+    async def navigate(self, url: str, headless: bool = False, tab_id: Optional[str] = None) -> dict[str, Any]:
         """Navigate to *url* and return page metadata."""
         try:
             await self._ensure_browser(headless=headless)
-            response = await self._page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+            response = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             await asyncio.sleep(0.5)  # Wait for JS hydration
             return {
                 "ok": True,
-                "url": self._page.url,
-                "title": await self._page.title(),
+                "url": page.url,
+                "title": await page.title(),
                 "status": response.status if response else None,
+                "tab_id": tab_id or self._active_tab_id,
             }
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-    async def click(self, selector: str, force: bool = False) -> dict[str, Any]:
+    async def click(self, selector: str, force: bool = False, tab_id: Optional[str] = None) -> dict[str, Any]:
         """Click element matching *selector*.
 
         Set *force=True* to bypass Playwright's actionability checks
@@ -271,55 +292,70 @@ class DulusWebBridge:
         """
         try:
             await self._ensure_browser()
-            await self._page.click(selector, timeout=10000, force=force)
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+            await page.click(selector, timeout=10000, force=force)
             await asyncio.sleep(0.3)
             return {
                 "ok": True,
                 "clicked": selector,
-                "url": self._page.url,
+                "url": page.url,
+                "tab_id": tab_id or self._active_tab_id,
             }
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-    async def type_text(self, selector: str, text: str) -> dict[str, Any]:
+    async def type_text(self, selector: str, text: str, tab_id: Optional[str] = None) -> dict[str, Any]:
         """Type *text* into input matching *selector*."""
         try:
             await self._ensure_browser()
-            await self._page.fill(selector, text, timeout=10000)
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+            await page.fill(selector, text, timeout=10000)
             return {
                 "ok": True,
                 "typed": text,
                 "into": selector,
+                "tab_id": tab_id or self._active_tab_id,
             }
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-    async def screenshot(self, path: Optional[str] = None, full_page: bool = True) -> dict[str, Any]:
+    async def screenshot(self, path: Optional[str] = None, full_page: bool = True, tab_id: Optional[str] = None) -> dict[str, Any]:
         """Capture screenshot. Returns base64 or saves to *path*."""
         try:
             await self._ensure_browser()
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
             if path:
-                await self._page.screenshot(path=path, full_page=full_page)
-                return {"ok": True, "saved_to": path}
+                await page.screenshot(path=path, full_page=full_page)
+                return {"ok": True, "saved_to": path, "tab_id": tab_id or self._active_tab_id}
             else:
-                data = await self._page.screenshot(full_page=full_page)
+                data = await page.screenshot(full_page=full_page)
                 b64 = base64.b64encode(data).decode("ascii")
-                return {"ok": True, "base64": b64, "format": "png"}
+                return {"ok": True, "base64": b64, "format": "png", "tab_id": tab_id or self._active_tab_id}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-    async def get_text(self) -> dict[str, Any]:
+    async def get_text(self, tab_id: Optional[str] = None) -> dict[str, Any]:
         """Extract visible text from the page body."""
         try:
             await self._ensure_browser()
-            text = await self._page.inner_text("body")
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+            text = await page.inner_text("body")
             lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
             cleaned = "\n".join(lines[:500])
             return {
                 "ok": True,
                 "text": cleaned,
-                "url": self._page.url,
-                "title": await self._page.title(),
+                "url": page.url,
+                "title": await page.title(),
+                "tab_id": tab_id or self._active_tab_id,
             }
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
@@ -338,7 +374,7 @@ class DulusWebBridge:
         "ytd-thumbnail", "ytd-video-preview", "ytd-channel-renderer",
     })
 
-    async def get_dom(self) -> dict[str, Any]:
+    async def get_dom(self, tab_id: Optional[str] = None) -> dict[str, Any]:
         """Extract simplified DOM with interactive elements using BeautifulSoup.
 
         Returns at most 30 relevant elements with clean CSS selectors that
@@ -346,12 +382,15 @@ class DulusWebBridge:
         """
         try:
             await self._ensure_browser()
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
 
             if not _BS4_AVAILABLE:
                 # Fallback to the JS evaluator if bs4 is missing
-                return await self._get_dom_js()
+                return await self._get_dom_js(page)
 
-            html = await self._page.content()
+            html = await page.content()
             soup = BeautifulSoup(html, "html.parser")
             elements: list[dict] = []
 
@@ -384,8 +423,9 @@ class DulusWebBridge:
             return {
                 "ok": True,
                 "elements": elements,
-                "url": self._page.url,
-                "title": await self._page.title(),
+                "url": page.url,
+                "title": await page.title(),
+                "tab_id": tab_id or self._active_tab_id,
             }
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
@@ -425,9 +465,9 @@ class DulusWebBridge:
         # Too generic — skip it so we don't pollute the list
         return None
 
-    async def _get_dom_js(self) -> dict[str, Any]:
+    async def _get_dom_js(self, page: Any) -> dict[str, Any]:
         """Fallback DOM extraction using browser JS (no BS4)."""
-        elements = await self._page.evaluate("""
+        elements = await page.evaluate("""
             () => {
                 const interactive = document.querySelectorAll(
                     'a, button, input, textarea, select, [role="button"], [onclick]'
@@ -450,23 +490,28 @@ class DulusWebBridge:
         return {
             "ok": True,
             "elements": elements[:30],
-            "url": self._page.url,
-            "title": await self._page.title(),
+            "url": page.url,
+            "title": await page.title(),
         }
 
-    async def scroll(self, direction: str = "down") -> dict[str, Any]:
+    async def scroll(self, direction: str = "down", tab_id: Optional[str] = None) -> dict[str, Any]:
         """Scroll page up or down by one viewport."""
         try:
             await self._ensure_browser()
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
             amount = 800 if direction == "down" else -800
-            await self._page.evaluate(f"window.scrollBy(0, {amount})")
-            return {"ok": True, "scrolled": direction}
+            await page.evaluate(f"window.scrollBy(0, {amount})")
+            return {"ok": True, "scrolled": direction, "tab_id": tab_id or self._active_tab_id}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
     async def close(self) -> dict[str, Any]:
         """Close browser and clean up."""
         try:
+            self._tabs.clear()
+            self._active_tab_id = "default"
             if self._context:
                 try:
                     await self._context.close()
@@ -480,7 +525,6 @@ class DulusWebBridge:
                     pass  # Already dead, ignore
                 self._playwright = None
             self._browser = None
-            self._page = None
             self._clear_lock()
             return {"ok": True, "status": "closed"}
         except Exception as exc:
@@ -488,51 +532,163 @@ class DulusWebBridge:
             self._context = None
             self._browser = None
             self._playwright = None
-            self._page = None
+            self._tabs.clear()
+            self._active_tab_id = "default"
             self._clear_lock()
             return {"ok": True, "status": "closed_forced", "note": str(exc)}
 
-    async def evaluate(self, script: str) -> dict[str, Any]:
+    async def evaluate(self, script: str, tab_id: Optional[str] = None) -> dict[str, Any]:
         """Execute raw JavaScript in the browser and return the result."""
         try:
             await self._ensure_browser()
-            result = await self._page.evaluate(script)
-            return {"ok": True, "result": result}
+            page = self._tabs.get(tab_id) if tab_id else self._active_page
+            if page is None:
+                return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+            result = await page.evaluate(script)
+            return {"ok": True, "result": result, "tab_id": tab_id or self._active_tab_id}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
     def status(self) -> dict[str, Any]:
         """Return current browser status (sync, safe to call anytime)."""
+        active_page = self._active_page
+        tabs_info = {
+            tab_id: {"url": page.url}
+            for tab_id, page in self._tabs.items()
+        }
         return {
             "browser_open": self._browser is not None,
-            "url": self._page.url if self._page else None,
+            "active_tab": self._active_tab_id,
+            "url": active_page.url if active_page else None,
+            "tabs": tabs_info,
+            "tab_count": len(self._tabs),
+        }
+
+    # ── Tab management ────────────────────────────────────────────────────────
+
+    async def new_tab(self, url: str = "about:blank") -> dict[str, Any]:
+        """Open a new browser tab and navigate to *url*."""
+        try:
+            await self._ensure_browser()
+            page = await self._context.new_page()
+            tab_id = f"tab_{len(self._tabs) + 1}"
+            self._tabs[tab_id] = page
+            self._active_tab_id = tab_id
+            if url and url != "about:blank":
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await asyncio.sleep(0.5)
+            return {
+                "ok": True,
+                "tab_id": tab_id,
+                "url": page.url,
+                "title": await page.title(),
+                "active": True,
+            }
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    async def switch_tab(self, tab_id: str) -> dict[str, Any]:
+        """Switch the active tab to *tab_id*."""
+        if tab_id not in self._tabs:
+            return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+        self._active_tab_id = tab_id
+        page = self._tabs[tab_id]
+        return {
+            "ok": True,
+            "tab_id": tab_id,
+            "url": page.url,
+            "title": await page.title(),
+        }
+
+    async def close_tab(self, tab_id: str) -> dict[str, Any]:
+        """Close tab *tab_id* and remove it from the tab list."""
+        if tab_id not in self._tabs:
+            return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+        page = self._tabs.pop(tab_id)
+        try:
+            await page.close()
+        except Exception:
+            pass
+        # If we closed the active tab, switch to another one
+        if self._active_tab_id == tab_id:
+            if self._tabs:
+                self._active_tab_id = next(iter(self._tabs.keys()))
+            else:
+                self._active_tab_id = "default"
+                # Create a default tab so the browser doesn't break
+                try:
+                    new_page = await self._context.new_page()
+                    self._tabs["default"] = new_page
+                except Exception:
+                    pass
+        return {
+            "ok": True,
+            "closed": tab_id,
+            "active_tab": self._active_tab_id,
+            "remaining_tabs": list(self._tabs.keys()),
+        }
+
+    async def list_tabs(self) -> dict[str, Any]:
+        """List all open tabs with their IDs and URLs."""
+        tabs = []
+        for tab_id, page in self._tabs.items():
+            try:
+                tabs.append({
+                    "tab_id": tab_id,
+                    "url": page.url,
+                    "title": await page.title(),
+                    "active": tab_id == self._active_tab_id,
+                })
+            except Exception:
+                tabs.append({
+                    "tab_id": tab_id,
+                    "url": "(unavailable)",
+                    "title": "(unavailable)",
+                    "active": tab_id == self._active_tab_id,
+                })
+        return {
+            "ok": True,
+            "tabs": tabs,
+            "active_tab": self._active_tab_id,
         }
 
     # ── Sync wrappers for tool callbacks ──────────────────────────────────────
 
-    def navigate_sync(self, url: str, headless: bool = False) -> dict[str, Any]:
-        return self._sync(self.navigate(url, headless=headless))
+    def navigate_sync(self, url: str, headless: bool = False, tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.navigate(url, headless=headless, tab_id=tab_id))
 
-    def click_sync(self, selector: str, force: bool = False) -> dict[str, Any]:
-        return self._sync(self.click(selector, force=force))
+    def click_sync(self, selector: str, force: bool = False, tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.click(selector, force=force, tab_id=tab_id))
 
-    def evaluate_sync(self, script: str) -> dict[str, Any]:
-        return self._sync(self.evaluate(script))
+    def evaluate_sync(self, script: str, tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.evaluate(script, tab_id=tab_id))
 
-    def type_sync(self, selector: str, text: str) -> dict[str, Any]:
-        return self._sync(self.type_text(selector, text))
+    def type_sync(self, selector: str, text: str, tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.type_text(selector, text, tab_id=tab_id))
 
-    def screenshot_sync(self, path: Optional[str] = None) -> dict[str, Any]:
-        return self._sync(self.screenshot(path=path))
+    def screenshot_sync(self, path: Optional[str] = None, tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.screenshot(path=path, tab_id=tab_id))
 
-    def get_text_sync(self) -> dict[str, Any]:
-        return self._sync(self.get_text())
+    def get_text_sync(self, tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.get_text(tab_id=tab_id))
 
-    def get_dom_sync(self) -> dict[str, Any]:
-        return self._sync(self.get_dom())
+    def get_dom_sync(self, tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.get_dom(tab_id=tab_id))
 
-    def scroll_sync(self, direction: str = "down") -> dict[str, Any]:
-        return self._sync(self.scroll(direction))
+    def scroll_sync(self, direction: str = "down", tab_id: Optional[str] = None) -> dict[str, Any]:
+        return self._sync(self.scroll(direction, tab_id=tab_id))
 
     def close_sync(self) -> dict[str, Any]:
         return self._sync(self.close())
+
+    def new_tab_sync(self, url: str = "about:blank") -> dict[str, Any]:
+        return self._sync(self.new_tab(url))
+
+    def switch_tab_sync(self, tab_id: str) -> dict[str, Any]:
+        return self._sync(self.switch_tab(tab_id))
+
+    def close_tab_sync(self, tab_id: str) -> dict[str, Any]:
+        return self._sync(self.close_tab(tab_id))
+
+    def list_tabs_sync(self) -> dict[str, Any]:
+        return self._sync(self.list_tabs())

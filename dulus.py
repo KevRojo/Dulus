@@ -7832,6 +7832,64 @@ def cmd_webbridge(args: str, state, config) -> bool:
             err(f"Close failed: {e}")
         return True
 
+    if sub == "newtab":
+        url = parts[1] if len(parts) >= 2 else "about:blank"
+        try:
+            result = bridge.new_tab_sync(url)
+            if result.get("ok"):
+                ok(f"New tab: {result.get('tab_id')} — {result.get('url')}")
+            else:
+                err(f"newtab failed: {result.get('error')}")
+        except Exception as e:
+            err(f"newtab failed: {e}")
+        return True
+
+    if sub == "switchtab":
+        if len(parts) < 2:
+            err("Usage: /webbridge switchtab <tab_id>")
+            return True
+        tab_id = parts[1]
+        try:
+            result = bridge.switch_tab_sync(tab_id)
+            if result.get("ok"):
+                ok(f"Switched to: {tab_id} — {result.get('url')}")
+            else:
+                err(f"switchtab failed: {result.get('error')}")
+        except Exception as e:
+            err(f"switchtab failed: {e}")
+        return True
+
+    if sub == "closetab":
+        if len(parts) < 2:
+            err("Usage: /webbridge closetab <tab_id>")
+            return True
+        tab_id = parts[1]
+        try:
+            result = bridge.close_tab_sync(tab_id)
+            if result.get("ok"):
+                ok(f"Closed: {tab_id}")
+                info(f"Active tab: {result.get('active_tab')}")
+                info(f"Remaining: {', '.join(result.get('remaining_tabs', []))}")
+            else:
+                err(f"closetab failed: {result.get('error')}")
+        except Exception as e:
+            err(f"closetab failed: {e}")
+        return True
+
+    if sub == "listtabs":
+        try:
+            result = bridge.list_tabs_sync()
+            if result.get("ok"):
+                ok(f"Tabs ({len(result.get('tabs', []))}):")
+                for t in result.get("tabs", []):
+                    marker = " ●" if t.get("active") else ""
+                    info(f"  {t.get('tab_id')}{marker} — {t.get('title', 'N/A')[:40]} — {t.get('url', 'N/A')[:60]}")
+            else:
+                err(f"listtabs failed: {result.get('error')}")
+        except Exception as e:
+            err(f"listtabs failed: {e}")
+        return True
+
     if sub == "help":
         info("WebBridge commands:")
         info("  /webbridge status          — Show browser status")
@@ -7841,6 +7899,10 @@ def cmd_webbridge(args: str, state, config) -> bool:
         info("  /webbridge screenshot [p]  — Take screenshot")
         info("  /webbridge extract [t|d]   — Extract text or DOM")
         info("  /webbridge scroll [u|d]    — Scroll page")
+        info("  /webbridge newtab [url]    — Open new tab")
+        info("  /webbridge switchtab <id>  — Switch to tab")
+        info("  /webbridge closetab <id>   — Close tab")
+        info("  /webbridge listtabs        — List all tabs")
         info("  /webbridge close           — Close browser")
         info("  /webbridge help            — Show this help")
         return True
@@ -8054,6 +8116,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "gemini_harvest": ("Harvest Gemini Web cookies (alias)", []),
     "harvest-claude": ("Harvest Claude.ai cookies (alias)", []),
     "webchat":       ("Spawn web chat UI",                 ["stop", "lan"]),
+    "webbridge":     ("Control WebBridge browser",          ["status", "open", "click", "type", "screenshot", "extract", "scroll", "newtab", "switchtab", "closetab", "listtabs", "close", "help"]),
     "sandbox":       ("Open Dulus Sandbox OS in browser",  ["stop"]),
     "gui":           ("Launch desktop GUI",                 []),
 }
