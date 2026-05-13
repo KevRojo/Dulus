@@ -197,19 +197,23 @@ def check_stt_availability() -> tuple[bool, str | None]:
 
 
 def get_stt_backend_name() -> str:
-    """Return a human-readable name of the backend that will be used."""
-    if _riva_available():
-        return "NVIDIA Riva (whisper-large-v3, cloud)"
+    """Return a human-readable name of the backend that will be used.
+
+    Must match the priority order in ``transcribe()`` — local Whisper
+    first, Riva only as a fallback when no local backend is installed.
+    """
     try:
         import faster_whisper  # noqa: F401
-        return f"faster-whisper ({DEFAULT_MODEL_SIZE})"
+        return f"faster-whisper ({DEFAULT_MODEL_SIZE}, local)"
     except ImportError:
         pass
     try:
         import whisper  # noqa: F401
-        return f"openai-whisper ({DEFAULT_MODEL_SIZE})"
+        return f"openai-whisper ({DEFAULT_MODEL_SIZE}, local)"
     except ImportError:
         pass
+    if _riva_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
+        return "NVIDIA Riva (whisper-large-v3, cloud)"
     if os.environ.get("OPENAI_API_KEY"):
         return "OpenAI Whisper API"
     return "(none)"
