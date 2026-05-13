@@ -1239,11 +1239,6 @@ def save_latest(args: str, state, config=None, mode: str = "full") -> bool:
     daily_path = day_dir / f"session_{ts}_{sid}.json"
     daily_path.write_text(payload)
 
-    # Prune daily folder: keep only the latest `daily_limit` files
-    daily_files = sorted(day_dir.glob("session_*.json"))
-    for old in daily_files[:-daily_limit]:
-        old.unlink(missing_ok=True)
-
     # 3. Append to history.json (master file)
     if SESSION_HIST_FILE.exists():
         try:

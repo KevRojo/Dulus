@@ -34,6 +34,8 @@ output.txt
 
 # MemPalace runtime cache
 data/mempalace_cache.json
+# Runtime context
+data/context.json
 # NOTE: sandbox/dist/ is NOT ignored — it contains the compiled static assets
 # (index.html, JS/CSS bundles, wallpapers) that Flask serves at /sandbox.
 # It must be tracked so pip installs include the Mini OS frontend.
