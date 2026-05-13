@@ -4326,6 +4326,7 @@ def cmd_skill(args: str, state, config) -> bool:
         list_local, list_installed, install_local, install_clawhub,
         search_clawhub, read_skill,
         list_awesome_remote, list_composio_toolkits,
+        install_awesome_remote,
     )
     from pathlib import Path as _Path
 
@@ -4371,17 +4372,16 @@ def cmd_skill(args: str, state, config) -> bool:
 
         if rest.startswith("awesome"):
             query = rest[7:].strip()
-            # `--full` flag pulls per-skill descriptions in parallel (slower but
-            # informative). Default lists names only — instant.
-            full = False
-            if "--full" in query.split():
-                full = True
-                query = " ".join(t for t in query.split() if t != "--full").strip()
-            if full:
-                info("Fetching awesome skills + descriptions from GitHub (parallel, ~5s)...")
+            # `--fast` skips descriptions for an instant list; default pulls them in parallel.
+            fast = False
+            if "--fast" in query.split():
+                fast = True
+                query = " ".join(t for t in query.split() if t != "--fast").strip()
+            if fast:
+                info("Fetching awesome skill list from GitHub (instant, no descriptions)...")
             else:
-                info("Fetching awesome skill list from GitHub (instant)...")
-            skills = list_awesome_remote(query, with_descriptions=full)
+                info("Fetching awesome skills + descriptions from GitHub (parallel, ~5s)...")
+            skills = list_awesome_remote(query, with_descriptions=not fast)
             if not skills:
                 err("Could not fetch awesome skills (network or rate-limit).")
                 return True
@@ -4390,7 +4390,7 @@ def cmd_skill(args: str, state, config) -> bool:
                 for s in skills
             ]
             header = f"Awesome skills ({len(skills)})" + (f" matching '{query}'" if query else "")
-            hint = "" if full else " — add `--full` for descriptions"
+            hint = "" if not fast else " — remove `--fast` for descriptions"
             _pager(f"{header}{hint} — n=next q=quit", lines)
             return True
 
@@ -4455,6 +4455,21 @@ def cmd_skill(args: str, state, config) -> bool:
                     print(f"  {clr(r['slug'], 'cyan'):30s}  {r.get('description','')[:60]}")
             return True
 
+        if rest.startswith("installed"):
+            query = rest[9:].strip()
+            skills = list_installed(query)
+            if not skills:
+                if query:
+                    info(f"No installed skills matching '{query}'.")
+                else:
+                    info("No skills installed yet.")
+                return True
+            header = f"Installed skills ({len(skills)})" + (f" matching '{query}'" if query else "")
+            info(header + ":")
+            for s in skills:
+                print(f"  • {clr(s['name'], 'cyan'):22s} [{s['source']}]  {s['description']}")
+            return True
+
         # /skill info <name>
         if subcmd == "info":
             if not rest:
@@ -4494,27 +4509,83 @@ def cmd_skill(args: str, state, config) -> bool:
         if rest.startswith("clawhub:"):
             slug = rest[8:]
             success, msg = install_clawhub(slug)
+        elif rest.startswith("awesome/"):
+            success, msg = install_awesome_remote(rest)
         else:
             success, msg = install_local(rest)
+            # Fallback to awesome-remote if not found locally
+            if not success:
+                success, msg = install_awesome_remote(rest)
         (ok if success else err)(msg)
         return True
 
     # ── /skill use ─────────────────────────────────────────────────────────
     if subcmd == "use":
-        if not rest:
-            err("Usage: /skill use <name>")
-            return True
         from skill.clawhub import DULUS_SKILLS_DIR
-        body = read_skill(rest)
-        if not body:
-            err(f"Skill '{rest}' not found. Run /skill list to see installed skills.")
+        installed = list_installed()
+        if not installed:
+            err("No skills installed yet. Run /skill list to browse and install skills.")
             return True
-        # Inject as a user-side system message for this turn
-        skill_dir = DULUS_SKILLS_DIR / rest
-        path_hint = f"\n\n# NOTE: Skill '{rest}' files are located at: {skill_dir}" if skill_dir.exists() else ""
+
+        # Interactive picker when no target is given
+        if not rest:
+            print(clr("  Select skill(s) to inject (active for this turn):", "cyan", "bold"))
+            menu_buf = clr("  Select skill(s) to inject:", "cyan", "bold")
+            for i, s in enumerate(installed):
+                line = f"  {clr(f'[{i+1:2d}]', 'yellow')} {clr(s['name'], 'white', 'bold'):<24} [{clr(s['source'], 'dim')}]  {s['description'][:55]}"
+                print(line)
+                menu_buf += "\n" + line
+            print()
+            ans = ask_input_interactive(
+                clr("  Enter number(s) (e.g. 1 or 1,2,3), name, or Enter to cancel > ", "cyan"),
+                config, menu_buf,
+            ).strip()
+            if not ans:
+                info("  Cancelled.")
+                return True
+            rest = ans
+
+        # Resolve rest → list of skill names
+        selected_names: list[str] = []
+        tokens = [t.strip() for t in rest.replace(",", " ").split() if t.strip()]
+        for tok in tokens:
+            if tok.isdigit():
+                idx = int(tok) - 1
+                if 0 <= idx < len(installed):
+                    selected_names.append(installed[idx]["name"])
+                else:
+                    warn(f"Index {tok} out of range (1-{len(installed)}). Skipping.")
+            else:
+                match = next((s["name"] for s in installed if s["name"].lower() == tok.lower()), None)
+                if match is None:
+                    warn(f"No skill named '{tok}'. Skipping.")
+                else:
+                    selected_names.append(match)
+
+        if not selected_names:
+            err("No valid skill selected.")
+            return True
+
+        # Inject selected skills into context
+        blocks = []
+        for name in selected_names:
+            body = read_skill(name)
+            if not body:
+                warn(f"Skill '{name}' could not be read. Skipping.")
+                continue
+            skill_dir = DULUS_SKILLS_DIR / name
+            path_hint = f"\n\n# NOTE: Skill '{name}' files are located at: {skill_dir}" if skill_dir.exists() else ""
+            blocks.append(f"## Skill: {name}\n\n{body}{path_hint}")
+
+        if not blocks:
+            err("No skills could be injected.")
+            return True
+
         existing = config.get("_skill_inject", "")
-        config["_skill_inject"] = (existing + "\n\n" + body + path_hint).strip()
-        ok(f"Skill '{rest}' injected — active for this turn.")
+        new_inject = "\n\n---\n\n".join(blocks)
+        config["_skill_inject"] = (existing + "\n\n" + new_inject).strip() if existing else new_inject
+        names_txt = ", ".join(f"'{n}'" for n in selected_names)
+        ok(f"Injected {len(blocks)} skill(s) — active for this turn: {names_txt}")
         return True
 
     # ── /skill remove ──────────────────────────────────────────────────────
