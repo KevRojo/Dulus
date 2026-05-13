@@ -285,10 +285,13 @@ class WakeWordListener:
                             import input as _dulus_input
                             _bar = " ▁▂▃▄▅▆▇█"
                             _lvl = min(int(rms * 8 / 0.08), 8)
-                            _txt = f"🎙️  {_bar[_lvl]}"
+                            # Cyan "Listening..." + Mic icon + Energy bar
+                            _txt = f"\x1b[36mListening...\x1b[0m  🎙️  {_bar[_lvl]}"
                             # Try both toolbar and terminal fallback
                             _dulus_input.set_toolbar_status(_txt)
-                            _dulus_input.safe_print_notification(f"\r  {_txt}  ", end="", flush=True)
+                            # Only print to terminal if we don't have a split app toolbar
+                            if not getattr(_dulus_input, "_split_app", None):
+                                _dulus_input.safe_print_notification(f"\r  {_txt}  ", end="", flush=True)
                         except Exception:
                             pass
 

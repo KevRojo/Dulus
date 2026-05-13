@@ -28,6 +28,7 @@ sounddevice
 #   pip install nvidia-riva-client # NVIDIA Riva TTS
 #   pip install gTTS               # Google Text-to-Speech
 #   pip install pyttsx3            # offline system voices
+#   sudo apt install python3-tk    # Required for the GUI on Linux/WSL
 #
 # numpy is needed by the local Whisper backends and the arecord RMS detector:
 #   pip install numpy
