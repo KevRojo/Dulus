@@ -6581,6 +6581,12 @@ def cmd_voice(args: str, state, config) -> bool:
             info(f"Current STT language: {_voice_language}  (use '/voice lang auto' to reset)")
             return True
         _voice_language = rest.lower()
+        config["voice_lang"] = _voice_language
+        try:
+            from config import save_config
+            save_config(config)
+        except Exception as e:
+            warn(f"Could not persist voice_lang: {e}")
         ok(f"STT language set to '{_voice_language}'")
         return True
 
@@ -8478,6 +8484,11 @@ def repl(config: dict, initial_prompt: str = None):
     state = AgentState()
     verbose = config.get("verbose", False)
     config["_tg_send_callback"] = _tg_send
+
+    # Hydrate the STT-language global from config so /voice lang setting
+    # actually survives across sessions.
+    global _voice_language
+    _voice_language = config.get("voice_lang", _voice_language)
 
     # ── Wake-word queue ──
     import queue as _queue
