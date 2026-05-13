@@ -10355,18 +10355,25 @@ def main():
     # (anthropic, openai, mempalace, sounddevice, ...). Same import standalone
     # is ~0.3s. Loading it in a daemon thread at boot caches it in sys.modules
     # so the first /say drops from 40s → 1.6s.
-    if config.get("wake_enabled") or config.get("tts_enabled") or config.get("tts_provider", "auto") == "elevenlabs":
+    # Separate triggers — STT (Whisper) only needs to warm when wake or voice
+    # input might fire; TTS (ElevenLabs) only when TTS will speak. Mixing them
+    # was loading Whisper just because /tts was on, wasting 15-30s.
+    _need_stt = bool(config.get("wake_enabled"))
+    _need_eleven = bool(config.get("tts_enabled")) or config.get("tts_provider", "auto") == "elevenlabs"
+    if _need_stt or _need_eleven:
         import threading as _t
         def _prewarm_voice_stack():
-            try:
-                from elevenlabs.client import ElevenLabs  # noqa: F401
-            except Exception:
-                pass
-            try:
-                from voice.stt import prewarm_whisper
-                prewarm_whisper()
-            except Exception:
-                pass
+            if _need_eleven:
+                try:
+                    from elevenlabs.client import ElevenLabs  # noqa: F401
+                except Exception:
+                    pass
+            if _need_stt:
+                try:
+                    from voice.stt import prewarm_whisper
+                    prewarm_whisper()
+                except Exception:
+                    pass
         _t.Thread(target=_prewarm_voice_stack, daemon=True, name="dulus-prewarm").start()
 
     # ── License Gate ─────────────────────────────────────────────────────────
