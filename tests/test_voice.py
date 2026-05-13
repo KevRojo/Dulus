@@ -238,3 +238,59 @@ class TestReplVoiceIntegration:
         # Reset
         dulus.cmd_voice("lang auto", object(), {})
         assert dulus._voice_language == "auto"
+
+    def test_wake_in_commands(self):
+        import dulus
+        assert "wake" in dulus.COMMANDS
+
+    def test_wake_command_callable(self):
+        import dulus
+        assert callable(dulus.COMMANDS["wake"])
+
+    def test_wake_status_no_crash(self, capsys):
+        import dulus
+        try:
+            dulus.cmd_wake("status", object(), {})
+        except SystemExit:
+            pass
+
+    def test_wake_phrases_no_crash(self, capsys):
+        import dulus
+        try:
+            dulus.cmd_wake("phrases", object(), {})
+        except SystemExit:
+            pass
+
+
+# ── Wake-word unit tests (no hardware required) ───────────────────────────
+
+class TestWakeWord:
+    def test_contains_wake_exact(self):
+        from voice.wake_word import _contains_wake
+        assert _contains_wake("hey dulus busca el clima") == "hey dulus"
+
+    def test_contains_wake_case_insensitive(self):
+        from voice.wake_word import _contains_wake
+        assert _contains_wake("HEY DULUS") == "hey dulus"
+
+    def test_contains_wake_no_match(self):
+        from voice.wake_word import _contains_wake
+        assert _contains_wake("hola cómo estás") is None
+
+    def test_wake_phrases_list(self):
+        from voice.wake_word import WAKE_PHRASES
+        assert isinstance(WAKE_PHRASES, list)
+        assert len(WAKE_PHRASES) > 0
+        assert "dulus" in WAKE_PHRASES
+
+    def test_listener_init(self):
+        from voice.wake_word import WakeWordListener
+        wl = WakeWordListener()
+        assert wl.is_running() is False
+        assert "dulus" in wl.wake_phrases
+
+    def test_voice_package_exports_wake(self):
+        import voice
+        assert hasattr(voice, "WakeWordListener")
+        assert hasattr(voice, "listen_once")
+        assert hasattr(voice, "WAKE_PHRASES")

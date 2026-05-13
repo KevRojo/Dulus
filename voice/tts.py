@@ -1,13 +1,16 @@
 """Text-to-speech (TTS) backends.
 
 Backend priority (tried in order):
-  1. NVIDIA Riva    — cloud, Magpie-Multilingual via NVCF gRPC.
-                       pip install nvidia-riva-client + NVIDIA_API_KEY
-  2. OpenAI TTS     — cloud, high quality, needs OPENAI_API_KEY.
+  1. pyttsx3        — local, offline, robotic system voices (Windows SAPI5).
+                       pip install pyttsx3
+  2. edge-tts       — Microsoft Edge voices, fast, free, cloud.
+                       pip install edge-tts
   3. gTTS           — cloud, free, needs internet.
                        pip install gTTS
-  4. pyttsx3        — local, offline, uses system voices.
-                       pip install pyttsx3
+  4. OpenAI TTS     — cloud, high quality, needs OPENAI_API_KEY.
+  5. Azure          — cloud, Microsoft Azure Speech Services.
+  6. NVIDIA Riva    — cloud, Magpie-Multilingual via NVCF gRPC.
+                       pip install nvidia-riva-client + NVIDIA_API_KEY
 """
 
 from __future__ import annotations
@@ -122,6 +125,20 @@ def _get_pyttsx3_engine():
     if _pyttsx3_engine is None:
         import pyttsx3
         _pyttsx3_engine = pyttsx3.init()
+        # Pre-set properties one-time for speed
+        try:
+            _pyttsx3_engine.setProperty("rate", 175)
+            voices = _pyttsx3_engine.getProperty("voices")
+            # Prefer Zira (Spanish/English female) or Helena (Spanish) over David
+            zira = next((v for v in voices if "zira" in v.name.lower()), None)
+            if zira:
+                _pyttsx3_engine.setProperty("voice", zira.id)
+            else:
+                helena = next((v for v in voices if "helena" in v.name.lower()), None)
+                if helena:
+                    _pyttsx3_engine.setProperty("voice", helena.id)
+        except Exception:
+            pass
     return _pyttsx3_engine
 
 
@@ -434,17 +451,57 @@ def _say_gtts(text: str, lang: str = "en") -> bool:
             Path(tmp_path).unlink(missing_ok=True)
 
 
+# ── edge-tts (Microsoft Edge voices, fast & free) ─────────────────────────
+
+_EDGE_TTS_VOICES: dict[str, str] = {
+    "es": "es-ES-AlvaroNeural",
+    "en": "en-US-GuyNeural",
+    "zh": "zh-CN-YunxiNeural",
+    "ja": "ja-JP-KeitaNeural",
+    "fr": "fr-FR-HenriNeural",
+    "de": "de-DE-KasperNeural",
+    "pt": "pt-BR-AntonioNeural",
+    "it": "it-IT-DiegoNeural",
+    "ru": "ru-RU-DmitryNeural",
+    "ko": "ko-KR-InJoonNeural",
+}
+
+
+def _say_edge_tts(text: str, lang: str = "es") -> bool:
+    tmp_path = None
+    try:
+        import edge_tts
+        import asyncio
+
+        voice = _EDGE_TTS_VOICES.get(lang, _EDGE_TTS_VOICES.get(lang.split("-")[0], "en-US-GuyNeural"))
+        communicate = edge_tts.Communicate(text, voice=voice)
+
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            tmp_path = f.name
+
+        async def _save() -> None:
+            await communicate.save(tmp_path)
+
+        asyncio.run(_save())
+        _play_audio_file(tmp_path)
+        return True
+    except ImportError:
+        return False
+    except Exception as e:
+        print(f"  [edge-tts] Error: {e}")
+        return False
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
+
+
 # ── pyttsx3 ───────────────────────────────────────────────────────────────
 
-def _say_pyttsx3(text: str, rate: int = 175) -> bool:
+def _say_pyttsx3(text: str, rate: Optional[int] = None) -> bool:
     try:
         engine = _get_pyttsx3_engine()
-        engine.setProperty("rate", rate)
-        # Prefer Zira (female) over David
-        voices = engine.getProperty("voices")
-        zira = next((v for v in voices if "zira" in v.name.lower()), None)
-        if zira:
-            engine.setProperty("voice", zira.id)
+        if rate:
+            engine.setProperty("rate", rate)
         engine.say(text)
         engine.runAndWait()
         return True
@@ -490,14 +547,18 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
 
     Args:
         provider: Explicit backend to use. "auto" or None tries in priority order.
-                  Supported: "azure", "riva", "openai", "gtts", "pyttsx3".
+                  Supported: "pyttsx3", "edge", "gtts", "openai", "azure", "riva".
     """
     text = _clean_for_tts(text)
     if not text.strip():
         return
 
     with _say_lock:
-        print(f"  📢 Speaking: '{text[:50]}...'  [c = stop]")
+        try:
+            import input as _dulus_input
+            _dulus_input.safe_print_notification(f"  📢 Speaking: '{text[:50]}...'  [c = stop]")
+        except Exception:
+            print(f"  📢 Speaking: '{text[:50]}...'  [c = stop]")
 
         _stop_event.clear()
         watcher = threading.Thread(target=_watch_for_cancel, daemon=True)
@@ -510,32 +571,38 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
                     return True
                 return provider.lower() == name.lower()
 
-            # 1. Azure Speech Services
-            if _should_try("azure") and _say_azure(text, voice=voice, lang=lang):
+            # 1. pyttsx3 — local, offline, instant (robotic SAPI5 voice)
+            if _should_try("pyttsx3") and _say_pyttsx3(text):
                 return
             if _stop_event.is_set():
                 return
 
-            # 2. NVIDIA Riva (Magpie-Multilingual, cloud)
-            if _should_try("riva") and _say_nvidia_riva(text, lang=lang):
+            # 2. edge-tts — Microsoft Edge voices (fast & free, needs internet)
+            if _should_try("edge") and _say_edge_tts(text, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 3. OpenAI (high quality, needs key)
-            if _should_try("openai") and _say_openai(text, voice=(voice or "alloy"), speed=speed):
-                return
-            if _stop_event.is_set():
-                return
-
-            # 4. gTTS — cloud Spanish
+            # 3. gTTS — cloud Spanish
             if _should_try("gtts") and _say_gtts(text, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 5. pyttsx3 — offline fallback
-            if _should_try("pyttsx3") and _say_pyttsx3(text):
+            # 4. OpenAI (high quality, needs key)
+            if _should_try("openai") and _say_openai(text, voice=(voice or "alloy"), speed=speed):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 5. Azure Speech Services
+            if _should_try("azure") and _say_azure(text, voice=voice, lang=lang):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 6. NVIDIA Riva (Magpie-Multilingual, cloud)
+            if _should_try("riva") and _say_nvidia_riva(text, lang=lang):
                 return
 
             # Final fallback
@@ -546,14 +613,17 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
 
 def check_tts_availability() -> tuple[bool, str | None]:
     """Return (available, reason_if_not)."""
-    if _azure_tts_available():
-        return True, "Azure Speech Services (cloud)"
+    try:
+        import pyttsx3
+        return True, "pyttsx3 (local, offline)"
+    except ImportError:
+        pass
 
-    if _riva_tts_available():
-        return True, "NVIDIA Riva Magpie-Multilingual (cloud)"
-
-    if os.environ.get("OPENAI_API_KEY"):
-        return True, "OpenAI TTS (cloud)"
+    try:
+        import edge_tts
+        return True, "edge-tts (Microsoft Edge voices, cloud)"
+    except ImportError:
+        pass
 
     try:
         import gtts
@@ -561,10 +631,13 @@ def check_tts_availability() -> tuple[bool, str | None]:
     except ImportError:
         pass
 
-    try:
-        import pyttsx3
-        return True, "pyttsx3 (local)"
-    except ImportError:
-        pass
+    if os.environ.get("OPENAI_API_KEY"):
+        return True, "OpenAI TTS (cloud)"
 
-    return False, "No TTS backend installed. Try 'pip install azure-cognitiveservices-speech', 'pip install nvidia-riva-client', 'pip install gTTS', or 'pip install pyttsx3'."
+    if _azure_tts_available():
+        return True, "Azure Speech Services (cloud)"
+
+    if _riva_tts_available():
+        return True, "NVIDIA Riva Magpie-Multilingual (cloud)"
+
+    return False, "No TTS backend installed. Try 'pip install pyttsx3', 'pip install edge-tts', 'pip install gTTS', 'pip install openai', 'pip install azure-cognitiveservices-speech', or 'pip install nvidia-riva-client'."

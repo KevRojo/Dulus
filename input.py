@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 try:
-    from prompt_toolkit import PromptSession
+    from prompt_toolkit import PromptSession, Application
     from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
     from prompt_toolkit.completion import (
         Completer, Completion, FuzzyCompleter, WordCompleter, merge_completers,
@@ -49,6 +49,8 @@ except ImportError:
 _commands_provider: Optional[Callable[[], dict]] = None
 _meta_provider: Optional[Callable[[], dict]] = None
 _toolbar_provider: Optional[Callable[[], str]] = None
+_toolbar_status: str = ""  # Background status (e.g. wake energy bar)
+_active_app: Optional["Application"] = None  # Track currently running prompt-toolkit app
 
 
 _TOOLBAR_SENTINEL = object()
@@ -337,13 +339,22 @@ def _build_session(history_path: Optional[Path]):
 
     def _bottom_toolbar():
         provider = _toolbar_provider
-        if provider is None:
-            return ""
-        try:
-            text = provider()
-            return ANSI(text) if text else ""
-        except Exception:
-            return ""
+        text = ""
+        if provider is not None:
+            try:
+                text = provider()
+            except Exception:
+                pass
+        
+        # Inject status (e.g. energy bar) after the main toolbar text
+        status = _toolbar_status
+        if status:
+            if text:
+                text += " | " + status
+            else:
+                text = status
+        
+        return ANSI(text) if text else ""
 
     return PromptSession(
         history=history,
@@ -365,7 +376,7 @@ def read_line(prompt_ansi: str, history_path: Optional[Path] = None) -> str:
     two line-editors use incompatible formats. See Dulus REPL for the
     dedicated PT_HISTORY_FILE.
     """
-    global _SESSION, _SESSION_HISTORY_PATH, _notification_callback
+    global _SESSION, _SESSION_HISTORY_PATH, _notification_callback, _active_app
     
     # Drain any pending background notifications before showing prompt
     notifications = drain_notifications()
@@ -395,7 +406,11 @@ def read_line(prompt_ansi: str, history_path: Optional[Path] = None) -> str:
     _sys.stdout.flush()
 
     with patch_stdout(raw=True):
-        result = _SESSION.prompt(ANSI(prompt_ansi))
+        try:
+            _active_app = _SESSION.app
+            result = _SESSION.prompt(ANSI(prompt_ansi))
+        finally:
+            _active_app = None
 
     _sys.stdout.write("\0338\033[J")     # DEC restore cursor (ESC 8) → erase to end
     _sys.stdout.flush()
@@ -566,7 +581,7 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     
     Similar to Kimi Code and Claude Code interfaces.
     """
-    global _split_app, _split_buffer, _output_buffer, _original_stdout, _notification_callback
+    global _split_app, _split_buffer, _output_buffer, _original_stdout, _notification_callback, _active_app
     
     # Drain any pending background notifications before showing prompt
     # Drain notifications but don't display yet - we'll add them after creating the app
@@ -871,7 +886,13 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
         # Refresh to show notifications
         _split_app.invalidate()
     
-    result = _split_app.run()
+    # Track as active
+    _active_app = _split_app
+    try:
+        result = _split_app.run()
+    finally:
+        _active_app = None
+        _split_app = None
     
     # Restore stdout
     sys.stdout = _original_stdout
@@ -987,7 +1008,7 @@ def drain_notifications() -> list[str]:
     return notifications
 
 
-def safe_print_notification(text: str) -> None:
+def safe_print_notification(text: str, end: str = "\n", flush: bool = False) -> None:
     """Print a notification in a prompt_toolkit-safe way.
     
     If split layout is active, uses append_output.
@@ -995,8 +1016,9 @@ def safe_print_notification(text: str) -> None:
     """
     global _split_app, _original_stdout
     
-    # Strip dangling newlines to keep layout tight
-    text = text.strip('\r\n')
+    # We only strip if not using specific 'end' (to maintain tail control)
+    if end == "\n":
+        text = text.strip('\r\n')
     
     if _split_app and getattr(_split_app, "is_running", False):
         from prompt_toolkit.application.run_in_terminal import run_in_terminal
@@ -1004,12 +1026,14 @@ def safe_print_notification(text: str) -> None:
         
         def _target():
             if _original_stdout:
-                _original_stdout.write(text + "\n")
-                _original_stdout.flush()
+                _original_stdout.write(text + end)
+                if flush:
+                    _original_stdout.flush()
             else:
                 import sys
-                sys.stdout.write(text + "\n")
-                sys.stdout.flush()
+                sys.stdout.write(text + end)
+                if flush:
+                    sys.stdout.flush()
                 
         def _schedule():
             try:
@@ -1028,3 +1052,33 @@ def safe_print_notification(text: str) -> None:
     else:
         # Fallback to regular print
         print(text)
+
+
+def set_toolbar_status(text: str) -> None:
+    """Set a short status string to be shown in the bottom toolbar.
+    
+    Thread-safe. Automatically invalidates the display if split layout is active.
+    Pass "" to clear.
+    """
+    global _toolbar_status, _split_app
+    _toolbar_status = text.strip().replace("\n", " ")
+    if _split_app:
+        # Invalidate soon via the UI thread
+        try:
+            _split_app.loop.call_soon_threadsafe(_split_app.invalidate)
+        except Exception:
+            pass
+def request_exit() -> bool:
+    """Signal the active prompt session to exit immediately.
+    
+    Returns True if successfully signaled, False if no prompt is active.
+    Thread-safe.
+    """
+    global _active_app
+    if _active_app and getattr(_active_app, "is_running", False):
+        try:
+            _active_app.loop.call_soon_threadsafe(_active_app.exit)
+            return True
+        except Exception:
+            pass
+    return False

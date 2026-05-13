@@ -90,6 +90,12 @@ Slash commands in REPL:
   /voice            Record voice input, transcribe, and submit
   /voice status     Show available recording and STT backends
   /voice lang <code>  Set STT language (e.g. zh, en, ja — default: auto)
+  /wake on|off      Toggle wake-word (hotword) detection — say "Hey Dulus"
+  /wake status      Show wake-word listener state
+  /wake phrases     List recognised wake phrases
+  /wake calibrate   Measure your mic levels for 5s and suggest a threshold
+  /wake test        Debug mode — shows RMS + STT output for 10 seconds
+  /wake threshold <n>  Tune mic sensitivity (0.001-1.0, default 0.020)
   /proactive [dur]  Background sentinel polling (e.g. /proactive 5m)
   /proactive off    Disable proactive polling
   /cloudsave setup <token>   Configure GitHub token for cloud sync
@@ -193,7 +199,7 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Any, Callable
 
 if sys.platform == "win32":
     os.system("")  # Enable ANSI escape codes on Windows CMD
@@ -736,6 +742,7 @@ def cmd_help(_args: str, _state, config) -> bool:
         ("lite_mode",       False, "/lite",            "Lite mode (smaller system prompt)"),
         ("brave_search_enabled", False, "/brave",      "Brave Search API integration"),
         ("tts_enabled",     False, "/tts",             "Automatic Text-to-Speech"),
+        ("wake_enabled",    False, "/wake",            "Wake-word hotword detection (Hey Dulus)"),
         ("daemon",          False, "/daemon",          "Allow external triggers when no REPL is open"),
         ("afk_mode",        False, "/afk",             "AFK mode (auto-dismiss, auto-approve tools)"),
         ("yolo_mode",       False, "/yolo",            "YOLO mode (auto-approve ALL actions)"),
@@ -6426,6 +6433,230 @@ def cmd_voice(args: str, state, config) -> bool:
     return ("__voice__", text)
 
 
+# Global handle to the running wake-word listener (managed by repl)
+_wake_listener: Any = None
+
+
+def cmd_wake(args: str, state, config) -> bool:
+    """Wake-word (hotword) detection — hands-free voice activation.
+
+    /wake on       — start listening for "Hey Dulus" in background
+    /wake off      — stop the background listener
+    /wake status   — show whether listener is active
+    /wake phrases  — list recognised wake phrases
+    /wake threshold <0.01-0.20> — tune mic sensitivity (default 0.035)
+    """
+    global _wake_listener
+
+    subcmd = args.strip().lower().split()[0] if args.strip() else ""
+    rest = args.strip()[len(subcmd):].strip()
+
+    # ── /wake threshold ──
+    if subcmd == "threshold":
+        if not rest:
+            current = config.get("wake_threshold", 0.020)
+            info(f"Current wake threshold: {current}  (higher = less sensitive)")
+            return True
+        try:
+            val = float(rest)
+            if not 0.001 <= val <= 1.0:
+                raise ValueError
+            config["wake_threshold"] = val
+            ok(f"Wake threshold set to {val}")
+            try:
+                from config import save_config
+                save_config(config)
+            except Exception as e:
+                warn(f"Could not save config: {e}")
+        except ValueError:
+            err("Threshold must be a number between 0.001 and 1.0")
+        return True
+
+    # ── /wake phrases ──
+    if subcmd == "phrases":
+        try:
+            from voice.wake_word import WAKE_PHRASES
+        except ImportError:
+            err("voice/wake_word.py not found")
+            return True
+        print(clr("  Recognised wake phrases:", "cyan", "bold"))
+        for p in WAKE_PHRASES:
+            print(f"    • {p}")
+        return True
+
+    # ── /wake calibrate ──
+    if subcmd == "calibrate":
+        try:
+            from voice import check_voice_deps
+        except ImportError:
+            err("voice package not available")
+            return True
+        available, reason = check_voice_deps()
+        if not available:
+            err(f"Voice deps missing: {reason}")
+            return True
+        print(clr("  🎙  Calibrating mic — speak normally for 5 seconds…", "cyan"))
+        print(clr("  Press Ctrl+C when done.\n", "dim"))
+        try:
+            import sounddevice as sd
+            import numpy as np
+            _chunk = int(16000 * 0.3)
+            _bars = " ▁▂▃▄▅▆▇█"
+            _max_rms = 0.0
+            with sd.InputStream(
+                samplerate=16000, channels=1, dtype="int16",
+                blocksize=_chunk,
+                device=config.get("voice_device_index", config.get("_voice_device_index")),
+            ) as stream:
+                import time as _time
+                _t0 = _time.monotonic()
+                while _time.monotonic() - _t0 < 5.0:
+                    pcm, _ = stream.read(_chunk)
+                    arr = np.frombuffer(pcm.tobytes(), dtype=np.int16).astype(np.float32)
+                    if arr.size:
+                        rms = float(np.sqrt(np.mean(arr ** 2))) / 32768.0
+                        _max_rms = max(_max_rms, rms)
+                        lvl = min(int(rms * 8 / 0.08), 8)
+                        bar = _bars[lvl]
+                        print(f"\r  RMS: {rms:.4f}  {bar}  (max {_max_rms:.4f})", end="", flush=True)
+                    _time.sleep(0.05)
+            print()
+            print(clr(f"\n  Max RMS detected: {_max_rms:.4f}", "cyan", "bold"))
+            rec = _max_rms * 0.7
+            if rec < 0.005:
+                rec = 0.010
+            info(f"  Recommended threshold: ~{rec:.3f}")
+            info(f"  Current threshold:     {config.get('wake_threshold', 0.020)}")
+            info("  Use '/wake threshold <n>' to adjust.")
+        except KeyboardInterrupt:
+            print()
+        except Exception as e:
+            err(f"Calibration failed: {e}")
+        return True
+
+    # ── /wake test ──
+    if subcmd == "test":
+        try:
+            from voice import check_voice_deps
+            from voice.wake_word import WakeWordListener
+        except ImportError as e:
+            err(f"Wake-word module not available: {e}")
+            return True
+        available, reason = check_voice_deps()
+        if not available:
+            err(f"Voice input not available:\n{reason}")
+            return True
+        print(clr("  🎙  Wake-word TEST mode — debug output ON for 10 seconds", "cyan", "bold"))
+        print(clr("  Say 'Hey Dulus' now. Press Ctrl+C to stop early.\n", "dim"))
+        _test_listener = WakeWordListener(
+            rms_threshold=config.get("wake_threshold", 0.020),
+            device_index=config.get("voice_device_index", config.get("_voice_device_index")),
+            language=_voice_language,
+            debug=True,
+        )
+        _found: list[str] = []
+
+        def _test_wake(phrase: str) -> None:
+            print(clr(f"\n  ✅ WAKE DETECTED: '{phrase}'", "green", "bold"))
+
+        def _test_cmd(text: str) -> None:
+            _found.append(text)
+            print(clr(f'\n  🎙️  COMMAND: "{text}"', "green", "bold"))
+
+        _test_listener.start(on_wake=_test_wake, on_command=_test_cmd)
+        try:
+            import time as _time
+            _time.sleep(10)
+        except KeyboardInterrupt:
+            print()
+        finally:
+            _test_listener.stop()
+        if not _found:
+            warn("  No wake word detected in 10s. Try '/wake calibrate' to check your mic levels.")
+        return True
+
+    # ── /wake status ──
+    if subcmd == "status":
+        try:
+            from voice import check_voice_deps
+        except ImportError:
+            err("voice package not available")
+            return True
+        available, reason = check_voice_deps()
+        if not available:
+            err(f"Voice deps missing: {reason}")
+            return True
+        active = _wake_listener is not None and getattr(_wake_listener, "is_running", lambda: False)()
+        state_str = clr("ACTIVE", "green", "bold") if active else clr("OFF", "gray")
+        info(f"Wake-word listener: {state_str}")
+        info(f"Threshold: {config.get('wake_threshold', 0.020)}")
+        if active:
+            info("Say 'Hey Dulus' followed by your command.")
+        else:
+            info("Use '/wake on' to start listening.")
+        return True
+
+    # ── /wake off ──
+    if subcmd in ["off", "false", "disable", "stop"]:
+        config["wake_enabled"] = False
+        try:
+            from config import save_config
+            save_config(config)
+        except Exception:
+            pass
+        if _wake_listener is not None:
+            try:
+                _wake_listener.stop()
+            except Exception as e:
+                warn(f"Error stopping wake listener: {e}")
+            _wake_listener = None
+            ok("Wake-word listener stopped.")
+        else:
+            info("Wake-word listener was not running.")
+        return True
+
+    # ── /wake on ──
+    if subcmd in ["on", "true", "enable", "start"]:
+        if _wake_listener is not None and getattr(_wake_listener, "is_running", lambda: False)():
+            info("Wake-word listener is already active.")
+            return True
+
+        try:
+            from voice import check_voice_deps
+            from voice.wake_word import WakeWordListener
+        except ImportError as e:
+            err(f"Wake-word module not available: {e}")
+            return True
+
+        available, reason = check_voice_deps()
+        if not available:
+            err(f"Voice input not available:\n{reason}")
+            return True
+
+        # The actual on_wake / on_command callbacks are injected by repl()
+        # via the _wake_listener global handle.  Here we just create the
+        # object; repl() wires the queue when it sees the handle change.
+        _wake_listener = WakeWordListener(
+            rms_threshold=config.get("wake_threshold", 0.035),
+            device_index=config.get("voice_device_index", config.get("_voice_device_index")),
+            language=_voice_language,
+        )
+        config["wake_enabled"] = True
+        try:
+            from config import save_config
+            save_config(config)
+        except Exception:
+            pass
+        ok("Wake-word listener starting… Say 'Hey Dulus' to activate.")
+        return True
+
+    # ── Toggle ──
+    if _wake_listener is not None and getattr(_wake_listener, "is_running", lambda: False)():
+        return cmd_wake("off", state, config)
+    else:
+        return cmd_wake("on", state, config)
+
+
 def cmd_image(args: str, state, config) -> Union[bool, tuple]:
     """Grab image from clipboard and send to vision model with optional prompt."""
     import sys as _sys
@@ -7539,6 +7770,7 @@ COMMANDS = {
     "lite":        cmd_lite,
     "cloudsave":   cmd_cloudsave,
     "voice":       cmd_voice,
+    "wake":        cmd_wake,
     "git":         cmd_git,
     "webchat":     cmd_webchat,
     "sandbox":     cmd_sandbox,
@@ -7650,6 +7882,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
     "tts":         ("Toggle automatic TTS + lang/provider/auto", ["lang", "provider", "voice", "auto"]),
     "voice":       ("Voice input (record → STT)",         ["lang", "status", "device"]),
+    "wake":        ("Wake-word hotword detection",        ["on", "off", "status", "phrases", "calibrate", "test", "threshold"]),
     "image":       ("Send clipboard image to model",      []),
     "img":         ("Send clipboard image (alias)",       []),
     "batch":       ("Manage Kimi Batch tasks",            ["status", "list", "fetch"]),
@@ -7780,6 +8013,10 @@ def repl(config: dict, initial_prompt: str = None):
     state = AgentState()
     verbose = config.get("verbose", False)
     config["_tg_send_callback"] = _tg_send
+
+    # ── Wake-word queue ──
+    import queue as _queue
+    _wake_queue: "_queue.Queue[str]" = _queue.Queue()
 
     def _render_toolbar() -> str:
         """Return ANSI toolbar string for prompt_toolkit bottom bar.
@@ -8876,6 +9113,88 @@ def repl(config: dict, initial_prompt: str = None):
                         "Please review the results and report back to the user.")
                 except Exception:
                     pass
+
+        # ── Wake-word listener lifecycle ──
+        global _wake_listener
+        
+        # [Autostart] If enabled in config but listener not created yet
+        if _wake_listener is None and config.get("wake_enabled"):
+            try:
+                from voice.wake_word import WakeWordListener
+                _wake_listener = WakeWordListener(
+                    rms_threshold=config.get("wake_threshold", 0.035),
+                    device_index=config.get("voice_device_index", config.get("_voice_device_index")),
+                    language=_voice_language,
+                )
+                # Pre-load Whisper in background so detection is fast
+                def _preload():
+                    try:
+                        from voice.stt import _get_faster_whisper_model
+                        _get_faster_whisper_model()
+                    except Exception:
+                        pass
+                threading.Thread(target=_preload, daemon=True).start()
+            except ImportError:
+                pass
+
+        if _wake_listener is not None and not _wake_listener.is_running():
+            def _on_wake(phrase: str) -> None:
+                # Use safe_print_notification to avoid ghosting/re-printing in sticky mode
+                import input as _dulus_input
+                _dulus_input.safe_print_notification(clr(f"\x1b[32m ✅ WAKE DETECTED: '{phrase}'\x1b[0m", "bold"))
+                _dulus_input.set_toolbar_status(clr("Waking up...", "cyan"))
+                
+                # Immediate audible feedback — universal beep
+                try:
+                    from voice import beep
+                    beep(880, 150)
+                except Exception:
+                    pass
+                # TTS feedback
+                # NOTE: say() is blocking, which correctly delays the command recording 
+                # in WakeWordListener until after the response is finished.
+                try:
+                    from voice import say
+                    _resp = config.get("wake_response", "¿Dime, papi?")
+                    say(_resp, provider=config.get("tts_provider", "auto"))
+                except Exception:
+                    pass
+
+            def _on_command(text: str) -> None:
+                # Filter common Whisper hallucinations on silence/noise
+                # NOTE: We allow "gracias" as it's a valid thing a user might say.
+                _HALLUC = {
+                    "thank you.", "thank you", "thanks for watching.", 
+                    "thanks for watching!", "thanks.", ".", "you",
+                    "subtitles by the amara.org community",
+                }
+                _norm = text.strip().lower()
+                if not _norm or _norm in _HALLUC:
+                    # Ignore hallucinations silently
+                    import input as _dulus_input
+                    _dulus_input.set_toolbar_status("")
+                    return
+
+                # Always put in queue so the main loop can pick it up
+                _wake_queue.put(text)
+                
+                # Signal the active prompt to exit (unblocks dulus_input.read_line_split)
+                import input as _dulus_input
+                _dulus_input.request_exit()
+                
+                _dulus_input.set_toolbar_status("") # Clear toolbar on success
+                _dulus_input.safe_print_notification(clr(f"\n  🎙️  COMMAND: \"{text}\"", "cyan", "bold"))
+
+            _wake_listener.start(on_wake=_on_wake, on_command=_on_command)
+
+        # ── Check for wake-word command before blocking on keyboard ──
+        user_input = ""
+        _wake_cmd: str | None = None
+        try:
+            _wake_cmd = _wake_queue.get_nowait()
+        except _queue.Empty:
+            _wake_cmd = None
+
         try:
             cwd_short = Path.cwd().name
             # Live context-usage indicator: "[73%]" — green<60, yellow<85, red otherwise.
@@ -8900,7 +9219,12 @@ def repl(config: dict, initial_prompt: str = None):
             prompt = _rl_safe(clr(f"\n[{cwd_short}] ", "dim") + ctx_tag + clr("» ", "cyan", "bold"))
             if in_batch_mode:
                 prompt = _rl_safe(clr(f"  batch[{len(batch_buffer)}] » ", "yellow", "bold"))
-            if config.pop("_auto_voice_next", False) and not in_batch_mode:
+
+            if _wake_cmd is not None:
+                user_input = _wake_cmd
+                import input as _dulus_input
+                _dulus_input.safe_print_notification(clr(f"\n  🦅 [Wake] » {user_input}\n", "green", "bold"))
+            elif config.pop("_auto_voice_next", False) and not in_batch_mode:
                 print(clr("  🎙  [auto-voice] Listening… (Ctrl+C to type instead)", "cyan"))
                 try:
                     from voice import voice_input as _av_voice_input
@@ -8935,6 +9259,13 @@ def repl(config: dict, initial_prompt: str = None):
                 user_input = _read_input(prompt)
         except (EOFError, KeyboardInterrupt):
             print()
+            # ── Stop wake-word listener on exit ──
+            try:
+                if _wake_listener is not None:
+                    _wake_listener.stop()
+                    globals()["_wake_listener"] = None
+            except Exception:
+                pass
             # ── Sleep Trigger: Ask to consolidate before final exit ─────────
             try:
                 # Only ask if there's actually a session worth saving

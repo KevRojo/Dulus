@@ -22,6 +22,13 @@ sounddevice
 #   pip install openai-whisper     # local Whisper, original
 #   # or set OPENAI_API_KEY to use the OpenAI Whisper cloud API
 #
+# TTS backend (choose one — listed in priority order):
+#   pip install edge-tts           # Microsoft Edge voices, fast & free (recommended)
+#   pip install azure-cognitiveservices-speech  # Azure Speech Services
+#   pip install nvidia-riva-client # NVIDIA Riva TTS
+#   pip install gTTS               # Google Text-to-Speech
+#   pip install pyttsx3            # offline system voices
+#
 # numpy is needed by the local Whisper backends and the arecord RMS detector:
 #   pip install numpy
 #
