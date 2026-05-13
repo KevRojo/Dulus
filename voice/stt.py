@@ -31,6 +31,10 @@ from .recorder import SAMPLE_RATE, CHANNELS, BYTES_PER_SAMPLE
 
 _faster_whisper_model = None
 _openai_whisper_model = None
+# Serializes the model loader so concurrent callers (e.g. the boot-time
+# prewarm thread + the wake-word listener firing on the user's first word)
+# don't both fall into the `is None` branch and load the model twice.
+_whisper_load_lock = __import__("threading").Lock()
 
 
 def prewarm_whisper() -> bool:
@@ -215,7 +219,14 @@ def get_stt_backend_name() -> str:
 
 def _get_faster_whisper_model():
     global _faster_whisper_model
-    if _faster_whisper_model is None:
+    # Double-checked locking: the unsynchronized peek skips the lock once the
+    # model is loaded; concurrent first-callers serialize through the lock
+    # and re-check inside it so only one actually runs the loader.
+    if _faster_whisper_model is not None:
+        return _faster_whisper_model
+    with _whisper_load_lock:
+        if _faster_whisper_model is not None:
+            return _faster_whisper_model
         try:
             import input as _dulus_input
             _dulus_input.safe_print_notification("\n  ⏳ Loading Whisper model (" + DEFAULT_MODEL_SIZE + ")...")
