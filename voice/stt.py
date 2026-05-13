@@ -213,14 +213,10 @@ def _get_faster_whisper_model():
             device=device,
             compute_type=compute,
         )
-        
-        # Warm-up: perform a dummy transcription to initialize CUDA/buffers
-        try:
-            import numpy as np
-            _empty = np.zeros(1600, dtype=np.float32) # 0.1s of silence
-            _faster_whisper_model.transcribe(_empty)
-        except Exception:
-            pass
+        # NOTE: removed the dummy-silence warm-up transcribe() call. On CPU+int8
+        # that pass took several seconds and blocked startup; the first real
+        # transcription absorbs the same cost only once, at the moment the user
+        # actually speaks — not while they're waiting for the prompt.
 
         try:
             import input as _dulus_input
