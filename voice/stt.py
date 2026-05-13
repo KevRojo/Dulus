@@ -395,22 +395,24 @@ def transcribe(
     terms = keyterms or []
     lang = None if language == "auto" else language
 
-    # NVIDIA Riva (whisper-large-v3, cloud) — preferred when configured
-    # Skip Riva for wake-word detection if DULUS_WAKE_FORCE_LOCAL is set
-    # (avoids cloud latency / 502 errors on hotword path)
-    if _riva_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
-        try:
-            return _transcribe_nvidia_riva(pcm_bytes, lang)
-        except Exception as e:
-            # Network blip / quota / auth — fall through to local backends
-            print(f"  [STT] Riva failed, falling back: {e}")
-
-    # faster-whisper (local)
+    # faster-whisper (local) — FIRST. Riva (cloud) was previously the
+    # default whenever NVIDIA_API_KEY existed, which meant every wake-word
+    # audio chunk hit the NVIDIA gRPC endpoint and starved concurrent TLS
+    # calls (e.g. /say cold-starts to elevenlabs.io). Local Whisper is
+    # ~instant after warm-up and zero-network.
     try:
         import faster_whisper  # noqa: F401
         return _transcribe_faster_whisper(pcm_bytes, terms, lang)
     except ImportError:
         pass
+
+    # NVIDIA Riva (whisper-large-v3, cloud) — opt-in fallback when no local
+    # Whisper is installed. Skip if DULUS_WAKE_FORCE_LOCAL is set.
+    if _riva_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
+        try:
+            return _transcribe_nvidia_riva(pcm_bytes, lang)
+        except Exception as e:
+            print(f"  [STT] Riva failed, falling back: {e}")
 
     # openai-whisper (local, fallback)
     try:
