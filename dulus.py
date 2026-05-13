@@ -6445,7 +6445,7 @@ def cmd_tts(args: str, state, config) -> bool:
 
     if parts and parts[0].lower() == "provider":
         name = parts[1].strip().lower() if len(parts) > 1 else ""
-        valid = ("auto", "azure", "riva", "openai", "gtts", "pyttsx3")
+        valid = ("auto", "azure", "riva", "openai", "gtts", "pyttsx3", "edge", "elevenlabs")
         if not name:
             current = config.get("tts_provider", "auto")
             info(f"TTS provider: {current}")
