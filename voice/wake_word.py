@@ -32,14 +32,16 @@ Usage
 from __future__ import annotations
 
 import os
+import queue
 import sys
 import threading
 import time
+from collections import deque
 from typing import Callable
 
 from .audio_utils import beep
 
-from .recorder import SAMPLE_RATE, CHANNELS, DTYPE, record_until_silence
+from .recorder import SAMPLE_RATE, CHANNELS, DTYPE, CHUNK_SECS, SILENCE_THRESHOLD_RMS
 from .stt import transcribe
 
 # ── Config ────────────────────────────────────────────────────────────────
@@ -49,30 +51,31 @@ WAKE_PHRASES: list[str] = [
     "hey dulus", "okey dulus", "ok dulus", "dale dulus",
     "oye dulus", "escucha dulus", "dulus",
     "dolus", "daulus", "doiulus",
+    "adulus", "aduluz",
     # --- Variantes con "duluz" (Z) ---
     "hey duluz", "okey duluz", "ok duluz", "dale duluz",
     "oye duluz", "escucha duluz", "duluz",
     "dolus", "dauluz", "doiuluz",
+    "aduluz", "adulus",
     # --- Variantes con signos de exclamación (como transcribe Whisper) ---
-    "¡oye! ¡dulus!", "¡oye! ¡duluz!",
-    "¡okey dulus!", "¡okey duluz!",
-    "¡ok dulus!", "¡ok duluz!",
-    "¡dale dulus!", "¡dale duluz!",
-    "¡hey dulus!", "¡hey duluz!",
+    "oye dulus", "oye duluz",
+    "DOLOS.","DOLOS",
+    "okey dulus", "okey duluz",
+    "ok dulus", "ok duluz",
+    "dale dulus", "dale duluz",
+    "hey dulus", "hey duluz",
     # --- Variantes cortas / slang ---
     "dulus", "duluz", "dolus", "dulús", "dulúz",
     "oye", "okey", "ok", "dale", "escucha",
 ]
 
-# VAD: chunk size and energy threshold.
-# 0.3 s chunks give fast reaction; threshold tuned for close/loud speech.
+# VAD: energy threshold.
 # DEFAULT lowered to 0.020 — works with most laptop / headset mics.
 # If you get false wakes from background noise, raise it via /wake threshold.
-_VAD_CHUNK_SECS = 0.30
 _VAD_RMS_THRESHOLD = 0.020  # ~quiet room ≈ 0.005; normal speech close ≈ 0.05+
 
 # After VAD fires, collect this many seconds of audio for the wake-word STT.
-_WAKE_RECORD_SECS = 2.5
+_WAKE_RECORD_SECS = 4.5
 
 # Cool-down between wake-word checks so we don't spam STT.
 _COOLDOWN_SECS = 1.5
@@ -193,10 +196,11 @@ class WakeWordListener:
         on_wake: Callable[[str], None] | None,
         on_command: Callable[[str], None] | None,
     ) -> None:
-        """Poll mic energy → trigger STT on loud speech → check wake phrase
-        → if wake detected, record the real command and fire on_command.
+        """One continuous InputStream with ring-buffer pre-roll.
 
-        Keeps one InputStream open the whole time for instant reaction.
+        No separate record_until_silence() calls — threshold detection,
+        wake-word capture, and command capture all use the same stream.
+        Zero audio gaps, and we never miss the start of the utterance.
         """
         try:
             import sounddevice as sd
@@ -204,153 +208,184 @@ class WakeWordListener:
         except Exception:
             return
 
-        chunk_samples = int(SAMPLE_RATE * _VAD_CHUNK_SECS)
+        chunk_samples = int(SAMPLE_RATE * CHUNK_SECS)
+
+        # Thread-safe shared state
+        lock = threading.Lock()
+        state = ["idle"]          # idle | wake_record | processing | command_record | cooldown
+        ring_buffer: deque[bytes] = deque(maxlen=int(2.0 / CHUNK_SECS))
+        _cb_accum: list[bytes] = []
+        _silence_count = [0]
+
+        result_q: queue.Queue[tuple[str, bytes]] = queue.Queue()
+
+        def _cmd_energy_bar(rms: float) -> None:
+            try:
+                import input as _dulus_input
+                _bar = " ▁▂▃▄▅▆▇█"
+                _lvl = min(int(rms * 8 / 0.08), 8)
+                _txt = f"\x1b[36mListening...\x1b[0m  🎙️  {_bar[_lvl]}"
+                _dulus_input.set_toolbar_status(_txt)
+                if not getattr(_dulus_input, "_split_app", None):
+                    _dulus_input.safe_print_notification(f"\r  {_txt}  ", end="", flush=True)
+            except Exception:
+                pass
+
+        def callback(indata: "np.ndarray", frames: int, time_info, status) -> None:
+            pcm_bytes = indata[:, 0].copy().tobytes()
+            rms = _rms_of_chunk(pcm_bytes)
+            show_energy = False
+
+            with lock:
+                st = state[0]
+
+                if st == "idle":
+                    ring_buffer.append(pcm_bytes)
+                    if rms >= self.rms_threshold:
+                        state[0] = "wake_record"
+                        _cb_accum.clear()
+                        _cb_accum.extend(list(ring_buffer))
+                        _cb_accum.append(pcm_bytes)
+                        _silence_count[0] = 0
+                        if self.debug:
+                            print(f"\n  [wake debug] 🔊 TRIGGERED (RMS {rms:.4f} >= {self.rms_threshold})")
+
+                elif st == "wake_record":
+                    _cb_accum.append(pcm_bytes)
+                    if rms < SILENCE_THRESHOLD_RMS:
+                        _silence_count[0] += 1
+                    else:
+                        _silence_count[0] = 0
+                    has_speech = len(_cb_accum) >= 3
+                    silence_limit = int(2.0 / CHUNK_SECS)
+                    max_limit = int(self.record_secs / CHUNK_SECS)
+                    if (has_speech and _silence_count[0] >= silence_limit) or len(_cb_accum) >= max_limit:
+                        state[0] = "processing"
+                        result_q.put(("wake", b"".join(_cb_accum)))
+                        if self.debug:
+                            print("  [wake debug] Wake audio ready, sending to STT…")
+
+                elif st == "command_record":
+                    show_energy = True
+                    _cb_accum.append(pcm_bytes)
+                    if rms < SILENCE_THRESHOLD_RMS:
+                        _silence_count[0] += 1
+                    else:
+                        _silence_count[0] = 0
+                    has_speech = len(_cb_accum) >= 3
+                    silence_limit = int(2.5 / CHUNK_SECS)
+                    max_limit = int(_COMMAND_MAX_SECS / CHUNK_SECS)
+                    if (has_speech and _silence_count[0] >= silence_limit) or len(_cb_accum) >= max_limit:
+                        state[0] = "processing"
+                        result_q.put(("command", b"".join(_cb_accum)))
+
+                # "processing" / "cooldown" → drain, do nothing
+
+            if show_energy:
+                _cmd_energy_bar(rms)
+
+        stream_kwargs = dict(
+            samplerate=SAMPLE_RATE,
+            channels=CHANNELS,
+            dtype=DTYPE,
+            blocksize=chunk_samples,
+            callback=callback,
+        )
+        if self.device_index is not None:
+            stream_kwargs["device"] = self.device_index
 
         try:
-            with sd.InputStream(
-                samplerate=SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype=DTYPE,
-                blocksize=chunk_samples,
-                device=self.device_index,
-            ) as stream:
+            with sd.InputStream(**stream_kwargs):
                 while not self._stop_evt.is_set():
-                    # ── 1. Quick energy poll ─────────────────────────────
-                    triggered = False
-                    for _ in range(3):  # up to 3 chunks (~0.9 s)
-                        if self._stop_evt.is_set():
-                            return
-                        pcm, overflowed = stream.read(chunk_samples)
-                        if overflowed:
-                            pass
-                        pcm_bytes = pcm.tobytes()
-                        rms = _rms_of_chunk(pcm_bytes)
-                        if self.debug:
-                            _bar = " ▁▂▃▄▅▆▇█"
-                            _lvl = min(int(rms * 8 / 0.08), 8)
-                            print(f"\r  [wake debug] RMS: {rms:.4f} {_bar[_lvl]}  thresh={self.rms_threshold}", end="", flush=True)
-                        if rms >= self.rms_threshold:
-                            triggered = True
-                            if self.debug:
-                                print(f"\n  [wake debug] 🔊 TRIGGERED (RMS {rms:.4f} >= {self.rms_threshold})")
-                            break
-                        time.sleep(0.05)
-
-                    if not triggered:
-                        continue
-
-                    # ── 2. Capture audio for wake-word STT ───────────────
-                    if self.debug:
-                        print("  [wake debug] Recording wake-word audio…")
                     try:
-                        pcm = record_until_silence(
-                            max_seconds=int(self.record_secs) + 1,
-                            device_index=self.device_index,
-                        )
-                    except Exception as e:
-                        if self.debug:
-                            print(f"  [wake debug] Record failed: {e}")
+                        msg_type, pcm = result_q.get(timeout=0.1)
+                    except queue.Empty:
                         continue
 
-                    if not pcm or self._stop_evt.is_set():
-                        if self.debug:
-                            print("  [wake debug] No PCM or stopped")
-                        continue
-
-                    # ── 3. STT wake-word check ───────────────────────────
-                    if self.debug:
-                        print("  [wake debug] Running STT on wake audio…")
-                    try:
-                        text = transcribe(pcm, language=self._wake_lang)
-                    except Exception as e:
-                        if self.debug:
-                            print(f"  [wake debug] STT failed: {e}")
-                        continue
-
-                    if self.debug:
-                        print(f'  [wake debug] STT result: "{text}"')
-
-                    matched = _contains_wake(text, self.wake_phrases)
-                    if not matched:
-                        if self.debug:
-                            print(f"  [wake debug] No wake phrase found in: '{text}'")
-                        continue
-
-                    if self.debug:
-                        print(f"  [wake debug] ✅ Wake phrase matched: '{matched}'")
-
-                    if on_wake:
-                        try:
-                            on_wake(matched)
-                        except Exception:
-                            pass
-
-                    # ── 4. Listen for the real command ───────────────────
-                    # The on_wake() callback (in dulus.py) calls say() which 
-                    # is blocking. This ensures we don't start recording the
-                    # command until Dulus finished speaking.
-                    
-                    # We add a tiny extra buffer just to be sure we don't
-                    # catch any echo/tail.
-                    self._stop_evt.wait(0.3)
                     if self._stop_evt.is_set():
                         return
 
-                    # Audio feedback signaling the start of command recording
-                    beep(1100, 150)
+                    if msg_type == "wake":
+                        if self.debug:
+                            print("  [wake debug] Running STT on wake audio…")
+                        try:
+                            text = transcribe(pcm, language=self._wake_lang)
+                        except Exception as e:
+                            if self.debug:
+                                print(f"  [wake debug] STT failed: {e}")
+                            with lock:
+                                state[0] = "idle"
+                                _cb_accum.clear()
+                                ring_buffer.clear()
+                            continue
 
-                    def _cmd_energy_bar(rms: float) -> None:
-                        # Show a small energy bar in the toolbar status safely
+                        if self.debug:
+                            print(f'  [wake debug] STT result: "{text}"')
+
+                        matched = _contains_wake(text, self.wake_phrases)
+                        if not matched:
+                            if self.debug:
+                                print(f"  [wake debug] No wake phrase found in: '{text}'")
+                            with lock:
+                                state[0] = "idle"
+                                _cb_accum.clear()
+                                ring_buffer.clear()
+                            continue
+
+                        if self.debug:
+                            print(f"  [wake debug] ✅ Wake phrase matched: '{matched}'")
+
+                        if on_wake:
+                            try:
+                                on_wake(matched)
+                            except Exception:
+                                pass
+
+                        if self._stop_evt.is_set():
+                            return
+
+                        self._stop_evt.wait(0.3)
+                        if self._stop_evt.is_set():
+                            return
+
+                        beep(1100, 150)
+
+                        with lock:
+                            state[0] = "command_record"
+                            _cb_accum.clear()
+                            _silence_count[0] = 0
+
+                    elif msg_type == "command":
+                        beep(800, 100)
                         try:
                             import input as _dulus_input
-                            _bar = " ▁▂▃▄▅▆▇█"
-                            _lvl = min(int(rms * 8 / 0.08), 8)
-                            # Cyan "Listening..." + Mic icon + Energy bar
-                            _txt = f"\x1b[36mListening...\x1b[0m  🎙️  {_bar[_lvl]}"
-                            # Try both toolbar and terminal fallback
-                            _dulus_input.set_toolbar_status(_txt)
-                            # Only print to terminal if we don't have a split app toolbar
-                            if not getattr(_dulus_input, "_split_app", None):
-                                _dulus_input.safe_print_notification(f"\r  {_txt}  ", end="", flush=True)
+                            _dulus_input.set_toolbar_status("")
+                            _dulus_input.safe_print_notification("\r                                \r", end="", flush=True)
                         except Exception:
                             pass
 
-                    try:
-                        # Use a longer silence timeout (2.5s) for wake commands 
-                        # to give the user time to think/start.
-                        command_pcm = record_until_silence(
-                            max_seconds=_COMMAND_MAX_SECS,
-                            on_energy=_cmd_energy_bar,
-                            device_index=self.device_index,
-                            silence_secs=2.5,
-                        )
-                        # Signal the end of recording
-                        beep(800, 100) # Lower pitch to indicate "received/done"
-                        # Clear the status/line
-                        import input as _dulus_input
-                        _dulus_input.set_toolbar_status("")
-                        _dulus_input.safe_print_notification("\r                                \r", end="", flush=True)
-                    except Exception:
-                        continue
-
-                    if not command_pcm or self._stop_evt.is_set():
-                        continue
-
-                    try:
-                        command_text = transcribe(command_pcm, language=self.language)
-                    except Exception:
-                        continue
-
-                    if on_command and command_text.strip():
                         try:
-                            on_command(command_text.strip())
+                            command_text = transcribe(pcm, language=self.language)
                         except Exception:
-                            pass
+                            with lock:
+                                state[0] = "idle"
+                                _cb_accum.clear()
+                                ring_buffer.clear()
+                            continue
 
-                    # Cool-down so one utterance doesn't wake twice
-                    self._stop_evt.wait(_COOLDOWN_SECS)
+                        if on_command and command_text.strip():
+                            try:
+                                on_command(command_text.strip())
+                            except Exception:
+                                pass
+
+                        self._stop_evt.wait(_COOLDOWN_SECS)
+
+                        with lock:
+                            state[0] = "idle"
+                            _cb_accum.clear()
+                            ring_buffer.clear()
         except Exception:
-            # Stream creation failed — mic not available or bad device_index
             return
 
 
