@@ -6623,7 +6623,11 @@ def cmd_voice(args: str, state, config) -> bool:
         else:
             info("  Microphone:    system default")
         info(f"  Language: {_voice_language}")
-        info("  Env override: DULUS_WHISPER_MODEL (default: base)")
+        try:
+            from voice.stt import DEFAULT_MODEL_SIZE as _wm
+            info(f"  Whisper model: {_wm}  (override with DULUS_WHISPER_MODEL env var)")
+        except Exception:
+            pass
         return True
 
     # ── /voice [start] — record once and submit ──
@@ -10344,20 +10348,16 @@ def main():
     # Whisper + warming the ElevenLabs SDK takes ~30s combined the first time
     # — do it in a daemon thread at boot so the REPL is interactive while
     # the heavy lifting happens off the main thread.
-    if config.get("wake_enabled"):
-        import threading as _t
-        def _prewarm_voice_stack():
-            try:
-                from voice.stt import prewarm_whisper
-                prewarm_whisper()
-            except Exception:
-                pass
-            try:
-                from voice.tts import prewarm_elevenlabs
-                prewarm_elevenlabs()
-            except Exception:
-                pass
-        _t.Thread(target=_prewarm_voice_stack, daemon=True, name="dulus-prewarm").start()
+    # Prewarm temporarily disabled — investigating first-call delay.
+    # if config.get("wake_enabled"):
+    #     import threading as _t
+    #     def _prewarm_voice_stack():
+    #         try:
+    #             from voice.stt import prewarm_whisper
+    #             prewarm_whisper()
+    #         except Exception:
+    #             pass
+    #     _t.Thread(target=_prewarm_voice_stack, daemon=True, name="dulus-prewarm").start()
 
     # ── License Gate ─────────────────────────────────────────────────────────
     from license_manager import LicenseManager, LicenseTier
