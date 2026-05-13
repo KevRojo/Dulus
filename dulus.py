@@ -10348,16 +10348,26 @@ def main():
     # Whisper + warming the ElevenLabs SDK takes ~30s combined the first time
     # — do it in a daemon thread at boot so the REPL is interactive while
     # the heavy lifting happens off the main thread.
-    # Prewarm temporarily disabled — investigating first-call delay.
-    # if config.get("wake_enabled"):
-    #     import threading as _t
-    #     def _prewarm_voice_stack():
-    #         try:
-    #             from voice.stt import prewarm_whisper
-    #             prewarm_whisper()
-    #         except Exception:
-    #             pass
-    #     _t.Thread(target=_prewarm_voice_stack, daemon=True, name="dulus-prewarm").start()
+    # Background prewarm — eager imports for slow modules so the first user
+    # interaction doesn't eat the cost. Confirmed culprit (2026-05-13):
+    # `from elevenlabs.client import ElevenLabs` takes ~39s inside Dulus
+    # because pydantic v2's model_rebuild() scans the already-loaded sys.modules
+    # (anthropic, openai, mempalace, sounddevice, ...). Same import standalone
+    # is ~0.3s. Loading it in a daemon thread at boot caches it in sys.modules
+    # so the first /say drops from 40s → 1.6s.
+    if config.get("wake_enabled") or config.get("tts_enabled") or config.get("tts_provider", "auto") == "elevenlabs":
+        import threading as _t
+        def _prewarm_voice_stack():
+            try:
+                from elevenlabs.client import ElevenLabs  # noqa: F401
+            except Exception:
+                pass
+            try:
+                from voice.stt import prewarm_whisper
+                prewarm_whisper()
+            except Exception:
+                pass
+        _t.Thread(target=_prewarm_voice_stack, daemon=True, name="dulus-prewarm").start()
 
     # ── License Gate ─────────────────────────────────────────────────────────
     from license_manager import LicenseManager, LicenseTier
