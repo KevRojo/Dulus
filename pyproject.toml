@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "0.2.59"
+version = "0.2.60"
 description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -118,6 +118,7 @@ include = [
     "task*",
     "ui*",
     "voice*",
+    "webbridge*",
 ]
 exclude = [
     "tests*",
