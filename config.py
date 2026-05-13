@@ -49,7 +49,7 @@ DEFAULTS = {
     "azure_speech_region":  "",
     "azure_tts_voice":      "",       # e.g. es-ES-AlvaroNeural, es-MX-JorgeNeural
     "elevenlabs_api_key":   "",
-    "elevenlabs_voice_id":  "qEWvRpD5bptlI1hEomR7",   # default: KevRojo's clone
+    "elevenlabs_voice_id":  "E2bxH0dcsTq9YvzBsHnt",   # default: KevRojo's clone
     "elevenlabs_model_id":  "eleven_multilingual_v2",
     # WebFetch/WebSearch settings
     "webfetch_compress": False,   # Enable Ollama compression for WebFetch
