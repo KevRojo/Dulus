@@ -22,7 +22,7 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
   <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
-  <img src="https://img.shields.io/badge/version-v0.2.52-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
+  <img src="https://img.shields.io/badge/version-v0.2.60-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
   <img src="https://img.shields.io/badge/providers-11-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-27-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
@@ -78,17 +78,7 @@ Dulus adapt any python repository <3
 
 Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
 
-> **v0.2.52 — May 12, 2026** — Session system overhaul: removed 50-session scan limit, metadata now includes message counts, eliminated daily prune from save path. **Recommendation:** wipe old sessions and start clean — only sessions, your memories stay intact.
-> **v0.2.22 — May 9, 2026** — `/bg start` spawns one detached Dulus daemon that serves CLI (IPC), Web (browser at `127.0.0.1:5000`), and Telegram simultaneously — all sharing the same session. WebChat now defaults to **loopback-only** (opt-in to LAN exposure with `/webchat lan on`).
-> **v0.2.21 — May 9, 2026** — Console-freeze fix: system prompt now tells the model SleepTimer is for user reminders only — pauses inside command pipelines must use `sleep N` inside the Bash command itself.
-> **v0.2.20 — May 9, 2026** — Windows IPC port-collision fix: switched to `SO_EXCLUSIVEADDRUSE` so a second Dulus instance correctly cedes the port and acts as client. End-to-end tested.
-> **v0.2.19 — May 9, 2026** — Shared sessions via tiny TCP socket on `127.0.0.1:5151`. `dulus "do X"` from any shell forwards into the running REPL/daemon — same history, memory, plugins. 80 lines of plain socket code instead of a daemon manager + IPC framework.
-> **v0.2.18 — May 9, 2026** — `beautifulsoup4` added as default dep for web scraping flows.
-> **v0.2.17 — May 9, 2026** — Mega-release: Composio plugin bundled (1000+ apps, no MCP), `/skill list` interactive picker (awesome / composio / local), awesome skills live from GitHub (no Claude Code needed), lite mode finally functional, system prompt rewritten in English, `VERSION` auto-syncs from pyproject.
-> **v0.2.16 — May 9, 2026** — MemPalace per-session dedup. No more re-injecting the same memory every turn — content-hash cache saves ~8K tokens in a 20-turn conversation. `/mem_palace reset` clears it on demand.
-> **v0.2.15 — May 9, 2026** — Banner image hosted locally so PyPI renders it correctly.
-> **v0.2.14 — May 9, 2026** — Multi-user Telegram bridge: `telegram_chat_ids: "123,456,,"` supported. Replies route to the user who sent each message.
-> **v0.2.13 — May 8, 2026** — Internal robustness fixes for Ollama streaming.
+> **v0.2.60 — May 13, 2026** — **WebBridge**: browser automation with Playwright. Navigate, click, type, evaluate JS, take screenshots — all from the CLI. `pip install dulus[webbridge]` to enable.
 > Type `/news` to see the full changelog.
 
 ---
