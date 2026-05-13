@@ -198,9 +198,13 @@ def _fetch_awesome_remote(with_descriptions: bool = False) -> list[dict]:
         if not path.endswith("/SKILL.md"):
             continue
         parts = path.split("/")
-        if any(p.startswith(".") for p in parts):
+        # Skip actual hidden scaffolding (.git, .github, .gitignore) but keep .gemini/skills/
+        if any(p in (".git", ".github", ".gitignore", ".gitattributes") for p in parts):
             continue
         if _AWESOME_EXCLUDE_REMOTE.intersection(parts):
+            continue
+        # Skip non-skill scaffold folders that happen to contain SKILL.md
+        if any(p.upper() in ("README", "TEMPLATE") for p in parts):
             continue
         skill_paths.append(path)
 
@@ -285,6 +289,90 @@ def list_awesome_remote(query: Optional[str] = None, force_refresh: bool = False
             if q in s.get("id", "").lower() or q in s.get("description", "").lower()
         ]
     return skills
+
+
+def get_awesome_remote(slug: str) -> Optional[dict]:
+    """Find an awesome-remote skill by its id (awesome/<dir>/<skill>) or skill name."""
+    for s in list_awesome_remote():
+        if s.get("id") == slug or s.get("skill") == slug:
+            return s
+    return None
+
+
+def install_awesome_remote(slug: str) -> tuple[bool, str]:
+    """Download a skill from the awesome GitHub repo and install into ~/.dulus/skills/."""
+    import shutil
+    import urllib.request
+
+    entry = get_awesome_remote(slug)
+    if entry:
+        rel_dir = entry.get("_remote_dir", "")
+        skill_name = entry["skill"]
+    else:
+        # Derive from slug: awesome/<dir>/<skill>  or  <dir>/<skill>
+        parts = slug.replace("awesome/", "").strip("/").split("/")
+        if len(parts) < 1:
+            return False, f"Invalid awesome slug: '{slug}'. Expected awesome/<category>/<skill> or <category>/<skill>."
+        skill_name = parts[-1]
+        rel_dir = "/".join(parts)
+
+    dest_dir = DULUS_SKILLS_DIR / skill_name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # Try to discover sibling files via GitHub tree API for this directory.
+    tree_url = (
+        f"https://api.github.com/repos/{_AWESOME_REPO}/git/trees/"
+        f"{_AWESOME_BRANCH}?recursive=1"
+    )
+    sibling_paths: list[str] = []
+    try:
+        with urllib.request.urlopen(tree_url, timeout=15) as resp:
+            tree = json.loads(resp.read())
+        prefix = rel_dir.rstrip("/") + "/"
+        for item in tree.get("tree", []):
+            p = item.get("path", "")
+            if p.startswith(prefix) and item.get("type") == "blob":
+                sibling_paths.append(p)
+    except Exception:
+        sibling_paths = []
+
+    # If tree API failed or returned nothing, fall back to just SKILL.md
+    if not sibling_paths:
+        sibling_paths = [f"{rel_dir}/SKILL.md"]
+
+    raw_base = f"https://raw.githubusercontent.com/{_AWESOME_REPO}/{_AWESOME_BRANCH}"
+    downloaded = []
+    for p in sibling_paths:
+        url = f"{raw_base}/{p}"
+        rel = p[len(prefix):] if p.startswith(prefix) else p.split("/")[-1]
+        dst = dest_dir / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with urllib.request.urlopen(url, timeout=15) as r:
+                data = r.read()
+            dst.write_bytes(data)
+            downloaded.append(rel)
+        except Exception:
+            pass  # skip files we can't fetch
+
+    skill_md = dest_dir / "SKILL.md"
+    if not skill_md.exists():
+        return False, f"Could not download SKILL.md for '{skill_name}' from awesome repo."
+
+    # Rewrite SKILL.md frontmatter for Dulus
+    raw = skill_md.read_text(encoding="utf-8")
+    body = _strip_frontmatter(raw)
+    frontmatter = (
+        f"---\n"
+        f"name: {skill_name}\n"
+        f"description: {(entry or {}).get('description', '')}\n"
+        f"source: awesome-remote\n"
+        f"triggers: [/{skill_name}]\n"
+        f"---\n\n"
+    )
+    skill_md.write_text(frontmatter + body, encoding="utf-8")
+
+    return True, f"Installed '{skill_name}' → {dest_dir}  ({len(downloaded)} files: {', '.join(downloaded[:5])}{'...' if len(downloaded)>5 else ''})"
 
 
 # ── COMPOSIO (live API listing of toolkits) ───────────────────────────────
