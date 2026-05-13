@@ -542,7 +542,7 @@ def _clean_for_tts(text: str) -> str:
 # ── ElevenLabs ────────────────────────────────────────────────────────────
 # Default voice (KevRojo's cloned voice). Override via config.elevenlabs_voice_id
 # or the ELEVENLABS_VOICE_ID env var, or pass voice= explicitly to say().
-_ELEVENLABS_DEFAULT_VOICE = "kVv0pQADO7gCW0VPlTsR"
+_ELEVENLABS_DEFAULT_VOICE = "CwhRBWXzGAHq8TQ4Fs17"
 _ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2"
 
 
