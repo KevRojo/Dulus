@@ -721,40 +721,214 @@ def _proactive_watcher_loop(config):
         except Exception as e:
             print(f"\n[proactive watcher error]: {e}", flush=True)
 
-def cmd_help(_args: str, _state, config) -> bool:
-    print(__doc__)
+# Categorized command catalog for /help. Order = page order.
+# Each entry: (page_title, [(command, one_line_description), ...])
+_HELP_PAGES = [
+    ("Core", [
+        ("/help",        "Show this help (paginated)"),
+        ("/clear",       "Clear conversation"),
+        ("/model [m]",   "Show or set the active model"),
+        ("/config",      "Show config / set key=value"),
+        ("/cwd [path]",  "Show or change working directory"),
+        ("/copy [file]", "Copy last response (or file) to clipboard"),
+        ("/shell [cmd|on|off]", "Shell mode toggle or one-shot command"),
+        ("/exit /quit",  "Exit Dulus"),
+    ]),
+    ("Session", [
+        ("/save [name]",  "Save session to file (any name)"),
+        ("/load",         "Load session — paginated by day (*D*S syntax)"),
+        ("/history",      "Print conversation history"),
+        ("/context",      "Show context window usage"),
+        ("/cost",         "Show API cost this session"),
+        ("/fork",         "Fork session at a given turn"),
+        ("/undo",         "Undo last turn"),
+        ("/import <file>","Import conversation from file/session"),
+        ("/add-dir [path]","Manage additional workspace directories"),
+        ("/batch",        "Manage Kimi Batch tasks"),
+        ("/roundtable",   "Multi-model roundtable discussion"),
+    ]),
+    ("Memory & Soul", [
+        ("/memory [query]",      "Search persistent memories"),
+        ("/memory list",         "List all stored memories"),
+        ("/memory load <n|name>","Inject memory into context"),
+        ("/memory delete <name>","Delete a specific memory"),
+        ("/memory purge",        "Wipe memories (keep Soul)"),
+        ("/memory purge-soul",   "Wipe EVERYTHING (danger)"),
+        ("/memory consolidate",  "Extract long-term insights via AI"),
+        ("/soul [name]",         "List souls / switch active soul"),
+    ]),
+    ("Skills · Plugins · Agents · MCP · Tasks", [
+        ("/skills",                 "List active Dulus skills"),
+        ("/skill list",             "Browse installed + available skills"),
+        ("/skill get <slug>",       "Install an Anthropic/ClawHub skill"),
+        ("/skill use <name>",       "Inject skill into next message"),
+        ("/skill remove <name>",    "Uninstall a skill"),
+        ("/plugin",                 "List installed plugins"),
+        ("/plugin install <name@url>","Install a plugin"),
+        ("/plugin uninstall <name>","Uninstall a plugin"),
+        ("/plugin enable|disable <n>","Toggle a plugin"),
+        ("/plugin update <name>",   "Update a plugin"),
+        ("/plugin recommend [ctx]", "Recommend plugins for a context"),
+        ("/agents",                 "Show sub-agent tasks"),
+        ("/mcp",                    "List MCP servers and tools"),
+        ("/mcp reload | add | remove","Manage MCP servers"),
+        ("/tasks",                  "List/create/update tasks"),
+    ]),
+    ("Voice · Wake", [
+        ("/voice",                  "Record voice → transcribe → submit"),
+        ("/voice status",           "Show recording + STT backends"),
+        ("/voice lang <code>",      "Set STT language (zh/en/ja/auto)"),
+        ("/wake on|off",            "Toggle wake-word ('Hey Dulus')"),
+        ("/wake status",            "Show wake-word listener state"),
+        ("/wake phrases",           "List recognised wake phrases"),
+        ("/wake calibrate",         "Measure mic 5s, suggest threshold"),
+        ("/wake test",              "Debug mode (RMS + STT for 10s)"),
+        ("/wake threshold <n>",     "Tune mic sensitivity (0.001–1.0)"),
+    ]),
+    ("Web · Sandbox · Cloud · Harvest", [
+        ("/webchat [port]",         "Spawn web chat UI (Flask)"),
+        ("/webchat stop",           "Kill the webchat server"),
+        ("/sandbox",                "Open Dulus Sandbox OS in browser"),
+        ("/sandbox stop",           "Stop the sandbox server"),
+        ("/cloudsave",              "Upload current session to GitHub Gist"),
+        ("/cloudsave setup <token>","Configure GitHub token"),
+        ("/cloudsave auto on|off",  "Toggle auto-upload on exit"),
+        ("/cloudsave list",         "List your Dulus Gists"),
+        ("/cloudsave load <id>",    "Download + load a session from Gist"),
+        ("/harvest",                "Harvest Claude.ai cookies"),
+        ("/harvest-kimi",           "Harvest Kimi consumer tokens"),
+        ("/harvest-gemini",         "Harvest Gemini consumer tokens"),
+        ("/harvest-qwen",           "Harvest Qwen tokens"),
+        ("/kimi_chats",             "List recent Kimi conversations"),
+    ]),
+    ("Advanced", [
+        ("/thinking [off|min|med|max|raw|0-4]","Set extended-thinking level"),
+        ("/schema [tool]",          "Inspect tool input schema"),
+        ("/deep_override",          "DeepSeek simplified prompt (toggle)"),
+        ("/deep_tools",             "DeepSeek auto JSON tool-wrap (toggle)"),
+        ("/autojob",                "Auto-print job results (toggle)"),
+        ("/auto_show",              "Auto-render visual tools (toggle)"),
+        ("/ultra_search",           "Aggressive multi-query search"),
+        ("/permissions [mode]",     "Set permission mode"),
+        ("/afk",                    "AFK mode (auto-approve tools)"),
+        ("/yolo",                   "YOLO mode (auto-approve ALL)"),
+        ("/proactive [dur|off]",    "Background sentinel polling"),
+        ("/kill_tmux",              "Kill stuck tmux/psmux sessions"),
+        ("/rtk [on|off]",           "Toggle RTK shell-command rewriting"),
+    ]),
+]
 
-    # ── Toggle status ───────────────────────────────────────────────────────
-    # Every boolean toggle command in Dulus. Add new ones to this list so
-    # they show up here automatically.
+
+def _render_toggle_footer(config) -> None:
+    """Print the toggle status block. Called at the bottom of every /help page
+    so the user always sees current state without scrolling.
+    """
     _toggles = [
         ("auto_show",       True,  "/auto_show",       "Visual tools auto-render to console"),
         ("autojob",         False, "/autojob",         "Auto-print full background-job results"),
         ("verbose",         False, "/verbose",         "Verbose output (thinking chunks, debug)"),
         ("sticky_input",    True,  "/sticky_input",    "Anchored input bar (prompt_toolkit)"),
-        ("hide_sender",     True,  "/hide_sender",     "Hide your typed message above the bar in sticky mode (use /history to recall)"),
+        ("hide_sender",     True,  "/hide_sender",     "Hide typed message above the bar"),
         ("mem_palace",      True,  "/mem_palace",      "Per-turn MemPalace memory injection"),
-        ("mem_palace_print",False, "/mem_palace print", "Print MemPalace injections to console (debug)"),
+        ("mem_palace_print",False, "/mem_palace print","Debug-print MemPalace injections"),
         ("schema_autoload", True,  "/schema_autoload", "Inject full tool inventory at startup"),
-        ("ultra_search",    False, "/ultra_search",    "Aggressive multi-query search expansion"),
-        ("proactive",       False, "/proactive",       "Background sentinel polling (uses duration arg)"),
+        ("ultra_search",    False, "/ultra_search",    "Aggressive multi-query search"),
+        ("proactive",       False, "/proactive",       "Background sentinel polling"),
         ("cloudsave_auto",  False, "/cloudsave auto",  "Auto-upload session to Gist on exit"),
         ("lite_mode",       False, "/lite",            "Lite mode (smaller system prompt)"),
         ("brave_search_enabled", False, "/brave",      "Brave Search API integration"),
         ("tts_enabled",     False, "/tts",             "Automatic Text-to-Speech"),
-        ("wake_enabled",    False, "/wake",            "Wake-word hotword detection (Hey Dulus)"),
-        ("daemon",          False, "/daemon",          "Allow external triggers when no REPL is open"),
-        ("afk_mode",        False, "/afk",             "AFK mode (auto-dismiss, auto-approve tools)"),
-        ("yolo_mode",       False, "/yolo",            "YOLO mode (auto-approve ALL actions)"),
-        ("rtk_enabled",     True,  "/rtk",             "RTK token-optimized shell command rewriting"),
+        ("wake_enabled",    False, "/wake",            "Wake-word hotword detection"),
+        ("daemon",          False, "/daemon",          "External triggers without REPL"),
+        ("afk_mode",        False, "/afk",             "AFK mode (auto-approve tools)"),
+        ("yolo_mode",       False, "/yolo",            "YOLO mode (auto-approve ALL)"),
+        ("rtk_enabled",     True,  "/rtk",             "RTK shell command rewriting"),
     ]
-    print(clr("\n  ── Toggles ──", "cyan", "bold"))
+    print(clr("  ── Toggles ──", "cyan", "bold"))
     for key, default, cmd, desc in _toggles:
         val = config.get(key, default)
         state_str = clr("ON ", "green") if val else clr("OFF", "red")
-        print(f"  [{state_str}]  {clr(cmd, 'magenta'):<32} {clr(desc, 'dim')}")
-    info("\nFlip any toggle by typing its slash command.")
-    return True
+        print(f"  [{state_str}]  {clr(cmd, 'magenta'):<28} {clr(desc, 'dim')}")
+
+
+def _render_help_page_telegram(config) -> None:
+    """Telegram-friendly rendering: full categorized dump, no pagination.
+    Telegram users can scroll the message; pagination would need extra UX
+    wiring through the bot. Toggles are appended at the end once.
+    """
+    print("Dulus — Commands\n")
+    for title, items in _HELP_PAGES:
+        print(f"━━ {title} ━━")
+        for cmd, desc in items:
+            print(f"  {cmd:<32} {desc}")
+        print()
+    print("━━ Toggles ━━")
+    _render_toggle_footer(config)
+
+
+def cmd_help(_args: str, _state, config) -> bool:
+    # ── Telegram routing ────────────────────────────────────────────────
+    # When /help arrives via the Telegram bridge, pagination is hostile —
+    # there's no live keyboard. Dump a single categorized message and bail.
+    if config.get("_telegram_incoming"):
+        _render_help_page_telegram(config)
+        return True
+
+    # ── REPL: full-redraw paginated help (Mr. Robot style) ──────────────
+    # Each page = ANSI clear + header + category block + toggle footer.
+    # Nav: [n]ext, [p]rev, [number]=jump, Enter/q to quit. Toggles are
+    # reprinted on every page so current state is always visible.
+    pages = _HELP_PAGES
+    total = len(pages)
+    idx = 0
+    is_tty = sys.stdin.isatty()
+    while True:
+        # Clear screen (ANSI). Falls back to blank lines when stdout isn't
+        # a TTY (e.g. piped to a file).
+        if is_tty:
+            sys.stdout.write("\x1b[2J\x1b[H")
+            sys.stdout.flush()
+        else:
+            print("\n" * 3)
+
+        title, items = pages[idx]
+        print(clr(f"  Dulus — Commands   ({idx+1}/{total})  {title}", "cyan", "bold"))
+        print(clr("  " + "─" * 60, "dim"))
+        for cmd, desc in items:
+            print(f"  {clr(cmd, 'magenta'):<40} {clr(desc, 'dim')}")
+
+        print()
+        _render_toggle_footer(config)
+
+        if not is_tty or total <= 1:
+            # Single-page or non-TTY → render once and stop.
+            return True
+
+        nav = clr(
+            f"\n  [n]ext · [p]rev · 1-{total} jump · Enter/q quit  > ",
+            "yellow",
+        )
+        try:
+            choice = input(nav).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return True
+
+        if not choice or choice in ("q", "quit", "exit"):
+            return True
+        if choice in ("n", "next", " "):
+            idx = (idx + 1) % total
+            continue
+        if choice in ("p", "prev", "b", "back"):
+            idx = (idx - 1) % total
+            continue
+        if choice.isdigit():
+            n = int(choice)
+            if 1 <= n <= total:
+                idx = n - 1
+                continue
+        # Unknown input → just redraw current page.
+        continue
 
 def cmd_model(args: str, _state, config) -> bool:
     from providers import PROVIDERS, detect_provider
@@ -1194,15 +1368,34 @@ def cmd_save(args: str, state, config) -> bool:
     ok(f"Session saved → {path}  (id: {sid})"  )
     return True
 
+# Sessions shorter than this are not auto-persisted on /exit. Users who
+# want a small/exploratory session saved must run `/save` explicitly.
+MIN_AUTO_SAVE_TURNS = 20
+
+
 def save_latest(args: str, state, config=None, mode: str = "full") -> bool:
     """Save session on exit.
 
     mode="full"  → session_latest.json + daily/ copy + append to history.json (REPL default)
     mode="daemon"→ only overwrite SESSIONS_DIR/session_<sid>.json, skip latest/history/daily.
+
+    In ``full`` mode we skip persistence entirely when the session has fewer
+    than ``MIN_AUTO_SAVE_TURNS`` turns — every brief session used to be saved
+    as if it mattered, drowning real sessions in noise. ``/save <name>`` still
+    works for short sessions the user explicitly wants to keep.
     """
     from config import DAILY_DIR, SESSION_HIST_FILE, SESSIONS_DIR
     if not state.messages:
         return True
+
+    if mode == "full":
+        turns = getattr(state, "turn_count", 0) or 0
+        if turns < MIN_AUTO_SAVE_TURNS:
+            info(
+                f"Session not auto-saved ({turns}/{MIN_AUTO_SAVE_TURNS} turns). "
+                f"Run /save to keep it."
+            )
+            return True
 
     cfg = config or {}
     import uuid
@@ -1273,39 +1466,53 @@ def cmd_load(args: str, state, config) -> bool:
 
     path = None
     if not args.strip():
-        # Collect sessions from daily/ folders only (single source of truth for listing)
-        sessions: list[Path] = []
+        # Group sessions by day (newest day first). Each day shows at most
+        # PER_DAY_SHOW sessions (newest first); the rest are kept in `extras`
+        # and surfaced only if the user asks for that day's full list.
+        PER_DAY_SHOW = 7
+        days: list[tuple[str, list[Path], int]] = []  # (date_label, shown, hidden_count)
         if DAILY_DIR.exists():
             for day_dir in sorted(DAILY_DIR.iterdir(), reverse=True):
-                if day_dir.is_dir():
-                    sessions.extend(sorted(day_dir.glob("session_*.json"), reverse=True))
+                if not day_dir.is_dir():
+                    continue
+                all_in_day = sorted(day_dir.glob("session_*.json"), reverse=True)
+                if not all_in_day:
+                    continue
+                shown = all_in_day[:PER_DAY_SHOW]
+                hidden = max(0, len(all_in_day) - PER_DAY_SHOW)
+                days.append((day_dir.name, shown, hidden))
 
-        if not sessions:
+        if not days:
             info("No saved sessions found.")
             return True
 
-        print(clr("  Select a session to load:", "cyan", "bold"))
-        menu_buf = clr('  Select a session to load:', 'cyan', 'bold')
-        prev_date = None
-        for i, s in enumerate(sessions):
-            # Group by date header
-            date_label = s.parent.name if s.parent.name != "mr_sessions" else ""
-            if date_label and date_label != prev_date:
-                print(clr(f"\n  ── {date_label} ──", "dim"))
-                menu_buf += "\n" + clr(f"\n  ── {date_label} ──", "dim")
-                prev_date = date_label
-
-            label = s.name
-            try:
-                meta     = json.loads(s.read_text())
-                saved_at = meta.get("saved_at", "")[-8:]   # HH:MM:SS
-                sid      = meta.get("session_id", "")
-                turns    = meta.get("turn_count", "?")
-                label    = f"{saved_at}  id:{sid}  turns:{turns}  {s.name}"
-            except Exception:
-                pass
-            print(clr(f"  [{i+1:2d}] ", "yellow") + label)
-            menu_buf += "\n" + clr(f"  [{i+1:2d}] ", "yellow") + label
+        # ── Render menu (day-indexed, session-indexed within day) ───────
+        header = clr("  Select session(s) — syntax: *<day>*<session>, comma-separated", "cyan", "bold")
+        print(header)
+        print(clr("  Example: *1*3        → day 1, session 3", "dim"))
+        print(clr("           *1*3,*2*7   → load both, merged in that order", "dim"))
+        menu_buf = header
+        for di, (date_label, shown, hidden) in enumerate(days, 1):
+            day_hdr = f"\n  Day {di}  ── {date_label} ──"
+            print(clr(day_hdr, "yellow", "bold"))
+            menu_buf += "\n" + clr(day_hdr, "yellow", "bold")
+            for si, s in enumerate(shown, 1):
+                label = s.name
+                try:
+                    meta     = json.loads(s.read_text(encoding="utf-8", errors="replace"))
+                    saved_at = (meta.get("saved_at", "") or "")[-8:]
+                    sid      = meta.get("session_id", "")
+                    turns    = meta.get("turn_count", "?")
+                    label    = f"{saved_at}  id:{sid}  turns:{turns}"
+                except Exception:
+                    pass
+                line = "   " + clr(f"*{di}*{si}", "green") + "  " + label
+                print(line)
+                menu_buf += "\n" + line
+            if hidden:
+                hint = clr(f"        ({hidden} more in this day — open the dir to see all)", "dim")
+                print(hint)
+                menu_buf += "\n" + hint
 
         # Show history.json option at the bottom if it exists
         from config import SESSION_HIST_FILE
@@ -1315,16 +1522,21 @@ def cmd_load(args: str, state, config) -> bool:
                 hist_meta = json.loads(SESSION_HIST_FILE.read_text())
                 n_sess  = len(hist_meta.get("sessions", []))
                 n_turns = hist_meta.get("total_turns", 0)
-                print(clr(f"\n  ── Complete History ──", "dim"))
-                menu_buf += "\n" + clr(f"\n  ── Complete History ──", "dim")
-                hist_prt = clr("  [ H] ", "yellow") + f"Load ALL history  ({n_sess} sessions / {n_turns} total turns)  {SESSION_HIST_FILE}"
+                hdr2 = clr("\n  Complete History", "dim", "bold")
+                print(hdr2)
+                menu_buf += "\n" + hdr2
+                hist_prt = "   " + clr("H", "green") + f"     Load ALL history  ({n_sess} sessions / {n_turns} total turns)"
                 print(hist_prt)
                 menu_buf += "\n" + hist_prt
             except Exception:
                 has_history = False
 
         print()
-        ans = ask_input_interactive(clr("  Enter number(s) (e.g. 1 or 1,2,3), H for full history, or Enter to cancel > ", "cyan"), config, menu_buf).strip().lower()
+        ans = ask_input_interactive(
+            clr("  > ", "cyan"),
+            config,
+            menu_buf,
+        ).strip().lower()
 
         if not ans:
             info("  Cancelled.")
@@ -1355,30 +1567,45 @@ def cmd_load(args: str, state, config) -> bool:
             ok(f"Full history loaded from {SESSION_HIST_FILE} ({len(all_messages)} messages across {len(all_sessions)} sessions)")
             return True
 
-        # Parse comma-separated numbers (e.g. "1", "1,2,3", "1, 3")
-        raw_parts = [p.strip() for p in ans.split(",")]
-        indices = []
+        # ── Parse `*D*S` tokens, comma-separated ────────────────────────
+        import re as _re
+        token_re = _re.compile(r"^\*(\d+)\*(\d+)$")
+        raw_parts = [p.strip() for p in ans.split(",") if p.strip()]
+        picked: list[Path] = []
+        seen: set = set()
         for p in raw_parts:
-            if not p.isdigit():
-                err(f"Invalid input '{p}'. Enter numbers separated by commas, or H.")
+            m = token_re.match(p)
+            if not m:
+                err(f"Invalid token '{p}'. Use *day*session, e.g. *1*3 or *1*3,*2*7")
                 return True
-            idx = int(p) - 1
-            if idx < 0 or idx >= len(sessions):
-                err(f"Invalid selection: {p} (valid range: 1–{len(sessions)})")
+            d_i = int(m.group(1))
+            s_i = int(m.group(2))
+            if d_i < 1 or d_i > len(days):
+                err(f"Day {d_i} out of range (valid: 1–{len(days)})")
                 return True
-            if idx not in indices:
-                indices.append(idx)
+            _label, shown, _hidden = days[d_i - 1]
+            if s_i < 1 or s_i > len(shown):
+                err(f"Session {s_i} out of range for day {d_i} (valid: 1–{len(shown)})")
+                return True
+            chosen = shown[s_i - 1]
+            key = str(chosen)
+            if key in seen:
+                continue
+            seen.add(key)
+            picked.append(chosen)
 
-        if len(indices) == 1:
-            # Single session — load directly
-            path = sessions[indices[0]]
+        if not picked:
+            info("  Cancelled.")
+            return True
+
+        if len(picked) == 1:
+            path = picked[0]
         else:
-            # Multiple sessions — merge in selected order
+            # Merge multiple sessions in pick order
             all_messages = []
             total_turns  = 0
             loaded_names = []
-            for idx in indices:
-                s_path = sessions[idx]
+            for s_path in picked:
                 s_data = json.loads(s_path.read_text(encoding="utf-8", errors="replace"))
                 all_messages.extend(s_data.get("messages", []))
                 total_turns += s_data.get("turn_count", 0)
@@ -3629,6 +3856,14 @@ def cmd_exit(_args: str, _state, config) -> bool:
                             ok(f"Mined {len(mined)} extra memories: {', '.join(mined)}")
                         else:
                             info("No additional insights mined.")
+                # When the user opts into consolidation, they're telling us this
+                # session matters — persist it explicitly regardless of the
+                # MIN_AUTO_SAVE_TURNS gate that save_latest enforces later.
+                try:
+                    cmd_save("", _state, config)
+                    config["_session_explicit_saved"] = True
+                except Exception as e:
+                    warn(f"Explicit save after consolidation failed: {e}")
     except Exception as e:
         warn(f"Consolidation trigger failed: {e}")
 
@@ -10046,6 +10281,19 @@ def main():
 
     from config import load_config, save_config, has_api_key
     from providers import detect_provider, PROVIDERS
+
+    # ── First-run welcome wizard ──────────────────────────────────────────
+    # Runs BEFORE load_config() so we detect the absence of config.json.
+    # The wizard mutates config in-place and persists it; subsequent
+    # load_config() picks up the freshly-written values.
+    try:
+        from welcome import is_first_run, run_welcome_wizard
+        if is_first_run() and not args.print_mode and not args.exec_cmd and not args.run_tool:
+            _bootstrap_cfg = load_config()
+            _bootstrap_cfg = run_welcome_wizard(_bootstrap_cfg)
+            save_config(_bootstrap_cfg)
+    except Exception as _e:
+        print(f"(welcome wizard skipped: {_e})")
 
     config = load_config()
 

@@ -63,7 +63,7 @@ def {func_name}(params: dict, config: dict) -> str:
     {description.replace(chr(10), chr(10) + "    ")}
     """
     session = get_or_create_session(
-        user_id={repr(user_id or "kevrojo_falcon")},
+        user_id={repr(user_id or "dulus_user")},
         toolkits=["gmail"],  # TODO: infer from tool slug
     )
     result = session.execute(
@@ -122,7 +122,7 @@ from composio_plugin.session_manager import get_or_create_session, get_client
         func = f'''
 def {func_name}(params: dict, config: dict) -> str:
     """{desc.replace(chr(10), " ")}"""
-    session = get_or_create_session(user_id="kevrojo_falcon", toolkits=["gmail"])
+    session = get_or_create_session(user_id="dulus_user", toolkits=["gmail"])
     result = session.execute(tool_slug={repr(slug)}, arguments={{{param_unpack}}})
     data = result.data if hasattr(result, "data") else result
     return json.dumps(data, indent=2, default=str)

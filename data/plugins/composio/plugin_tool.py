@@ -26,7 +26,7 @@ def _serialize_result(result) -> str:
 
 def _get_session(params: dict) -> Any:
     """Get or create session from params."""
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     toolkits = params.get("toolkits", [])
     if isinstance(toolkits, str):
         toolkits = [toolkits]
@@ -38,7 +38,7 @@ def _get_session(params: dict) -> Any:
 
 def composio_create_session(params: dict, config: dict) -> str:
     """Create a new Composio Tool Router session."""
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     toolkits = params.get("toolkits", [])
     if isinstance(toolkits, str):
         toolkits = [toolkits]
@@ -71,7 +71,7 @@ def composio_create_session(params: dict, config: dict) -> str:
 
 def composio_search_tools(params: dict, config: dict) -> str:
     """Search for available Composio tools by use case."""
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     toolkits = params.get("toolkits", [])
     if isinstance(toolkits, str):
         toolkits = [toolkits]
@@ -99,7 +99,7 @@ def composio_search_tools(params: dict, config: dict) -> str:
 
 def composio_manage_connections(params: dict, config: dict) -> str:
     """Manage connections to apps (initiate OAuth/API key auth)."""
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     toolkits = params.get("toolkits", [])
     if isinstance(toolkits, str):
         toolkits = [toolkits]
@@ -125,7 +125,7 @@ def composio_manage_connections(params: dict, config: dict) -> str:
 
 def composio_execute_tool(params: dict, config: dict) -> str:
     """Execute a Composio tool by slug with given arguments."""
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     toolkits = params.get("toolkits", [])
     if isinstance(toolkits, str):
         toolkits = [toolkits]
@@ -160,7 +160,7 @@ def composio_list_accounts(params: dict, config: dict) -> str:
 
 def composio_get_tool_schemas(params: dict, config: dict) -> str:
     """Get input schemas for Composio tools by slug."""
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     toolkits = params.get("toolkits", [])
     if isinstance(toolkits, str):
         toolkits = [toolkits]
@@ -191,7 +191,7 @@ def composio_generate_tool_py(params: dict, config: dict) -> str:
     """
     tool_slug = params.get("tool_slug", "")
     output_dir = params.get("output_dir", str(Path.home() / ".falcon" / "plugins" / "composio" / "generated"))
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     schema = params.get("schema")
 
     if not tool_slug:
@@ -235,7 +235,7 @@ def composio_generate_plugin_tool_py(params: dict, config: dict) -> str:
         return json.dumps({"error": "tool_slugs is required"}, indent=2)
 
     output_dir = params.get("output_dir", str(Path.home() / ".falcon" / "plugins" / "composio" / "generated"))
-    user_id = params.get("user_id", "kevrojo_falcon")
+    user_id = params.get("user_id", "dulus_user")
     toolkits = params.get("toolkits", ["gmail"])
     if isinstance(toolkits, str):
         toolkits = [toolkits]
@@ -281,7 +281,7 @@ create_session_tool = ToolDef(
         "input_schema": {
             "type": "object",
             "properties": {
-                "user_id": {"type": "string", "description": "User identifier", "default": "kevrojo_falcon"},
+                "user_id": {"type": "string", "description": "User identifier", "default": "dulus_user"},
                 "toolkits": {"type": "array", "items": {"type": "string"}, "description": "List of toolkit slugs (e.g., ['gmail', 'slack', 'github'])"},
                 "connected_accounts": {"type": "object", "description": "Optional mapping of toolkit slug to connected account ID"},
                 "wait_for_connections": {"type": "boolean", "description": "Wait for connections to become active", "default": True}
@@ -300,7 +300,7 @@ search_tools_tool = ToolDef(
         "input_schema": {
             "type": "object",
             "properties": {
-                "user_id": {"type": "string", "default": "kevrojo_falcon"},
+                "user_id": {"type": "string", "default": "dulus_user"},
                 "toolkits": {"type": "array", "items": {"type": "string"}, "description": "Toolkits to search within"},
                 "queries": {"type": "array", "description": "List of query objects with 'use_case' and optional 'known_fields'"},
                 "use_case": {"type": "string", "description": "Simple use case string (alternative to queries)"}
@@ -319,7 +319,7 @@ manage_connections_tool = ToolDef(
         "input_schema": {
             "type": "object",
             "properties": {
-                "user_id": {"type": "string", "default": "kevrojo_falcon"},
+                "user_id": {"type": "string", "default": "dulus_user"},
                 "toolkits": {"type": "array", "items": {"type": "string"}, "description": "Toolkits to connect"},
                 "reinitiate_all": {"type": "boolean", "default": False}
             },
@@ -337,7 +337,7 @@ execute_tool = ToolDef(
         "input_schema": {
             "type": "object",
             "properties": {
-                "user_id": {"type": "string", "default": "kevrojo_falcon"},
+                "user_id": {"type": "string", "default": "dulus_user"},
                 "toolkits": {"type": "array", "items": {"type": "string"}, "description": "Toolkits required for execution"},
                 "tool_slug": {"type": "string", "description": "Exact tool slug from search results"},
                 "arguments": {"type": "object", "description": "Arguments matching the tool's input schema"}
@@ -371,7 +371,7 @@ get_schemas_tool = ToolDef(
         "input_schema": {
             "type": "object",
             "properties": {
-                "user_id": {"type": "string", "default": "kevrojo_falcon"},
+                "user_id": {"type": "string", "default": "dulus_user"},
                 "toolkits": {"type": "array", "items": {"type": "string"}},
                 "tool_slugs": {"type": "array", "items": {"type": "string"}, "description": "List of tool slugs to get schemas for"}
             },
@@ -392,7 +392,7 @@ generate_tool_py_tool = ToolDef(
             "properties": {
                 "tool_slug": {"type": "string", "description": "Tool slug to generate wrapper for"},
                 "output_dir": {"type": "string", "description": "Directory to write the file"},
-                "user_id": {"type": "string", "default": "kevrojo_falcon"},
+                "user_id": {"type": "string", "default": "dulus_user"},
                 "schema": {"type": "object", "description": "Optional pre-fetched schema"}
             },
             "required": ["tool_slug"]
@@ -411,7 +411,7 @@ generate_plugin_tool_py_tool = ToolDef(
             "properties": {
                 "tool_slugs": {"type": "array", "items": {"type": "string"}, "description": "List of tool slugs to export"},
                 "output_dir": {"type": "string", "description": "Directory to write plugin_tool.py"},
-                "user_id": {"type": "string", "default": "kevrojo_falcon"},
+                "user_id": {"type": "string", "default": "dulus_user"},
                 "toolkits": {"type": "array", "items": {"type": "string"}, "default": ["gmail"]}
             },
             "required": ["tool_slugs"]
