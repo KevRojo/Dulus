@@ -32,6 +32,24 @@ from .recorder import SAMPLE_RATE, CHANNELS, BYTES_PER_SAMPLE
 _faster_whisper_model = None
 _openai_whisper_model = None
 
+
+def prewarm_whisper() -> bool:
+    """Trigger the local Whisper model load + dummy transcribe.
+
+    Designed to be called from a background thread at REPL boot so the wake
+    word + /voice paths are instant on first real audio. Returns True if
+    the load completed, False if no local backend is installed.
+    """
+    try:
+        import faster_whisper  # noqa: F401
+    except Exception:
+        return False
+    try:
+        _get_faster_whisper_model()
+        return True
+    except Exception:
+        return False
+
 # Model size: "tiny", "base", "small", "medium", "large-v2", "large-v3"
 # "base" is a good balance of speed and accuracy for coding dictation.
 # Override with env var DULUS_WHISPER_MODEL.

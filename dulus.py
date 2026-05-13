@@ -10339,6 +10339,26 @@ def main():
 
     config = load_config()
 
+    # ── Pre-warm Whisper + ElevenLabs in background ──────────────────────
+    # When wake-word is on, the user expects instant wake response. Loading
+    # Whisper + warming the ElevenLabs SDK takes ~30s combined the first time
+    # — do it in a daemon thread at boot so the REPL is interactive while
+    # the heavy lifting happens off the main thread.
+    if config.get("wake_enabled"):
+        import threading as _t
+        def _prewarm_voice_stack():
+            try:
+                from voice.stt import prewarm_whisper
+                prewarm_whisper()
+            except Exception:
+                pass
+            try:
+                from voice.tts import prewarm_elevenlabs
+                prewarm_elevenlabs()
+            except Exception:
+                pass
+        _t.Thread(target=_prewarm_voice_stack, daemon=True, name="dulus-prewarm").start()
+
     # ── License Gate ─────────────────────────────────────────────────────────
     from license_manager import LicenseManager, LicenseTier
     _lic = LicenseManager(config.get("license_key", ""))
