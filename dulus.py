@@ -702,16 +702,18 @@ def _proactive_watcher_loop(config):
             interval = config.get("_proactive_interval", 300)
             last = config.get("_last_interaction_time", now)
             if now - last >= interval:
-                config["_last_interaction_time"] = now
                 cb = config.get("_run_query_callback")
                 if cb:
-                    # Grace period: the user may have sent a message exactly
-                    # when the timer fired. Wait a beat and re-check. If they
-                    # did, abort this firing to prevent output reordering
-                    # (background landing after the user's turn).
+                    # Grace period: wait a beat — if the user types in that
+                    # window, abort this firing to prevent output reordering.
+                    # Bug fix: previously we wrote _last_interaction_time = now
+                    # BEFORE this check, which made the grace condition always
+                    # trigger (0.5s < 5s) and the wake-up never fired.
                     time.sleep(0.5)
-                    if time.time() - config.get("_last_interaction_time", 0) < 5:
+                    if config.get("_last_interaction_time", 0) > last:
+                        # User interacted while we were waiting — skip.
                         continue
+                    config["_last_interaction_time"] = time.time()
                     cb(f"(System Automated Event) You have been inactive for {interval} seconds. "
                            "Before doing anything else, review your previous messages in this conversation. "
                            "💡 CRITICAL HINT: Look up to find the LAST true direct message from the user so you don't lose the context of the conversation! "
