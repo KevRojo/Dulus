@@ -870,68 +870,20 @@ def _render_help_page_telegram(config) -> None:
 
 
 def cmd_help(_args: str, _state, config) -> bool:
-    # ── Telegram routing ────────────────────────────────────────────────
-    # When /help arrives via the Telegram bridge, pagination is hostile —
-    # there's no live keyboard. Dump a single categorized message and bail.
-    if config.get("_telegram_incoming"):
-        _render_help_page_telegram(config)
-        return True
-
-    # ── REPL: full-redraw paginated help (Mr. Robot style) ──────────────
-    # Each page = ANSI clear + header + category block + toggle footer.
-    # Nav: [n]ext, [p]rev, [number]=jump, Enter/q to quit. Toggles are
-    # reprinted on every page so current state is always visible.
-    pages = _HELP_PAGES
-    total = len(pages)
-    idx = 0
-    is_tty = sys.stdin.isatty()
-    while True:
-        # Clear screen (ANSI). Falls back to blank lines when stdout isn't
-        # a TTY (e.g. piped to a file).
-        if is_tty:
-            sys.stdout.write("\x1b[2J\x1b[H")
-            sys.stdout.flush()
-        else:
-            print("\n" * 3)
-
-        title, items = pages[idx]
-        print(clr(f"  Dulus — Commands   ({idx+1}/{total})  {title}", "cyan", "bold"))
-        print(clr("  " + "─" * 60, "dim"))
+    # Single-shot dump. Pagination was nice in the REPL but broke Telegram
+    # (no live keyboard for n/p/q, and the prompt would hang the bridge).
+    # One flat categorized print works everywhere — terminal, Telegram,
+    # piped to a file, log capture, the lot.
+    print(clr("  Dulus — Commands", "cyan", "bold"))
+    print(clr("  " + "─" * 60, "dim"))
+    for title, items in _HELP_PAGES:
+        print()
+        print(clr(f"  ━━ {title} ━━", "yellow", "bold"))
         for cmd, desc in items:
             print(f"  {clr(cmd, 'magenta'):<40} {clr(desc, 'dim')}")
-
-        print()
-        _render_toggle_footer(config)
-
-        if not is_tty or total <= 1:
-            # Single-page or non-TTY → render once and stop.
-            return True
-
-        nav = clr(
-            f"\n  [n]ext · [p]rev · 1-{total} jump · Enter/q quit  > ",
-            "yellow",
-        )
-        try:
-            choice = input(nav).strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return True
-
-        if not choice or choice in ("q", "quit", "exit"):
-            return True
-        if choice in ("n", "next", " "):
-            idx = (idx + 1) % total
-            continue
-        if choice in ("p", "prev", "b", "back"):
-            idx = (idx - 1) % total
-            continue
-        if choice.isdigit():
-            n = int(choice)
-            if 1 <= n <= total:
-                idx = n - 1
-                continue
-        # Unknown input → just redraw current page.
-        continue
+    print()
+    _render_toggle_footer(config)
+    return True
 
 def cmd_model(args: str, _state, config) -> bool:
     from providers import PROVIDERS, detect_provider
@@ -1903,19 +1855,23 @@ def cmd_bg(args: str, _state, config) -> bool:
             info("Run `/bg kill` first if it's a stale daemon.")
             return True
 
+        # Parse --web-port BEFORE checking if the port is alive — otherwise a
+        # stale webchat on the default port would block a user who explicitly
+        # asked for a different one.
         web_port = config.get("_webchat_port", 5000)
-        if _wc_port_alive(web_port):
-            info(f"WebChat already running on port {web_port}.")
-            info(f"  URL: http://127.0.0.1:{web_port}/")
-            info("Use `/webchat stop` to stop it, or pick a different port with `--web-port`.")
-            return True
-
         if "--web-port" in parts:
             try:
                 web_port = int(parts[parts.index("--web-port") + 1])
             except (IndexError, ValueError):
                 err("--web-port needs a number")
                 return True
+
+        # We used to bail here if the webchat port was alive, but that locked
+        # users out when a stale process held the port. Just warn — the daemon
+        # will pick a different port or skip webchat on its own.
+        if _wc_port_alive(web_port):
+            warn(f"Port {web_port} already in use — daemon may skip webchat.")
+
         config["_webchat_port"] = web_port
         from config import save_config
         save_config(config)
@@ -1923,11 +1879,9 @@ def cmd_bg(args: str, _state, config) -> bool:
         # Build a launch command that works in BOTH layouts:
         #   - source repo  (dulus.py in cwd) → `<python> dulus.py --daemon`
         #   - pip install                     → the installed `dulus` binary --daemon
-        # The pip path used to be hardcoded to "python dulus.py" which silently
-        # failed when cwd didn't have dulus.py. Now we prefer the installed
-        # `dulus` shim if it exists — that's exactly what the user invoked to
-        # reach us, so it's guaranteed to be on PATH and unambiguous to tmux
-        # (no Python path quoting issues with "Program Files\Python\...").
+        # Prefer the installed `dulus` shim when available — it's the same
+        # entry point the user invoked, so it's guaranteed to be on PATH and
+        # unambiguous to tmux (no Python path quoting issues).
         import shutil as _shutil
         _here = Path.cwd()
         if (_here / "dulus.py").exists():
@@ -1938,19 +1892,45 @@ def cmd_bg(args: str, _state, config) -> bool:
                 cmd = f'"{_dulus_bin}" --daemon'
             else:
                 cmd = f'"{sys.executable}" -m dulus --daemon'
-        try:
-            result = _sp.run(["tmux", "new-session", "-d", "-s", TMUX_SESSION, cmd],
-                             capture_output=True, text=True, timeout=5)
-            if result.returncode != 0:
-                err(f"tmux failed: {result.stderr.strip() or result.stdout.strip()}")
-                return True
-        except Exception as e:
-            err(f"Failed to start tmux session: {e}")
-            return True
 
-        # Wait briefly for the IPC port to come up — don't lie about success
-        # if it never bound. The previous version printed "started" even when
-        # the daemon crashed at boot (bad cmd, missing tmux on PATH, etc).
+        # Surface the launch line so when something goes wrong the user can
+        # see what was actually attempted instead of staring at a silent fail.
+        info(f"Launching daemon: {cmd}")
+
+        # Check tmux is actually on PATH — `_sp.run` raising FileNotFoundError
+        # used to be swallowed into the generic exception handler with a
+        # cryptic message. Fall back to a detached subprocess if tmux is
+        # missing so the flow still works on Windows boxes without it.
+        _tmux_bin = _shutil.which("tmux")
+        if not _tmux_bin:
+            warn("tmux not found on PATH — launching the daemon detached without tmux.")
+            try:
+                if os.name == "nt":
+                    DETACHED = 0x00000008  # CREATE_NEW_PROCESS_GROUP
+                    CREATE_NO_WINDOW = 0x08000000
+                    _sp.Popen(cmd, shell=True,
+                              creationflags=DETACHED | CREATE_NO_WINDOW,
+                              close_fds=True)
+                else:
+                    _sp.Popen(cmd, shell=True, start_new_session=True,
+                              close_fds=True)
+            except Exception as e:
+                err(f"Failed to start daemon (no tmux fallback): {e}")
+                return True
+        else:
+            try:
+                result = _sp.run(["tmux", "new-session", "-d", "-s", TMUX_SESSION, cmd],
+                                 capture_output=True, text=True, timeout=5)
+                if result.returncode != 0:
+                    err(f"tmux failed: {result.stderr.strip() or result.stdout.strip()}")
+                    return True
+            except Exception as e:
+                err(f"Failed to start tmux session: {e}")
+                return True
+
+        # Wait for the IPC port to come up — don't lie about success if it
+        # never bound. The previous version printed "started" even when the
+        # daemon crashed at boot (bad cmd, missing module, etc).
         _ipc_up = False
         for _ in range(40):
             if _ipc_alive():
@@ -1960,7 +1940,19 @@ def cmd_bg(args: str, _state, config) -> bool:
 
         if not _ipc_up:
             err("Daemon launched but IPC never came up after 10s.")
-            info("Debug: `/bg attach` to inspect the tmux session, or `/bg kill`.")
+            # Capture what the tmux pane printed so we can see why it died.
+            if _tmux_bin:
+                try:
+                    cap = _sp.run(["tmux", "capture-pane", "-t", TMUX_SESSION, "-p"],
+                                  capture_output=True, text=True, timeout=3)
+                    out = (cap.stdout or "").strip()
+                    if out:
+                        info("tmux pane output:")
+                        for ln in out.splitlines()[-25:]:
+                            info(f"  {ln}")
+                except Exception:
+                    pass
+            info("Debug: `/bg attach` to inspect, or `/bg kill` to clean up.")
             return True
 
         ok("Dulus background started in tmux session 'dulus'.")
