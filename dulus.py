@@ -9304,11 +9304,14 @@ def repl(config: dict, initial_prompt: str = None):
                 sys.stdout = _old_stdout
                 if _bg_buffer is not None:
                     output = _bg_buffer.getvalue()
-                    if output:
-                        # Bypass patch_stdout entirely for background turns.
-                        # Writing directly to the original stdout avoids
-                        # prompt_toolkit's broken line-counting that causes
-                        # ghost text on Windows terminals.
+                    # Silent reminders: when the background message is an
+                    # internal system event (e.g. Reminder wake-up), we do
+                    # NOT flush the model's response to the user terminal.
+                    # The model still processed the turn — its reply lives
+                    # in state.messages and may use PrintToConsole/Telegram
+                    # to surface anything user-facing on purpose.
+                    _silent = bool(user_input and user_input.startswith("(System Automated Event)"))
+                    if output and not _silent:
                         try:
                             import input as _dulus_input
                             if hasattr(_dulus_input, "safe_print_notification"):
@@ -9327,7 +9330,38 @@ def repl(config: dict, initial_prompt: str = None):
                             sys.stdout.flush()
             _RICH_LIVE = _saved_rich_live
 
-    config["_run_query_callback"] = lambda msg: run_query(msg, is_background=True)
+        # After this turn finishes, drain any inbound messages that piled up
+        # while we were busy (Reminders, Telegram, etc). Each is processed
+        # as its own background turn — silent if it's a system event.
+        _q = config.get("_inbound_queue") or []
+        if _q and not is_background:
+            config["_inbound_queue"] = []
+            for _qmsg in _q:
+                try:
+                    run_query(_qmsg, is_background=True)
+                except Exception as _qe:
+                    print(f"  [inbound queue] error processing message: {_qe}")
+
+    def _enqueue_or_run(msg: str):
+        """Reminder / external trigger entry point. If the model is mid-turn
+        (query_lock held), enqueue the message; otherwise run immediately.
+        Drain happens at the end of the active turn."""
+        lock = config.get("_query_lock")
+        if lock is None:
+            run_query(msg, is_background=True)
+            return
+        if lock.acquire(blocking=False):
+            try:
+                run_query(msg, is_background=True)
+            finally:
+                try:
+                    lock.release()
+                except RuntimeError:
+                    pass  # already released inside run_query via `with`
+        else:
+            config.setdefault("_inbound_queue", []).append(msg)
+
+    config["_run_query_callback"] = _enqueue_or_run
     # Expose main agent state so sub-agents (via AskMainAgentQuestion) can
     # inject system messages into the main's conversation.
     config["_state"] = state
