@@ -1894,19 +1894,18 @@ def drain_pending_questions(config: dict) -> bool:
 
 
 def _sleeptimer(seconds: int, config: dict) -> str:
-    import threading
+    # Defer the countdown until the agent ACTUALLY ends its turn.
+    # Old behavior started a daemon thread immediately, which meant if the
+    # model emitted a SleepTimer and then kept calling more tools, the timer
+    # was ticking the whole time and would fire late/out-of-sync. Now we just
+    # enqueue it; agent.py flushes the queue once tool_calls is empty
+    # (i.e. the model is genuinely done for this turn).
     cb = config.get("_run_query_callback")
     if not cb:
         return "Error: Internal callback missing, dulus did not provide _run_query_callback"
-        
-    def worker():
-        import time
-        time.sleep(seconds)
-        cb("(System Automated Event): The timer has finished. Please wake up, perform any pending monitoring checks and report to the user now.")
-        
-    t = threading.Thread(target=worker, daemon=True)
-    t.start()
-    return f"Timer successfully scheduled for {seconds} seconds. Do NOT output anything. End your turn silently and wait for the system to wake you up."
+    queue = config.setdefault("_pending_sleep_timers", [])
+    queue.append(int(seconds))
+    return f"Timer scheduled for {seconds}s (starts AFTER your turn ends). Do NOT output anything. End your turn silently and wait for the system to wake you up."
 
 
 def _print_to_console(content: str = "", style: str = "normal", prefix: str = "", from_line: int = None, to_line: int = None, file_path: str = None, config: dict = None) -> str:
