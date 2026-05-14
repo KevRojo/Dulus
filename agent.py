@@ -185,21 +185,6 @@ def run(
         )
 
         if not assistant_turn.tool_calls:
-            # Flush any pending Reminder requests now — the countdown starts
-            # only after the agent has TRULY ended its turn (no more tool
-            # calls queued), so the timer reflects user wall-clock.
-            _pending = config.get("_pending_reminders") or config.get("_pending_sleep_timers") or []
-            if _pending:
-                import threading as _t, time as _time
-                _cb = config.get("_run_query_callback")
-                if _cb:
-                    for _secs in _pending:
-                        def _wake(secs=_secs, cb=_cb):
-                            _time.sleep(secs)
-                            cb("(System Automated Event): The reminder has fired. Please wake up, perform any pending monitoring checks and report to the user now.")
-                        _t.Thread(target=_wake, daemon=True, name=f"reminder-{_secs}s").start()
-                config["_pending_reminders"] = []
-                config["_pending_sleep_timers"] = []
             break   # No tools → conversation turn complete
 
         # ── Execute tools ────────────────────────────────────────────────
