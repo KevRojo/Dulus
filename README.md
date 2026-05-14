@@ -646,6 +646,7 @@ If Dulus saved you tokens, time, or sanity — throw some sats:
 ```
 BTC: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
 ```
+On x: @KevRojox
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
