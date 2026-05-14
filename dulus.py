@@ -1918,7 +1918,16 @@ def cmd_bg(args: str, _state, config) -> bool:
         from config import save_config
         save_config(config)
 
-        cmd = "python dulus.py --daemon"
+        # Build a launch command that works in BOTH layouts:
+        #   - from source repo (dulus.py present in cwd) → use it directly
+        #   - from pip install (no dulus.py in cwd)      → use `<python> -m dulus`
+        # Hardcoding "python dulus.py" failed silently for pip-installed users
+        # because cwd didn't contain dulus.py, so tmux ran a phantom command.
+        _here = Path.cwd()
+        if (_here / "dulus.py").exists():
+            cmd = f'"{sys.executable}" dulus.py --daemon'
+        else:
+            cmd = f'"{sys.executable}" -m dulus --daemon'
         try:
             result = _sp.run(["tmux", "new-session", "-d", "-s", TMUX_SESSION, cmd],
                              capture_output=True, text=True, timeout=5)
@@ -1929,11 +1938,20 @@ def cmd_bg(args: str, _state, config) -> bool:
             err(f"Failed to start tmux session: {e}")
             return True
 
-        # Wait briefly for the IPC port to come up
+        # Wait briefly for the IPC port to come up — don't lie about success
+        # if it never bound. The previous version printed "started" even when
+        # the daemon crashed at boot (bad cmd, missing tmux on PATH, etc).
+        _ipc_up = False
         for _ in range(40):
             if _ipc_alive():
+                _ipc_up = True
                 break
             _time.sleep(0.25)
+
+        if not _ipc_up:
+            err("Daemon launched but IPC never came up after 10s.")
+            info("Debug: `/bg attach` to inspect the tmux session, or `/bg kill`.")
+            return True
 
         ok("Dulus background started in tmux session 'dulus'.")
         info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT}")
