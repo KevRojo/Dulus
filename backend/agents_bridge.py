@@ -1,7 +1,12 @@
 """Agent info bridge — transforms personas / sub-agent tasks into AgentInfo format."""
 from __future__ import annotations
 
-from backend.context import build_context
+# We deliberately AVOID importing backend.context.build_context here —
+# it walks the entire source tree with rglob() and tries to git/write into
+# the package directory, both of which break when Dulus is pip-installed
+# (the package lives in read-only site-packages, not a git repo). Calling
+# the lighter get_personas_for_context directly gives the AgentMonitor app
+# what it needs without the rglob/git crash.
 
 
 def build_agent_info_list() -> list[dict]:
@@ -40,8 +45,8 @@ def build_agent_info_list() -> list[dict]:
 
     # 2. Fallback / supplement with personas so the UI isn't empty
     try:
-        ctx = build_context()
-        persona_agents = ctx.get("agents", [])
+        from backend.personas import get_personas_for_context
+        persona_agents = get_personas_for_context()
         existing_ids = {a["id"] for a in agents}
         for p in persona_agents:
             pid = p.get("name", "unknown").lower().replace(" ", "-")
