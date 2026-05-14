@@ -395,10 +395,11 @@ TOOL_SCHEMAS = [
         },
     },
     {
-        "name": "SleepTimer",
+        "name": "Reminder",
         "description": (
-            "Schedule a background timer. When the timer finishes, a (System Automated Event) notification is injected "
-            "so you can wake up and execute deferred monitoring tasks or checks."
+            "Schedule a background reminder. When the duration elapses, a (System Automated Event) notification is injected "
+            "so you can wake up and execute deferred monitoring tasks or checks. "
+            "The countdown begins ONLY after your current turn ends (no more tool calls)."
         ),
         "input_schema": {
             "type": "object",
@@ -1896,16 +1897,16 @@ def drain_pending_questions(config: dict) -> bool:
 def _sleeptimer(seconds: int, config: dict) -> str:
     # Defer the countdown until the agent ACTUALLY ends its turn.
     # Old behavior started a daemon thread immediately, which meant if the
-    # model emitted a SleepTimer and then kept calling more tools, the timer
+    # model emitted a Reminder and then kept calling more tools, the countdown
     # was ticking the whole time and would fire late/out-of-sync. Now we just
     # enqueue it; agent.py flushes the queue once tool_calls is empty
     # (i.e. the model is genuinely done for this turn).
     cb = config.get("_run_query_callback")
     if not cb:
         return "Error: Internal callback missing, dulus did not provide _run_query_callback"
-    queue = config.setdefault("_pending_sleep_timers", [])
+    queue = config.setdefault("_pending_reminders", [])
     queue.append(int(seconds))
-    return f"Timer scheduled for {seconds}s (starts AFTER your turn ends). Do NOT output anything. End your turn silently and wait for the system to wake you up."
+    return f"Reminder scheduled for {seconds}s (countdown starts AFTER your turn ends). Do NOT output anything. End your turn silently and wait for the system to wake you up."
 
 
 def _print_to_console(content: str = "", style: str = "normal", prefix: str = "", from_line: int = None, to_line: int = None, file_path: str = None, config: dict = None) -> str:
@@ -2166,8 +2167,8 @@ def _register_builtins() -> None:
             concurrent_safe=False,
         ),
         ToolDef(
-            name="SleepTimer",
-            schema=_schemas["SleepTimer"],
+            name="Reminder",
+            schema=_schemas["Reminder"],
             func=lambda p, c: _sleeptimer(p["seconds"], c),
             read_only=False,
             concurrent_safe=True,
