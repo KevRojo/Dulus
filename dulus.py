@@ -6034,6 +6034,17 @@ def _run_daemon(config: dict) -> None:
     config["_session_id"] = session_id
     config["_last_interaction_time"] = time.time()
 
+    # Proactive watcher — was only being started inside repl(), so /proactive
+    # silently did nothing in daemon mode. Start it here too if a watcher
+    # thread isn't already alive.
+    config.setdefault("_proactive_enabled", False)
+    config.setdefault("_proactive_interval", 300)
+    if config.get("_proactive_thread") is None:
+        import threading as _t_proactive
+        _pt = _t_proactive.Thread(target=_proactive_watcher_loop, args=(config,), daemon=True)
+        config["_proactive_thread"] = _pt
+        _pt.start()
+
     # Same callback used by the REPL so Telegram / IPC can trigger runs.
     # The `agent.run()` signature is (user_message, state, config, system_prompt, ...)
     # — earlier I called it with the wrong arg order + a non-existent
