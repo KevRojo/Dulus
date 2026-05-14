@@ -235,7 +235,7 @@ def _format_web_tool_manifest(tool_schemas: list, config: dict, messages: list) 
         "",
         "Rules:",
         "1. The <tool_call> tag MUST be on its own line, with valid JSON inside.",
-        "2. Use ONLY tool names from the list below. Do NOT invent tools (no `SleepTimer`, no `WaitFor`, no fake names).",
+        "2. Use ONLY tool names from the list below. Do NOT invent tools (no `SleepTimer`, no `WaitFor`, no fake names — `Reminder` is the real one if you need a delayed wake-up).",
         "3. To call multiple tools, emit multiple <tool_call> blocks in the SAME response — do not wait for results between them.",
         "4. After tool results come back, you may call more tools or give a final answer.",
         "5. If no tool is needed, just answer normally — no tool_call tag.",
