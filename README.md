@@ -26,7 +26,12 @@ SET /sticky_input ON since the first run for the best experience!
   <img src="https://img.shields.io/badge/providers-11-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-27-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
+  <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="x"/></a>
 </p>
+
+> **Official X / creator handle:** [@KevRojox](https://x.com/KevRojox) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
+>
+> A community-launched **$DULUS** token exists on Solana — I didn't create it, but the community pulled me in and I'm now part of the journey. The project itself stays open-source and free forever. 🦅🇩🇴
 
 <p align="center">
   <code>pip install dulus</code>
