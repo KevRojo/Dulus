@@ -9304,14 +9304,12 @@ def repl(config: dict, initial_prompt: str = None):
                 sys.stdout = _old_stdout
                 if _bg_buffer is not None:
                     output = _bg_buffer.getvalue()
-                    # Silent reminders: when the background message is an
-                    # internal system event (e.g. Reminder wake-up), we do
-                    # NOT flush the model's response to the user terminal.
-                    # The model still processed the turn — its reply lives
-                    # in state.messages and may use PrintToConsole/Telegram
-                    # to surface anything user-facing on purpose.
-                    _silent = bool(user_input and user_input.startswith("(System Automated Event)"))
-                    if output and not _silent:
+                    # Always flush the model's response to the local terminal
+                    # (and Telegram, if attached). The buffer only contains
+                    # the model's streamed reply — NOT the system event echo —
+                    # so this is exactly the user-facing text we want surfaced
+                    # in both channels.
+                    if output:
                         try:
                             import input as _dulus_input
                             if hasattr(_dulus_input, "safe_print_notification"):
