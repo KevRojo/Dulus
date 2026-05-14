@@ -399,7 +399,9 @@ TOOL_SCHEMAS = [
         "description": (
             "Schedule a background reminder. When the duration elapses, a (System Automated Event) notification is injected "
             "so you can wake up and execute deferred monitoring tasks or checks. "
-            "The countdown begins ONLY after your current turn ends (no more tool calls)."
+            "Use ONLY for genuine deferred wake-ups (e.g. 'remind me in 10 minutes to check the deploy'). "
+            "For pausing BETWEEN tool calls in the same turn, use `Bash('sleep N')` instead — "
+            "the Reminder countdown starts immediately and you should END the turn after calling it."
         ),
         "input_schema": {
             "type": "object",
@@ -1895,18 +1897,23 @@ def drain_pending_questions(config: dict) -> bool:
 
 
 def _sleeptimer(seconds: int, config: dict) -> str:
-    # Defer the countdown until the agent ACTUALLY ends its turn.
-    # Old behavior started a daemon thread immediately, which meant if the
-    # model emitted a Reminder and then kept calling more tools, the countdown
-    # was ticking the whole time and would fire late/out-of-sync. Now we just
-    # enqueue it; agent.py flushes the queue once tool_calls is empty
-    # (i.e. the model is genuinely done for this turn).
+    # Fire-and-forget background timer. Countdown starts NOW. If the model
+    # needs to pause mid-tool-chain (e.g. between two bash calls), it should
+    # use `Bash('sleep N')` inside the command instead — Reminder is meant
+    # for scheduling a deferred wake-up notification (e.g. "remind me in
+    # 10 minutes to check the deploy"), not for pacing tool execution.
+    import threading
     cb = config.get("_run_query_callback")
     if not cb:
         return "Error: Internal callback missing, dulus did not provide _run_query_callback"
-    queue = config.setdefault("_pending_reminders", [])
-    queue.append(int(seconds))
-    return f"Reminder scheduled for {seconds}s (countdown starts AFTER your turn ends). Do NOT output anything. End your turn silently and wait for the system to wake you up."
+
+    def worker():
+        import time
+        time.sleep(seconds)
+        cb("(System Automated Event): The reminder has fired. Please wake up, perform any pending monitoring checks and report to the user now.")
+
+    threading.Thread(target=worker, daemon=True, name=f"reminder-{seconds}s").start()
+    return f"Reminder scheduled for {seconds}s. End your turn silently and wait for the system wake-up — do NOT keep calling tools. If you needed a short pause BETWEEN tools, use Bash('sleep N') instead."
 
 
 def _print_to_console(content: str = "", style: str = "normal", prefix: str = "", from_line: int = None, to_line: int = None, file_path: str = None, config: dict = None) -> str:
