@@ -1919,15 +1919,23 @@ def cmd_bg(args: str, _state, config) -> bool:
         save_config(config)
 
         # Build a launch command that works in BOTH layouts:
-        #   - from source repo (dulus.py present in cwd) → use it directly
-        #   - from pip install (no dulus.py in cwd)      → use `<python> -m dulus`
-        # Hardcoding "python dulus.py" failed silently for pip-installed users
-        # because cwd didn't contain dulus.py, so tmux ran a phantom command.
+        #   - source repo  (dulus.py in cwd) → `<python> dulus.py --daemon`
+        #   - pip install                     → the installed `dulus` binary --daemon
+        # The pip path used to be hardcoded to "python dulus.py" which silently
+        # failed when cwd didn't have dulus.py. Now we prefer the installed
+        # `dulus` shim if it exists — that's exactly what the user invoked to
+        # reach us, so it's guaranteed to be on PATH and unambiguous to tmux
+        # (no Python path quoting issues with "Program Files\Python\...").
+        import shutil as _shutil
         _here = Path.cwd()
         if (_here / "dulus.py").exists():
             cmd = f'"{sys.executable}" dulus.py --daemon'
         else:
-            cmd = f'"{sys.executable}" -m dulus --daemon'
+            _dulus_bin = _shutil.which("dulus")
+            if _dulus_bin:
+                cmd = f'"{_dulus_bin}" --daemon'
+            else:
+                cmd = f'"{sys.executable}" -m dulus --daemon'
         try:
             result = _sp.run(["tmux", "new-session", "-d", "-s", TMUX_SESSION, cmd],
                              capture_output=True, text=True, timeout=5)
