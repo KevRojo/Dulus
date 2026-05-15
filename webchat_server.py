@@ -547,8 +547,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);height:100vh;
 #sidebar:not(.collapsed) .sidebar-collapsed{display:none!important}
 .sidebar-collapsed{display:flex;flex-direction:column;align-items:center;height:100%;padding:12px 0}
 .sidebar-logo-btn{
-  width:32px;height:32px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-  display:grid;place-items:center;color:#000;font-size:16px;font-weight:800;cursor:pointer;border:none;flex-shrink:0
+  width:32px;height:32px;background:url(/dulus-bird.png) center/contain no-repeat;
+  display:grid;place-items:center;cursor:pointer;border:none;flex-shrink:0;
+  font-size:0;color:transparent;padding:0
 }
 .sidebar-collapsed .sidebar-logo-btn{margin-bottom:auto}
 .sidebar-collapsed .sidebar-bottom-btn{
@@ -634,8 +635,8 @@ header h1{
   display:flex;align-items:center;gap:12px
 }
 header h1::before{
-  content:"\25b2";font-size:18px;color:#000;background:var(--accent);width:32px;height:32px;
-  display:grid;place-items:center;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)
+  content:"";width:32px;height:32px;background:url(/dulus-bird.png) center/contain no-repeat;
+  display:inline-block;vertical-align:middle
 }
 header .model{font-size:11px;color:var(--dim)}
 header a,header button{
@@ -1461,7 +1462,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);height:100vh;
 
 header{padding:0 40px;height:64px;background:rgba(10,10,10,.7);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,107,31,.12);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:100}
 header h1{font-family:var(--display);font-size:18px;letter-spacing:-.02em;color:var(--ink);display:flex;align-items:center;gap:12px}
-header h1::before{content:"▲";font-size:18px;color:#000;background:var(--accent);width:32px;height:32px;display:grid;place-items:center;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);}
+header h1::before{content:"";width:32px;height:32px;background:url(/dulus-bird.png) center/contain no-repeat;display:inline-block;vertical-align:middle;margin-right:8px;}
 
 header a,header button{background:var(--bg2);color:var(--dim);border:1px solid var(--dim2);padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background .2s,border-color .2s,color .2s}
 header a:hover,header button:hover{background:rgba(255,107,31,.1);border-color:var(--accent);color:var(--accent)}
@@ -1933,8 +1934,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);height:100vh;
 #sidebar:not(.collapsed) .sidebar-collapsed{display:none!important}
 .sidebar-collapsed{display:flex;flex-direction:column;align-items:center;height:100%;padding:12px 0}
 .sidebar-logo-btn{
-  width:32px;height:32px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-  display:grid;place-items:center;color:#000;font-size:16px;font-weight:800;cursor:pointer;border:none;flex-shrink:0
+  width:32px;height:32px;background:url(/dulus-bird.png) center/contain no-repeat;
+  display:grid;place-items:center;cursor:pointer;border:none;flex-shrink:0;
+  font-size:0;color:transparent;padding:0
 }
 .sidebar-collapsed .sidebar-logo-btn{margin-bottom:auto}
 .sidebar-collapsed .sidebar-bottom-btn{
@@ -2020,8 +2022,8 @@ header h1{
   display:flex;align-items:center;gap:12px
 }
 header h1::before{
-  content:"\25b2";font-size:18px;color:#000;background:var(--accent);width:32px;height:32px;
-  display:grid;place-items:center;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)
+  content:"";width:32px;height:32px;background:url(/dulus-bird.png) center/contain no-repeat;
+  display:inline-block;vertical-align:middle
 }
 header .model{font-size:11px;color:var(--dim)}
 header a,header button{
@@ -2915,7 +2917,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);height:100vh;
 
 header{padding:0 40px;height:64px;background:rgba(10,10,10,.7);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,107,31,.12);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:100}
 header h1{font-family:var(--display);font-size:18px;letter-spacing:-.02em;color:var(--ink);display:flex;align-items:center;gap:12px}
-header h1::before{content:"▲";font-size:18px;color:#000;background:var(--accent);width:32px;height:32px;display:grid;place-items:center;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);}
+header h1::before{content:"";width:32px;height:32px;background:url(/dulus-bird.png) center/contain no-repeat;display:inline-block;vertical-align:middle;margin-right:8px;}
 
 header a,header button{background:var(--bg2);color:var(--dim);border:1px solid var(--dim2);padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background .2s,border-color .2s,color .2s}
 header a:hover,header button:hover{background:rgba(255,107,31,.1);border-color:var(--accent);color:var(--accent)}
@@ -3353,9 +3355,14 @@ restoreRt();
     def roundtable_page() -> Response:
         return Response(RT_PAGE, mimetype="text/html")
 
-    # Favicon — the Dulus palmchat (cigua palmera) logo, shipped at repo root
-    # as dulus-bird.png so it's reachable from any working dir.
-    _DULUS_BIRD = Path(__file__).parent / "dulus-bird.png"
+    # Favicon — the Dulus palmchat (cigua palmera) logo. Lives at repo root
+    # in dev, but in an installed wheel only docs/dulus-bird.png ships (it's
+    # the asset GitHub Pages also serves). Try both.
+    _here = Path(__file__).parent
+    _DULUS_BIRD = next(
+        (p for p in (_here / "dulus-bird.png", _here / "docs" / "dulus-bird.png") if p.exists()),
+        _here / "dulus-bird.png",  # 404 fallback path
+    )
 
     @app.route("/favicon.ico")
     @app.route("/dulus-bird.png")
@@ -3366,11 +3373,8 @@ restoreRt();
         return Response(status=404)
 
     # ── Sandbox (Mini OS) ─────────────────────────────────────────────────────
-    # The sandbox is shipped compressed inside the wheel and auto-extracted
-    # to ~/.dulus/sandbox/ on first hit. This keeps the wheel small,
-    # cleans up the GitHub language stats (no more 49% TypeScript), and
-    # lets `pip install --upgrade dulus` rotate the bundle without
-    # touching the user's runtime data.
+    # The sandbox/dist tree ships directly inside the wheel; webchat
+    # serves /sandbox/ straight from site-packages (no extract step).
     from sandbox_bootstrap import ensure_sandbox as _ensure_sandbox
 
     @app.route("/sandbox")
