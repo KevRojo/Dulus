@@ -218,6 +218,19 @@ except ImportError:
 # ── License gate (KevRojo — tu esfuerzo, tu leche) ──────────────────────────
 from license_manager import LicenseManager, LicenseTier
 
+# Eagerly extract the sandbox bundle on Dulus boot in a daemon thread, so by
+# the time the user (or the webchat server, or a sub-agent) asks for
+# /sandbox/ the static files are already sitting at ~/.dulus/sandbox/.
+# Silent, no prompt, no notification — exactly the UX we want.
+def _eager_extract_sandbox() -> None:
+    try:
+        import threading as _th
+        from sandbox_bootstrap import ensure_sandbox as _es
+        _th.Thread(target=_es, daemon=True, name="sandbox-extract").start()
+    except Exception:
+        pass  # missing bundle on dev/source runs is fine — fallback handles it
+_eager_extract_sandbox()
+
 import argparse
 import atexit
 import json
