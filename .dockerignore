@@ -1,0 +1,61 @@
+# Keep the Docker build context small — copy only what the Dockerfile needs.
+# Saves bandwidth on `docker build` and prevents secrets/junk from leaking
+# into image layers.
+
+# Python build / cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+/build/
+/dist/
+
+# Local environments
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Git & CI
+.git/
+.gitignore
+.github/
+
+# Node (sandbox build outputs ship inside the wheel; the source tree is heavy)
+node_modules/
+sandbox/node_modules/
+
+# Dulus runtime state — do NOT bake user data into images
+.dulus/
+.dulus-context/
+data/context.json
+data/mempalace_cache.json
+
+# Logs / scratch
+*.log
+err.txt
+out.txt
+out*.txt
+output.txt
+
+# Docker itself
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Docs (not needed inside the runtime image)
+docs/
+*.md
+!README.md
