@@ -255,6 +255,31 @@ def build_system_prompt(config: dict | None = None) -> str:
         "no need for `python dulus.py`. Same flags: --print, --accept-all, -c, etc."
     )
 
+    # Skills proactivity hint — make the agent reach for skills instead of
+    # writing one-off code when a topic comes up that no current tool/plugin
+    # covers. The dump file lets us grep ~1000 skills instantly without
+    # paging through them interactively.
+    try:
+        skills_dump = Path.home() / ".dulus" / "skills_catalog.txt"
+        if skills_dump.exists():
+            sz_kb = skills_dump.stat().st_size // 1024
+            prompt += (
+                f"\n# Skills catalog: {skills_dump} ({sz_kb} KB, tab-separated "
+                "source\\tid\\tdescription). Before writing custom code or "
+                "saying 'I can't do that', Grep this file for the topic — "
+                "there's often an awesome/composio/local skill that fits. "
+                "Install with `dulus -c \"skill get <id>\"`. Refresh the "
+                "dump anytime with `dulus -c \"skill list dump\"`."
+            )
+        else:
+            prompt += (
+                "\n# Skills tip: run `dulus -c \"skill list dump\"` once "
+                "to write ~/.dulus/skills_catalog.txt — then Grep it for any "
+                "topic you don't have a tool for, before writing custom code."
+            )
+    except Exception:
+        pass
+
     project_mem = get_project_memory_index()
     if project_mem:
         prompt += project_mem
