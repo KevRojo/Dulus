@@ -20,19 +20,40 @@ class TmuxJob:
         self._start_time = None
         
     def start(self) -> str:
-        """Inicia el job en tmux detached. Retorna session ID."""
-        # Usar bash -c para soportar pipes y redirects
-        full_cmd = f"exec bash -c {repr(self.command)}"
-        
+        """Inicia el job en tmux detached. Retorna session ID.
+
+        Defense-in-depth against leaked sessions:
+          1. The command line itself ends in `tmux kill-session -t <id>`
+             so the session self-destructs the moment the user's command
+             finishes — works even if the user's tmux config has
+             `remain-on-exit on` or the shell exits weirdly.
+          2. We also force `remain-on-exit off` per-session right after
+             creation, which neutralises any global `set-option -g
+             remain-on-exit on` the user may have in `.tmux.conf`. Belt
+             AND suspenders because session leaks have bitten KevRojo
+             multiple times on Windows + tmux-via-WSL setups.
+        """
+        # Append a self-destruct so the session terminates after the user
+        # command exits — independent of tmux config quirks.
+        self_destruct = f" ; tmux kill-session -t {self.session}"
+        full_cmd = f"exec bash -c {repr(self.command + self_destruct)}"
+
         result = subprocess.run(
             ["tmux", "new-session", "-d", "-s", self.session, full_cmd],
             capture_output=True,
             text=True
         )
-        
+
         if result.returncode != 0:
             raise RuntimeError(f"tmux error: {result.stderr}")
-        
+
+        # Defensive: force remain-on-exit OFF for this session in case the
+        # user's global tmux config flipped the default.
+        subprocess.run(
+            ["tmux", "set-option", "-t", self.session, "remain-on-exit", "off"],
+            capture_output=True,
+        )
+
         self._created = True
         self._start_time = time.time()
         return self.session
@@ -102,22 +123,46 @@ def offload(command: str) -> str:
 def offload_and_wait(command: str, timeout: Optional[float] = None) -> Dict[str, Any]:
     """
     Ejecuta comando y espera a que termine.
-    
+
     Uso:
         result = offload_and_wait("sleep 5 && date", timeout=10)
         print(result['output'])  # stdout del comando
+
+    Note: TmuxJob.start() appends a `tmux kill-session` self-destruct to
+    avoid leaked sessions on misconfigured hosts. That means the pane is
+    gone the moment the command finishes — so we capture mid-flight via
+    a polling sidecar instead of relying on the post-wait capture (which
+    would always come back empty). We poll the pane every `poll_interval`
+    seconds and keep the LAST non-empty capture as the result.
     """
     job = TmuxJob(command)
     job.start()
-    finished = job.wait(timeout=timeout)
-    output = job.capture()
+
+    poll = 0.5
+    last_output = ""
+    start = time.time()
+    while job.is_running():
+        if timeout and (time.time() - start) > timeout:
+            break
+        snap = job.capture()
+        if snap:
+            last_output = snap
+        time.sleep(poll)
+
+    # One last attempt after the session ends — usually empty because the
+    # self-destruct already fired, but cheap to try.
+    final = job.capture()
+    if final and final.strip():
+        last_output = final
+
+    # Idempotent — session is already gone in the happy path.
     job.kill()
-    
+
     return {
         'session': job.session,
-        'output': output,
-        'finished': finished,
-        'timeout_reached': not finished
+        'output': last_output,
+        'finished': not job.is_running(),
+        'timeout_reached': bool(timeout and (time.time() - start) > timeout)
     }
 
 

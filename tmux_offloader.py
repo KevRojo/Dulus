@@ -33,19 +33,36 @@ def run_in_tmux(command, session_name=None, wait=False, timeout=None):
     """
     if session_name is None:
         session_name = generate_session_name()
-    
-    # Crear sesión detached con el comando
-    full_cmd = f"{command}; echo '___TMUX_EXITCODE___$?'"
-    
+
+    # Crear sesión detached con el comando. We embed an exit sentinel so we
+    # can recover the return code from the captured pane, and (for fire-
+    # and-forget) we append a self-destruct so the session never lingers
+    # even if the user's tmux config has `remain-on-exit on`.
+    sentinel = f"echo '___TMUX_EXITCODE___'$?"
+    if wait:
+        # In wait mode we'll explicitly kill the session AFTER capturing
+        # the pane, so don't self-destruct here.
+        full_cmd = f"{command}; {sentinel}"
+    else:
+        # Fire-and-forget — the user may never come back to kill it.
+        full_cmd = f"{command}; {sentinel}; tmux kill-session -t {session_name}"
+
     result = subprocess.run(
         ["tmux", "new-session", "-d", "-s", session_name, full_cmd],
         capture_output=True,
         text=True
     )
-    
+
     if result.returncode != 0:
         raise RuntimeError(f"Failed to create tmux session: {result.stderr}")
-    
+
+    # Belt-and-suspenders: neutralise any user-level `remain-on-exit on`
+    # so a finished pane doesn't keep the session alive forever.
+    subprocess.run(
+        ["tmux", "set-option", "-t", session_name, "remain-on-exit", "off"],
+        capture_output=True,
+    )
+
     if not wait:
         return session_name
     
