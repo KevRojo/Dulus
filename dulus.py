@@ -6994,17 +6994,46 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
     try:
         buf = io.BytesIO()
         img.save(buf, format="PNG")
-        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-        size_kb = len(buf.getvalue()) / 1024
+        png_bytes = buf.getvalue()
+        b64 = base64.b64encode(png_bytes).decode("utf-8")
+        size_kb = len(png_bytes) / 1024
         info(f"📷 Clipboard image captured ({size_kb:.0f} KB, {img.size[0]}x{img.size[1]})")
     except Exception as e:
         err(f"Failed to process clipboard image: {e}")
         return True
 
-    # Store in config for agent.py to pick up
+    # Store the b64 in config for agent.py to pick up when streaming to a
+    # native multimodal provider (Anthropic/OpenAI/Gemini direct).
     config["_pending_image"] = b64
 
-    prompt = args.strip() if args.strip() else "What do you see in this image? Describe it in detail."
+    # Also drop the PNG to a temp file so models reached over a text-only
+    # bridge (e.g. Claude Code harness, Telegram) can still see it by reading
+    # the path. Without this the bridge would receive the prompt with no
+    # image attached and the user would get the classic "I don't see any
+    # image" reply — the silent-fail KevRojo hit. We surface the path both
+    # in the info line and inline in the prompt so the model can't miss it.
+    try:
+        import tempfile, time as _time_mod
+        tmpdir = Path(tempfile.gettempdir()) / "dulus" / "clipboard"
+        tmpdir.mkdir(parents=True, exist_ok=True)
+        img_path = tmpdir / f"clip-{int(_time_mod.time())}.png"
+        img_path.write_bytes(png_bytes)
+        config["_pending_image_path"] = str(img_path)
+        info(f"   saved to: {img_path}")
+    except Exception as _e:
+        img_path = None
+        warn(f"Could not write clipboard image to disk: {_e}")
+
+    user_prompt = args.strip() if args.strip() else "What do you see in this image? Describe it in detail."
+    if img_path is not None:
+        prompt = (
+            f"{user_prompt}\n\n"
+            f"[Clipboard image attached at: {img_path}]\n"
+            f"If your harness can't render an inline image, Read that path "
+            f"to see the PNG (it's a real file on disk)."
+        )
+    else:
+        prompt = user_prompt
     return ("__image__", prompt)
 
 

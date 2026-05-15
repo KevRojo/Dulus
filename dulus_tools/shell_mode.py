@@ -82,6 +82,13 @@ class ShellMode:
                 shell=True,
                 capture_output=True,
                 text=True,
+                # Force UTF-8 + replace — Windows defaults to cp1252 for
+                # text mode pipes, which crashes the reader thread with a
+                # UnicodeDecodeError the moment anything emits an emoji or
+                # accented byte (very common on Spanish dev boxes). Issue
+                # report by KevRojo, 2026-05-14.
+                encoding="utf-8",
+                errors="replace",
                 cwd=cwd,
                 timeout=timeout,
                 executable=self._shell,
