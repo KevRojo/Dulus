@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "0.2.83"
+version = "0.2.84"
 description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -123,19 +123,21 @@ include = [
     "ui*",
     "voice*",
     "webbridge*",
+    # sandbox/dist/ ships in the wheel so webchat serves /sandbox/ directly
+    # (back to the 0.2.81 layout — no tarball, no extract-on-first-run).
+    # GitHub Linguist won't double-count: .gitattributes marks sandbox/**
+    # as linguist-vendored=true.
+    "sandbox*",
 ]
 exclude = [
     "tests*",
     "__pycache__*",
-    # The sandbox source tree is NOT shipped — it's pre-built by
-    # `tools/build_sandbox_bundle.py` into `_bundles/sandbox.tar.gz`
-    # and auto-extracted at runtime by sandbox_bootstrap.py.  This
-    # keeps the wheel small AND keeps GitHub Linguist from counting
-    # 49% TypeScript when Dulus is a Python project.
-    "sandbox*",
+    # Don't ship sandbox sources / node_modules / vite cache — only dist/.
+    "sandbox.src*",
+    "sandbox.node_modules*",
+    "sandbox.public*",
 ]
 
 [tool.setuptools.package-data]
 "*" = ["*.html", "*.css", "*.js", "*.jsx", "*.ts", "*.tsx", "*.svg", "*.json", "*.md", "*.png", "*.jpg", "*.jpeg", "*.txt", "*.py"]
-# Include the pre-compressed sandbox bundle — consumed by sandbox_bootstrap.py.
-"_bundles" = ["*.tar.gz"]
+"sandbox" = ["dist/**/*", "dist/**/.*"]

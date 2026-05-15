@@ -106,7 +106,12 @@ $pyVer = $null
 # with an empty argv. Using double quotes outside + single quotes inside
 # is the form that round-trips cleanly through both PS 5.1 and PS 7+.
 $probeScript = "import sys; print(str(sys.version_info[0]) + '.' + str(sys.version_info[1]))"
-foreach ($cand in @('python3.13','python3.12','python3.11','python','py')) {
+# Order matters: `py` (the official Windows Launcher) goes FIRST so we
+# don't accidentally pick up uv's managed Python — that one resolves to
+# `python3.13` but installs into a Scripts dir nobody has on PATH.
+# A managed-Python `pip --user install` then dumps dulus.exe into a
+# `uv\python\cpython-...\Scripts` folder and the user can't run it.
+foreach ($cand in @('py','python3.13','python3.12','python3.11','python')) {
     if (Get-Command $cand -ErrorAction SilentlyContinue) {
         try {
             if ($cand -eq 'py') {
@@ -118,6 +123,20 @@ foreach ($cand in @('python3.13','python3.12','python3.11','python','py')) {
                 $major = [int]$Matches[1]
                 $minor = [int]$Matches[2]
                 if ($major -eq 3 -and $minor -ge 11) {
+                    # Reject uv's managed Python — its Scripts dir isn't on PATH
+                    # and pip --user there is invisible to the user.
+                    $resolvedPath = ''
+                    try {
+                        if ($cand -eq 'py') {
+                            $resolvedPath = (& $cand -3 -c "import sys; print(sys.executable)" 2>$null | Out-String).Trim()
+                        } else {
+                            $resolvedPath = (& $cand -c "import sys; print(sys.executable)" 2>$null | Out-String).Trim()
+                        }
+                    } catch { }
+                    if ($resolvedPath -match '\\uv\\python\\') {
+                        Warn "Skipping uv-managed Python at $resolvedPath (its Scripts dir is not on PATH)."
+                        continue
+                    }
                     $pyBin = $cand
                     $pyVer = ($v | Out-String).Trim()
                     break
@@ -414,15 +433,19 @@ switch ($Installer) {
     }
     'pip' {
         OK "Using pip (recommended - plugins share your Python env)"
-        # On Windows pip --user installs into %APPDATA%\Python\PythonXY\Scripts.
-        # If user is inside an active venv ($env:VIRTUAL_ENV set), drop --user
-        # since pip rejects --user inside venvs.
-        $userFlag = '--user'
-        if ($env:VIRTUAL_ENV) {
-            $userFlag = ''
-            OK "Detected active venv: $env:VIRTUAL_ENV - installing into it instead of --user"
+        $pipRunner = $null
+        if (Get-Command pip -ErrorAction SilentlyContinue) {
+            $pipRunner = 'pip'
+        } elseif (Get-Command python -ErrorAction SilentlyContinue) {
+            $pipRunner = 'python -m pip'
+        } elseif (Get-Command py -ErrorAction SilentlyContinue) {
+            $pipRunner = 'py -3 -m pip'
+        } else {
+            Err "No pip / python / py found on PATH."
+            exit 1
         }
-        Invoke-Step "$pyBin -m pip install --upgrade $preFlag $userFlag '$extrasSpec'"
+        OK "Pip runner: $pipRunner"
+        Invoke-Step "$pipRunner install --upgrade $preFlag '$extrasSpec'"
     }
 }
 
