@@ -428,6 +428,32 @@ pip install sounddevice faster-whisper numpy
 
 Then `/voice` in the REPL. Offline. Supports `/voice lang zh` and `/voice device` for mic selection.
 
+**Linux / WSL extra step:** `sounddevice` is a Python binding for the
+PortAudio C library, which isn't bundled with the wheel. If you see
+`PortAudio library not found` — install the system lib first:
+
+```bash
+sudo apt install libportaudio2 portaudio19-dev libasound2-dev
+pip install sounddevice --upgrade --force-reinstall
+```
+
+Note: `pip install portaudio` will always fail — there is no PyPI
+package by that name, only the apt one above.
+
+### Linux / WSL — tkinter for the GUI / webchat
+
+The desktop GUI (`dulus-gui`) needs **tkinter**, which is bundled with
+Python on Windows/macOS but ships as a separate apt package on Debian/
+Ubuntu/WSL. If you see `No module named 'tkinter'`:
+
+```bash
+sudo apt install python3-tk
+```
+
+Headless WSL/server users can skip this — `dulus[full]` works without
+tkinter for the REPL and webchat HTTP server thanks to lazy GUI imports
+(0.2.76+).
+
 ## Telegram bridge
 
 ```

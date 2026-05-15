@@ -7862,12 +7862,31 @@ def cmd_doctor(args: str, state, config) -> bool:
         ("PIL", "Pillow (clipboard image /image)"),
         ("sounddevice", "sounddevice (voice recording)"),
         ("faster_whisper", "faster-whisper (local STT)"),
+        ("tkinter", "tkinter (GUI / webchat eager-load)"),
     ]:
         try:
             __import__(mod)
             ok(desc)
-        except ImportError:
-            warn(f"{desc}: not installed")
+        except ImportError as e:
+            if mod == "tkinter":
+                warn(f"{desc}: missing system library.")
+                info("  Fix on Linux/WSL:")
+                info("    sudo apt install python3-tk")
+                info("  (tkinter is bundled on Windows/macOS; only Linux ships it as a separate apt package.)")
+            else:
+                warn(f"{desc}: not installed")
+        except OSError as e:
+            # sounddevice can import but fail at runtime if PortAudio is
+            # missing — common on fresh WSL/Ubuntu installs because the
+            # C library isn't bundled with the Python wheel.
+            if "portaudio" in str(e).lower() or mod == "sounddevice":
+                warn(f"{desc}: imported but PortAudio runtime missing.")
+                info("  Fix on Linux/WSL:")
+                info("    sudo apt install libportaudio2 portaudio19-dev libasound2-dev")
+                info("    pip install sounddevice --upgrade --force-reinstall")
+                info("  (PortAudio is a C library — `pip install portaudio` will never work.)")
+            else:
+                warn(f"{desc}: {e}")
 
     # ── 7. DULUS.md / CLAUDE.md ──
     print()
