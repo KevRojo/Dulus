@@ -92,6 +92,26 @@ Dulus is a **lightweight Python reimplementation of Claude Code** that isn't loc
 
 ## Quick Start
 
+### Option A — Docker (zero local Python setup)
+
+```bash
+# 1. Grab the compose file + env template
+curl -fsSLO https://raw.githubusercontent.com/KevRojo/Dulus/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/KevRojo/Dulus/main/.env.example
+mv .env.example .env   # then add your API keys
+
+# 2. Pull and run (WebChat at http://localhost:5050 — shifted off 5000
+#    so it doesn't collide with a native Dulus install on the same host)
+docker compose up -d
+
+# 3. Or jump into the REPL inside the container
+docker compose exec dulus dulus
+```
+
+Image: [`ghcr.io/kevrojo/dulus`](https://ghcr.io/kevrojo/dulus) · Memory persists in the `dulus-memory` volume.
+
+### Option B — pip
+
 <img alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
 
 -----

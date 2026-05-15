@@ -94,6 +94,124 @@ class _ProviderRetry:
             raise last_exc
 
 
+_ANTHROPIC_PARAM_RE = re.compile(
+    r'<parameter\s+name="(?P<key>[^"]+)"\s*>(?P<val>.*?)</parameter>',
+    re.DOTALL,
+)
+_TOOLCALL_NAME_RE = re.compile(r'"name"\s*:\s*"(?P<name>[^"]+)"')
+
+
+def _parse_tool_call_payload(payload: str):
+    """Best-effort extraction of (tool_name, input_dict) from the body of a
+    `<tool_call>...</tool_call>` block.
+
+    Why this exists: models sometimes leak Anthropic's `<function_calls>` /
+    `<parameter>` syntax INSIDE our `<tool_call>` block, which corrupts the
+    JSON. Without a recovery path the call is silently dropped by
+    `try: json.loads(...); except: pass` and the user sees their request
+    vanish into thin air. We try three strategies, easiest first.
+
+    Returns (name, input_dict) or None.
+    """
+    payload = (payload or "").strip()
+    if not payload:
+        return None
+
+    # Strategy 1 — clean JSON ("name" + "input"). Vast majority of calls.
+    try:
+        data = json.loads(payload)
+        if isinstance(data, dict):
+            name = data.get("name") or (
+                data.get("function", {}).get("name")
+                if isinstance(data.get("function"), dict) else None
+            )
+            if name:
+                inp = data.get("input") or (
+                    data.get("function", {}).get("arguments")
+                    if isinstance(data.get("function"), dict) else None
+                ) or {}
+                if isinstance(inp, str):
+                    try:
+                        inp = json.loads(inp)
+                    except Exception:
+                        inp = {}
+                return name, (inp if isinstance(inp, dict) else {})
+    except Exception:
+        pass
+
+    # Strategy 2 — Anthropic-syntax leak: `{"name": "X">  <parameter ...>` etc.
+    # Pull the tool name from the leading JSON-ish prefix and the params from
+    # all `<parameter name="K">V</parameter>` blocks. Coerce numeric/bool
+    # strings into proper JSON types where obvious.
+    if "<parameter" in payload and "</parameter>" in payload:
+        m = _TOOLCALL_NAME_RE.search(payload)
+        if m:
+            name = m.group("name")
+            inp: dict = {}
+            for pm in _ANTHROPIC_PARAM_RE.finditer(payload):
+                key = pm.group("key")
+                val = pm.group("val")
+                # Coerce common scalar forms; leave everything else as string.
+                sval = val.strip()
+                if sval.lower() == "true":
+                    inp[key] = True
+                elif sval.lower() == "false":
+                    inp[key] = False
+                elif sval.lower() == "null":
+                    inp[key] = None
+                else:
+                    try:
+                        if sval.isdigit() or (sval.startswith("-") and sval[1:].isdigit()):
+                            inp[key] = int(sval)
+                        elif sval.replace(".", "", 1).lstrip("-").isdigit():
+                            inp[key] = float(sval)
+                        elif sval.startswith("[") or sval.startswith("{"):
+                            inp[key] = json.loads(sval)
+                        else:
+                            inp[key] = val
+                    except Exception:
+                        inp[key] = val
+            if inp:
+                return name, inp
+
+    # Strategy 3 — last-ditch: maybe the JSON is just unterminated. Try to
+    # find balanced braces from the first `{` and parse that.
+    first = payload.find("{")
+    if first != -1:
+        depth = 0
+        end = -1
+        in_str = False
+        esc = False
+        for i in range(first, len(payload)):
+            c = payload[i]
+            if esc:
+                esc = False; continue
+            if c == "\\":
+                esc = True; continue
+            if c == '"':
+                in_str = not in_str; continue
+            if in_str:
+                continue
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+        if end != -1:
+            try:
+                data = json.loads(payload[first:end])
+                if isinstance(data, dict):
+                    name = data.get("name")
+                    if name:
+                        return name, (data.get("input") or {})
+            except Exception:
+                pass
+
+    return None
+
+
 class WebToolParser:
     """Shared parser for prompt-based tool calls in XML format.
     Also supports auto-wrapping raw JSON tool calls if auto_wrap_json=True.
@@ -135,25 +253,38 @@ class WebToolParser:
                 # Inside a tag: look for end tag
                 pos = self._raw_buf.find("</tool_call>")
                 if pos == -1:
-                    # End tag not found yet, wait for more chunks
+                    # End tag not found yet. BUT: if we already buffered a full
+                    # Anthropic-style `<function_calls>` block leak (i.e. JSON
+                    # opener + at least one `</parameter>`), the model is never
+                    # going to close with `</tool_call>` — recover now instead
+                    # of waiting forever and dumping as text on flush().
                     self._call_buf += self._raw_buf
                     self._raw_buf = ""
+                    if "</parameter>" in self._call_buf and "<parameter" in self._call_buf:
+                        parsed = _parse_tool_call_payload(self._call_buf.strip())
+                        if parsed:
+                            name, inp = parsed
+                            self.tool_calls.append({
+                                "id": f"call_pt_{len(self.tool_calls)}",
+                                "name": name,
+                                "input": inp,
+                            })
+                            self._call_buf = ""
+                            self._in_call = False
+                            continue
                     break
                 else:
                     # Found end tag: extract JSON and continue
                     self._call_buf += self._raw_buf[:pos]
                     self._raw_buf = self._raw_buf[pos + len("</tool_call>"):]
-                    try:
-                        data = json.loads(self._call_buf.strip())
-                        # Robust name/input extraction
-                        name = data.get("name") or (data.get("function", {}).get("name") if isinstance(data.get("function"), dict) else None)
-                        if name:
-                            self.tool_calls.append({
-                                "id": f"call_pt_{len(self.tool_calls)}",
-                                "name": name,
-                                "input": data.get("input") or data.get("function", {}).get("arguments") or {},
-                            })
-                    except: pass
+                    parsed = _parse_tool_call_payload(self._call_buf.strip())
+                    if parsed:
+                        name, inp = parsed
+                        self.tool_calls.append({
+                            "id": f"call_pt_{len(self.tool_calls)}",
+                            "name": name,
+                            "input": inp,
+                        })
                     self._call_buf = ""
                     self._in_call = False
                     continue # Look for more tags in the rest of buffer
