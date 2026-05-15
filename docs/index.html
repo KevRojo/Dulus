@@ -75,10 +75,10 @@ nav{
 nav.scrolled{background:rgba(10,10,10,.95)}
 .nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none}
 .nav-logo .mark{
-  width:32px;height:32px;background:var(--accent);
-  display:grid;place-items:center;
-  font-family:var(--display);font-size:18px;color:#000;
-  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  width:38px;height:38px;
+  background:url(docs/dulus-bird.png) center/contain no-repeat;
+  flex-shrink:0;
+  filter:drop-shadow(0 0 8px rgba(255,107,31,.25));
 }
 .nav-logo .name{font-family:var(--display);font-size:18px;letter-spacing:-.02em;color:var(--ink)}
 .nav-links{display:flex;gap:32px;margin-left:48px}
@@ -157,6 +157,44 @@ nav.scrolled{background:rgba(10,10,10,.95)}
 .hero-stats{display:flex;gap:32px;margin-top:40px}
 .hero-stat .val{font-family:var(--display);font-size:28px;color:var(--accent)}
 .hero-stat .lbl{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);margin-top:2px}
+
+/* hero badges (shield.io-style pills) */
+.hero-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.hb{
+  display:inline-flex;align-items:stretch;
+  background:#000;border:1px solid #1a1a22;
+  font-family:var(--mono);font-size:11px;
+  text-decoration:none;
+  overflow:hidden;
+  transition:transform .15s,border-color .15s;
+}
+.hb:hover{transform:translateY(-1px);border-color:var(--accent)}
+.hb-label{
+  background:#1a1a22;color:#cfcde0;
+  padding:5px 9px;letter-spacing:.05em;
+  display:inline-flex;align-items:center;
+}
+.hb-val{
+  padding:5px 9px;display:inline-flex;align-items:center;gap:5px;font-weight:600;
+  color:#000;
+}
+.hb-val--telegram{background:#26a5e4;color:#fff}
+.hb-val--x{background:#fff;color:#000}
+.hb-val--gh{background:var(--accent);color:#000}
+.hb-val--token{background:#7cffb5;color:#001a10;letter-spacing:.04em}
+
+/* hero bird */
+.hero-bird{
+  width:100%;max-width:300px;aspect-ratio:459/716;
+  margin:0 auto 18px;
+  background:url(docs/dulus-bird.png) center/contain no-repeat;
+  filter:drop-shadow(0 18px 36px rgba(255,107,31,.25));
+  animation:birdBob 6s ease-in-out infinite;
+}
+@keyframes birdBob{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-6px)}
+}
 
 /* ===== TERMINAL ===== */
 .terminal-wrap{position:relative}
@@ -361,6 +399,110 @@ nav.scrolled{background:rgba(10,10,10,.95)}
 /* ===== QUICKSTART ===== */
 #quickstart{background:var(--bg)}
 .qs-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+
+/* one-line installer */
+.qs-installer{
+  border:1px solid var(--dim2);
+  background:linear-gradient(180deg,var(--bg2),var(--bg));
+  padding:36px 36px 32px;
+  margin-bottom:48px;
+  position:relative;
+  overflow:hidden;
+}
+.qs-installer::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+}
+.qsi-head{display:flex;gap:32px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
+.qsi-eyebrow{font-size:11px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.qsi-title{font-family:var(--display);font-size:32px;letter-spacing:-.02em;line-height:1}
+.qsi-sub{font-size:13px;color:var(--dim);margin-top:8px;max-width:480px;line-height:1.6}
+.qsi-os-tabs{display:flex;background:var(--bg);border:1px solid var(--dim2);padding:4px}
+.qsi-tab{
+  background:none;border:none;color:var(--dim);
+  font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  padding:8px 14px;cursor:pointer;transition:background .15s,color .15s;
+  white-space:nowrap;
+}
+.qsi-tab:hover{color:var(--ink)}
+.qsi-tab--active{background:var(--accent);color:#000;font-weight:700}
+.qsi-cmd{display:none;align-items:stretch;gap:0;border:1px solid var(--dim2);background:#080810;flex-wrap:wrap}
+.qsi-cmd--active{display:flex}
+.qsi-cmd-body{
+  flex:1;min-width:0;
+  display:flex;align-items:center;gap:14px;
+  padding:16px 20px;font-family:var(--mono);font-size:14px;
+  overflow-x:auto;
+}
+.qsi-cmd-body code{color:var(--ink);white-space:nowrap;font-family:var(--mono)}
+.qsi-prompt{color:var(--accent);font-weight:700;flex-shrink:0}
+.qsi-prompt--ps{color:#7ab6ff}
+.qsi-cmd-actions{display:flex;gap:0;border-left:1px solid var(--dim2);flex-shrink:0}
+.qsi-btn{
+  font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+  padding:12px 18px;cursor:pointer;
+  border:none;text-decoration:none;
+  display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
+  transition:background .15s,color .15s;
+}
+.qsi-btn--ghost{background:none;color:var(--dim);border-right:1px solid var(--dim2)}
+.qsi-btn--ghost:hover{color:var(--accent);background:rgba(255,107,31,.04)}
+.qsi-btn--primary{background:var(--accent);color:#000;font-weight:700}
+.qsi-btn--primary:hover{background:var(--accent2)}
+.qsi-btn-icon{font-size:14px}
+.qsi-profiles-head{
+  margin-top:24px;margin-bottom:14px;
+  font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);
+}
+.qsi-profiles{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:var(--dim2);border:1px solid var(--dim2);
+}
+.qsi-profile{
+  background:var(--bg);padding:18px 18px 16px;
+  display:flex;flex-direction:column;gap:8px;
+  position:relative;transition:background .2s;
+}
+.qsi-profile:hover{background:var(--bg2)}
+.qsi-profile--full::after{
+  content:"RECOMMENDED";position:absolute;top:0;right:0;
+  background:var(--accent);color:#000;font-size:8px;font-weight:700;
+  letter-spacing:.2em;padding:3px 7px;
+}
+.qsi-profile-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.qsi-profile-name{font-family:var(--display);font-size:20px;color:var(--accent);letter-spacing:-.02em}
+.qsi-profile-size{font-size:10px;letter-spacing:.12em;color:var(--dim);font-family:var(--mono)}
+.qsi-profile-desc{font-size:12px;color:var(--dim);line-height:1.55}
+.qsi-profile-desc code{font-size:11px;color:var(--accent);background:rgba(255,107,31,.06);padding:1px 5px}
+.qsi-profile-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.qsi-profile-tags span{
+  font-size:9px;letter-spacing:.12em;color:var(--dim);
+  border:1px solid var(--dim2);padding:2px 6px;font-family:var(--mono);
+}
+
+.qsi-or{
+  display:flex;align-items:center;gap:16px;
+  margin:0 0 36px;color:var(--dim);font-size:11px;
+  letter-spacing:.25em;text-transform:uppercase;
+  text-align:center;justify-content:center;
+}
+.qsi-or::before,.qsi-or::after{
+  content:"";flex:1;height:1px;background:var(--dim2);max-width:120px;
+}
+.qsi-or span{padding:0 4px}
+
+@media(max-width:900px){
+  .qsi-head{flex-direction:column;gap:16px}
+  .qsi-profiles{grid-template-columns:1fr 1fr}
+  .qs-installer{padding:24px 20px}
+  .qsi-cmd-body{font-size:12px}
+  .qsi-cmd-actions{width:100%;border-left:none;border-top:1px solid var(--dim2)}
+  .qsi-btn--ghost{flex:1;border-right:1px solid var(--dim2);justify-content:center}
+  .qsi-btn--primary{flex:1;justify-content:center}
+}
+@media(max-width:600px){
+  .qsi-profiles{grid-template-columns:1fr}
+}
 .qs-steps{display:flex;flex-direction:column;gap:0}
 .qs-step{
   border-left:1px solid var(--dim2);
@@ -426,7 +568,7 @@ nav.scrolled{background:rgba(10,10,10,.95)}
   max-height:0;overflow:hidden;
   transition:max-height .35s ease,padding .35s ease;
 }
-.faq-item.open .faq-a{max-height:400px;padding-bottom:24px}
+.faq-item.open .faq-a{max-height:640px;padding-bottom:24px}
 .faq-a-inner{padding:0 28px;font-size:13px;color:var(--dim);line-height:1.75}
 .faq-a-inner code{color:var(--accent);background:rgba(255,107,31,.07);padding:2px 5px;font-size:11px}
 .faq-a-inner a{color:var(--accent)}
@@ -438,7 +580,12 @@ footer{
   padding:60px 0 40px;
 }
 .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:48px}
-.footer-brand .logo{font-family:var(--display);font-size:28px;letter-spacing:-.02em;margin-bottom:12px}
+.footer-brand .logo{font-family:var(--display);font-size:28px;letter-spacing:-.02em;margin-bottom:12px;display:flex;align-items:center;gap:14px}
+.footer-brand .logo .mark{
+  width:42px;height:42px;flex-shrink:0;
+  background:url(docs/dulus-bird.png) center/contain no-repeat;
+  filter:drop-shadow(0 0 10px rgba(255,107,31,.25));
+}
 .footer-brand .logo span{color:var(--accent)}
 .footer-brand p{font-size:13px;color:var(--dim);max-width:240px;line-height:1.6;margin-bottom:20px}
 .stars-badge{
@@ -449,6 +596,19 @@ footer{
 }
 .stars-badge:hover{border-color:var(--accent);color:var(--ink)}
 .stars-badge .star-val{color:var(--yellow);font-weight:700}
+
+/* footer socials */
+.footer-socials{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.fs-link{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--dim2);
+  padding:7px 12px;font-size:11px;
+  color:var(--dim);text-decoration:none;
+  font-family:var(--mono);letter-spacing:.04em;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.fs-link:hover{border-color:var(--accent);color:var(--ink);background:rgba(255,107,31,.04)}
+.fs-link svg{flex-shrink:0}
 .footer-col h4{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
 .footer-col ul{list-style:none}
 .footer-col ul li{margin-bottom:10px}
@@ -488,7 +648,7 @@ footer{
 <!-- ===== NAV ===== -->
 <nav id="nav">
   <a href="#" class="nav-logo">
-    <div class="mark">▲</div>
+    <div class="mark" aria-label="Dulus"></div>
     <span class="name">DULUS</span>
   </a>
   <div class="nav-links">
@@ -514,8 +674,8 @@ footer{
           <span class="eyebrow">Python autonomous agent · open source</span>
         </div>
         <div class="hero-wordmark">
-          <span class="split">FAL</span>
-          <span class="split">CON</span>
+          <span class="split">DU</span>
+          <span class="split">LUS</span>
         </div>
         <span class="hero-slash">// hunt. patch. ship.</span>
         <p class="hero-sub">
@@ -526,6 +686,38 @@ footer{
           <a href="#quickstart" class="btn-primary">Get Dulus</a>
           <a href="#features" class="btn-ghost">Explore ↓</a>
         </div>
+
+        <!-- social / community badges -->
+        <div class="hero-badges">
+          <a class="hb" href="https://t.me/dulusx" target="_blank" rel="noopener">
+            <span class="hb-label">telegram</span>
+            <span class="hb-val hb-val--telegram">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M9.78 17.55l-.25 3.6c.36 0 .52-.16.7-.34l1.7-1.64 3.52 2.58c.64.36 1.1.17 1.27-.6L19.9 4.6c.21-.95-.34-1.32-.97-1.08L1.65 9.86c-.93.37-.92.9-.17 1.14l4.32 1.35L15.93 6.1c.47-.3.9-.13.55.17"/></svg>
+              @dulusx
+            </span>
+          </a>
+          <a class="hb" href="https://x.com/KevRojox" target="_blank" rel="noopener">
+            <span class="hb-label">x</span>
+            <span class="hb-val hb-val--x">
+              <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
+              @KevRojox
+            </span>
+          </a>
+          <a class="hb" href="https://github.com/KevRojo/Dulus" target="_blank" rel="noopener">
+            <span class="hb-label">github</span>
+            <span class="hb-val hb-val--gh">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.9.58.1.79-.25.79-.55v-2.06c-3.2.7-3.87-1.36-3.87-1.36-.52-1.34-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.25 3.34.95.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.51-1.47.11-3.06 0 0 .97-.31 3.19 1.18a11.1 11.1 0 0 1 5.8 0c2.22-1.5 3.19-1.18 3.19-1.18.63 1.59.23 2.77.11 3.06.74.81 1.18 1.84 1.18 3.1 0 4.43-2.69 5.41-5.25 5.69.41.36.78 1.06.78 2.14v3.18c0 .31.21.66.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+              KevRojo/Dulus
+            </span>
+          </a>
+          <a class="hb" href="#faq" style="text-decoration:none">
+            <span class="hb-label">token</span>
+            <span class="hb-val hb-val--token">
+              ⬢ $DULUS
+            </span>
+          </a>
+        </div>
+
         <div class="hero-stats">
           <div class="hero-stat">
             <div class="val">27</div>
@@ -543,6 +735,7 @@ footer{
       </div>
 
       <div class="hero-right">
+        <div class="hero-bird reveal" aria-hidden="true"></div>
         <div class="terminal-wrap reveal">
           <div class="terminal">
             <div class="t-chrome">
@@ -671,93 +864,22 @@ footer{
         <h3>Plan Mode</h3>
         <p>Read-only analysis phase before touching anything. Only <code>plan.md</code> is writable. Think first, break things later. <code>/plan</code>.</p>
       </div>
+      <div class="feature reveal">
+        <div class="f-icon">👁️</div>
+        <span class="f-num">13</span>
+        <h3>Wake Words</h3>
+        <p>Always-on, always-offline. Whisper out a wake word — "<strong>hey dulus</strong>", "<strong>oye dulus</strong>", "<strong>despierta</strong>" — and the agent leans in. No cloud. No hot mic logs. <code>/wake set "hey dulus"</code>.</p>
+      </div>
+      <div class="feature reveal reveal-delay-1">
+        <div class="f-icon">🖥️</div>
+        <span class="f-num">14</span>
+        <h3>Dulus OS Shell</h3>
+        <p>A full operating-system surface for the agent — lock screen, boot sequence, desktop, app launcher. The CLI becomes a workstation. <a href="#dulus-os" style="color:var(--accent);text-decoration:none">See it ↓</a></p>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- spacer so fixed bar doesn't cover content -->
-<div id="spinners-placeholder"></div>
-
-<!-- ===== SPINNERS MARQUEE — fixed bottom bar ===== -->
-<div id="spinners">
-  <div class="marquee-wrap">
-    <div class="marquee-track" id="mq1"></div>
-    <div class="marquee-track" id="mq2"></div>
-  </div>
-</div>
-
-<!-- ===== MODELS ===== -->
-<section id="models" class="section">
-  <div class="container">
-    <div class="models-intro reveal">
-      <div class="models-intro-text">
-        <div class="eyebrow">// bring your own brain</div>
-        <h2>Works with every <em>model</em> worth knowing</h2>
-        <p style="color:var(--dim);font-size:14px;margin-top:16px;line-height:1.65">Swap models mid-session with <code style="color:var(--accent);font-size:12px">/model &lt;name&gt;</code>. Auto-detection handles provider prefix. Colon syntax also works.</p>
-      </div>
-      <div class="models-intro-stat">
-        <div class="m-stat"><div class="mv">11</div><div class="ml">Cloud + Local Providers</div></div>
-        <div class="m-stat"><div class="mv">40+</div><div class="ml">Models Ready Today</div></div>
-        <div class="m-stat"><div class="mv">∞</div><div class="ml">via OpenAI-compat endpoints</div></div>
-      </div>
-    </div>
-
-    <div class="providers-strip reveal">
-      <div class="provider"><div class="p-dot"></div><div class="p-name">Anthropic</div><div class="p-models">Claude Opus · Sonnet · Haiku</div><div class="p-tag">ANTHROPIC_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">OpenAI</div><div class="p-models">GPT-4o · O3 · O1</div><div class="p-tag">OPENAI_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">Google</div><div class="p-models">Gemini 2.5 · Flash</div><div class="p-tag">GEMINI_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">DeepSeek</div><div class="p-models">Chat · Reasoner · V3</div><div class="p-tag">DEEPSEEK_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">Kimi</div><div class="p-models">Moonshot · K2.5</div><div class="p-tag">MOONSHOT_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">Qwen</div><div class="p-models">Max · Plus · QwQ</div><div class="p-tag">DASHSCOPE_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">Zhipu</div><div class="p-models">GLM-4 · Flash</div><div class="p-tag">ZHIPU_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">MiniMax</div><div class="p-models">Text-01 · VL-01</div><div class="p-tag">MINIMAX_API_KEY</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">Ollama</div><div class="p-models">Any local model</div><div class="p-tag" style="color:var(--green)">NO KEY NEEDED</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">LM Studio</div><div class="p-models">Local · GUI</div><div class="p-tag" style="color:var(--green)">NO KEY NEEDED</div></div>
-      <div class="provider"><div class="p-dot"></div><div class="p-name">Custom</div><div class="p-models">OpenAI-compat</div><div class="p-tag">CUSTOM_BASE_URL</div></div>
-    </div>
-
-    <!-- NVIDIA callout -->
-    <div class="nvidia-callout reveal" style="margin-top:40px">
-      <div class="nv-header">
-        <div>
-          <span class="nv-badge">Free Tier</span>
-          <h3 style="margin-top:10px">14 frontier models.<br><span>Zero cost.</span></h3>
-          <p style="color:var(--dim);font-size:13px;margin-top:12px;max-width:500px;line-height:1.65">NVIDIA NIM hosts frontier models at 40 RPM each, free. Sign up at <a href="https://build.nvidia.com" style="color:var(--nv)">build.nvidia.com</a> and Dulus routes to them automatically — with fallback when limits hit.</p>
-        </div>
-        <div class="nv-stats">
-          <div class="nv-stat"><div class="v">14</div><div class="l">Models</div></div>
-          <div class="nv-stat"><div class="v">40</div><div class="l">RPM each</div></div>
-          <div class="nv-stat"><div class="v" style="font-size:24px">AUTO</div><div class="l">Fallback</div></div>
-        </div>
-      </div>
-      <div class="nv-models">
-        <div class="nv-chip"><div class="cn">DeepSeek R1</div><div class="ci">REASONING</div></div>
-        <div class="nv-chip"><div class="cn">DeepSeek V3</div><div class="ci">INSTRUCT</div></div>
-        <div class="nv-chip"><div class="cn">Kimi K2.5</div><div class="ci">LONG CONTEXT</div></div>
-        <div class="nv-chip"><div class="cn">GLM-4</div><div class="ci">ZHIPU AI</div></div>
-        <div class="nv-chip"><div class="cn">MiniMax T-01</div><div class="ci">TEXT + VISION</div></div>
-        <div class="nv-chip"><div class="cn">Mistral Nemotron</div><div class="ci">NVIDIA-TUNED</div></div>
-        <div class="nv-chip"><div class="cn">Llama 3.3 70B</div><div class="ci">META</div></div>
-        <div class="nv-chip"><div class="cn">Llama 3.1 405B</div><div class="ci">META · FLAGSHIP</div></div>
-        <div class="nv-chip"><div class="cn">Llama Nemotron</div><div class="ci">REASONING</div></div>
-        <div class="nv-chip"><div class="cn">Qwen2.5 Coder</div><div class="ci">ALIBABA</div></div>
-        <div class="nv-chip"><div class="cn">Qwen3 235B A22B</div><div class="ci">MoE</div></div>
-        <div class="nv-chip"><div class="cn">Phi-4</div><div class="ci">MICROSOFT</div></div>
-        <div class="nv-chip"><div class="cn">Gemma 3 27B</div><div class="ci">GOOGLE</div></div>
-        <div class="nv-chip"><div class="cn">Mistral Large</div><div class="ci">INSTRUCT</div></div>
-      </div>
-      <div class="nv-chain">
-        <span>AUTO-FALLBACK:</span>
-        <span class="ch-item">deepseek-r1</span><span class="ch-arrow">→</span>
-        <span class="ch-item">kimi-k2.5</span><span class="ch-arrow">→</span>
-        <span class="ch-item">llama-3.3-70b</span><span class="ch-arrow">→</span>
-        <span class="ch-item">mistral-nemotron</span><span class="ch-arrow">→</span>
-        <span>…14 deep. zero downtime.</span>
-      </div>
-      <a href="https://build.nvidia.com" class="nv-cta">Get free NVIDIA key ↗</a>
-    </div>
-  </div>
-</section>
 
 <!-- ===== QUICKSTART ===== -->
 <section id="quickstart" class="section">
@@ -766,6 +888,97 @@ footer{
       <div class="eyebrow">// zero to flight in 30 seconds</div>
       <h2>Quick Start</h2>
     </div>
+
+    <!-- ===== ONE-LINE INSTALLER ===== -->
+    <div class="qs-installer reveal">
+      <div class="qsi-head">
+        <div>
+          <div class="qsi-eyebrow">// recommended · one command</div>
+          <h3 class="qsi-title">Auto-installer</h3>
+          <p class="qsi-sub">Detects your OS, package manager, Python version, and WSLg audio bridge — then asks which profile to install.</p>
+        </div>
+        <div class="qsi-os-tabs" role="tablist">
+          <button class="qsi-tab qsi-tab--active" data-os="unix" type="button">Linux / macOS / WSL / Termux</button>
+          <button class="qsi-tab" data-os="win" type="button">Windows · PowerShell</button>
+        </div>
+      </div>
+
+      <!-- unix command -->
+      <div class="qsi-cmd qsi-cmd--active" data-os="unix">
+        <div class="qsi-cmd-body">
+          <span class="qsi-prompt">$</span>
+          <code>curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash</code>
+        </div>
+        <div class="qsi-cmd-actions">
+          <button class="qsi-btn qsi-btn--ghost" onclick="copyInstallerCmd(this,'curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash')">Copy</button>
+          <a class="qsi-btn qsi-btn--primary" href="https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh" download="install.sh">
+            <span class="qsi-btn-icon">⇩</span> Download install.sh
+          </a>
+        </div>
+      </div>
+
+      <!-- windows command -->
+      <div class="qsi-cmd" data-os="win">
+        <div class="qsi-cmd-body">
+          <span class="qsi-prompt qsi-prompt--ps">PS&gt;</span>
+          <code>irm https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex</code>
+        </div>
+        <div class="qsi-cmd-actions">
+          <button class="qsi-btn qsi-btn--ghost" onclick="copyInstallerCmd(this,'irm https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex')">Copy</button>
+          <a class="qsi-btn qsi-btn--primary" href="https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1" download="install.ps1">
+            <span class="qsi-btn-icon">⇩</span> Download install.ps1
+          </a>
+        </div>
+      </div>
+
+      <!-- profile picker -->
+      <div class="qsi-profiles-head">Then pick a profile:</div>
+      <div class="qsi-profiles">
+        <div class="qsi-profile qsi-profile--full">
+          <div class="qsi-profile-head">
+            <span class="qsi-profile-name">full</span>
+            <span class="qsi-profile-size">~500 MB</span>
+          </div>
+          <div class="qsi-profile-desc">Everything: voice (Whisper + PortAudio), browser tools (Playwright), MemPalace semantic memory, tmux, WSL audio bridge.</div>
+          <div class="qsi-profile-tags">
+            <span>voice</span><span>browser</span><span>mempalace</span><span>tmux</span><span>wsl-audio</span>
+          </div>
+        </div>
+        <div class="qsi-profile">
+          <div class="qsi-profile-head">
+            <span class="qsi-profile-name">standard</span>
+            <span class="qsi-profile-size">~300 MB</span>
+          </div>
+          <div class="qsi-profile-desc">REPL + webchat + tmux daemon + Telegram bridge. The sweet spot for most workflows.</div>
+          <div class="qsi-profile-tags">
+            <span>repl</span><span>webchat</span><span>tmux</span><span>telegram</span>
+          </div>
+        </div>
+        <div class="qsi-profile">
+          <div class="qsi-profile-head">
+            <span class="qsi-profile-name">basic</span>
+            <span class="qsi-profile-size">~150 MB</span>
+          </div>
+          <div class="qsi-profile-desc">Bare <code>pip install dulus</code>. For servers, CI runners, minimal sandboxes.</div>
+          <div class="qsi-profile-tags">
+            <span>core</span><span>cli only</span>
+          </div>
+        </div>
+        <div class="qsi-profile">
+          <div class="qsi-profile-head">
+            <span class="qsi-profile-name">custom</span>
+            <span class="qsi-profile-size">à la carte</span>
+          </div>
+          <div class="qsi-profile-desc">Walks you through every feature with a yes/no toggle. Picks exactly what you need.</div>
+          <div class="qsi-profile-tags">
+            <span>interactive</span><span>granular</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="qsi-or"><span>or, step-by-step ↓</span></div>
+
     <div class="qs-grid">
       <div class="qs-steps">
         <div class="qs-step reveal">
@@ -843,6 +1056,1268 @@ footer{
     </div>
   </div>
 </section>
+
+<!-- ===== DULUS OS ===== -->
+<section id="dulus-os" class="section dos-section">
+  <div class="dos-bg"></div>
+  <div class="container" style="position:relative;z-index:2">
+    <div class="section-header reveal">
+      <div class="eyebrow" style="color:#8a7dff">// dulus os · v0.2 alpha</div>
+      <h2>Not a CLI. A <span style="color:#8a7dff">workstation</span><br>for the agent.</h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:14px;max-width:620px;margin-left:auto;margin-right:auto;line-height:1.7">Dulus OS is the desktop surface around the agent. Lock screen, boot sequence, wallpaper, dock, app launcher — all the affordances of an operating system, wired into one autonomous brain. Type <code style="color:#8a7dff;font-size:12px">/os</code> in the CLI to launch.</p>
+    </div>
+
+    <!-- 2x2 panel grid -->
+    <div class="dos-grid reveal">
+
+      <!-- 1. LOCK SCREEN -->
+      <div class="dos-panel" data-label="01 · lockscreen">
+        <div class="dos-chrome">
+          <span class="dos-tl" style="background:#ff5f57"></span>
+          <span class="dos-tl" style="background:#febc2e"></span>
+          <span class="dos-tl" style="background:#28c840"></span>
+          <span class="dos-title">dulus-os · 02-12 14:21</span>
+        </div>
+        <div class="dos-screen dos-screen--lock">
+          <div class="dos-lock-card">
+            <div class="dos-wordmark">DULUS</div>
+            <div class="dos-tagline">DULUS OS</div>
+            <div class="dos-subtag">Intelligent Agent Operating System</div>
+            <div class="dos-avatar">
+              <span>K</span>
+            </div>
+            <div class="dos-user">KevRojo <span style="opacity:.5">▾</span></div>
+            <div class="dos-pw-field">
+              <span class="dos-pw-dots">••••••••••</span>
+            </div>
+            <button class="dos-unlock">Unlock</button>
+            <div class="dos-guest">Log in as Guest</div>
+            <div class="dos-corner-icons">
+              <span>◐</span><span>♿</span><span>⏻</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. BOOT -->
+      <div class="dos-panel" data-label="02 · boot">
+        <div class="dos-chrome">
+          <span class="dos-tl" style="background:#ff5f57"></span>
+          <span class="dos-tl" style="background:#febc2e"></span>
+          <span class="dos-tl" style="background:#28c840"></span>
+          <span class="dos-title">dulus-os · bootstrap</span>
+        </div>
+        <div class="dos-screen dos-screen--boot">
+          <div class="dos-boot-logo">DULUS</div>
+          <div class="dos-boot-sub">OPERATING SYSTEM · v0.2</div>
+          <div class="dos-boot-log">
+            <div class="dos-boot-line dos-boot-line--ok"><span class="dos-boot-tag">[  OK  ]</span> Bootstrap Agent Kernel v0.2.4</div>
+            <div class="dos-boot-line dos-boot-line--ok"><span class="dos-boot-tag">[  OK  ]</span> Loading provider registry · 11 ready</div>
+            <div class="dos-boot-line dos-boot-line--ok"><span class="dos-boot-tag">[  OK  ]</span> Initialising memory subsystem</div>
+            <div class="dos-boot-line dos-boot-line--ok"><span class="dos-boot-tag">[  OK  ]</span> Mounting plugin volumes · 7 active</div>
+            <div class="dos-boot-line dos-boot-line--ok"><span class="dos-boot-tag">[  OK  ]</span> Starting voice engine (whisper-cpp)</div>
+            <div class="dos-boot-line dos-boot-line--ok"><span class="dos-boot-tag">[  OK  ]</span> Wake-word daemon · "hey dulus"</div>
+            <div class="dos-boot-line dos-boot-line--ok"><span class="dos-boot-tag">[  OK  ]</span> Spawning desktop session</div>
+            <div class="dos-boot-line"><span class="dos-boot-tag" style="color:#8a7dff">[ .... ]</span> Connecting to bridges<span class="dos-boot-blink">_</span></div>
+          </div>
+          <div class="dos-boot-progress">
+            <div class="dos-boot-bar"></div>
+            <div class="dos-boot-pct">87%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. DESKTOP -->
+      <div class="dos-panel" data-label="03 · desktop">
+        <div class="dos-chrome">
+          <span class="dos-tl" style="background:#ff5f57"></span>
+          <span class="dos-tl" style="background:#febc2e"></span>
+          <span class="dos-tl" style="background:#28c840"></span>
+          <span class="dos-title">dulus-os · desktop · ~/projects/dulus</span>
+        </div>
+        <div class="dos-screen dos-screen--desktop">
+          <div class="dos-wallpaper"></div>
+          <!-- floating dock -->
+          <div class="dos-dock">
+            <div class="dos-dock-row">
+              <div class="dos-app" title="Tools">🛠</div>
+              <div class="dos-app" title="Web Browser">🌐</div>
+              <div class="dos-app dos-app--focus" title="Terminal">⌨</div>
+              <div class="dos-app" title="Slide Editor">🎞</div>
+              <div class="dos-app" title="App Launcher">▦</div>
+            </div>
+            <div class="dos-dock-row">
+              <div class="dos-app" title="Text Editor">📝</div>
+              <div class="dos-app" title="Calendar">📅</div>
+              <div class="dos-app" title="System">⚙</div>
+              <div class="dos-app" title="Mic">🎙</div>
+              <div class="dos-app" title="Files">📁</div>
+            </div>
+          </div>
+          <!-- top bar -->
+          <div class="dos-topbar">
+            <span style="color:#ff8a3d">▲</span>
+            <span>Dulus</span>
+            <span class="dos-tb-sep">·</span>
+            <span class="dos-tb-dim">~/projects/dulus</span>
+            <span class="dos-tb-spacer"></span>
+            <span class="dos-tb-dim">🎙 hey dulus</span>
+            <span class="dos-tb-sep">·</span>
+            <span class="dos-tb-dim">claude-sonnet</span>
+            <span class="dos-tb-sep">·</span>
+            <span class="dos-tb-dim">14:21</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. LAUNCHER -->
+      <div class="dos-panel" data-label="04 · launcher">
+        <div class="dos-chrome">
+          <span class="dos-tl" style="background:#ff5f57"></span>
+          <span class="dos-tl" style="background:#febc2e"></span>
+          <span class="dos-tl" style="background:#28c840"></span>
+          <span class="dos-title">dulus-os · app launcher</span>
+        </div>
+        <div class="dos-screen dos-screen--launcher">
+          <div class="dos-launcher-tabs">
+            <span class="dos-tab dos-tab--active">All</span>
+            <span class="dos-tab">System</span>
+            <span class="dos-tab">Productivity</span>
+            <span class="dos-tab">Internet</span>
+            <span class="dos-tab">Media</span>
+            <span class="dos-tab">DevTools</span>
+            <span class="dos-tab">Creative</span>
+          </div>
+          <div class="dos-launcher-grid" id="dos-launcher-grid"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- OS feature strip -->
+    <div class="dos-features reveal">
+      <div class="dos-feat">
+        <div class="dos-feat-icon">👂</div>
+        <div class="dos-feat-text">
+          <strong>Wake Words</strong>
+          Whisper "hey dulus" — always-on, fully offline. Cancellable. <code style="color:#8a7dff">/wake set</code> to customise.
+        </div>
+      </div>
+      <div class="dos-feat">
+        <div class="dos-feat-icon">🪟</div>
+        <div class="dos-feat-text">
+          <strong>Windowed Apps</strong>
+          Editor, browser, terminal, slide deck, calendar, files — each as a draggable OS-native window the agent can drive.
+        </div>
+      </div>
+      <div class="dos-feat">
+        <div class="dos-feat-icon">▦</div>
+        <div class="dos-feat-text">
+          <strong>App Launcher</strong>
+          Categorised grid: System · Productivity · Internet · Media · DevTools · Creative. Fuzzy search by name.
+        </div>
+      </div>
+      <div class="dos-feat">
+        <div class="dos-feat-icon">🔒</div>
+        <div class="dos-feat-text">
+          <strong>Lock Screen</strong>
+          Sessions persist between unlocks. Soul, memory, agents — restored exactly where you left them.
+        </div>
+      </div>
+      <div class="dos-feat">
+        <div class="dos-feat-icon">🎨</div>
+        <div class="dos-feat-text">
+          <strong>Themes &amp; Wallpapers</strong>
+          Generative wallpapers. Dark / light / "amber". Per-app accent colors.
+        </div>
+      </div>
+      <div class="dos-feat">
+        <div class="dos-feat-icon">⌨</div>
+        <div class="dos-feat-text">
+          <strong>One Keystroke In</strong>
+          <code style="color:#8a7dff">/os</code> from the CLI · or <code style="color:#8a7dff">dulus --os</code> on launch.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<style>
+/* ===== DULUS OS ===== */
+.dos-section{background:#080612;position:relative;overflow:hidden}
+.dos-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse at 18% 18%, rgba(138,125,255,.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 88% 78%, rgba(255,107,31,.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 110%, rgba(138,125,255,.06) 0%, transparent 40%);
+}
+.dos-bg::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(138,125,255,.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(138,125,255,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+  mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%);
+}
+.dos-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:24px;
+  margin-bottom:56px;
+}
+.dos-panel{
+  position:relative;background:#0c0a18;
+  border:1px solid #1f1c2e;border-radius:8px;overflow:hidden;
+  box-shadow:0 30px 60px rgba(0,0,0,.45),0 0 0 1px rgba(138,125,255,.06);
+}
+.dos-panel::after{
+  content:attr(data-label);
+  position:absolute;top:10px;right:14px;z-index:5;
+  font-size:9px;letter-spacing:.3em;color:#8a7dff;
+  font-family:var(--mono);text-transform:uppercase;
+  background:rgba(138,125,255,.08);padding:3px 8px;border:1px solid rgba(138,125,255,.22);
+}
+.dos-chrome{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 14px;background:#0e0c1c;border-bottom:1px solid #1f1c2e;
+}
+.dos-tl{width:11px;height:11px;border-radius:50%}
+.dos-title{flex:1;text-align:center;font-size:10px;color:var(--dim);letter-spacing:.15em;font-family:var(--mono)}
+.dos-screen{
+  position:relative;aspect-ratio:16/10;
+  background:#0a0814;overflow:hidden;
+}
+
+/* === lock screen === */
+.dos-screen--lock{
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(255,107,31,.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 70%, rgba(255,138,61,.08) 0%, transparent 45%),
+    linear-gradient(135deg,#1a0e0a 0%,#0a0814 100%);
+  display:grid;place-items:center;
+}
+.dos-screen--lock::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 25% 25%, rgba(255,107,31,.20),transparent 35%),
+    radial-gradient(circle at 70% 60%, rgba(138,125,255,.12),transparent 40%),
+    repeating-linear-gradient(115deg,transparent 0 16px,rgba(255,138,61,.04) 16px 17px);
+  pointer-events:none;
+}
+.dos-lock-card{
+  position:relative;background:rgba(12,10,24,.65);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.04);
+  border-radius:14px;padding:22px 28px 18px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  width:240px;
+  box-shadow:0 18px 40px rgba(0,0,0,.45);
+}
+.dos-wordmark{
+  font-family:var(--display);font-size:32px;color:#8a7dff;letter-spacing:.12em;
+  text-shadow:0 0 18px rgba(138,125,255,.5);
+  line-height:1;
+}
+.dos-tagline{font-size:10px;letter-spacing:.32em;color:#cfcde0;margin-top:-2px}
+.dos-subtag{font-size:9px;color:#8b8a98;letter-spacing:.1em;margin-bottom:6px}
+.dos-avatar{
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,#8a7dff,#4a9eff);
+  display:grid;place-items:center;color:#fff;
+  font-family:var(--display);font-size:24px;
+  box-shadow:0 0 0 2px rgba(255,255,255,.06),0 6px 14px rgba(74,158,255,.3);
+  margin-top:6px;
+}
+.dos-user{font-size:11px;color:#cfcde0;letter-spacing:.04em;margin-top:2px}
+.dos-pw-field{
+  width:100%;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.05);
+  height:30px;border-radius:5px;
+  display:flex;align-items:center;padding:0 12px;
+  font-size:11px;color:#cfcde0;letter-spacing:.18em;
+}
+.dos-unlock{
+  width:100%;background:#8a7dff;color:#0a0814;font-weight:700;
+  border:none;border-radius:5px;height:30px;font-size:11px;
+  letter-spacing:.18em;text-transform:uppercase;font-family:var(--mono);
+}
+.dos-guest{font-size:10px;color:#8b8a98;margin-top:2px}
+.dos-corner-icons{display:flex;gap:14px;color:#8b8a98;font-size:14px;margin-top:6px}
+
+/* === boot screen === */
+.dos-screen--boot{
+  background:#000;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;padding:24px;
+  font-family:var(--mono);
+}
+.dos-boot-logo{
+  font-family:var(--display);font-size:46px;
+  color:#4a9eff;letter-spacing:.14em;
+  text-shadow:0 0 22px rgba(74,158,255,.55),0 0 1px #4a9eff;
+  filter:drop-shadow(0 0 0.6px #4a9eff);
+  line-height:1;
+}
+.dos-boot-sub{font-size:9px;color:#4a9eff;letter-spacing:.4em;margin-bottom:10px;opacity:.7}
+.dos-boot-log{
+  font-size:10px;color:#9b9ab2;line-height:1.7;
+  width:100%;max-width:380px;
+  font-family:var(--mono);
+}
+.dos-boot-line{display:flex;gap:8px;align-items:center}
+.dos-boot-tag{color:#4a9eff;letter-spacing:.04em;width:62px;flex-shrink:0}
+.dos-boot-line--ok .dos-boot-tag{color:#7cffb5}
+.dos-boot-blink{animation:blink .8s infinite step-end;color:#8a7dff}
+.dos-boot-progress{
+  width:100%;max-width:380px;margin-top:10px;
+  display:flex;align-items:center;gap:10px;
+}
+.dos-boot-bar{
+  flex:1;height:4px;background:#0a1a2e;border-radius:2px;overflow:hidden;
+  position:relative;
+}
+.dos-boot-bar::after{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:87%;
+  background:linear-gradient(90deg,#4a9eff,#8a7dff);
+  animation:dosBootBar 2.4s ease-in-out infinite;
+}
+@keyframes dosBootBar{0%,100%{width:60%}50%{width:92%}}
+.dos-boot-pct{font-size:10px;color:#4a9eff;letter-spacing:.1em;font-family:var(--mono)}
+
+/* === desktop === */
+.dos-screen--desktop{position:relative;background:#0a0814}
+.dos-wallpaper{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse at 30% 60%, rgba(255,138,61,.7) 0%, transparent 35%),
+    radial-gradient(ellipse at 75% 35%, rgba(255,107,31,.45) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 80%, rgba(255,138,61,.35) 0%, transparent 55%),
+    conic-gradient(from 220deg at 35% 55%, #1a0a05 0deg, #2a1408 60deg, #ff8a3d 180deg, #1a0a05 280deg, #1a0a05 360deg),
+    linear-gradient(180deg,#0c0612,#1a0a05);
+  filter:contrast(1.1) saturate(1.2);
+}
+.dos-wallpaper::before{
+  content:"";position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(125deg,transparent 0 28px,rgba(0,0,0,.12) 28px 30px),
+    radial-gradient(ellipse at 60% 60%,transparent 30%,rgba(0,0,0,.55) 80%);
+  mix-blend-mode:overlay;
+}
+.dos-wallpaper::after{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 30% 50%,rgba(255,138,61,.5),transparent 18%),
+    radial-gradient(circle at 65% 40%,rgba(255,107,31,.4),transparent 12%);
+  filter:blur(20px);
+  mix-blend-mode:screen;
+  opacity:.55;
+}
+.dos-topbar{
+  position:absolute;top:0;left:0;right:0;height:22px;
+  display:flex;align-items:center;gap:8px;padding:0 14px;
+  background:rgba(0,0,0,.4);backdrop-filter:blur(8px);
+  font-size:10px;color:#cfcde0;font-family:var(--mono);letter-spacing:.04em;
+  border-bottom:1px solid rgba(255,255,255,.04);z-index:3;
+}
+.dos-tb-sep{color:#5a5868}
+.dos-tb-dim{color:#9b9ab2}
+.dos-tb-spacer{flex:1}
+.dos-dock{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;gap:6px;
+  background:rgba(0,0,0,.42);backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:10px;padding:8px;z-index:2;
+  box-shadow:0 18px 36px rgba(0,0,0,.45);
+}
+.dos-dock-row{display:flex;gap:4px}
+.dos-app{
+  width:34px;height:34px;border-radius:6px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.06);
+  display:grid;place-items:center;font-size:14px;
+  transition:transform .15s,background .15s;
+}
+.dos-app:hover{transform:translateY(-2px);background:rgba(255,138,61,.15);border-color:rgba(255,138,61,.4)}
+.dos-app--focus{background:rgba(138,125,255,.18);border-color:rgba(138,125,255,.4)}
+
+/* === launcher === */
+.dos-screen--launcher{
+  background:linear-gradient(180deg,#0a0814 0%,#0e0c1c 100%);
+  display:flex;flex-direction:column;padding:14px 18px;gap:12px;
+}
+.dos-screen--launcher::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 40%,rgba(138,125,255,.06),transparent 60%);
+  pointer-events:none;
+}
+.dos-launcher-tabs{
+  display:flex;gap:6px;flex-wrap:wrap;position:relative;z-index:1;
+}
+.dos-tab{
+  font-size:9px;letter-spacing:.18em;color:#8b8a98;
+  padding:5px 12px;border-radius:99px;
+  border:1px solid #1f1c2e;background:rgba(255,255,255,.02);
+  font-family:var(--mono);text-transform:uppercase;
+}
+.dos-tab--active{background:rgba(138,125,255,.14);color:#cfcde0;border-color:rgba(138,125,255,.35)}
+.dos-launcher-grid{
+  display:grid;grid-template-columns:repeat(8,1fr);gap:8px;
+  position:relative;z-index:1;flex:1;align-content:start;
+}
+.dos-launch-cell{
+  background:rgba(255,255,255,.02);
+  border:1px solid #1c1a28;border-radius:6px;
+  padding:6px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  font-size:8px;color:#8b8a98;letter-spacing:.05em;
+  font-family:var(--mono);text-align:center;line-height:1.2;
+  transition:background .15s,border-color .15s;
+}
+.dos-launch-cell:hover{background:rgba(138,125,255,.08);border-color:rgba(138,125,255,.3);color:#cfcde0}
+.dos-launch-cell .dos-launch-icon{
+  width:24px;height:24px;border-radius:4px;
+  background:rgba(255,255,255,.04);
+  display:grid;place-items:center;font-size:13px;color:#cfcde0;
+}
+
+/* === feature strip === */
+.dos-features{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  background:#1f1c2e;border:1px solid #1f1c2e;
+}
+.dos-feat{
+  background:#0c0a18;padding:24px 22px;
+  display:flex;gap:14px;align-items:flex-start;
+  transition:background .2s;
+}
+.dos-feat:hover{background:#110e22}
+.dos-feat-icon{font-size:22px;flex-shrink:0;margin-top:2px}
+.dos-feat-text strong{display:block;font-size:14px;color:var(--ink);margin-bottom:4px}
+.dos-feat-text{font-size:12px;color:var(--dim);line-height:1.6}
+
+@media(max-width:900px){
+  .dos-grid{grid-template-columns:1fr}
+  .dos-features{grid-template-columns:1fr}
+  .dos-launcher-grid{grid-template-columns:repeat(6,1fr)}
+}
+</style>
+
+<script>
+// populate launcher grid with placeholder app cells
+(function(){
+  const grid = document.getElementById('dos-launcher-grid');
+  if(!grid) return;
+  const apps = [
+    {n:'Files',i:'📁'},{n:'Terminal',i:'⌨'},{n:'Text Editor',i:'📝'},{n:'Calculator',i:'🧮'},
+    {n:'Web Browser',i:'🌐'},{n:'Chat',i:'💬'},{n:'Notes',i:'📓'},{n:'Slides',i:'🎞'},
+    {n:'Calendar',i:'📅'},{n:'Mail',i:'✉'},{n:'System',i:'⚙'},{n:'Plugins',i:'🧩'},
+    {n:'Voice',i:'🎙'},{n:'Memory',i:'🧬'},{n:'Soul',i:'✦'},{n:'Agents',i:'🦅'},
+    {n:'Brainstorm',i:'🧠'},{n:'SSJ',i:'⚡'},{n:'Checkpoint',i:'💾'},{n:'Tasks',i:'✓'},
+    {n:'Skills',i:'🎯'},{n:'MCP',i:'🔌'},{n:'Telegram',i:'📡'},{n:'Webchat',i:'▲'},
+  ];
+  grid.innerHTML = apps.map(a => `
+    <div class="dos-launch-cell">
+      <div class="dos-launch-icon">${a.i}</div>
+      <div>${a.n}</div>
+    </div>
+  `).join('');
+})();
+</script>
+
+<!-- spacer so fixed bar doesn't cover content -->
+<div id="spinners-placeholder"></div>
+
+<!-- ===== SPINNERS MARQUEE — fixed bottom bar ===== -->
+<div id="spinners">
+  <div class="marquee-wrap">
+    <div class="marquee-track" id="mq1"></div>
+    <div class="marquee-track" id="mq2"></div>
+  </div>
+</div>
+
+<!-- ===== WEB PROVIDERS ===== -->
+<section id="web-providers" class="section wp-section">
+  <div class="wp-bg"></div>
+  <div class="container" style="position:relative;z-index:2">
+    <div class="section-header reveal">
+      <div class="eyebrow" style="color:#ff3a6e">// zero API spend · playwright · session harvest</div>
+      <h2>Use the chats you<br><span style="color:var(--accent)">already pay for.</span></h2>
+      <p style="color:var(--dim);font-size:14px;margin-top:14px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.7">Dulus can talk to Claude, Kimi, Gemini and DeepSeek through their <em>browser sessions</em> — no API key, no per-token billing. Your Pro subscription becomes a Dulus provider.</p>
+    </div>
+
+    <!-- stat bar -->
+    <div class="wp-statbar reveal">
+      <div class="wp-stat">
+        <div class="wp-stat-val" style="color:var(--accent)">$0.00</div>
+        <div class="wp-stat-lbl">API cost per token</div>
+      </div>
+      <div class="wp-stat-div"></div>
+      <div class="wp-stat">
+        <div class="wp-stat-val">5</div>
+        <div class="wp-stat-lbl">Web providers</div>
+      </div>
+      <div class="wp-stat-div"></div>
+      <div class="wp-stat">
+        <div class="wp-stat-val" style="color:var(--green)">AUTO</div>
+        <div class="wp-stat-lbl">Cookie harvest</div>
+      </div>
+      <div class="wp-stat-div"></div>
+      <div class="wp-stat">
+        <div class="wp-stat-val">∞</div>
+        <div class="wp-stat-lbl">Context via Pro plan</div>
+      </div>
+    </div>
+
+    <!-- main layout: terminal left, cards right -->
+    <div class="wp-layout reveal">
+
+      <!-- harvest terminal — ANIMATED -->
+      <div class="wp-terminal-wrap">
+        <div class="terminal wpa-frame" style="box-shadow:0 0 60px rgba(255,58,110,.12)">
+          <div class="t-chrome" style="background:#140812;border-color:#2a1020">
+            <div class="t-btn" style="background:#ff5f57"></div>
+            <div class="t-btn" style="background:#febc2e"></div>
+            <div class="t-btn" style="background:#28c840"></div>
+            <div class="t-title" style="color:#ff3a6e">⬡ session harvest · live · <span id="wpa-stage-label">idle</span></div>
+          </div>
+          <div class="t-body wpa-body" id="wpa-body">
+
+            <!-- CLI layer -->
+            <div class="wpa-cli" id="wpa-cli"></div>
+
+            <!-- BROWSER overlay (slides up from bottom when harvest opens it) -->
+            <div class="wpa-browser" id="wpa-browser" aria-hidden="true">
+              <div class="wpa-bchrome">
+                <span class="wpa-btn-dot" style="background:#ff5f57"></span>
+                <span class="wpa-btn-dot" style="background:#febc2e"></span>
+                <span class="wpa-btn-dot" style="background:#28c840"></span>
+                <div class="wpa-tabs">
+                  <span class="wpa-tab wpa-tab--active" id="wpa-tab">Sign in — Gemini</span>
+                </div>
+                <div class="wpa-url-bar">
+                  <span class="wpa-url-lock">🔒</span>
+                  <span id="wpa-url">accounts.web/oauth?app=gemini&amp;flow=login</span>
+                </div>
+                <span class="wpa-pwbadge">⬡ playwright · headed</span>
+              </div>
+              <div class="wpa-page" id="wpa-page">
+                <!-- pages injected by JS -->
+              </div>
+              <div class="wpa-pw-cursor" id="wpa-pw-cursor"></div>
+            </div>
+
+          </div>
+        </div>
+        <div class="wp-playwright-badge">
+          <span style="color:#ff3a6e">⬡</span> Powered by Playwright · headed browser harvests cookies · web chat then drives Dulus CLI tools
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<style>
+.wp-section{background:#0a0510;position:relative;overflow:hidden}
+.wp-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse at 20% 40%, rgba(255,58,110,.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 70%, rgba(255,107,31,.07) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 10%, rgba(204,133,255,.06) 0%, transparent 40%);
+}
+.wp-bg::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,58,110,.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,58,110,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.wp-statbar{
+  display:flex;align-items:center;justify-content:center;gap:0;
+  border:1px solid rgba(255,58,110,.2);
+  background:rgba(255,58,110,.03);
+  margin-bottom:56px;
+  flex-wrap:wrap;
+}
+.wp-stat{padding:24px 48px;text-align:center}
+.wp-stat-val{font-family:var(--display);font-size:40px;letter-spacing:-.02em;color:var(--ink)}
+.wp-stat-lbl{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);margin-top:4px}
+.wp-stat-div{width:1px;background:rgba(255,58,110,.2);align-self:stretch}
+.wp-layout{display:grid;grid-template-columns:1fr;gap:40px;align-items:start;max-width:900px;margin:0 auto}
+.wp-playwright-badge{
+  margin-top:12px;font-size:11px;color:var(--dim);
+  letter-spacing:.12em;text-align:center;
+}
+.wp-cards{display:flex;flex-direction:column;gap:1px;background:rgba(255,58,110,.1);border:1px solid rgba(255,58,110,.15)}
+.wp-card{
+  background:#0a0510;padding:20px 22px;
+  transition:background .2s;position:relative;cursor:default;
+}
+.wp-card:hover{background:#110818}
+.wp-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:attr(data-color);opacity:0;transition:opacity .3s;
+}
+.wp-card:hover::before{opacity:1}
+.wp-card-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.wp-card-icon{width:36px;height:36px;display:grid;place-items:center;font-size:18px;border-radius:2px;flex-shrink:0}
+.wp-card-name{font-size:14px;font-weight:700}
+.wp-card-cmd{font-size:10px;color:var(--dim);letter-spacing:.12em;margin-top:2px}
+.wp-card-status{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:9px;letter-spacing:.2em;color:var(--dim)}
+.wp-dot{width:6px;height:6px;border-radius:50%}
+.wp-card-desc{font-size:12px;color:var(--dim);line-height:1.55;padding-left:48px}
+.wp-card-harvest{
+  margin-top:10px;margin-left:48px;display:inline-block;
+  font-size:11px;color:#ff3a6e;letter-spacing:.15em;
+  border:1px solid rgba(255,58,110,.3);padding:3px 10px;
+  background:rgba(255,58,110,.04);
+}
+.wp-how{
+  background:rgba(255,107,31,.04);border:1px solid rgba(255,107,31,.15);
+  padding:20px 22px;margin-top:0;
+}
+.wp-how-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.wp-how-steps{display:flex;flex-direction:column;gap:8px}
+.wp-how-step{font-size:12px;color:var(--dim);line-height:1.5;display:flex;gap:10px}
+@media(max-width:900px){
+  .wp-layout{grid-template-columns:1fr}
+  .wp-stat{padding:16px 24px}
+}
+
+/* ===== WEB-PARSER ANIMATION (wpa-*) ===== */
+.wpa-frame{position:relative}
+.wpa-body{
+  background:#0c0810;min-height:480px;
+  position:relative;padding:18px 22px;
+  overflow:hidden;font-size:13px;line-height:1.55;
+}
+.wpa-cli{position:relative;z-index:1;font-family:var(--mono)}
+.wpa-cli .t-line{display:block;min-height:1.55em;white-space:pre-wrap;word-break:break-word}
+.wpa-cli .wpa-typed-cursor{
+  display:inline-block;width:7px;height:13px;background:#ff3a6e;
+  vertical-align:middle;margin-left:2px;animation:blink .8s infinite step-end;
+}
+.wpa-tool{display:flex;align-items:center;gap:10px;font-size:12px;margin:2px 0;padding-left:2px}
+.wpa-tool .wpa-tool-arrow{color:#4a9eff;font-weight:700}
+.wpa-tool .wpa-tool-name{
+  color:#4a9eff;font-weight:700;letter-spacing:.05em;
+  background:rgba(74,158,255,.08);padding:1px 8px;
+  border:1px solid rgba(74,158,255,.25);
+}
+.wpa-tool .wpa-tool-args{color:var(--dim);font-family:var(--mono)}
+.wpa-tool .wpa-tool-status{margin-left:auto;color:var(--green);font-size:11px}
+.wpa-tool.wpa-tool--pending .wpa-tool-status{color:var(--yellow)}
+.wpa-source-tag{
+  display:inline-block;padding:1px 7px;font-size:9px;letter-spacing:.18em;
+  background:rgba(255,58,110,.12);color:#ff3a6e;
+  border:1px solid rgba(255,58,110,.3);margin-right:8px;
+}
+
+/* browser overlay */
+.wpa-browser{
+  position:absolute;left:18px;right:18px;top:24px;bottom:18px;
+  background:#16161c;border:1px solid #2a2a36;border-radius:6px;
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:translateY(108%);opacity:0;
+  transition:transform .55s cubic-bezier(.22,1,.36,1), opacity .35s ease;
+  z-index:10;
+  box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,58,110,.15);
+}
+.wpa-browser.wpa-open{transform:translateY(0);opacity:1}
+.wpa-browser.wpa-closing{transform:translateY(108%) scale(.96);opacity:0}
+.wpa-bchrome{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;
+  background:#0e0e14;border-bottom:1px solid #1f1f28;
+}
+.wpa-btn-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.wpa-tabs{display:flex;gap:4px;margin-left:6px}
+.wpa-tab{
+  font-size:11px;color:var(--dim);
+  background:#1a1a22;border:1px solid #25252e;border-bottom:none;
+  padding:5px 12px;border-radius:5px 5px 0 0;
+  position:relative;top:1px;letter-spacing:.02em;
+  max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.wpa-tab--active{background:#16161c;color:#e8e6f0;border-color:#2a2a36}
+.wpa-url-bar{
+  flex:1;background:#0a0a10;border:1px solid #25252e;
+  padding:5px 10px;border-radius:14px;
+  font-size:11px;color:#b8b4c4;display:flex;align-items:center;gap:8px;
+  font-family:var(--mono);min-width:0;
+}
+.wpa-url-lock{color:#7cffb5;font-size:10px;flex-shrink:0}
+#wpa-url{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wpa-pwbadge{
+  font-size:9px;letter-spacing:.18em;color:#ff3a6e;
+  border:1px solid rgba(255,58,110,.3);padding:3px 8px;
+  background:rgba(255,58,110,.06);white-space:nowrap;
+}
+
+/* fake mouse cursor following playwright actions */
+.wpa-pw-cursor{
+  position:absolute;width:18px;height:18px;
+  pointer-events:none;z-index:50;left:50%;top:50%;
+  opacity:0;transition:left .65s cubic-bezier(.4,0,.2,1),top .65s cubic-bezier(.4,0,.2,1),opacity .25s;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));
+}
+.wpa-pw-cursor::before{
+  content:"";position:absolute;inset:0;
+  background:#fff;
+  clip-path:polygon(0 0, 0 80%, 24% 60%, 44% 100%, 60% 92%, 38% 52%, 72% 50%);
+}
+.wpa-pw-cursor.wpa-pw-cursor--visible{opacity:1}
+.wpa-pw-cursor.wpa-pw-cursor--click::after{
+  content:"";position:absolute;left:-6px;top:-6px;width:28px;height:28px;
+  border-radius:50%;border:2px solid #ff3a6e;
+  animation:wpaClick .35s ease-out;
+}
+@keyframes wpaClick{
+  from{transform:scale(.3);opacity:1}
+  to{transform:scale(1.6);opacity:0}
+}
+
+/* page area */
+.wpa-page{flex:1;background:#1a1a22;color:#e8e6f0;position:relative;overflow:hidden}
+.wpa-page-inner{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px 32px;gap:18px;
+  opacity:0;transform:translateX(20px);
+  transition:opacity .35s ease,transform .35s ease;
+}
+.wpa-page-inner.wpa-pg-visible{opacity:1;transform:none}
+.wpa-page-inner.wpa-pg-exit{opacity:0;transform:translateX(-20px)}
+
+/* login page */
+.wpa-logo{
+  width:48px;height:48px;border-radius:50%;
+  background:conic-gradient(from 0deg,#4a9eff,#cc85ff,#ff8a3d,#7cffb5,#4a9eff);
+  display:grid;place-items:center;color:#fff;
+  font-family:var(--display);font-size:22px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08),0 6px 20px rgba(74,158,255,.25);
+}
+.wpa-logo-text{display:flex;align-items:center;gap:10px;color:#cfcde0;font-size:13px;letter-spacing:.08em}
+.wpa-page h2{font-family:var(--mono);font-weight:400;font-size:22px;color:#fff;letter-spacing:-.01em;line-height:1.2;text-align:center}
+.wpa-page .wpa-sub{font-size:12px;color:#8b8a98;text-align:center}
+.wpa-input-wrap{width:320px;max-width:100%;display:flex;flex-direction:column;gap:6px}
+.wpa-input-label{font-size:10px;color:#8b8a98;letter-spacing:.12em;text-transform:uppercase}
+.wpa-input{
+  background:transparent;border:1px solid #3a3a46;border-radius:4px;
+  padding:10px 14px;color:#e8e6f0;font-family:var(--mono);font-size:13px;
+  height:42px;display:flex;align-items:center;position:relative;
+}
+.wpa-input.wpa-input--focused{border-color:#4a9eff;box-shadow:0 0 0 2px rgba(74,158,255,.18)}
+.wpa-input .wpa-typed-cursor{background:#4a9eff;margin-left:0}
+.wpa-actions{display:flex;justify-content:flex-end;gap:8px;width:320px;max-width:100%;margin-top:4px}
+.wpa-action-text{font-size:12px;color:#8a89a5;padding:8px 12px}
+.wpa-action-btn{
+  background:#4a9eff;color:#06121f;font-weight:700;font-size:12px;
+  padding:8px 18px;border-radius:4px;border:none;
+  font-family:var(--mono);letter-spacing:.04em;
+}
+.wpa-account-chip{
+  display:flex;align-items:center;gap:10px;padding:6px 12px;
+  border:1px solid #2a2a36;border-radius:99px;font-size:11px;color:#cfcde0;
+}
+.wpa-account-chip .wpa-account-avatar{
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,#ff8a3d,#ff3a6e);
+  display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;
+}
+
+/* chat page (generic web-AI chat) */
+.wpa-chat{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  background:#11111a;
+}
+.wpa-chat-header{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-bottom:1px solid #1f1f28;background:#0e0e14;
+}
+.wpa-chat-header .wpa-chat-mark{
+  width:22px;height:22px;border-radius:50%;
+  background:conic-gradient(from 0deg,#4a9eff,#cc85ff,#ff8a3d,#7cffb5,#4a9eff);
+}
+.wpa-chat-title{font-size:12px;font-weight:700;color:#e8e6f0;letter-spacing:.04em}
+.wpa-chat-meta{font-size:10px;color:#8b8a98;margin-left:6px;letter-spacing:.1em}
+.wpa-chat-history{flex:1;padding:18px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.wpa-chat-bubble{
+  font-size:12px;line-height:1.6;padding:10px 13px;border-radius:10px;
+  max-width:85%;opacity:0;transform:translateY(8px);
+  transition:opacity .3s ease,transform .3s ease;
+}
+.wpa-chat-bubble.wpa-cb-visible{opacity:1;transform:none}
+.wpa-chat-bubble--user{
+  align-self:flex-end;background:#1a3a5e;color:#e2ebff;
+  border:1px solid #2a5a8e;
+}
+.wpa-chat-bubble--ai{
+  align-self:flex-start;background:#1a1a24;color:#cfcde0;
+  border:1px solid #25252e;font-family:var(--mono);
+}
+.wpa-chat-bubble--ai .wpa-handshake-line{display:block;color:#7cffb5;font-size:11px;margin-top:6px}
+.wpa-chat-input{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-top:1px solid #1f1f28;background:#0e0e14;
+}
+.wpa-chat-input-field{
+  flex:1;background:#1a1a22;border:1px solid #2a2a36;border-radius:18px;
+  padding:8px 14px;color:#e8e6f0;font-family:var(--mono);font-size:12px;
+  height:34px;display:flex;align-items:center;
+}
+.wpa-chat-send{
+  width:32px;height:32px;border-radius:50%;background:#4a9eff;
+  display:grid;place-items:center;color:#06121f;font-size:14px;font-weight:700;
+}
+
+/* loading dots overlay */
+.wpa-loading{display:flex;align-items:center;gap:12px;color:#cfcde0;font-size:13px;letter-spacing:.08em}
+.wpa-loading-spinner{
+  width:18px;height:18px;border:2px solid #3a3a46;border-top-color:#4a9eff;
+  border-radius:50%;animation:wpaSpin .9s linear infinite;
+}
+@keyframes wpaSpin{to{transform:rotate(360deg)}}
+
+@media(max-width:900px){
+  .wpa-body{min-height:520px}
+  .wpa-browser{left:8px;right:8px;top:12px;bottom:12px}
+  .wpa-page h2{font-size:18px}
+  .wpa-input-wrap,.wpa-actions{width:90%}
+}
+</style>
+
+<!-- ===== WEB-PARSER ANIMATION ENGINE ===== -->
+<script>
+(function(){
+  const cli = document.getElementById('wpa-cli');
+  const browser = document.getElementById('wpa-browser');
+  const page = document.getElementById('wpa-page');
+  const url = document.getElementById('wpa-url');
+  const tab = document.getElementById('wpa-tab');
+  const cursor = document.getElementById('wpa-pw-cursor');
+  const stageLabel = document.getElementById('wpa-stage-label');
+  if(!cli || !browser) return;
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const setStage = s => { if(stageLabel) stageLabel.textContent = s; };
+
+  // ---------- CLI helpers ----------
+  function cliClear(){ cli.innerHTML = ''; }
+  function cliLine(html, cls){
+    const s = document.createElement('span');
+    s.className = 't-line' + (cls ? ' '+cls : '');
+    s.innerHTML = html;
+    cli.appendChild(s);
+    return s;
+  }
+  function cliBlank(){ return cliLine('&nbsp;'); }
+
+  async function cliType(prefixHTML, text, perChar=42){
+    const line = cliLine(prefixHTML);
+    const span = document.createElement('span');
+    line.appendChild(span);
+    const cur = document.createElement('span');
+    cur.className = 'wpa-typed-cursor';
+    line.appendChild(cur);
+    for(let i=0;i<text.length;i++){
+      span.textContent += text[i];
+      await sleep(perChar + Math.random()*30);
+    }
+    cur.remove();
+    return line;
+  }
+
+  async function cliAppendLines(lines, gap=120){
+    for(const l of lines){
+      cliLine(l.html, l.cls);
+      await sleep(gap);
+    }
+  }
+
+  // animated tool-call entry coming back from gemini-web
+  async function cliToolCall(name, args, status='ok'){
+    const row = document.createElement('div');
+    row.className = 'wpa-tool wpa-tool--pending';
+    row.innerHTML = `
+      <span class="wpa-source-tag">GEMINI WEB</span>
+      <span class="wpa-tool-arrow">→</span>
+      <span class="wpa-tool-name">${name}</span>
+      <span class="wpa-tool-args">${args}</span>
+      <span class="wpa-tool-status">⧗ running…</span>
+    `;
+    cli.appendChild(row);
+    await sleep(620 + Math.random()*280);
+    row.classList.remove('wpa-tool--pending');
+    const st = row.querySelector('.wpa-tool-status');
+    if(status === 'ok'){ st.textContent = '✓ ok'; st.style.color = 'var(--green)'; }
+    else { st.textContent = '✓ '+status; st.style.color = 'var(--green)'; }
+  }
+
+  // ---------- Browser helpers ----------
+  function browserOpen(){
+    browser.setAttribute('aria-hidden','false');
+    browser.classList.remove('wpa-closing');
+    requestAnimationFrame(() => browser.classList.add('wpa-open'));
+  }
+  function browserClose(){
+    browser.classList.add('wpa-closing');
+    browser.classList.remove('wpa-open');
+    setTimeout(() => browser.setAttribute('aria-hidden','true'), 600);
+  }
+  function setUrl(u, tabTitle){
+    if(url) url.textContent = u;
+    if(tab && tabTitle) tab.textContent = tabTitle;
+  }
+
+  // move the playwright cursor to a target element inside the page
+  async function moveCursor(targetSelector, opts={}){
+    cursor.classList.add('wpa-pw-cursor--visible');
+    const target = page.querySelector(targetSelector);
+    if(!target) return;
+    const pageRect = browser.getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+    const x = tRect.left + tRect.width * (opts.fx ?? .5) - pageRect.left - 6;
+    const y = tRect.top + tRect.height * (opts.fy ?? .5) - pageRect.top - 6;
+    cursor.style.left = x + 'px';
+    cursor.style.top = y + 'px';
+    await sleep(opts.duration ?? 700);
+  }
+  async function clickCursor(){
+    cursor.classList.add('wpa-pw-cursor--click');
+    await sleep(360);
+    cursor.classList.remove('wpa-pw-cursor--click');
+  }
+  function hideCursor(){ cursor.classList.remove('wpa-pw-cursor--visible'); }
+
+  // swap to a new page; previous page does exit animation
+  async function showPage(buildFn){
+    const prev = page.querySelector('.wpa-page-inner.wpa-pg-visible');
+    if(prev){
+      prev.classList.add('wpa-pg-exit');
+      prev.classList.remove('wpa-pg-visible');
+      await sleep(300);
+      prev.remove();
+    }
+    const inner = document.createElement('div');
+    inner.className = 'wpa-page-inner';
+    buildFn(inner);
+    page.appendChild(inner);
+    await sleep(40);
+    inner.classList.add('wpa-pg-visible');
+    return inner;
+  }
+
+  // type into a fake input field inside the page
+  async function typeIntoField(selector, text, perChar=55){
+    const field = page.querySelector(selector);
+    if(!field) return;
+    field.classList.add('wpa-input--focused');
+    const valEl = field.querySelector('.wpa-typed-val') || (() => {
+      const v = document.createElement('span'); v.className='wpa-typed-val';
+      field.appendChild(v); return v;
+    })();
+    valEl.textContent = '';
+    const cur = document.createElement('span');
+    cur.className = 'wpa-typed-cursor';
+    field.appendChild(cur);
+    for(let i=0;i<text.length;i++){
+      valEl.textContent += text[i];
+      await sleep(perChar + Math.random()*40);
+    }
+    cur.remove();
+    field.classList.remove('wpa-input--focused');
+  }
+
+  // ---------- PAGES ----------
+  function buildEmailPage(inner){
+    inner.innerHTML = `
+      <div class="wpa-logo">G</div>
+      <h2>Sign in</h2>
+      <div class="wpa-sub">to continue to <span style="color:#cfcde0">Gemini Web</span></div>
+      <div class="wpa-input-wrap">
+        <div class="wpa-input-label">Email or phone</div>
+        <div class="wpa-input" id="wpa-email-input"></div>
+      </div>
+      <div class="wpa-actions">
+        <span class="wpa-action-text">Create account</span>
+        <button class="wpa-action-btn" id="wpa-next-btn">Next</button>
+      </div>
+    `;
+  }
+  function buildPasswordPage(inner, email){
+    inner.innerHTML = `
+      <div class="wpa-logo">G</div>
+      <div class="wpa-account-chip">
+        <span class="wpa-account-avatar">K</span>
+        <span>${email}</span>
+        <span style="color:#8b8a98">▾</span>
+      </div>
+      <h2>Welcome</h2>
+      <div class="wpa-input-wrap">
+        <div class="wpa-input-label">Enter your password</div>
+        <div class="wpa-input" id="wpa-pw-input"></div>
+      </div>
+      <div class="wpa-actions">
+        <span class="wpa-action-text">Forgot?</span>
+        <button class="wpa-action-btn" id="wpa-signin-btn">Sign in</button>
+      </div>
+    `;
+  }
+  function buildLoadingPage(inner, msg){
+    inner.innerHTML = `
+      <div class="wpa-loading">
+        <div class="wpa-loading-spinner"></div>
+        <span>${msg || 'Loading…'}</span>
+      </div>
+    `;
+  }
+  function buildChatPage(inner){
+    inner.style.padding = '0';
+    inner.style.alignItems = 'stretch';
+    inner.style.justifyContent = 'stretch';
+    inner.innerHTML = `
+      <div class="wpa-chat">
+        <div class="wpa-chat-header">
+          <span class="wpa-chat-mark"></span>
+          <span class="wpa-chat-title">Gemini</span>
+          <span class="wpa-chat-meta">2.5 Pro · web</span>
+          <span class="wpa-chat-meta" style="margin-left:auto;color:#7cffb5">● connected</span>
+        </div>
+        <div class="wpa-chat-history" id="wpa-chat-history"></div>
+        <div class="wpa-chat-input">
+          <div class="wpa-chat-input-field" id="wpa-chat-input-field"></div>
+          <div class="wpa-chat-send" id="wpa-chat-send">↑</div>
+        </div>
+      </div>
+    `;
+  }
+  async function chatTypeAndSend(text){
+    const field = page.querySelector('#wpa-chat-input-field');
+    const sendBtn = page.querySelector('#wpa-chat-send');
+    const valEl = document.createElement('span');
+    field.appendChild(valEl);
+    const cur = document.createElement('span');
+    cur.className = 'wpa-typed-cursor';
+    cur.style.background = '#4a9eff';
+    field.appendChild(cur);
+    for(let i=0;i<text.length;i++){
+      valEl.textContent += text[i];
+      await sleep(28 + Math.random()*22);
+    }
+    cur.remove();
+    await sleep(280);
+    await moveCursor('#wpa-chat-send', {duration:480});
+    await clickCursor();
+    // create user bubble
+    const history = page.querySelector('#wpa-chat-history');
+    const bubble = document.createElement('div');
+    bubble.className = 'wpa-chat-bubble wpa-chat-bubble--user';
+    bubble.textContent = text;
+    history.appendChild(bubble);
+    await sleep(40);
+    bubble.classList.add('wpa-cb-visible');
+    field.innerHTML = '';
+  }
+  async function chatReply(html){
+    const history = page.querySelector('#wpa-chat-history');
+    const bubble = document.createElement('div');
+    bubble.className = 'wpa-chat-bubble wpa-chat-bubble--ai';
+    bubble.innerHTML = html;
+    history.appendChild(bubble);
+    await sleep(40);
+    bubble.classList.add('wpa-cb-visible');
+  }
+
+  // ---------- MAIN SEQUENCE ----------
+  async function runOnce(){
+    cliClear();
+    hideCursor();
+    setStage('cli');
+
+    cliLine('<span style="color:#ff3a6e">▲ DULUS</span> <span class="dim">web-harvester · waiting for /harvest</span>');
+    cliBlank();
+
+    // Step 1: type /harvest gemini
+    await sleep(900);
+    await cliType('<span style="color:#ff3a6e">$ </span>', '/harvest gemini', 50);
+    await sleep(300);
+    setStage('spawning playwright');
+
+    // Step 2: launch playwright
+    await cliAppendLines([
+      {html:'<span style="color:#ff8ab0">▲  spawning playwright (chromium, headed)…</span>'},
+      {html:'<span class="dim">   → window will open · log in normally</span>'},
+    ], 200);
+    await sleep(400);
+
+    // Step 3: open browser
+    setUrl('accounts.web/oauth?app=gemini&flow=login', 'Sign in — Gemini');
+    await showPage(buildEmailPage);
+    browserOpen();
+    await sleep(900);
+
+    // Move cursor → click email
+    await moveCursor('#wpa-email-input', {duration:700});
+    await clickCursor();
+    await sleep(150);
+    await typeIntoField('#wpa-email-input', 'kev.rojo@workspace.io', 60);
+    await sleep(280);
+    await moveCursor('#wpa-next-btn', {duration:550});
+    await clickCursor();
+
+    // password page
+    setUrl('accounts.web/oauth?step=password', 'Sign in — Gemini');
+    await showPage(inner => buildPasswordPage(inner, 'kev.rojo@workspace.io'));
+    await sleep(380);
+    await moveCursor('#wpa-pw-input', {duration:600});
+    await clickCursor();
+    await typeIntoField('#wpa-pw-input', '••••••••••••••', 70);
+    await sleep(220);
+    await moveCursor('#wpa-signin-btn', {duration:520});
+    await clickCursor();
+
+    // loading
+    setUrl('accounts.web/auth/verify…', 'Verifying…');
+    await showPage(inner => buildLoadingPage(inner, 'Authorising session…'));
+    await sleep(1100);
+
+    // chat page
+    setStage('handshake');
+    setUrl('gemini.web/app/chat?bridge=dulus', 'Gemini');
+    await showPage(buildChatPage);
+    await sleep(550);
+
+    // Dulus drives the chat — sends a handshake prompt
+    await moveCursor('#wpa-chat-input-field', {duration:500});
+    await clickCursor();
+    await chatTypeAndSend('/init dulus-bridge --mode=tools --grant=bash,read,write');
+    await sleep(450);
+
+    // gemini replies
+    await chatReply('Bridge accepted. Routing tool calls back to your CLI.<br><span class="wpa-handshake-line">→ tools: bash · read · write · grep · webfetch  · ack</span>');
+    await sleep(1100);
+
+    // close the browser — session captured
+    setStage('cookies harvested');
+    hideCursor();
+    browserClose();
+    await sleep(550);
+
+    await cliAppendLines([
+      {html:'<span style="color:var(--green)">✓  cookies harvested → ~/.dulus/sessions/gemini.json</span>'},
+      {html:'<span style="color:var(--green)">✓  gemini-web provider ready · bridge online</span>'},
+      {html:'&nbsp;'},
+      {html:'<span class="dim"># browser closed. CLI now connected to gemini-web.</span>'},
+      {html:'<span class="dim"># the web chat could only render text before. now it drives Dulus tools.</span>'},
+      {html:'&nbsp;'},
+    ], 220);
+
+    // Step: tool calls FROM the web chat back into the CLI
+    setStage('gemini-web → cli');
+    await cliToolCall('bash',  'ls -la src/auth/');
+    await cliToolCall('read',  'src/auth/session.py');
+    await cliToolCall('grep',  '-n "JWT" src/auth/');
+    await cliToolCall('write', 'src/auth/session.py · +42 -18');
+    await cliToolCall('bash',  'pytest tests/auth/ -q');
+
+    cliBlank();
+    cliLine('<span style="color:#ff3a6e">▲  tokens billed via API: </span><span style="color:var(--green)">$0.00</span> <span class="dim">·  session: gemini_pro_web</span>');
+
+    setStage('idle — looping');
+    await sleep(5200);
+  }
+
+  async function loop(){
+    while(true){
+      try { await runOnce(); }
+      catch(e){ console.warn('wpa loop', e); await sleep(2000); }
+    }
+  }
+
+  // Start when scrolled into view
+  const obs = new IntersectionObserver(entries => {
+    if(entries[0].isIntersecting){
+      obs.disconnect();
+      loop();
+    }
+  }, {threshold:.15});
+  const section = document.getElementById('web-providers');
+  if(section) obs.observe(section);
+})();
+</script>
+
+<!-- ===== MODELS ===== -->
+<section id="models" class="section">
+  <div class="container">
+    <div class="models-intro reveal">
+      <div class="models-intro-text">
+        <div class="eyebrow">// bring your own brain</div>
+        <h2>Works with every <em>model</em> worth knowing</h2>
+        <p style="color:var(--dim);font-size:14px;margin-top:16px;line-height:1.65">Swap models mid-session with <code style="color:var(--accent);font-size:12px">/model &lt;name&gt;</code>. Auto-detection handles provider prefix. Colon syntax also works.</p>
+      </div>
+      <div class="models-intro-stat">
+        <div class="m-stat"><div class="mv">11</div><div class="ml">Cloud + Local Providers</div></div>
+        <div class="m-stat"><div class="mv">40+</div><div class="ml">Models Ready Today</div></div>
+        <div class="m-stat"><div class="mv">∞</div><div class="ml">via OpenAI-compat endpoints</div></div>
+      </div>
+    </div>
+
+    <div class="providers-strip reveal">
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Anthropic</div><div class="p-models">Claude Opus · Sonnet · Haiku</div><div class="p-tag">ANTHROPIC_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">OpenAI</div><div class="p-models">GPT-4o · O3 · O1</div><div class="p-tag">OPENAI_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Google</div><div class="p-models">Gemini 2.5 · Flash</div><div class="p-tag">GEMINI_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">DeepSeek</div><div class="p-models">Chat · Reasoner · V3</div><div class="p-tag">DEEPSEEK_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Kimi</div><div class="p-models">Moonshot · K2.5</div><div class="p-tag">MOONSHOT_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Qwen</div><div class="p-models">Max · Plus · QwQ</div><div class="p-tag">DASHSCOPE_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Zhipu</div><div class="p-models">GLM-4 · Flash</div><div class="p-tag">ZHIPU_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">MiniMax</div><div class="p-models">Text-01 · VL-01</div><div class="p-tag">MINIMAX_API_KEY</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Ollama</div><div class="p-models">Any local model</div><div class="p-tag" style="color:var(--green)">NO KEY NEEDED</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">LM Studio</div><div class="p-models">Local · GUI</div><div class="p-tag" style="color:var(--green)">NO KEY NEEDED</div></div>
+      <div class="provider"><div class="p-dot"></div><div class="p-name">Custom</div><div class="p-models">OpenAI-compat</div><div class="p-tag">CUSTOM_BASE_URL</div></div>
+    </div>
+
+    <!-- NVIDIA callout -->
+    <div class="nvidia-callout reveal" style="margin-top:40px">
+      <div class="nv-header">
+        <div>
+          <span class="nv-badge">Free Tier</span>
+          <h3 style="margin-top:10px">14 frontier models.<br><span>Zero cost.</span></h3>
+          <p style="color:var(--dim);font-size:13px;margin-top:12px;max-width:500px;line-height:1.65">NVIDIA NIM hosts frontier models at 40 RPM each, free. Sign up at <a href="https://build.nvidia.com" style="color:var(--nv)">build.nvidia.com</a> and Dulus routes to them automatically — with fallback when limits hit.</p>
+        </div>
+        <div class="nv-stats">
+          <div class="nv-stat"><div class="v">14</div><div class="l">Models</div></div>
+          <div class="nv-stat"><div class="v">40</div><div class="l">RPM each</div></div>
+          <div class="nv-stat"><div class="v" style="font-size:24px">AUTO</div><div class="l">Fallback</div></div>
+        </div>
+      </div>
+      <div class="nv-models">
+        <div class="nv-chip"><div class="cn">DeepSeek R1</div><div class="ci">REASONING</div></div>
+        <div class="nv-chip"><div class="cn">DeepSeek V3</div><div class="ci">INSTRUCT</div></div>
+        <div class="nv-chip"><div class="cn">Kimi K2.5</div><div class="ci">LONG CONTEXT</div></div>
+        <div class="nv-chip"><div class="cn">GLM-4</div><div class="ci">ZHIPU AI</div></div>
+        <div class="nv-chip"><div class="cn">MiniMax T-01</div><div class="ci">TEXT + VISION</div></div>
+        <div class="nv-chip"><div class="cn">Mistral Nemotron</div><div class="ci">NVIDIA-TUNED</div></div>
+        <div class="nv-chip"><div class="cn">Llama 3.3 70B</div><div class="ci">META</div></div>
+        <div class="nv-chip"><div class="cn">Llama 3.1 405B</div><div class="ci">META · FLAGSHIP</div></div>
+        <div class="nv-chip"><div class="cn">Llama Nemotron</div><div class="ci">REASONING</div></div>
+        <div class="nv-chip"><div class="cn">Qwen2.5 Coder</div><div class="ci">ALIBABA</div></div>
+        <div class="nv-chip"><div class="cn">Qwen3 235B A22B</div><div class="ci">MoE</div></div>
+        <div class="nv-chip"><div class="cn">Phi-4</div><div class="ci">MICROSOFT</div></div>
+        <div class="nv-chip"><div class="cn">Gemma 3 27B</div><div class="ci">GOOGLE</div></div>
+        <div class="nv-chip"><div class="cn">Mistral Large</div><div class="ci">INSTRUCT</div></div>
+      </div>
+      <div class="nv-chain">
+        <span>AUTO-FALLBACK:</span>
+        <span class="ch-item">deepseek-r1</span><span class="ch-arrow">→</span>
+        <span class="ch-item">kimi-k2.5</span><span class="ch-arrow">→</span>
+        <span class="ch-item">llama-3.3-70b</span><span class="ch-arrow">→</span>
+        <span class="ch-item">mistral-nemotron</span><span class="ch-arrow">→</span>
+        <span>…14 deep. zero downtime.</span>
+      </div>
+      <a href="https://build.nvidia.com" class="nv-cta">Get free NVIDIA key ↗</a>
+    </div>
+  </div>
+</section>
+
 
 <!-- ===== ROUNDTABLE ===== -->
 <section id="roundtable" class="section" style="background:var(--bg2);overflow:hidden">
@@ -1836,233 +3311,11 @@ if(chipsGrid){
 }
 </script>
 
-<!-- ===== WEB PROVIDERS ===== -->
-<section id="web-providers" class="section wp-section">
-  <div class="wp-bg"></div>
-  <div class="container" style="position:relative;z-index:2">
-    <div class="section-header reveal">
-      <div class="eyebrow" style="color:#ff3a6e">// zero API spend · playwright · session harvest</div>
-      <h2>Use the chats you<br><span style="color:var(--accent)">already pay for.</span></h2>
-      <p style="color:var(--dim);font-size:14px;margin-top:14px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.7">Dulus can talk to Claude, Kimi, Gemini and DeepSeek through their <em>browser sessions</em> — no API key, no per-token billing. Your Pro subscription becomes a Dulus provider.</p>
-    </div>
 
-    <!-- stat bar -->
-    <div class="wp-statbar reveal">
-      <div class="wp-stat">
-        <div class="wp-stat-val" style="color:var(--accent)">$0.00</div>
-        <div class="wp-stat-lbl">API cost per token</div>
-      </div>
-      <div class="wp-stat-div"></div>
-      <div class="wp-stat">
-        <div class="wp-stat-val">5</div>
-        <div class="wp-stat-lbl">Web providers</div>
-      </div>
-      <div class="wp-stat-div"></div>
-      <div class="wp-stat">
-        <div class="wp-stat-val" style="color:var(--green)">AUTO</div>
-        <div class="wp-stat-lbl">Cookie harvest</div>
-      </div>
-      <div class="wp-stat-div"></div>
-      <div class="wp-stat">
-        <div class="wp-stat-val">∞</div>
-        <div class="wp-stat-lbl">Context via Pro plan</div>
-      </div>
-    </div>
 
-    <!-- main layout: terminal left, cards right -->
-    <div class="wp-layout reveal">
 
-      <!-- harvest terminal -->
-      <div class="wp-terminal-wrap">
-        <div class="terminal" style="box-shadow:0 0 60px rgba(255,58,110,.12)">
-          <div class="t-chrome" style="background:#140812;border-color:#2a1020">
-            <div class="t-btn" style="background:#ff5f57"></div>
-            <div class="t-btn" style="background:#febc2e"></div>
-            <div class="t-btn" style="background:#28c840"></div>
-            <div class="t-title" style="color:#ff3a6e">⬡ session harvest · playwright</div>
-          </div>
-          <div class="t-body" style="background:#0c0810;min-height:380px;font-size:13px">
-            <span class="t-line dim"># one-time setup: capture your browser session</span>
-            <span class="t-line" style="color:#ff3a6e">$ /harvest</span>
-            <span class="t-line" style="color:#ff8ab0">▲  opening Claude.ai in Chromium...</span>
-            <span class="t-line dim">   log in normally, then press Enter</span>
-            <span class="t-line" style="color:var(--green)">✓  session captured · cookies saved</span>
-            <span class="t-line" style="color:var(--green)">✓  claude-web provider ready</span>
-            <span class="t-line"> </span>
-            <span class="t-line dim"># harvest other providers</span>
-            <span class="t-line" style="color:#ff3a6e">$ /harvest-kimi</span>
-            <span class="t-line" style="color:var(--green)">✓  kimi-web provider ready</span>
-            <span class="t-line" style="color:#ff3a6e">$ /harvest-gemini</span>
-            <span class="t-line" style="color:var(--green)">✓  gemini-web provider ready</span>
-            <span class="t-line"> </span>
-            <span class="t-line dim"># use them exactly like any other provider</span>
-            <span class="t-line" style="color:var(--accent)">$ dulus --model claude-web "refactor auth"</span>
-            <span class="t-line" style="color:#ff3a6e">▲  routing via claude.ai web session...</span>
-            <span class="t-line" style="color:var(--green)">→ read    src/auth/session.py   ✓</span>
-            <span class="t-line" style="color:var(--green)">→ edit    src/auth/session.py   ✓</span>
-            <span class="t-line" style="color:var(--green)">→ test    tests/auth/**         ✓ 42 passed</span>
-            <span class="t-line"> </span>
-            <span class="t-line dim"># claude thinks it's in its own chat UI</span>
-            <span class="t-line dim"># but dulus is orchestrating every tool call</span>
-            <span class="t-line" style="color:#ff3a6e">▲  tokens billed: $0.00 ·  session: claude_pro</span>
-          </div>
-        </div>
-        <div class="wp-playwright-badge">
-          <span style="color:#ff3a6e">⬡</span> Powered by Playwright · headless browser automation
-        </div>
-      </div>
 
-      <!-- provider cards -->
-      <div class="wp-cards">
-        <div class="wp-card" data-color="#cc85ff">
-          <div class="wp-card-top">
-            <div class="wp-card-icon" style="background:rgba(204,133,255,.12);color:#cc85ff">✦</div>
-            <div>
-              <div class="wp-card-name">Claude</div>
-              <div class="wp-card-cmd">claude-web</div>
-            </div>
-            <div class="wp-card-status"><span class="wp-dot" style="background:#cc85ff"></span>ACTIVE</div>
-          </div>
-          <div class="wp-card-desc">claude.ai Pro session. Opus 4, Sonnet 4, full context window. Your subscription, Dulus's talons.</div>
-          <div class="wp-card-harvest">/harvest</div>
-        </div>
 
-        <div class="wp-card" data-color="#ff8a3d">
-          <div class="wp-card-top">
-            <div class="wp-card-icon" style="background:rgba(255,138,61,.12);color:#ff8a3d">⌘</div>
-            <div>
-              <div class="wp-card-name">Claude Code</div>
-              <div class="wp-card-cmd">claude-code-web</div>
-            </div>
-            <div class="wp-card-status"><span class="wp-dot" style="background:#ff8a3d"></span>ACTIVE</div>
-          </div>
-          <div class="wp-card-desc">Claude Code's browser session. Agentic mode, full tool belt, zero API bill.</div>
-          <div class="wp-card-harvest">/harvest</div>
-        </div>
-
-        <div class="wp-card" data-color="#00d4aa">
-          <div class="wp-card-top">
-            <div class="wp-card-icon" style="background:rgba(0,212,170,.12);color:#00d4aa">◈</div>
-            <div>
-              <div class="wp-card-name">Kimi</div>
-              <div class="wp-card-cmd">kimi-web</div>
-            </div>
-            <div class="wp-card-status"><span class="wp-dot" style="background:#00d4aa"></span>ACTIVE</div>
-          </div>
-          <div class="wp-card-desc">kimi.ai web session. 128k context, K2.5 reasoning. Harvest once, use forever.</div>
-          <div class="wp-card-harvest">/harvest-kimi</div>
-        </div>
-
-        <div class="wp-card" data-color="#4a9eff">
-          <div class="wp-card-top">
-            <div class="wp-card-icon" style="background:rgba(74,158,255,.12);color:#4a9eff">◎</div>
-            <div>
-              <div class="wp-card-name">Gemini</div>
-              <div class="wp-card-cmd">gemini-web</div>
-            </div>
-            <div class="wp-card-status"><span class="wp-dot" style="background:#4a9eff"></span>ACTIVE</div>
-          </div>
-          <div class="wp-card-desc">Google Gemini 2.5 Pro via browser. 1M context. Your Google One subscription, weaponized.</div>
-          <div class="wp-card-harvest">/harvest-gemini</div>
-        </div>
-
-        <div class="wp-card" data-color="#4a9eff">
-          <div class="wp-card-top">
-            <div class="wp-card-icon" style="background:rgba(74,158,255,.12);color:#4a9eff">⊛</div>
-            <div>
-              <div class="wp-card-name">DeepSeek</div>
-              <div class="wp-card-cmd">deepseek-web</div>
-            </div>
-            <div class="wp-card-status"><span class="wp-dot" style="background:#4a9eff"></span>ACTIVE</div>
-          </div>
-          <div class="wp-card-desc">DeepSeek V3 / R1 via chat.deepseek.com. Free tier, no key, reasoning mode included.</div>
-          <div class="wp-card-harvest">/harvest-deepseek</div>
-        </div>
-
-        <!-- how it works mini-box -->
-        <div class="wp-how">
-          <div class="wp-how-title">How it works</div>
-          <div class="wp-how-steps">
-            <div class="wp-how-step"><span style="color:var(--accent)">01</span> Dulus opens a Chromium window via Playwright</div>
-            <div class="wp-how-step"><span style="color:var(--accent)">02</span> You log in normally — Dulus captures the session cookies</div>
-            <div class="wp-how-step"><span style="color:var(--accent)">03</span> Subsequent requests replay those cookies headlessly</div>
-            <div class="wp-how-step"><span style="color:var(--accent)">04</span> The model sees its own web UI; Dulus sees the output</div>
-            <div class="wp-how-step"><span style="color:var(--accent)">05</span> Tool calls, streaming, context — all proxied transparently</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<style>
-/* ===== WEB PROVIDERS ===== */
-.wp-section{background:#0a0510;position:relative;overflow:hidden}
-.wp-bg{
-  position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse at 20% 40%, rgba(255,58,110,.10) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 70%, rgba(255,107,31,.07) 0%, transparent 45%),
-    radial-gradient(ellipse at 50% 10%, rgba(204,133,255,.06) 0%, transparent 40%);
-}
-.wp-bg::before{
-  content:"";position:absolute;inset:0;
-  background-image:linear-gradient(rgba(255,58,110,.04) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,58,110,.04) 1px,transparent 1px);
-  background-size:40px 40px;
-}
-.wp-statbar{
-  display:flex;align-items:center;justify-content:center;gap:0;
-  border:1px solid rgba(255,58,110,.2);
-  background:rgba(255,58,110,.03);
-  margin-bottom:56px;
-  flex-wrap:wrap;
-}
-.wp-stat{padding:24px 48px;text-align:center}
-.wp-stat-val{font-family:var(--display);font-size:40px;letter-spacing:-.02em;color:var(--ink)}
-.wp-stat-lbl{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);margin-top:4px}
-.wp-stat-div{width:1px;background:rgba(255,58,110,.2);align-self:stretch}
-.wp-layout{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
-.wp-playwright-badge{
-  margin-top:12px;font-size:11px;color:var(--dim);
-  letter-spacing:.12em;text-align:center;
-}
-.wp-cards{display:flex;flex-direction:column;gap:1px;background:rgba(255,58,110,.1);border:1px solid rgba(255,58,110,.15)}
-.wp-card{
-  background:#0a0510;padding:20px 22px;
-  transition:background .2s;position:relative;cursor:default;
-}
-.wp-card:hover{background:#110818}
-.wp-card::before{
-  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
-  background:attr(data-color);opacity:0;transition:opacity .3s;
-}
-.wp-card:hover::before{opacity:1}
-.wp-card-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-.wp-card-icon{width:36px;height:36px;display:grid;place-items:center;font-size:18px;border-radius:2px;flex-shrink:0}
-.wp-card-name{font-size:14px;font-weight:700}
-.wp-card-cmd{font-size:10px;color:var(--dim);letter-spacing:.12em;margin-top:2px}
-.wp-card-status{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:9px;letter-spacing:.2em;color:var(--dim)}
-.wp-dot{width:6px;height:6px;border-radius:50%}
-.wp-card-desc{font-size:12px;color:var(--dim);line-height:1.55;padding-left:48px}
-.wp-card-harvest{
-  margin-top:10px;margin-left:48px;display:inline-block;
-  font-size:11px;color:#ff3a6e;letter-spacing:.15em;
-  border:1px solid rgba(255,58,110,.3);padding:3px 10px;
-  background:rgba(255,58,110,.04);
-}
-.wp-how{
-  background:rgba(255,107,31,.04);border:1px solid rgba(255,107,31,.15);
-  padding:20px 22px;margin-top:0;
-}
-.wp-how-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
-.wp-how-steps{display:flex;flex-direction:column;gap:8px}
-.wp-how-step{font-size:12px;color:var(--dim);line-height:1.5;display:flex;gap:10px}
-@media(max-width:900px){
-  .wp-layout{grid-template-columns:1fr}
-  .wp-stat{padding:16px 24px}
-}
-</style>
 
 <!-- ===== ALL PROVIDERS ===== -->
 <section id="all-providers" class="section" style="background:var(--bg2)">
@@ -3315,6 +4568,21 @@ document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs3.observ
         </button>
         <div class="faq-a"><div class="faq-a-inner">Yes and please do. Edit <code>dulus/spinners.py</code>, add your line, PR it. Bonus points for a cultural reference we'll understand in 2046. The current record holder: "☕ If I'm taking so long, don't worry, I'm just talking to your mom."</div></div>
       </div>
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Does Dulus have a crypto token?
+          <div class="faq-icon">+</div>
+        </button>
+        <div class="faq-a"><div class="faq-a-inner">
+          <p style="margin-bottom:12px"><strong style="color:var(--accent)">$DULUS</strong> — community-launched on <a href="https://pump.fun" target="_blank" rel="noopener">pump.fun</a> (Solana). I didn't create it, the community did. It's been moving well, rewards are distributed fairly across holders, and I'm the largest holder at ~5% of circulating supply — skin in the game, no rug.</p>
+          <p style="margin-bottom:12px">Not an ICO, no presale, no team allocation, no promises. It's a meme on a working tool.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+            <a href="https://dexscreener.com/solana/9m8iYBoBPHt3xdRxqwxM95UM8oJfGTdrkzgMqaHzpump" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--accent);color:var(--accent);padding:8px 14px;text-decoration:none;font-size:11px;letter-spacing:.15em;text-transform:uppercase">⬢ DexScreener →</a>
+            <span style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--dim2);padding:8px 12px;font-size:11px;color:var(--dim);font-family:var(--mono)">CA: 9m8iYBoBPHt3xdRxqwxM95UM8oJfGTdrkzgMqaHzpump</span>
+          </div>
+          <p style="font-size:11px;color:var(--dim);margin-top:14px;line-height:1.6">⚠ Not financial advice. Memecoins are volatile. Buy with eyes open. The token is independent from the open-source project — Dulus the agent works the same with or without it.</p>
+        </div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -3324,11 +4592,25 @@ document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs3.observ
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-        <div class="logo">▲ <span>DULUS</span></div>
+        <div class="logo"><span class="mark" aria-hidden="true"></span><span>DULUS</span></div>
         <p>Lightweight Python agent. Any model, any repo, any workflow. Hunt. Patch. Ship.</p>
         <a href="#quickstart" class="stars-badge">
           ▲ Get Dulus →
         </a>
+        <div class="footer-socials">
+          <a href="https://t.me/dulusx" target="_blank" rel="noopener" class="fs-link" aria-label="Telegram channel">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9.78 17.55l-.25 3.6c.36 0 .52-.16.7-.34l1.7-1.64 3.52 2.58c.64.36 1.1.17 1.27-.6L19.9 4.6c.21-.95-.34-1.32-.97-1.08L1.65 9.86c-.93.37-.92.9-.17 1.14l4.32 1.35L15.93 6.1c.47-.3.9-.13.55.17"/></svg>
+            <span>t.me/dulusx</span>
+          </a>
+          <a href="https://x.com/KevRojox" target="_blank" rel="noopener" class="fs-link" aria-label="X / Twitter">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
+            <span>@KevRojox</span>
+          </a>
+          <a href="https://github.com/KevRojo/Dulus" target="_blank" rel="noopener" class="fs-link" aria-label="GitHub">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.9.58.1.79-.25.79-.55v-2.06c-3.2.7-3.87-1.36-3.87-1.36-.52-1.34-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.25 3.34.95.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.51-1.47.11-3.06 0 0 .97-.31 3.19 1.18a11.1 11.1 0 0 1 5.8 0c2.22-1.5 3.19-1.18 3.19-1.18.63 1.59.23 2.77.11 3.06.74.81 1.18 1.84 1.18 3.1 0 4.43-2.69 5.41-5.25 5.69.41.36.78 1.06.78 2.14v3.18c0 .31.21.66.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+            <span>github</span>
+          </a>
+        </div>
       </div>
       <div class="footer-col">
         <h4>Get started</h4>
@@ -3373,32 +4655,41 @@ document.querySelectorAll('.reveal:not(.visible)').forEach(el=>revealObs3.observ
 const spinnersEl = document.getElementById('spinners')
 const footerEl   = document.querySelector('footer')
 
-window.addEventListener('scroll',()=>{
-  document.getElementById('nav').classList.toggle('scrolled',window.scrollY>40)
-
-  // dock spinner bar to footer when footer is in view
+function updateSpinnerDock(){
   if(!spinnersEl || !footerEl) return
   const footerTop = footerEl.getBoundingClientRect().top
   const winH = window.innerHeight
   const barH = spinnersEl.offsetHeight
 
   if(footerTop <= winH){
-    // footer is visible — pin bar to top of footer
+    // footer is visible — pin bar to top of footer. recompute EVERY time
+    // because page height can change (FAQ opens, animations, etc.)
     if(!spinnersEl.classList.contains('docked')){
       spinnersEl.classList.add('docked')
-      // position relative to document
-      const docFooterTop = footerEl.getBoundingClientRect().top + window.scrollY
-      spinnersEl.style.top  = (docFooterTop - barH) + 'px'
       spinnersEl.style.bottom = 'auto'
     }
+    const docFooterTop = footerEl.getBoundingClientRect().top + window.scrollY
+    spinnersEl.style.top = (docFooterTop - barH) + 'px'
   } else {
     if(spinnersEl.classList.contains('docked')){
       spinnersEl.classList.remove('docked')
-      spinnersEl.style.top  = 'auto'
+      spinnersEl.style.top    = 'auto'
       spinnersEl.style.bottom = '0'
     }
   }
+}
+
+window.addEventListener('scroll',()=>{
+  document.getElementById('nav').classList.toggle('scrolled',window.scrollY>40)
+  updateSpinnerDock()
 })
+window.addEventListener('resize', updateSpinnerDock)
+
+// recompute when the document size changes (FAQ open/close, lazy images, etc.)
+if('ResizeObserver' in window){
+  const ro = new ResizeObserver(updateSpinnerDock)
+  ro.observe(document.body)
+}
 
 // ===== REVEAL ON SCROLL =====
 const observer = new IntersectionObserver(entries=>{
@@ -3607,6 +4898,22 @@ function copyCode(btn){
     setTimeout(()=>btn.textContent='Copy',1800)
   })
 }
+
+// ===== ONE-LINE INSTALLER · TAB SWITCH + COPY =====
+function copyInstallerCmd(btn, cmd){
+  navigator.clipboard.writeText(cmd).then(()=>{
+    const orig = btn.textContent
+    btn.textContent = 'Copied!'
+    setTimeout(()=>btn.textContent = orig, 1600)
+  })
+}
+document.querySelectorAll('.qsi-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    const os = tab.dataset.os
+    document.querySelectorAll('.qsi-tab').forEach(t=>t.classList.toggle('qsi-tab--active', t.dataset.os===os))
+    document.querySelectorAll('.qsi-cmd').forEach(c=>c.classList.toggle('qsi-cmd--active', c.dataset.os===os))
+  })
+})
 
 // ===== FAKE STARS COUNTER =====
 // Animate stars up slightly for fun

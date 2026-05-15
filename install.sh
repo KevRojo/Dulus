@@ -191,15 +191,90 @@ if [ -z "$PY_BIN" ]; then
         dnf)    say "  Install with: sudo dnf install python3.12 python3.12-devel" ;;
         pacman) say "  Install with: sudo pacman -S python" ;;
     esac
+    # Bonus diagnostic — Python might actually BE installed but missing from
+    # PATH. That's the #1 fresh-WSL / fresh-Windows pain point. Try the
+    # well-known interpreter locations and tell the user where it lives.
+    HINT=""
+    for guess in /usr/local/bin/python3 /opt/python*/bin/python3 \
+                 "$HOME/.pyenv/shims/python3" \
+                 "$HOME/AppData/Local/Programs/Python/Python313/python.exe" \
+                 "$HOME/AppData/Local/Programs/Python/Python312/python.exe" \
+                 "$HOME/AppData/Local/Programs/Python/Python311/python.exe" \
+                 "/c/Program Files/Python313/python.exe" \
+                 "/c/Program Files/Python312/python.exe" \
+                 "/c/Program Files/Python311/python.exe" ; do
+        if [ -x "$guess" ]; then
+            HINT="$guess"
+            break
+        fi
+    done
+    if [ -n "$HINT" ]; then
+        echo
+        warn "Found a Python at: $HINT"
+        warn "It's installed but not on PATH. Add this line to ~/.bashrc / ~/.zshrc:"
+        echo "    export PATH=\"$(dirname "$HINT"):\$PATH\""
+        echo "Then open a new shell and re-run me."
+    fi
     exit 1
 fi
 printf "  %sPython:%s %s (%s)\n" "${BOLD}" "${RESET}" "$PY_BIN" "$PY_VER"
 
-# Python installer
+# Warn if the installer puts dulus somewhere that's NOT on PATH yet
+# (very common on fresh WSL when ~/.local/bin or %APPDATA%\Python\Scripts
+# isn't in PATH out of the box).
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *)
+        if [ -d "$HOME/.local/bin" ]; then
+            warn "Heads up: $HOME/.local/bin is NOT on your PATH."
+            warn "After install you may need to run:"
+            echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+            echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
+        fi
+        ;;
+esac
+
+# Python installer.
+#
+# IMPORTANT: For Dulus we DEFAULT TO pip (--user) instead of uv/pipx.
+# Reason: Dulus loads plugins at runtime that import arbitrary packages
+# (pandas via yfinance, tomli via sherlock, etc.). uv tool and pipx
+# put Dulus inside a private venv — plugins then can't find packages
+# that the user `pip install`s into their main env. pip --user shares
+# the user-site env with the rest of their tools, so plugins Just Work.
+#
+# We still offer uv/pipx for power users who know the trade-off; if
+# either is present and the user is on a TTY, we ask. Non-interactive
+# (curl|bash) always falls back to pip --user.
 if [ -z "$INSTALLER" ]; then
-    if command -v uv    >/dev/null 2>&1; then INSTALLER="uv"
-    elif command -v pipx >/dev/null 2>&1; then INSTALLER="pipx"
-    else INSTALLER="pip"; fi
+    HAVE_UV=0;   command -v uv   >/dev/null 2>&1 && HAVE_UV=1
+    HAVE_PIPX=0; command -v pipx >/dev/null 2>&1 && HAVE_PIPX=1
+    if [ "$HAVE_UV" -eq 1 ] || [ "$HAVE_PIPX" -eq 1 ]; then
+        if [ -t 0 ]; then
+            echo
+            say "How would you like to install Dulus?"
+            printf "  ${BOLD}1)${RESET} pip --user   (recommended — plugins share your Python env, no surprises)\n"
+            if [ "$HAVE_UV" -eq 1 ]; then
+                printf "  ${BOLD}2)${RESET} uv tool      (isolated venv — clean, but plugins like yfinance/sherlock can't see deps you pip-install yourself)\n"
+            fi
+            if [ "$HAVE_PIPX" -eq 1 ]; then
+                printf "  ${BOLD}3)${RESET} pipx         (isolated venv — same trade-off as uv)\n"
+            fi
+            printf "\n%sPick 1-3 [default: 1]> %s" "${BOLD}" "${RESET}"
+            read -r _inst_choice
+            case "${_inst_choice:-1}" in
+                1) INSTALLER="pip" ;;
+                2) INSTALLER="uv" ;;
+                3) INSTALLER="pipx" ;;
+                *) INSTALLER="pip" ;;
+            esac
+        else
+            # Non-interactive (curl|bash) — pick the safe default.
+            INSTALLER="pip"
+        fi
+    else
+        INSTALLER="pip"
+    fi
 fi
 printf "  %sInstaller:%s %s\n" "${BOLD}" "${RESET}" "$INSTALLER"
 
@@ -466,13 +541,17 @@ PRE_FLAG=""
 
 case "$INSTALLER" in
     uv)
-        ok "Using uv (fastest, isolated)"
-        run "uv tool install '$EXTRAS_SPEC' $PRE_FLAG --python $PY_BIN" || \
+        ok "Using uv (isolated venv — note: runtime plugins won't see deps installed outside this env)"
+        # uv tool install SKIPS if already installed. Detect that and upgrade
+        # instead so re-runs of the installer actually pull the latest Dulus.
+        if uv tool list 2>/dev/null | grep -q "^dulus "; then
             run "uv tool upgrade dulus"
+        else
+            run "uv tool install '$EXTRAS_SPEC' $PRE_FLAG --python $PY_BIN"
+        fi
         ;;
     pipx)
-        ok "Using pipx (isolated venv)"
-        # pipx wants the extras separately
+        ok "Using pipx (isolated venv — same note as uv)"
         if [ "${#EXTRAS[@]}" -gt 0 ]; then
             run "pipx install 'dulus[$(IFS=,; echo "${EXTRAS[*]}")]' $PRE_FLAG --python $PY_BIN --force"
         else
@@ -480,12 +559,21 @@ case "$INSTALLER" in
         fi
         ;;
     pip)
-        ok "Using pip"
+        ok "Using pip --user (recommended — plugins share your Python env)"
+        # Detect modern pip with PEP 668 + Termux quirks
         BREAK=""
         if [ "$IS_TERMUX" -eq 1 ] || "$PY_BIN" -m pip install --help 2>&1 | grep -q "break-system-packages"; then
             BREAK="--break-system-packages"
         fi
-        run "$PY_BIN -m pip install --upgrade $PRE_FLAG $BREAK '$EXTRAS_SPEC'"
+        # --user puts dulus in ~/.local/bin (Linux/macOS) or %APPDATA%\Python\
+        # (Windows) where any plugin's `pip install pandas` lands too. If
+        # running inside an active venv, --user is rejected — strip it then.
+        USER_FLAG="--user"
+        if [ -n "${VIRTUAL_ENV:-}" ]; then
+            USER_FLAG=""
+            ok "Detected active venv: $VIRTUAL_ENV — installing into it instead of --user"
+        fi
+        run "$PY_BIN -m pip install --upgrade $PRE_FLAG $BREAK $USER_FLAG '$EXTRAS_SPEC'"
         ;;
 esac
 

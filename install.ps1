@@ -138,15 +138,68 @@ if (-not $pyBin) {
     } else {
         Say "  Download from https://www.python.org/downloads/"
     }
+    # #1 fresh-Windows pain point: Python IS installed, just not in PATH.
+    # Probe the well-known install locations and tell the user where it
+    # actually lives + how to add it.
+    $guesses = @(
+        "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
+        "$env:ProgramFiles\Python313\python.exe",
+        "$env:ProgramFiles\Python312\python.exe",
+        "$env:ProgramFiles\Python311\python.exe",
+        "$env:ProgramFiles(x86)\Python313\python.exe",
+        "$env:ProgramFiles(x86)\Python312\python.exe"
+    )
+    $hint = $guesses | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($hint) {
+        Write-Host ""
+        Warn "Found a Python at: $hint"
+        Warn "It's installed but not on PATH. Add the directory to your PATH:"
+        Write-Host ""
+        Write-Host "  PowerShell (permanent, per-user):" -ForegroundColor Cyan
+        Write-Host "    [Environment]::SetEnvironmentVariable('Path', `$env:Path + ';$(Split-Path $hint)', 'User')" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  Or temporarily for this shell:" -ForegroundColor Cyan
+        Write-Host "    `$env:Path += ';$(Split-Path $hint)'" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Then open a NEW PowerShell window and re-run me."
+    }
     exit 1
 }
 Write-Host "  Python:    " -NoNewline; Write-Host "$pyBin ($pyVer)" -ForegroundColor White
 
-# Python installer (uv > pipx > pip)
+# Python installer.
+#
+# IMPORTANT: For Dulus we DEFAULT TO pip instead of uv/pipx, because
+# Dulus loads plugins at runtime that import arbitrary packages
+# (pandas, tomli, etc.). uv tool and pipx use isolated venvs — plugins
+# then can't find packages the user later `pip install`s. pip --user
+# (or pip in an active venv) shares the env with the user's tooling so
+# plugin deps Just Work.
+#
+# When uv or pipx are present and we're on an interactive console, we
+# ask the user. iex-piped runs default silently to pip.
 if (-not $Installer) {
-    if     (Get-Command uv   -ErrorAction SilentlyContinue) { $Installer = 'uv' }
-    elseif (Get-Command pipx -ErrorAction SilentlyContinue) { $Installer = 'pipx' }
-    else                                                    { $Installer = 'pip' }
+    $haveUv   = [bool](Get-Command uv   -ErrorAction SilentlyContinue)
+    $havePipx = [bool](Get-Command pipx -ErrorAction SilentlyContinue)
+    if (($haveUv -or $havePipx) -and ([Environment]::UserInteractive)) {
+        Write-Host ""
+        Write-Host "How would you like to install Dulus?" -ForegroundColor Cyan
+        Write-Host "  1) pip  (recommended - plugins share your Python env, no surprises)" -ForegroundColor White
+        if ($haveUv)   { Write-Host "  2) uv tool  (isolated venv - cleaner, but plugins like yfinance/sherlock can't see deps you pip-install yourself)" -ForegroundColor White }
+        if ($havePipx) { Write-Host "  3) pipx     (isolated venv - same trade-off as uv)" -ForegroundColor White }
+        $choice = Read-Host "`nPick 1-3 [default: 1]"
+        switch ($choice) {
+            '1'  { $Installer = 'pip' }
+            '2'  { $Installer = if ($haveUv) { 'uv' }   else { 'pip' } }
+            '3'  { $Installer = if ($havePipx) { 'pipx' } else { 'pip' } }
+            ''   { $Installer = 'pip' }
+            default { $Installer = 'pip' }
+        }
+    } else {
+        $Installer = 'pip'
+    }
 }
 Write-Host "  Installer: " -NoNewline; Write-Host $Installer -ForegroundColor White
 
@@ -339,15 +392,20 @@ $preFlag = if ($Pre) { '--pre' } else { '' }
 
 switch ($Installer) {
     'uv' {
-        OK "Using uv (fastest, isolated)"
-        try {
-            Invoke-Step "uv tool install '$extrasSpec' $preFlag --python $pyBin"
-        } catch {
+        OK "Using uv tool (isolated venv - note: runtime plugins won't see deps installed outside this env)"
+        # `uv tool install` is a no-op if Dulus is already installed. Detect
+        # that and upgrade instead so re-running the installer pulls the
+        # latest version. (This was the bug that kept users stuck on old
+        # Dulus releases for months.)
+        $existing = uv tool list 2>$null | Select-String -Pattern '^dulus '
+        if ($existing) {
             Invoke-Step "uv tool upgrade dulus"
+        } else {
+            Invoke-Step "uv tool install '$extrasSpec' $preFlag --python $pyBin"
         }
     }
     'pipx' {
-        OK "Using pipx (isolated venv)"
+        OK "Using pipx (isolated venv - same caveat as uv)"
         if ($extras.Count -gt 0) {
             Invoke-Step "pipx install 'dulus[$($extras -join ',')]' $preFlag --python $pyBin --force"
         } else {
@@ -355,8 +413,16 @@ switch ($Installer) {
         }
     }
     'pip' {
-        OK "Using pip"
-        Invoke-Step "$pyBin -m pip install --upgrade $preFlag '$extrasSpec'"
+        OK "Using pip (recommended - plugins share your Python env)"
+        # On Windows pip --user installs into %APPDATA%\Python\PythonXY\Scripts.
+        # If user is inside an active venv ($env:VIRTUAL_ENV set), drop --user
+        # since pip rejects --user inside venvs.
+        $userFlag = '--user'
+        if ($env:VIRTUAL_ENV) {
+            $userFlag = ''
+            OK "Detected active venv: $env:VIRTUAL_ENV - installing into it instead of --user"
+        }
+        Invoke-Step "$pyBin -m pip install --upgrade $preFlag $userFlag '$extrasSpec'"
     }
 }
 

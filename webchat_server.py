@@ -506,7 +506,7 @@ def create_app() -> Flask:
 
     # ───────────────────────── Chat Normal HTML ─────────────────────────
     CHAT_PAGE = r"""<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/png" href="/dulus-bird.png">
 <title>Dulus WebChat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1425,7 +1425,7 @@ setInterval(function(){ syncWithServer(); }, 5000);
 
     # ─────────────────────── Mesa Redonda HTML ──────────────────────────
     RT_PAGE = r"""<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/png" href="/dulus-bird.png">
 <title>Dulus Mesa Redonda</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1892,7 +1892,7 @@ restoreRt();
 </body></html>"""
 
     RT_PAGE = r"""<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/png" href="/dulus-bird.png">
 <title>Dulus WebChat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2879,7 +2879,7 @@ setInterval(function(){ syncWithServer(); }, 5000);
 
     # ─────────────────────── Mesa Redonda HTML ──────────────────────────
     RT_PAGE = r"""<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/png" href="/dulus-bird.png">
 <title>Dulus Mesa Redonda</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3352,6 +3352,18 @@ restoreRt();
     @app.route("/roundtable")
     def roundtable_page() -> Response:
         return Response(RT_PAGE, mimetype="text/html")
+
+    # Favicon — the Dulus palmchat (cigua palmera) logo, shipped at repo root
+    # as dulus-bird.png so it's reachable from any working dir.
+    _DULUS_BIRD = Path(__file__).parent / "dulus-bird.png"
+
+    @app.route("/favicon.ico")
+    @app.route("/dulus-bird.png")
+    def dulus_bird() -> Response:
+        if _DULUS_BIRD.exists():
+            return send_from_directory(_DULUS_BIRD.parent, _DULUS_BIRD.name,
+                                       mimetype="image/png")
+        return Response(status=404)
 
     # ── Sandbox (Mini OS) ─────────────────────────────────────────────────────
     # The sandbox is shipped compressed inside the wheel and auto-extracted
