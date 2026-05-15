@@ -31,11 +31,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 > **Official X / creator handle:** [@KevRojox](https://x.com/KevRojox) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
 >
-> A community-launched **$DULUS** token exists on Solana — I didn't create it, but the community pulled me in and I'm now part of the journey. **This version stays open-source and free forever — business version incoming.** 🦅🇩🇴
-
-https://pump.fun/coin/9m8iYBoBPHt3xdRxqwxM95UM8oJfGTdrkzgMqaHzpump
-
-if you Believe in Dulus, Believe in he token, you'r early!
+> A community-launched **$DULUS** token exists on Solana — I didn't create it, but the community pulled me in and I'm now part of the journey. **This version stays open-source and free forever** 🦅🇩🇴
 
 <p align="center">
   <code>pip install dulus</code>
