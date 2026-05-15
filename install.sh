@@ -295,9 +295,11 @@ pkg_missing() {
 if [ "$NO_DEPS" -eq 0 ] && [ -n "$PKG" ]; then
     case "$PKG" in
     apt)
-        # Voice: PortAudio runtime + dev headers + ALSA
+        # Voice: input (PortAudio + ALSA for recording) + output (ffmpeg for
+        # TTS playback — Dulus shells out to ffplay/mpv when the TTS provider
+        # returns an mp3, otherwise you get "no player found").
         if [ "$WANT_VOICE" -eq 1 ]; then
-            for p in libportaudio2 portaudio19-dev libasound2-dev; do
+            for p in libportaudio2 portaudio19-dev libasound2-dev ffmpeg; do
                 pkg_missing "$p" && NEEDED_PKGS+=("$p")
             done
             # WSL: pulseaudio bridge for audio devices
@@ -319,33 +321,44 @@ if [ "$NO_DEPS" -eq 0 ] && [ -n "$PKG" ]; then
         # not apt directly — we skip them here.
         ;;
     brew)
-        [ "$WANT_VOICE" -eq 1 ] && { pkg_missing portaudio && NEEDED_PKGS+=("portaudio"); }
+        if [ "$WANT_VOICE" -eq 1 ]; then
+            pkg_missing portaudio && NEEDED_PKGS+=("portaudio")
+            pkg_missing ffmpeg    && NEEDED_PKGS+=("ffmpeg")
+        fi
         [ "$WANT_GUI"   -eq 1 ] && { pkg_missing python-tk && NEEDED_PKGS+=("python-tk"); }
         [ "$WANT_TMUX"  -eq 1 ] && { pkg_missing tmux      && NEEDED_PKGS+=("tmux"); }
         ;;
     pkg)
         # Termux. Voice support is iffy on Android — best-effort.
         [ "$WANT_TMUX"  -eq 1 ] && { pkg_missing tmux && NEEDED_PKGS+=("tmux"); }
-        [ "$WANT_VOICE" -eq 1 ] && { pkg_missing python-numpy && NEEDED_PKGS+=("python-numpy"); }
+        if [ "$WANT_VOICE" -eq 1 ]; then
+            pkg_missing python-numpy && NEEDED_PKGS+=("python-numpy")
+            pkg_missing ffmpeg       && NEEDED_PKGS+=("ffmpeg")
+        fi
         ;;
     dnf)
-        [ "$WANT_VOICE" -eq 1 ] && {
+        if [ "$WANT_VOICE" -eq 1 ]; then
             pkg_missing portaudio-devel && NEEDED_PKGS+=("portaudio-devel")
             pkg_missing alsa-lib-devel  && NEEDED_PKGS+=("alsa-lib-devel")
-        }
+            pkg_missing ffmpeg          && NEEDED_PKGS+=("ffmpeg")
+        fi
         [ "$WANT_GUI"   -eq 1 ] && { pkg_missing python3-tkinter && NEEDED_PKGS+=("python3-tkinter"); }
         [ "$WANT_TMUX"  -eq 1 ] && { pkg_missing tmux            && NEEDED_PKGS+=("tmux"); }
         ;;
     pacman)
-        [ "$WANT_VOICE" -eq 1 ] && { pkg_missing portaudio && NEEDED_PKGS+=("portaudio"); }
+        if [ "$WANT_VOICE" -eq 1 ]; then
+            pkg_missing portaudio && NEEDED_PKGS+=("portaudio")
+            pkg_missing ffmpeg    && NEEDED_PKGS+=("ffmpeg")
+        fi
         [ "$WANT_GUI"   -eq 1 ] && { pkg_missing tk        && NEEDED_PKGS+=("tk"); }
         [ "$WANT_TMUX"  -eq 1 ] && { pkg_missing tmux      && NEEDED_PKGS+=("tmux"); }
         ;;
     zypper)
-        [ "$WANT_VOICE" -eq 1 ] && {
+        if [ "$WANT_VOICE" -eq 1 ]; then
             pkg_missing portaudio-devel && NEEDED_PKGS+=("portaudio-devel")
             pkg_missing alsa-devel      && NEEDED_PKGS+=("alsa-devel")
-        }
+            pkg_missing ffmpeg          && NEEDED_PKGS+=("ffmpeg")
+        fi
         [ "$WANT_GUI"   -eq 1 ] && { pkg_missing python3-tk && NEEDED_PKGS+=("python3-tk"); }
         [ "$WANT_TMUX"  -eq 1 ] && { pkg_missing tmux       && NEEDED_PKGS+=("tmux"); }
         ;;

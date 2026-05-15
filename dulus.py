@@ -7904,6 +7904,20 @@ def cmd_doctor(args: str, state, config) -> bool:
             else:
                 warn(f"{desc}: {e}")
 
+    # Audio playback binaries (ffmpeg/mpv) — Dulus shells out to one of these
+    # to play TTS mp3s. Without one you get "[TTS] Cannot play audio: no
+    # player found" and the agent is mute. Surface this explicitly so users
+    # know which apt/brew package to install.
+    import shutil as _ash
+    if _ash.which("ffmpeg") or _ash.which("ffplay") or _ash.which("mpv") \
+            or _ash.which("afplay"):  # afplay ships with macOS
+        ok("Audio player (ffmpeg/mpv/afplay): found")
+    else:
+        warn("Audio player: NONE found — TTS playback will fail.")
+        info("  Fix on Linux/WSL:  sudo apt install ffmpeg")
+        info("  Fix on macOS:      brew install ffmpeg  (afplay is bundled, but ffmpeg helps)")
+        info("  Fix on Windows:    winget install Gyan.FFmpeg")
+
     # ── 7. DULUS.md / CLAUDE.md ──
     print()
     dulus_md = Path.cwd() / "DULUS.md"

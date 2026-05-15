@@ -240,10 +240,11 @@ function PkgInstalled-Choco($id)  {
 }
 
 if (-not $NoDeps -and $pkgMgr) {
-    # On Windows, tkinter ships with the official python.org installer, so we
-    # don't track it separately. PortAudio is bundled into the `sounddevice`
-    # wheel on Windows — no system lib needed. So the only system dep we
-    # really care about is tmux (for /bg start).
+    # On Windows, tkinter ships with the official python.org installer and
+    # PortAudio is bundled into the sounddevice wheel — so the only system
+    # deps we really need to track are tmux (for /bg start) and ffmpeg
+    # (for TTS playback when an mp3 comes back from ElevenLabs / a remote
+    # provider — without it Dulus prints "no player found").
     if ($wantTmux -and -not $haveTmux) {
         switch ($pkgMgr) {
             'winget' {
@@ -257,6 +258,14 @@ if (-not $NoDeps -and $pkgMgr) {
             }
             'scoop'  { if (-not (PkgInstalled-Scoop 'tmux'))   { $neededPkgs += 'tmux' } }
             'choco'  { if (-not (PkgInstalled-Choco 'tmux'))   { $neededPkgs += 'tmux' } }
+        }
+    }
+
+    if ($wantVoice -and -not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+        switch ($pkgMgr) {
+            'winget' { if (-not (PkgInstalled-Winget 'Gyan.FFmpeg')) { $neededPkgs += 'Gyan.FFmpeg' } }
+            'scoop'  { if (-not (PkgInstalled-Scoop  'ffmpeg'))      { $neededPkgs += 'ffmpeg' } }
+            'choco'  { if (-not (PkgInstalled-Choco  'ffmpeg'))      { $neededPkgs += 'ffmpeg' } }
         }
     }
 }
