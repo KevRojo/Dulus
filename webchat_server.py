@@ -948,7 +948,24 @@ function getActiveSession(){
 }
 function updateActiveMessages(msgs){
   var s = getActiveSession();
-  if(s){ s.messages = msgs; s.timestamp = Date.now(); }
+  if(!s) return;
+  // Only bump the timestamp when NEW messages actually arrived. Otherwise
+  // every F5 / 5s poll would re-stamp the sidebar entry to "now" even
+  // though the conversation didn't change, making it impossible to tell
+  // which chats had real activity. Compare counts AND last-message text
+  // because /clear keeps the same count but flips content.
+  var prev = s.messages || [];
+  var changed = false;
+  if(msgs.length !== prev.length) changed = true;
+  else if(msgs.length > 0){
+    var a = msgs[msgs.length - 1] || {};
+    var b = prev[prev.length - 1] || {};
+    var ac = typeof a.content === 'string' ? a.content : JSON.stringify(a.content || '');
+    var bc = typeof b.content === 'string' ? b.content : JSON.stringify(b.content || '');
+    if(a.role !== b.role || ac !== bc) changed = true;
+  }
+  s.messages = msgs;
+  if(changed) s.timestamp = Date.now();
 }
 function updateSessionTitleFromMessages(){
   var s = getActiveSession();
@@ -2308,7 +2325,24 @@ function getActiveSession(){
 }
 function updateActiveMessages(msgs){
   var s = getActiveSession();
-  if(s){ s.messages = msgs; s.timestamp = Date.now(); }
+  if(!s) return;
+  // Only bump the timestamp when NEW messages actually arrived. Otherwise
+  // every F5 / 5s poll would re-stamp the sidebar entry to "now" even
+  // though the conversation didn't change, making it impossible to tell
+  // which chats had real activity. Compare counts AND last-message text
+  // because /clear keeps the same count but flips content.
+  var prev = s.messages || [];
+  var changed = false;
+  if(msgs.length !== prev.length) changed = true;
+  else if(msgs.length > 0){
+    var a = msgs[msgs.length - 1] || {};
+    var b = prev[prev.length - 1] || {};
+    var ac = typeof a.content === 'string' ? a.content : JSON.stringify(a.content || '');
+    var bc = typeof b.content === 'string' ? b.content : JSON.stringify(b.content || '');
+    if(a.role !== b.role || ac !== bc) changed = true;
+  }
+  s.messages = msgs;
+  if(changed) s.timestamp = Date.now();
 }
 function updateSessionTitleFromMessages(){
   var s = getActiveSession();
@@ -2716,18 +2750,32 @@ async function syncWithServer(cb){
       var ht = await rh.json();
       
       var switched = false;
-      // ADOPT SERVER'S ACTIVE SESSION TO PREVENT DESYNC
-      if(ht.session_id && activeSessionId !== ht.session_id) {
+      // Only auto-adopt the server's active session on the FIRST load (when
+      // the user hasn't picked one yet). Once the user has clicked a session
+      // in the sidebar — or sent at least one message — we never yank the
+      // view out from under them when an external entry point (Telegram,
+      // `dulus "..."` IPC, sub-agent) switches the server's active session.
+      // That way you can keep reading session A while session B keeps
+      // collecting messages from Telegram; only when YOU click B (or send a
+      // new message in A) does anything change.
+      var userPinned = !!(activeSessionId && activeSessionId !== 'default');
+      if(!userPinned && ht.session_id && activeSessionId !== ht.session_id) {
           activeSessionId = ht.session_id;
           saveActive();
           switched = true;
           if(!sessions.find(function(x){ return x.id === activeSessionId; })){
               sessions.unshift({id: activeSessionId, title: 'Chat', timestamp: Date.now(), messages: ht.messages});
           }
-          // Full render when we jump to a completely different session internally
           renderSessions();
       }
-      
+
+      // If we're pinned but server is talking about a different session,
+      // skip the message overwrite — those messages belong to a sibling chat.
+      if(userPinned && ht.session_id && activeSessionId !== ht.session_id){
+        if(typeof cb === 'function') cb();
+        return;
+      }
+
       var s = getActiveSession();
       var localCount = s ? s.messages.length : -1;
       // Overwrite local session if server has a different message count OR we just adopted a new session
