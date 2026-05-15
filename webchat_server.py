@@ -3354,16 +3354,21 @@ restoreRt();
         return Response(RT_PAGE, mimetype="text/html")
 
     # ── Sandbox (Mini OS) ─────────────────────────────────────────────────────
-    _SANDBOX_DIST = Path(__file__).parent / "sandbox" / "dist"
+    # The sandbox is shipped compressed inside the wheel and auto-extracted
+    # to ~/.dulus/sandbox/ on first hit. This keeps the wheel small,
+    # cleans up the GitHub language stats (no more 49% TypeScript), and
+    # lets `pip install --upgrade dulus` rotate the bundle without
+    # touching the user's runtime data.
+    from sandbox_bootstrap import ensure_sandbox as _ensure_sandbox
 
     @app.route("/sandbox")
     @app.route("/sandbox/")
     def sandbox_index() -> Response:
-        return send_from_directory(_SANDBOX_DIST, "index.html")
+        return send_from_directory(_ensure_sandbox(), "index.html")
 
     @app.route("/sandbox/<path:path>")
     def sandbox_static(path) -> Response:
-        return send_from_directory(_SANDBOX_DIST, path)
+        return send_from_directory(_ensure_sandbox(), path)
 
     # ── Sandbox Filesystem API ────────────────────────────────────────────────
     import os as _os
