@@ -78,7 +78,7 @@ _VAD_RMS_THRESHOLD = 0.020  # ~quiet room ≈ 0.005; normal speech close ≈ 0.0
 _WAKE_RECORD_SECS = 4.5
 
 # Cool-down between wake-word checks so we don't spam STT.
-_COOLDOWN_SECS = 1.5
+_COOLDOWN_SECS = 0.5
 
 # Max seconds for the follow-up command recording.
 _COMMAND_MAX_SECS = 20

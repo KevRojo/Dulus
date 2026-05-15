@@ -51,9 +51,14 @@ _TOOL_SCHEMAS = [
     {
         "name": "WebBridgeClick",
         "description": (
-            "Click an element on the current page using a CSS selector. "
-            "Use WebBridgeExtract with mode='dom' first to discover selectors. "
-            "Set force=true to bypass visibility checks (useful for overlays)."
+            "⚠️ FALLBACK ONLY — prefer WebBridgeEvaluate for clicks. Playwright's "
+            "actionability checks regularly stall on SPAs, modals, and shadow-DOM "
+            "widgets, eating turns. If you actually need a Playwright-mediated "
+            "click (real input dispatch, hover side-effects, native file picker), "
+            "use this; otherwise reach for WebBridgeEvaluate first with "
+            "document.querySelector('<sel>').click(). Set force=true to bypass "
+            "visibility checks on overlays. Use WebBridgeExtract mode='dom' to "
+            "discover selectors before either approach."
         ),
         "input_schema": {
             "type": "object",
@@ -77,10 +82,20 @@ _TOOL_SCHEMAS = [
     {
         "name": "WebBridgeEvaluate",
         "description": (
-            "Execute raw JavaScript in the browser and return the result. "
-            "Use this when Playwright clicks fail due to overlays, anti-bot measures, "
-            "or when you need to access page internals. Example: "
-            "document.querySelector('.ytp-large-play-button').click()"
+            "✅ PREFERRED interaction primitive — execute raw JavaScript in the "
+            "browser and return the result. Use this as the default for clicks, "
+            "form fills, scroll-to-element, value reads, anything DOM. "
+            "WebBridgeClick / WebBridgeType go through Playwright's actionability "
+            "checks which routinely stall on SPAs and shadow-DOM widgets — "
+            "evaluating JS bypasses all of that and is dramatically more reliable.\n\n"
+            "Examples:\n"
+            "  • Click:        document.querySelector('button[name=\"search\"]').click()\n"
+            "  • Click by text: [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Battle!').click()\n"
+            "  • Fill input:   const i = document.querySelector('input[name=username]'); i.value = 'foo'; i.dispatchEvent(new Event('input', {bubbles:true}))\n"
+            "  • Read state:   document.querySelector('.score')?.textContent\n"
+            "  • Submit form:  document.forms[0].submit()\n\n"
+            "Returns the final expression's value (JSON-serialised). Wrap in an "
+            "IIFE if you need multiple statements with a return."
         ),
         "input_schema": {
             "type": "object",
