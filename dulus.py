@@ -1762,7 +1762,9 @@ def cmd_bg(args: str, _state, config) -> bool:
     import subprocess as _sp, socket as _socket, time as _time
 
     parts = (args or "").strip().split()
-    sub = parts[0].lower() if parts else "status"
+    # Strip stray quotes — `dulus -c "bg start"` from Windows CMD sometimes
+    # passes `start'` or `"start"` through as the literal subcommand.
+    sub = (parts[0].lower().strip("'\"") if parts else "status")
     TMUX_SESSION = "dulus"
 
     def _ipc_alive() -> bool:
@@ -1820,6 +1822,7 @@ def cmd_bg(args: str, _state, config) -> bool:
     # ── /bg status ────────────────────────────────────────────────────────
     if sub == "status":
         ipc = _ipc_alive()
+        _repl_owns_ipc = config.get("_ipc_thread") is not None
         if _is_windows:
             pids = _find_windows_daemon_pids()
             if pids and ipc:
@@ -1829,9 +1832,12 @@ def cmd_bg(args: str, _state, config) -> bool:
                 info(f"  Web: http://127.0.0.1:{config.get('_webchat_port', 5000)}/")
             elif pids:
                 warn(f"Daemon process(es) found ({pids}) but IPC not responding (still booting?).")
+            elif ipc and _repl_owns_ipc:
+                info("Dulus background daemon: NOT RUNNING")
+                info(f"  (IPC :{DULUS_IPC_PORT} is owned by THIS REPL, not a daemon.)")
             elif ipc:
-                info("IPC port is in use but no `--daemon` process detected.")
-                info(f"  Likely your own Dulus REPL on port {DULUS_IPC_PORT}.")
+                info("IPC port is in use by an unknown process (no --daemon found).")
+                info(f"  Port {DULUS_IPC_PORT} — check what owns it before starting.")
             else:
                 info("Dulus background daemon: NOT RUNNING")
             return True
@@ -1898,12 +1904,19 @@ def cmd_bg(args: str, _state, config) -> bool:
 
     # ── /bg start ─────────────────────────────────────────────────────────
     if sub == "start":
-        # 'Already running' detection: on Linux tmux owns the session;
-        # on Windows we have no tmux so trust the IPC port + process scan.
-        _already = (
-            (_is_windows and (_ipc_alive() or _find_windows_daemon_pids()))
-            or (not _is_windows and _tmux_session_exists())
-        )
+        # 'Already running' detection. IPC alone is NOT proof — when /bg
+        # start runs from inside a REPL, that REPL itself owns the IPC
+        # port (config['_ipc_thread'] is set). Trust process-list scans
+        # on Windows and tmux session presence on Linux/macOS instead.
+        _repl_owns_ipc = config.get("_ipc_thread") is not None
+        if _is_windows:
+            _already = bool(_find_windows_daemon_pids())
+            # If IPC is alive AND it's NOT this REPL's, an external daemon
+            # exists even if wmic missed it (e.g. wmic disabled).
+            if not _already and _ipc_alive() and not _repl_owns_ipc:
+                _already = True
+        else:
+            _already = _tmux_session_exists()
         if _already:
             info("Background daemon already running.  Use `/bg status` for details.")
             return True
