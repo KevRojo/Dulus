@@ -58,7 +58,14 @@ def check_recording_availability() -> tuple[bool, str | None]:
         "Install one of:\n"
         "  pip install sounddevice   (recommended, cross-platform)\n"
         "  sudo apt install alsa-utils  (Linux — provides arecord)\n"
-        "  sudo apt install sox  /  brew install sox  (SoX rec)"
+        "  sudo apt install sox  /  brew install sox  (SoX rec)\n"
+        "\n"
+        "If pip install fails with 'PortAudio library not found' (Linux/WSL):\n"
+        "  sudo apt install libportaudio2 portaudio19-dev libasound2-dev\n"
+        "  pip install sounddevice --upgrade --force-reinstall\n"
+        "PortAudio is a C library, not a Python package — `pip install portaudio`\n"
+        "will always fail. The apt packages above provide the runtime + headers\n"
+        "that sounddevice's CFFI binding links against."
     )
 
 
