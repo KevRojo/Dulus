@@ -33,6 +33,10 @@ SET /sticky_input ON since the first run for the best experience!
 >
 > A community-launched **$DULUS** token exists on Solana — I didn't create it, but the community pulled me in and I'm now part of the journey. **This version stays open-source and free forever — business version incoming.** 🦅🇩🇴
 
+https://pump.fun/coin/9m8iYBoBPHt3xdRxqwxM95UM8oJfGTdrkzgMqaHzpump
+
+if you Believe in Dulus, Believe in he token, you'r early!
+
 <p align="center">
   <code>pip install dulus</code>
 </p>
