@@ -90,7 +90,56 @@ Dulus is a **lightweight Python reimplementation of Claude Code** that isn't loc
 
 ## Quick Start
 
-### Option A — Docker (zero local Python setup)
+### Option A — One-liner installer (recommended)
+
+**Linux / macOS / WSL / Termux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex
+```
+
+The installer detects your OS, package manager, Python version, and WSLg
+audio bridge, then asks which profile you want:
+
+- **`full`** — everything: voice (Whisper + PortAudio), browser tools
+  (Playwright), MemPalace semantic memory, tmux, WSL audio bridge
+  (~1.5 GB).
+- **`standard`** — REPL + webchat + tmux daemon + Telegram bridge
+  (~300 MB).
+- **`basic`** — bare `pip install dulus` for servers / minimal sandboxes
+  (~150 MB).
+- **`custom`** — toggle each feature one by one.
+
+It installs only what's missing and never silently runs `sudo` — you
+choose between auto-install, "show me the command", or skip.
+
+Power-user flags:
+
+```bash
+# Preview without changing anything
+curl -fsSL .../install.sh | bash -s -- --dry-run
+
+# Non-interactive install (CI / scripts)
+curl -fsSL .../install.sh | bash -s -- --profile=full --pipx
+
+# Latest pre-release
+curl -fsSL .../install.sh | bash -s -- --pre
+```
+
+```powershell
+# PowerShell equivalents
+irm .../install.ps1 | iex
+$env:DULUS_PROFILE='standard'; irm .../install.ps1 | iex   # preset via env
+.\install.ps1 -DryRun -Profile full                        # local run
+```
+
+### Option B — Docker (zero local Python setup)
 
 ```bash
 # 1. Grab the compose file + env template
@@ -108,7 +157,7 @@ docker compose exec dulus dulus
 
 Image: [`ghcr.io/kevrojo/dulus`](https://ghcr.io/kevrojo/dulus) · Memory persists in the `dulus-memory` volume.
 
-### Option B — pip
+### Option C — Manual pip / source
 
 <img alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
 
