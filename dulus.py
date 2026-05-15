@@ -1789,10 +1789,54 @@ def cmd_bg(args: str, _state, config) -> bool:
         except Exception:
             return False
 
+    # On native Windows we skip tmux entirely (see /bg start). status/stop
+    # have to work without it — use IPC alive + a process-list scan
+    # instead of `tmux has-session`.
+    _is_windows = os.name == "nt"
+
+    def _find_windows_daemon_pids() -> list[int]:
+        """Return PIDs of any `dulus --daemon` (or `python dulus.py --daemon`)
+        process running. Used on Windows since we don't have tmux to ask."""
+        if not _is_windows:
+            return []
+        try:
+            r = _sp.run(["wmic", "process", "where",
+                         "name='python.exe' or name='dulus.exe'",
+                         "get", "processid,commandline", "/format:csv"],
+                        capture_output=True, text=True, timeout=5)
+            pids = []
+            for line in r.stdout.splitlines():
+                if "--daemon" in line and "dulus" in line.lower():
+                    # csv last column is pid
+                    cols = line.strip().split(",")
+                    try:
+                        pids.append(int(cols[-1]))
+                    except (ValueError, IndexError):
+                        pass
+            return pids
+        except Exception:
+            return []
+
     # ── /bg status ────────────────────────────────────────────────────────
     if sub == "status":
-        tmux_alive = _tmux_session_exists()
         ipc = _ipc_alive()
+        if _is_windows:
+            pids = _find_windows_daemon_pids()
+            if pids and ipc:
+                ok("Dulus background daemon: RUNNING")
+                info(f"  PID(s): {', '.join(str(p) for p in pids)}")
+                info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT} (responding)")
+                info(f"  Web: http://127.0.0.1:{config.get('_webchat_port', 5000)}/")
+            elif pids:
+                warn(f"Daemon process(es) found ({pids}) but IPC not responding (still booting?).")
+            elif ipc:
+                info("IPC port is in use but no `--daemon` process detected.")
+                info(f"  Likely your own Dulus REPL on port {DULUS_IPC_PORT}.")
+            else:
+                info("Dulus background daemon: NOT RUNNING")
+            return True
+
+        tmux_alive = _tmux_session_exists()
         if tmux_alive and ipc:
             ok("Dulus background daemon: RUNNING")
             info(f"  IPC: 127.0.0.1:{DULUS_IPC_PORT} (responding)")
@@ -1808,6 +1852,22 @@ def cmd_bg(args: str, _state, config) -> bool:
 
     # ── /bg stop / kill ───────────────────────────────────────────────────
     if sub in ("stop", "kill"):
+        if _is_windows:
+            pids = _find_windows_daemon_pids()
+            if not pids:
+                info("No background daemon to stop.")
+                return True
+            killed = 0
+            for pid in pids:
+                try:
+                    _sp.run(["taskkill", "/F", "/T", "/PID", str(pid)],
+                            capture_output=True, timeout=5)
+                    killed += 1
+                except Exception:
+                    pass
+            ok(f"Dulus background stopped ({killed} process(es) killed).")
+            return True
+
         if not _tmux_session_exists():
             info("No background daemon to stop.")
             return True
@@ -1821,6 +1881,11 @@ def cmd_bg(args: str, _state, config) -> bool:
 
     # ── /bg attach ────────────────────────────────────────────────────────
     if sub == "attach":
+        if _is_windows:
+            warn("`/bg attach` is unavailable on Windows (no tmux session).")
+            info("The daemon writes to its own stdout — use `/bg status` to check it,")
+            info("or look at the WebChat UI at http://127.0.0.1:5000/.")
+            return True
         if not _tmux_session_exists():
             warn("No background daemon running. Use `/bg start` first.")
             return True
@@ -1833,7 +1898,13 @@ def cmd_bg(args: str, _state, config) -> bool:
 
     # ── /bg start ─────────────────────────────────────────────────────────
     if sub == "start":
-        if _tmux_session_exists():
+        # 'Already running' detection: on Linux tmux owns the session;
+        # on Windows we have no tmux so trust the IPC port + process scan.
+        _already = (
+            (_is_windows and (_ipc_alive() or _find_windows_daemon_pids()))
+            or (not _is_windows and _tmux_session_exists())
+        )
+        if _already:
             info("Background daemon already running.  Use `/bg status` for details.")
             return True
 
@@ -1897,13 +1968,25 @@ def cmd_bg(args: str, _state, config) -> bool:
         # see what was actually attempted instead of staring at a silent fail.
         info(f"Launching daemon: {cmd}")
 
-        # Check tmux is actually on PATH — `_sp.run` raising FileNotFoundError
-        # used to be swallowed into the generic exception handler with a
-        # cryptic message. Fall back to a detached subprocess if tmux is
-        # missing so the flow still works on Windows boxes without it.
+        # Path selection — tmux is bulletproof on Linux/macOS, but the
+        # Windows ports (winget tmux, MSYS2 tmux) reliably fail at
+        # `new-session -d <cmd>`: the session is created, the inline
+        # command crashes a few ms later due to shell/PATH mismatch,
+        # the session auto-destroys, and we time out waiting for IPC
+        # with no useful diagnostic. WSL is fine. Native Windows is not.
+        #
+        # Rule: on Windows native, ALWAYS bypass tmux and use Popen
+        # detached. On every other OS, prefer tmux when present (gives
+        # us /bg attach for live inspection) and fall back to Popen
+        # only if tmux is missing.
         _tmux_bin = _shutil.which("tmux")
-        if not _tmux_bin:
-            warn("tmux not found on PATH — launching the daemon detached without tmux.")
+        _use_tmux = bool(_tmux_bin) and os.name != "nt"
+
+        if not _use_tmux:
+            if os.name == "nt":
+                info("Windows detected — launching daemon detached (tmux skipped — flaky on Windows for new-session -d <cmd>).")
+            else:
+                warn("tmux not found on PATH — launching the daemon detached without tmux.")
             try:
                 if os.name == "nt":
                     DETACHED = 0x00000008  # CREATE_NEW_PROCESS_GROUP
@@ -1941,7 +2024,7 @@ def cmd_bg(args: str, _state, config) -> bool:
         if not _ipc_up:
             err("Daemon launched but IPC never came up after 10s.")
             # Capture what the tmux pane printed so we can see why it died.
-            if _tmux_bin:
+            if _use_tmux:
                 try:
                     cap = _sp.run(["tmux", "capture-pane", "-t", TMUX_SESSION, "-p"],
                                   capture_output=True, text=True, timeout=3)
