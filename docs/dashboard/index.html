@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dulus — Task Dashboard</title>
+  <link rel="icon" type="image/png" href="/dulus-bird.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -103,13 +104,9 @@
     .nav-logo .mark {
       width: 32px;
       height: 32px;
-      background: var(--accent);
-      display: grid;
-      place-items: center;
-      font-family: var(--display);
-      font-size: 18px;
-      color: #000;
-      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      background: url(/dulus-bird.png) center/contain no-repeat;
+      font-size: 0;
+      color: transparent;
     }
 
     .nav-logo .name {
@@ -1655,7 +1652,7 @@
   <!-- ===== NAV ===== -->
   <nav>
     <a href="/" class="nav-logo">
-      <div class="mark">▲</div>
+      <div class="mark" aria-hidden="true"></div>
       <span class="name">DULUS</span>
     </a>
     <div class="live-badge" id="live-badge"><span class="pulse"></span>Live</div>

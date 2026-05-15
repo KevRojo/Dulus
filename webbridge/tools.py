@@ -27,7 +27,19 @@ _TOOL_SCHEMAS = [
         "name": "WebBridgeNavigate",
         "description": (
             "Navigate to a URL in the browser. Opens the browser if not already open. "
-            "Returns the page title, URL, and HTTP status."
+            "Returns the page title, URL, and HTTP status.\n\n"
+            "⚠️ WHEN NOT TO USE THIS:\n"
+            "• If the active tab is doing user-visible work (music/video playing, a "
+            "  game, a logged-in session, a long-running app), DO NOT call Navigate "
+            "  on it — you will kill whatever the user is watching/listening to.\n"
+            "• For quick info lookups (weather, news, definitions, prices, docs), "
+            "  prefer WebSearch + WebFetch — they are headless and never touch the "
+            "  user's visible browser. WebBridge is for INTERACTING with pages "
+            "  (clicking, typing, scraping behind JS), not for reading a static URL.\n"
+            "• If you genuinely need a new browser tab while preserving the current "
+            "  one, use WebBridgeNewTab instead of Navigate.\n\n"
+            "Rule of thumb: only navigate the active tab when the user explicitly "
+            "asked to leave the current page, or when the tab is empty/idle."
         ),
         "input_schema": {
             "type": "object",
