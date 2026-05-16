@@ -9182,7 +9182,7 @@ def repl(config: dict, initial_prompt: str = None):
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⢾⣯⣧⣬⣭⣤⡶⠖⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
         ]
         _DULUS_LOGO.append("     " + clr("v" + VERSION, "green", "bold"))
-        _DULUS_LOGO.append("     " + clr("New: Automated Plugin Adapter! Type /news", "cyan", "dim"))
+        _DULUS_LOGO.append("     " + clr("New: /lang — speak any language or role. Type /news", "cyan", "dim"))
         _DULUS_LOGO.append("                                                                 ")
 
         # Spinning galaxy animation
