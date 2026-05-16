@@ -1,6 +1,10 @@
 # ▲ DULUS
 
-> **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — Claude, GPT, Gemini, DeepSeek, Qwen, Kimi, Zhipu, MiniMax, and local models via Ollama. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
+> **Use IA agents without an API key. $0.**
+>
+> **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely: opens your browser, captures your Gemini / Claude.ai / Kimi / Qwen / DeepSeek session, and lets you drive frontier IA as if it were an API — **no api key, no subscription, no credit card**. Plus 100+ paid providers via LiteLLM, local models via Ollama. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
+>
+> `pip install dulus` → press Enter → working IA in 30 seconds. Try it.
 
 SET /sticky_input ON since the first run for the best experience!
 
@@ -50,6 +54,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
+- **v0.2.93 — IA WITHOUT AN API KEY, FIRST-RUN.** 🦅 The welcome wizard now offers, by default, to open Gemini in a browser and capture its **guest session** — no Google login, no API key, no credit card. From `pip install` to working IA in 30 seconds. Same flow works for Claude.ai / Kimi.com / Qwen / DeepSeek if you have those accounts. This was Dulus's ace under the sleeve. Now it's the front door.
 - **v0.2.92** — **`/lang` command.** 34 ISO codes + free-form descriptors. `/lang zh`, `/lang ja`, `/lang pt-br`, `/lang "speak as my gym tutor"`, `/lang "tigre de calle dominicano"`, `/lang "Yoda"`. The model role-plays the voice across the whole session. Triggered after Doubao (China's biggest IA assistant) started referring traffic to the repo.
 - **v0.2.91** — **CORS on the daemon.** The Android Sandbox APK now connects every app live — same daemon, finally cross-origin reachable.
 - **v0.2.89** — **Sandbox embedded INSIDE the desktop GUI.** Click `🦅 Sandbox` in the GUI Web tab → the Dulus OS renders inside the content frame via pywebview subprocess + Win32 `SetParent` reparent. Not a popup. Inside the frame.
