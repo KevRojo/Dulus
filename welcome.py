@@ -25,14 +25,20 @@ def is_first_run(config_path: Optional[Path] = None) -> bool:
 
 
 _PROVIDER_MENU = [
-    ("ollama",     "Ollama (local, free)",            "gemma3:latest",                  False),
-    ("nvidia-web", "NVIDIA NIM (14 free models)",     "llama-3.3-70b-instruct",         True),
-    ("anthropic",  "Anthropic Claude",                 "claude-sonnet-4-6",              True),
-    ("kimi-code",  "Kimi for Coding (kimi.com/coding)","kimi-for-coding",                True),
-    ("kimi",       "Moonshot Kimi K2 (general)",       "kimi-k2.5",                      True),
-    ("openai",     "OpenAI (GPT-4o / o3)",             "gpt-4o",                         True),
-    ("gemini",     "Google Gemini",                    "gemini-2.0-flash",               True),
-    ("deepseek",   "DeepSeek",                         "deepseek-chat",                  True),
+    ("ollama",     "Ollama (local, free)",                    "gemma3:latest",                  False),
+    ("nvidia-web", "NVIDIA NIM (14 free models)",             "llama-3.3-70b-instruct",         True),
+    ("anthropic",  "Anthropic Claude",                         "claude-sonnet-4-6",              True),
+    ("kimi-code",  "Kimi for Coding (kimi.com/coding)",        "kimi-for-coding",                True),
+    ("kimi",       "Moonshot Kimi K2 (general)",               "kimi-k2.5",                      True),
+    ("openai",     "OpenAI (GPT-4o / o3)",                     "gpt-4o",                         True),
+    ("gemini",     "Google Gemini",                            "gemini-2.0-flash",               True),
+    ("deepseek",   "DeepSeek",                                 "deepseek-chat",                  True),
+    # LiteLLM is the unified gateway — one provider entry, 100+ underlying
+    # backends (OpenRouter, Groq, Together, Bedrock, Vertex, Cohere, Mistral,
+    # Replicate, Anyscale, Fireworks, Perplexity, xAI, Databricks, …). The
+    # user picks a litellm model-string like `openrouter/anthropic/...` and
+    # LiteLLM routes to the right backend using the matching env var.
+    ("litellm",    "LiteLLM gateway (100+ providers via one API)", "openrouter/anthropic/claude-3-5-sonnet", True),
 ]
 
 
