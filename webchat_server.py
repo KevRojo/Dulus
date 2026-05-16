@@ -504,6 +504,31 @@ def create_app() -> Flask:
     _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
     app.logger.disabled = True
 
+    # ── CORS: open allow-list for cross-origin clients ───────────────────
+    # The Android sandbox APK loads its bundled React UI from a synthetic
+    # https://appassets.androidplatform.net/ origin via WebViewAssetLoader,
+    # then fetches the daemon's REST/SSE endpoints over LAN HTTP. That's
+    # a cross-origin request — without these headers Android WebView
+    # silently drops every response and the in-APK sandbox shows the OS
+    # shell but every app stays disconnected (the documented symptom).
+    # Browser-on-phone hits :5000/sandbox/ as same-origin and bypasses
+    # CORS entirely, which is why it "just works" outside the APK.
+    @app.after_request
+    def _cors_headers(resp):
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        resp.headers["Access-Control-Expose-Headers"] = "Content-Type, X-Session-Id"
+        resp.headers["Access-Control-Max-Age"] = "3600"
+        return resp
+
+    @app.route("/<path:_any>", methods=["OPTIONS"])
+    @app.route("/", methods=["OPTIONS"])
+    def _cors_preflight(_any=""):
+        # OPTIONS preflight comes in before any real call. Return 204 with
+        # the CORS headers (the after_request hook fills them in).
+        return ("", 204)
+
     # ───────────────────────── Chat Normal HTML ─────────────────────────
     CHAT_PAGE = r"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" type="image/png" href="/dulus-bird.png">
