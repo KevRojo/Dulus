@@ -438,21 +438,36 @@ class WebappLoader(ctk.CTkFrame):
         self._history_pos = len(self._history) - 1
 
     def _load_url(self, url: str) -> None:
-        """Open URL in the user's default browser.
+        """Render `url` INSIDE the content frame via embedded pywebview.
 
-        Embedding webview crashed on too many setups (the "must be created
-        on main thread" error) and tk has no native browser widget. So we
-        delegate to the OS's default browser via the stdlib `webbrowser`
-        module — always works, no extra deps, no threading landmines.
+        On Windows the only reliable native way to embed a real Chromium
+        rendering surface inside a tkinter frame is to (1) spawn pywebview
+        in a worker thread with `frameless=True`, (2) find the pywebview
+        OS window by title, (3) reparent its HWND into the content frame
+        via Win32 `SetParent` + strip the title bar / border. The result
+        renders inside the GUI like a native widget.
+
+        On non-Windows platforms (no Win32 SetParent) and when pywebview
+        isn't installed we fall back to opening the user's default
+        browser. The button still works; it just isn't embedded.
         """
         self._current_url = url
         self.url_entry.delete(0, "end")
         self.url_entry.insert(0, url)
 
+        # Try true embedded view first.
+        if self._try_embed_pywebview(url):
+            return
+
+        # Fallback: default browser.
         try:
             _webbrowser_lib.open_new_tab(url)
             self._placeholder.configure(
-                text=f"🌐  Abierto en tu navegador:\n\n{url}",
+                text=(
+                    f"🌐  Abierto en navegador:\n\n{url}\n\n"
+                    "(Embedded view requiere pywebview en Windows.\n"
+                    "Instálalo con: pip install pywebview)"
+                ),
                 text_color=TEXT_DIM,
             )
         except Exception as e:
@@ -460,6 +475,116 @@ class WebappLoader(ctk.CTkFrame):
                 text=f"❌  No pude abrir el navegador:\n{e}\n\nURL: {url}",
                 text_color="#ff5555",
             )
+
+    # ── Embedded pywebview via Win32 SetParent ──────────────────────────────
+
+    def _try_embed_pywebview(self, url: str) -> bool:
+        """Return True if we successfully launched the embedded view.
+
+        Quietly returns False on any non-Windows host, any missing dep,
+        or any setup error — the caller then falls back to a browser
+        open. We deliberately don't surface errors here unless something
+        actively breaks AFTER the embed succeeded.
+        """
+        import sys as _sys
+        if _sys.platform != "win32":
+            return False
+        try:
+            import webview  # type: ignore
+        except ImportError:
+            return False
+
+        # Tear down any previous embedded HWND so re-clicks don't stack.
+        self._teardown_embedded_hwnd()
+
+        # Hide the placeholder while the embed lands.
+        try:
+            self._placeholder.grid_forget()
+        except Exception:
+            pass
+
+        # The content_frame's tk window id is the HWND on Windows.
+        self.content_frame.update_idletasks()
+        parent_hwnd = int(self.content_frame.winfo_id())
+
+        import threading
+        import time as _time
+        import ctypes as _ctypes
+
+        # Unique title so we can FindWindowW it without colliding with
+        # any other pywebview instance the user has open.
+        embed_title = f"_DulusEmbed_{int(_time.time() * 1000)}"
+
+        def _reparent_loop():
+            user32 = _ctypes.windll.user32
+            GWL_STYLE   = -16
+            WS_CAPTION  = 0x00C00000
+            WS_THICKFRAME = 0x00040000
+            WS_BORDER   = 0x00800000
+            WS_CHILD    = 0x40000000
+            deadline = _time.time() + 6
+            child = 0
+            while _time.time() < deadline:
+                child = user32.FindWindowW(None, embed_title)
+                if child:
+                    break
+                _time.sleep(0.1)
+            if not child:
+                return
+            # Strip decorations and mark as child window.
+            style = user32.GetWindowLongW(child, GWL_STYLE)
+            style = (style & ~WS_CAPTION & ~WS_THICKFRAME & ~WS_BORDER) | WS_CHILD
+            user32.SetWindowLongW(child, GWL_STYLE, style)
+            # Reparent into our tk frame's HWND.
+            user32.SetParent(child, parent_hwnd)
+            # Fit it to the frame.
+            w = max(100, self.content_frame.winfo_width())
+            h = max(100, self.content_frame.winfo_height())
+            user32.MoveWindow(child, 0, 0, w, h, True)
+            self._embedded_hwnd = child
+
+            # Keep size in sync when the frame resizes.
+            def _on_resize(_evt=None) -> None:
+                if not self._embedded_hwnd:
+                    return
+                w = max(100, self.content_frame.winfo_width())
+                h = max(100, self.content_frame.winfo_height())
+                try:
+                    user32.MoveWindow(self._embedded_hwnd, 0, 0, w, h, True)
+                except Exception:
+                    pass
+
+            try:
+                self.content_frame.bind("<Configure>", _on_resize)
+            except Exception:
+                pass
+
+        def _webview_runner():
+            try:
+                webview.create_window(
+                    embed_title, url, frameless=True,
+                    width=800, height=600, resizable=True,
+                )
+                webview.start()  # blocks this worker thread
+            except Exception:
+                pass
+
+        threading.Thread(target=_reparent_loop, daemon=True).start()
+        threading.Thread(target=_webview_runner, daemon=True).start()
+        return True
+
+    def _teardown_embedded_hwnd(self) -> None:
+        """Destroy a previous embedded window so re-clicks don't pile up."""
+        hwnd = getattr(self, "_embedded_hwnd", 0)
+        if not hwnd:
+            return
+        try:
+            import ctypes as _ctypes
+            # WM_CLOSE = 0x0010
+            _ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)
+        except Exception:
+            pass
+        self._embedded_hwnd = 0
 
     def load_dashboard(self, endpoint: str = "http://127.0.0.1:5000/dashboard") -> None:
         """Load the Dulus dashboard endpoint (default = local webchat on :5000)."""
@@ -475,14 +600,12 @@ class WebappLoader(ctk.CTkFrame):
         self._sandbox_server = srv
 
     def _launch_sandbox(self) -> None:
-        """Open the Dulus Sandbox UI (offline, served from sandbox/dist).
+        """Open the Dulus Sandbox UI embedded inside the content frame.
 
-        Order of preference:
-          1. Playwright subprocess in `--app=URL` chromeless mode if the
-             `webbridge` extra is installed → looks like a dedicated
-             Dulus app window, no tabs, no URL bar.
-          2. Default browser via webbrowser.open() → always works,
-             slightly less integrated UX but zero extra deps.
+        Starts the local SandboxServer (sandbox/dist served on a random
+        port) and then renders that URL through the same embedded
+        pywebview path used by _load_url() — same SetParent reparenting,
+        no subprocess pop-out window.
         """
         srv = self._sandbox_server
         if srv is None or not srv.available:
@@ -504,74 +627,11 @@ class WebappLoader(ctk.CTkFrame):
             )
             return
 
-        # Reflect the URL in the nav bar for transparency.
-        self.url_entry.delete(0, "end")
-        self.url_entry.insert(0, url)
         self._push_history(url)
-        self._current_url = url
-
-        # 1) Try Playwright chromeless app window.
-        launched_via = ""
-        try:
-            import playwright  # noqa: F401  (presence check only)
-            import subprocess
-            import sys as _sys
-            launch_script = (
-                "from playwright.sync_api import sync_playwright\n"
-                "with sync_playwright() as p:\n"
-                f"    browser = p.chromium.launch(headless=False, args=['--app={url}','--window-size=1280,820'])\n"
-                "    page = browser.new_page(viewport={'width': 1280, 'height': 820})\n"
-                f"    page.goto({url!r})\n"
-                "    try: page.wait_for_event('close', timeout=0)\n"
-                "    except Exception: pass\n"
-            )
-            # Detach: spawn fully independent, so closing the GUI doesn't kill
-            # the sandbox window and vice versa.
-            kwargs: dict = {"close_fds": True}
-            if _sys.platform == "win32":
-                # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-                kwargs["creationflags"] = 0x00000008 | 0x00000200
-            else:
-                kwargs["start_new_session"] = True
-            subprocess.Popen(
-                [_sys.executable, "-c", launch_script],
-                **kwargs,
-            )
-            launched_via = "Playwright (Chromium --app)"
-        except ImportError:
-            # 2) Default browser fallback.
-            try:
-                _webbrowser_lib.open_new_tab(url)
-                launched_via = "tu navegador por defecto"
-            except Exception as e:
-                self._placeholder.configure(
-                    text=f"❌  No pude abrir el sandbox:\n{e}",
-                    text_color="#ff5555",
-                )
-                return
-        except Exception as e:
-            # Playwright is installed but failed to launch (e.g. browser not
-            # installed). Fall back to webbrowser.
-            try:
-                _webbrowser_lib.open_new_tab(url)
-                launched_via = f"navegador (Playwright falló: {e})"
-            except Exception as ee:
-                self._placeholder.configure(
-                    text=f"❌  No pude abrir el sandbox:\n{ee}",
-                    text_color="#ff5555",
-                )
-                return
-
-        self._placeholder.configure(
-            text=(
-                f"🦅  Dulus Sandbox abierto vía {launched_via}\n\n"
-                f"URL: {url}\n\n"
-                "Los archivos se sirven localmente desde sandbox/dist/.\n"
-                "Funciona offline. La ventana es independiente — cerrarla\n"
-                "no afecta el GUI principal."
-            ),
-            text_color=TEXT_DIM,
-        )
+        # Delegate to the unified embedded-render path. _load_url tries
+        # pywebview-embed first (Windows) and falls back to default
+        # browser only when the embed isn't possible.
+        self._load_url(url)
 
     def apply_theme(self) -> None:
         """Re-apply current theme colors."""
@@ -1121,10 +1181,18 @@ class DulusMainWindow(ctk.CTk):
             self._show_webapp_view()
 
     def _show_webapp_view(self) -> None:
-        """Show the webapp loader, hiding chat and input."""
+        """Show the webapp loader, hiding chat and input.
+
+        We deliberately do NOT auto-load a URL here. The previous version
+        called `load_dashboard()` on every show which forced a browser
+        open to a possibly-dead localhost URL (the webchat server isn't
+        guaranteed to be running). The user picks an action explicitly:
+        click "🦅 Sandbox" to embed the offline sandbox, or type a URL
+        and hit "Ir" to embed it. Either way the rendering happens
+        inside the frame via pywebview.
+        """
         self._hide_all_views()
         self.webapp_loader.grid()
-        self.webapp_loader.load_dashboard()
         self.webapp_btn.configure(
             text="💬  Chat",
             fg_color=ACCENT_COLOR,
