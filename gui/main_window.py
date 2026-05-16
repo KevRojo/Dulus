@@ -481,17 +481,24 @@ class WebappLoader(ctk.CTkFrame):
     def _try_embed_pywebview(self, url: str) -> bool:
         """Return True if the embedded view at least STARTED.
 
-        Quietly returns False on any non-Windows host or missing dep so
-        the caller falls back to a browser open. The runner threads log
-        errors to stderr AND surface them to the inline placeholder so
-        we can diagnose embed failures live instead of seeing a black
-        frame.
+        Architecture (forced by pywebview 5.x):
+          pywebview refuses to start on anything but the main thread of
+          its host process, on every platform. That kills the in-thread
+          embed approach. Workaround: spawn pywebview in a SUBPROCESS
+          where IT is the main thread, then have THIS process find that
+          subprocess's OS window by its unique title and reparent it
+          into our content frame via Win32 SetParent. Different
+          processes, one parent-child HWND graph.
+
+        Quietly returns False on non-Windows hosts or when pywebview
+        isn't installed in the same interpreter; the caller falls back
+        to webbrowser.open().
         """
         import sys as _sys
         if _sys.platform != "win32":
             return False
         try:
-            import webview  # type: ignore
+            import webview  # type: ignore  # noqa: F401 — presence check only
         except ImportError:
             return False
 
@@ -537,73 +544,81 @@ class WebappLoader(ctk.CTkFrame):
             except Exception:
                 pass
 
+        # ── Spawn pywebview in its OWN subprocess (so pywebview owns the
+        #    main thread of that process). We then locate its OS window
+        #    by our unique title and reparent it into our tk frame.
+        import subprocess as _sp
+        launch_script = (
+            "import webview\n"
+            f"webview.create_window({embed_title!r}, {url!r}, "
+            "frameless=True, width=900, height=650, resizable=True)\n"
+            "webview.start(gui='edgechromium')\n"
+        )
+        # CREATE_NO_WINDOW = 0x08000000 — don't pop a console for the child.
+        try:
+            proc = _sp.Popen(
+                [_sys.executable, "-c", launch_script],
+                creationflags=0x08000000,
+                close_fds=True,
+            )
+            self._embed_proc = proc
+        except Exception as e:
+            _surface_error(f"No pude spawn-ear el subprocess de pywebview:\n{type(e).__name__}: {e}")
+            return False
+
         def _reparent_loop():
             user32 = _ctypes.windll.user32
-            GWL_STYLE   = -16
-            WS_CAPTION  = 0x00C00000
+            GWL_STYLE = -16
+            WS_CAPTION = 0x00C00000
             WS_THICKFRAME = 0x00040000
-            WS_BORDER   = 0x00800000
-            WS_CHILD    = 0x40000000
+            WS_BORDER = 0x00800000
+            WS_CHILD = 0x40000000
 
-            deadline = _time.time() + 8
+            deadline = _time.time() + 10
             child = 0
-
-            # Strategy A: use pywebview's API to get the native HWND directly.
-            # webview.windows is the global list of open windows. The newest
-            # one is our embed candidate. Its `.gui` (or `.native` on
-            # newer pywebview) carries the OS handle.
             while _time.time() < deadline:
-                try:
-                    for w in getattr(webview, "windows", []) or []:
-                        # pywebview ≤4: w.gui.window_handle  (BrowserView)
-                        # pywebview 5.x: w.native (after on_loaded fires)
-                        h = (
-                            getattr(getattr(w, "native", None), "winfo_id", lambda: None)()
-                            or getattr(getattr(w, "gui", None), "window_handle", None)
-                            or getattr(w, "_window_handle", None)
-                        )
-                        if h:
-                            child = int(h)
-                            break
-                except Exception:
-                    pass
-                if child:
-                    break
-                # Strategy B fallback: find by our unique title.
+                # FindWindowW returns 0 if not found; we poll the
+                # subprocess title until pywebview has built its window.
                 child = user32.FindWindowW(None, embed_title)
                 if child:
                     break
+                # If the subprocess died early, bail out with its output.
+                if proc.poll() is not None:
+                    _surface_error(
+                        f"El subprocess de pywebview murió (exit code "
+                        f"{proc.returncode}) antes de mostrar la ventana.\n"
+                        "Mira la consola del subprocess (CREATE_NO_WINDOW oculta\n"
+                        "su stderr — quitalo para debuggear si vuelve a pasar)."
+                    )
+                    return
                 _time.sleep(0.15)
 
             if not child:
                 _surface_error(
-                    "pywebview no creó ninguna ventana visible en 8s.\n"
-                    "Mirar la consola pa' el traceback (Edge WebView2 missing?)."
+                    "pywebview no creó ninguna ventana visible en 10s.\n"
+                    "Posible causa: Edge WebView2 Runtime no instalado.\n"
+                    "Bájalo de: https://developer.microsoft.com/microsoft-edge/webview2/"
                 )
                 return
 
-            # Strip decorations and mark as child window.
             try:
                 style = user32.GetWindowLongW(child, GWL_STYLE)
                 new_style = (style & ~WS_CAPTION & ~WS_THICKFRAME & ~WS_BORDER) | WS_CHILD
                 user32.SetWindowLongW(child, GWL_STYLE, new_style)
                 if user32.SetParent(child, parent_hwnd) == 0:
                     err_code = _ctypes.windll.kernel32.GetLastError()
-                    _surface_error(
-                        f"SetParent falló (err={err_code}). HWND={child:#x}"
-                    )
+                    _surface_error(f"SetParent falló (err={err_code}). HWND={child:#x}")
                     return
-                w = max(100, self.content_frame.winfo_width())
-                h = max(100, self.content_frame.winfo_height())
-                user32.MoveWindow(child, 0, 0, w, h, True)
+                ww = max(100, self.content_frame.winfo_width())
+                hh = max(100, self.content_frame.winfo_height())
+                user32.MoveWindow(child, 0, 0, ww, hh, True)
                 user32.ShowWindow(child, 5)  # SW_SHOW
             except Exception as e:
-                _surface_error(f"Reparent threw: {type(e).__name__}: {e}")
+                _surface_error(f"Reparent threw: {type(e).__name__}: {e}\n{_tb.format_exc()}")
                 return
 
             self._embedded_hwnd = child
 
-            # Hide the placeholder now that the embed is visible.
             def _hide_placeholder():
                 try:
                     self._placeholder.grid_forget()
@@ -614,14 +629,14 @@ class WebappLoader(ctk.CTkFrame):
             except Exception:
                 pass
 
-            # Keep size in sync when the frame resizes.
+            # Resize child whenever the container resizes.
             def _on_resize(_evt=None) -> None:
                 if not self._embedded_hwnd:
                     return
-                ww = max(100, self.content_frame.winfo_width())
-                hh = max(100, self.content_frame.winfo_height())
+                w = max(100, self.content_frame.winfo_width())
+                h = max(100, self.content_frame.winfo_height())
                 try:
-                    user32.MoveWindow(self._embedded_hwnd, 0, 0, ww, hh, True)
+                    user32.MoveWindow(self._embedded_hwnd, 0, 0, w, h, True)
                 except Exception:
                     pass
 
@@ -630,35 +645,34 @@ class WebappLoader(ctk.CTkFrame):
             except Exception:
                 pass
 
-        def _webview_runner():
-            try:
-                webview.create_window(
-                    embed_title, url, frameless=True,
-                    width=900, height=650, resizable=True,
-                )
-                # gui='edgechromium' is the most thread-friendly backend on
-                # Windows. Letting pywebview auto-pick sometimes selected
-                # MSHTML which has its own thread issues.
-                webview.start(gui="edgechromium")
-            except Exception as e:
-                _surface_error(f"webview.start failed: {type(e).__name__}: {e}\n{_tb.format_exc()}")
-
         threading.Thread(target=_reparent_loop, daemon=True).start()
-        threading.Thread(target=_webview_runner, daemon=True).start()
         return True
 
     def _teardown_embedded_hwnd(self) -> None:
-        """Destroy a previous embedded window so re-clicks don't pile up."""
+        """Destroy a previous embedded window AND its subprocess so re-
+        clicks don't pile up zombie pywebview processes.
+        """
         hwnd = getattr(self, "_embedded_hwnd", 0)
-        if not hwnd:
-            return
-        try:
-            import ctypes as _ctypes
-            # WM_CLOSE = 0x0010
-            _ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)
-        except Exception:
-            pass
-        self._embedded_hwnd = 0
+        if hwnd:
+            try:
+                import ctypes as _ctypes
+                _ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+            except Exception:
+                pass
+            self._embedded_hwnd = 0
+
+        proc = getattr(self, "_embed_proc", None)
+        if proc is not None:
+            try:
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=1.5)
+                    except Exception:
+                        proc.kill()
+            except Exception:
+                pass
+            self._embed_proc = None
 
     def load_dashboard(self, endpoint: str = "http://127.0.0.1:5000/dashboard") -> None:
         """Load the Dulus dashboard endpoint (default = local webchat on :5000)."""
