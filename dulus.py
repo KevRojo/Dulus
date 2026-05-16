@@ -9276,6 +9276,63 @@ def repl(config: dict, initial_prompt: str = None):
             except Exception:
                 pass
 
+        # First-run /harvest — wizard sets `pending_first_run_harvest` to
+        # the provider name the user picked (claude / kimi / gemini / qwen /
+        # deepseek). We auto-fire the matching command so they actually
+        # SEE the killer feature instead of reading about it on the docs.
+        # Runs AFTER /doctor so the health snapshot is the last thing on
+        # screen before the harvest's own messaging takes over.
+        _pending_harvest = config.pop("pending_first_run_harvest", "")
+        if _pending_harvest:
+            print()
+            ok(f"  ▶ Corriendo /harvest-{_pending_harvest}...")
+            print()
+            _harvest_map = {
+                "claude":   cmd_harvest,
+                "kimi":     cmd_harvest_kimi,
+                "gemini":   cmd_harvest_gemini,
+                "qwen":     globals().get("cmd_harvest_qwen"),
+                "deepseek": globals().get("cmd_harvest_deepseek"),
+            }
+            _fn = _harvest_map.get(_pending_harvest)
+            if _fn:
+                try:
+                    _fn("", state, config)
+                except Exception as _e:
+                    err(f"  Harvest failed: {_e}. Podés reintentar manual con /harvest-{_pending_harvest}.")
+            else:
+                warn(f"  (no harvest function for '{_pending_harvest}' — saltado)")
+            try:
+                from config import save_config as _save_cfg
+                _save_cfg(config)
+            except Exception:
+                pass
+
+        # Soft gentle nudge for returning users who never harvested. If
+        # NO harvest auth file exists in ~/.dulus AND no cloud API key
+        # is configured, hint at the feature so it stops being invisible.
+        # Only fires on the standard REPL start (not when bg/daemon).
+        try:
+            from pathlib import Path as _P
+            _home_dulus = _P.home() / ".dulus"
+            _harvest_files = [
+                "claude_cookies.json", "kimi_consumer.json",
+                "gemini_auth.json",    "qwen_auth.json",
+                "deepseek_auth.json",
+            ]
+            _has_any_harvest = any((_home_dulus / f).exists() for f in _harvest_files)
+            _has_any_api_key = any(
+                config.get(f"{p}_api_key") for p in
+                ("anthropic", "openai", "gemini", "kimi", "deepseek", "moonshot")
+            )
+            if not _has_any_harvest and not _has_any_api_key and not _first_run_doctor_pending:
+                print()
+                print(clr("  💡 Tip: usá Claude/Kimi/Gemini SIN api key — corré ", "yellow") +
+                      clr("/harvest", "yellow", "bold") +
+                      clr(" (o /harvest-kimi, /harvest-gemini, /harvest-qwen).", "yellow"))
+        except Exception:
+            pass
+
     query_lock = threading.RLock()
     config["_query_lock"] = query_lock
 
