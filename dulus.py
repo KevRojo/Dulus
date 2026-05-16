@@ -297,7 +297,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "0.2.36"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "0.2.87"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -8667,7 +8667,8 @@ def repl(config: dict, initial_prompt: str = None):
 
     # One-shot: the welcome wizard sets this flag on first run so the user's
     # very first sight of Dulus is a /doctor report showing what got wired up.
-    if config.pop("_show_doctor_on_next_start", False):
+    # (Public key name — save_config drops keys starting with "_".)
+    if config.pop("pending_first_run_doctor", False):
         try:
             cmd_doctor("", state, config)
         except Exception as _e:

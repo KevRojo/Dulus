@@ -158,7 +158,7 @@ class LicenseManager:
         if self.error:
             return f"[LICENSE EXPIRED / INVALID] {self.error} — running in FREE mode"
         if self.tier == LicenseTier.FREE:
-            return "[FREE] Limited features. Upgrade: https://getdulus.dev/pro"
+            return "[FREE] Limited features. More: https://kevrojo.github.io/Dulus/"
         return f"[{self.tier.upper()}] Valid until {time.strftime('%Y-%m-%d', time.localtime(self.expiry))}"
 
 

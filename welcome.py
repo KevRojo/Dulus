@@ -177,7 +177,10 @@ def run_welcome_wizard(config: dict) -> dict:
     # Signal the REPL to run /doctor on the next boot so the user immediately
     # sees a health snapshot — what providers got keys, what voice/TTS bits
     # are live, which optional deps are missing, etc. Cleared after the run.
-    config["_show_doctor_on_next_start"] = True
+    # NOTE: key MUST NOT start with "_" — save_config strips underscore-
+    # prefixed keys as a runtime/in-memory convention. With a leading "_"
+    # the flag was being silently dropped on disk, so /doctor never fired.
+    config["pending_first_run_doctor"] = True
 
     print("\nListo. Voy a correr /doctor pa' que veas como quedo todo.\n")
     return config
