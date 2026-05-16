@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dulus"
 version = "0.2.92"
-description = "Multilingual Python autonomous AI agent — 100+ providers via LiteLLM, /lang switches any voice (zh/ja/pt-br/ar/hi or free-form), Mesa Redonda, voice, TTS, OCR, MemPalace, embedded sandbox OS"
+description = "Use frontier IA as an agent — no API key, no subscription, $0. Python autonomous agent that harvests Gemini / Claude.ai / Kimi / Qwen / DeepSeek browser sessions. Plus LiteLLM (100+ providers), /lang (any language), Mesa Redonda, voice, OCR, MemPalace, embedded sandbox OS."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "GPL-3.0"}
