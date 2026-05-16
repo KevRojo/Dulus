@@ -7120,6 +7120,173 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
     return ("__image__", prompt)
 
 
+def cmd_ocr(args: str, state, config) -> Union[bool, tuple]:
+    """Extract text from an image WITHOUT calling a vision model.
+
+    Input order:
+      /ocr <path>          — OCR a file on disk (jpg/png/webp/bmp/tiff)
+      /ocr                 — OCR the clipboard image
+      /ocr <prompt>        — OCR clipboard, then submit `<prompt>\\n\\n<text>`
+                             to the model. The prompt is anything that isn't
+                             an existing file path.
+
+    Why this exists:
+      The `/img` route sends the picture to a vision model (Claude/GPT/
+      Gemini), which costs tokens AND requires a multimodal endpoint. For
+      images that are mostly TEXT — receipts, screenshots of code, error
+      stacks, dense tables — local OCR is free, instant, offline, and
+      doesn't burn cache. Reach for /ocr first; fall back to /img when the
+      meaning lives in the picture (charts, diagrams, faces, scenes).
+
+    Engine order:
+      1. pytesseract  — fast, accurate, needs Tesseract binary on PATH
+                        (Windows: `winget install UB-Mannheim.TesseractOCR`,
+                         Linux:   `apt install tesseract-ocr`).
+      2. easyocr      — pure-Python fallback, heavier (~1 GB PyTorch deps).
+                        Only used if pytesseract isn't importable AND the
+                        user explicitly opted into easyocr.
+
+    Install:  `pip install dulus[ocr]`
+    """
+    import os as _os, sys as _sys
+    raw = (args or "").strip()
+
+    # ── Resolve input source ────────────────────────────────────────────
+    # If `raw` is an existing file → OCR that file, no clipboard touched.
+    # Else: try clipboard. If clipboard has an image, `raw` (if any) is
+    # treated as a prompt to send to the model alongside the extracted text.
+    image_source: str = ""   # path on disk we'll OCR
+    user_prompt: str = ""    # optional prompt to model after extraction
+    tmp_to_clean: Path | None = None
+
+    if raw and _os.path.exists(raw) and not _os.path.isdir(raw):
+        image_source = raw
+    else:
+        # Clipboard route.
+        try:
+            from clipboard_utils import grab_media_from_clipboard, is_media_clipboard_available
+        except ImportError:
+            err("clipboard_utils module not found.")
+            return True
+        if not is_media_clipboard_available():
+            err("No clipboard tool found. Pass a file path: /ocr <image_path>")
+            return True
+        result = grab_media_from_clipboard()
+        if result is None or not result.images:
+            if raw:
+                err(f"No image in clipboard and `{raw}` is not a file. Either copy an image first or pass an existing path.")
+            else:
+                err("No image found in clipboard. Copy an image first or pass: /ocr <image_path>")
+            return True
+
+        try:
+            from PIL import Image  # noqa: F401  (just to fail-fast nicely if Pillow's broken)
+        except ImportError:
+            err("Pillow is required for /ocr clipboard mode. Install: pip install Pillow")
+            return True
+
+        # Persist the clipboard image to a temp PNG so pytesseract has a real path.
+        import tempfile, time as _t, io as _io
+        img = result.images[0]
+        tmpdir = Path(tempfile.gettempdir()) / "dulus" / "ocr"
+        tmpdir.mkdir(parents=True, exist_ok=True)
+        image_source = str(tmpdir / f"clip-{int(_t.time())}.png")
+        try:
+            img.save(image_source, format="PNG")
+            tmp_to_clean = Path(image_source)
+            size_kb = Path(image_source).stat().st_size / 1024
+            info(f"📷 Clipboard image captured ({size_kb:.0f} KB, {img.size[0]}x{img.size[1]})")
+        except Exception as e:
+            err(f"Failed to save clipboard image: {e}")
+            return True
+
+        user_prompt = raw  # everything the user typed becomes the prompt
+
+    # ── Engine 1: pytesseract ───────────────────────────────────────────
+    text: str = ""
+    engine_used: str = ""
+
+    try:
+        import pytesseract  # type: ignore
+        from PIL import Image
+        # Windows auto-detect (same trick the text2image module uses).
+        if _sys.platform == "win32":
+            for p in (
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ):
+                if _os.path.exists(p):
+                    pytesseract.pytesseract.tesseract_cmd = p  # type: ignore[attr-defined]
+                    break
+        try:
+            text = pytesseract.image_to_string(Image.open(image_source)).rstrip()
+            engine_used = "tesseract"
+        except pytesseract.TesseractNotFoundError:  # type: ignore[attr-defined]
+            text = ""
+            engine_used = ""
+    except ImportError:
+        text = ""
+        engine_used = ""
+
+    # ── Engine 2: easyocr fallback ──────────────────────────────────────
+    if not text:
+        try:
+            import easyocr  # type: ignore
+            info("(tesseract unavailable, falling back to easyocr — first run downloads ~100MB)")
+            reader = easyocr.Reader(["en", "es"], gpu=False, verbose=False)
+            chunks = reader.readtext(image_source, detail=0)
+            text = "\n".join(chunks).rstrip()
+            engine_used = "easyocr"
+        except ImportError:
+            pass
+
+    if not engine_used:
+        err(
+            "No OCR engine available. Install one:\n"
+            "  pip install dulus[ocr]          (uses pytesseract — needs Tesseract binary)\n"
+            "  Windows: winget install -e --id UB-Mannheim.TesseractOCR\n"
+            "  Linux:   sudo apt-get install -y tesseract-ocr\n"
+            "  macOS:   brew install tesseract\n"
+            "or as a pure-Python fallback (~1 GB):\n"
+            "  pip install easyocr"
+        )
+        if tmp_to_clean and tmp_to_clean.exists():
+            try: tmp_to_clean.unlink()
+            except Exception: pass
+        return True
+
+    if not text:
+        warn(f"OCR ran ({engine_used}) but extracted no text. Image too small/blurry, or no readable text?")
+        if tmp_to_clean and tmp_to_clean.exists():
+            try: tmp_to_clean.unlink()
+            except Exception: pass
+        return True
+
+    # Pretty print.
+    print()
+    info(f"Extracted text ({engine_used}, {len(text)} chars):")
+    print(clr("─" * 60, "gray"))
+    print(text)
+    print(clr("─" * 60, "gray"))
+    print()
+
+    # Cleanup clipboard temp file (file-path inputs are kept).
+    if tmp_to_clean and tmp_to_clean.exists():
+        try: tmp_to_clean.unlink()
+        except Exception: pass
+
+    # ── Route to model if user added a prompt alongside clipboard ───────
+    if user_prompt:
+        composed = (
+            f"{user_prompt}\n\n"
+            f"[Text extracted via local OCR ({engine_used}) — verbatim, no AI re-interpretation]\n"
+            f"```\n{text}\n```"
+        )
+        return ("__voice__", composed)   # reuse the voice-sentinel route to run_query
+
+    return True
+
+
 def cmd_checkpoint(args: str, state, config) -> bool:
     """List or restore checkpoints.
 
@@ -8429,6 +8596,7 @@ COMMANDS = {
     "rtk":         cmd_rtk,
     "image":       cmd_image,
     "img":         cmd_image,
+    "ocr":         cmd_ocr,
     "brainstorm":  cmd_brainstorm,
     "worker":      cmd_worker,
     "kill_tmux":   cmd_kill_tmux,
@@ -8535,6 +8703,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "wake":        ("Wake-word hotword detection",        ["on", "off", "status", "phrases", "calibrate", "test", "threshold", "feedback"]),
     "image":       ("Send clipboard image to model",      []),
     "img":         ("Send clipboard image (alias)",       []),
+    "ocr":         ("Local OCR — extract text from image, no vision model", []),
     "batch":       ("Manage Kimi Batch tasks",            ["status", "list", "fetch"]),
     "roundtable":  ("Start a multi-model roundtable discussion", ["stop"]),
     "brainstorm":  ("Multi-persona AI debate + auto tasks", []),

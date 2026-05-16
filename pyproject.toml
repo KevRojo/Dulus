@@ -63,7 +63,17 @@ webbridge = ["playwright>=1.40.0"]
 # tiktoken, click, importlib-metadata, etc.) most users won't need until
 # they pick litellm in the welcome wizard.
 litellm = ["litellm>=1.50.0"]
-full = ["mempalace>=3.3.4", "sounddevice", "elevenlabs>=1.0.0", "playwright>=1.40.0", "litellm>=1.50.0"]
+# OCR — local text extraction from images, no vision model call. Cheaper
+# than /img for receipts, code screenshots, error stacks, dense tables.
+# pytesseract needs the Tesseract binary installed separately:
+#   Windows: winget install -e --id UB-Mannheim.TesseractOCR
+#   Linux:   sudo apt-get install -y tesseract-ocr
+#   macOS:   brew install tesseract
+# easyocr is the pure-Python fallback but pulls ~1GB of PyTorch deps,
+# so we leave it out of the default extra; opt in with `dulus[ocr-deep]`.
+ocr = ["pytesseract>=0.3.10", "Pillow>=10.0.0"]
+ocr-deep = ["pytesseract>=0.3.10", "Pillow>=10.0.0", "easyocr>=1.7.0"]
+full = ["mempalace>=3.3.4", "sounddevice", "elevenlabs>=1.0.0", "playwright>=1.40.0", "litellm>=1.50.0", "pytesseract>=0.3.10"]
 
 [project.scripts]
 dulus = "dulus:main"
