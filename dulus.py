@@ -10231,6 +10231,10 @@ def repl(config: dict, initial_prompt: str = None):
             # Voice sentinel: ("__voice__", transcribed_text)
             if result[0] == "__voice__":
                 _, voice_text = result
+                # Tag transcribed input so the model knows to tolerate Whisper
+                # typos / Spanish-English drift (system prompt has the rule;
+                # without this prefix the rule never fires for local /voice).
+                voice_text = f"🎙 Transcribed: {voice_text}"
                 try:
                     run_query(voice_text)
                 except KeyboardInterrupt:
