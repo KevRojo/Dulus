@@ -156,3 +156,7 @@ exclude = [
 [tool.setuptools.package-data]
 "*" = ["*.html", "*.css", "*.js", "*.jsx", "*.ts", "*.tsx", "*.svg", "*.json", "*.md", "*.png", "*.jpg", "*.jpeg", "*.txt", "*.py"]
 "sandbox" = ["dist/**/*", "dist/**/.*"]
+# Bundled Agent Skills shipped with Dulus (kepano's obsidian-skills suite,
+# etc.). Each lives at `skill/bundled/<name>/SKILL.md` with optional
+# `references/*.md` files the skill body links to.
+"skill" = ["bundled/**/*"]
