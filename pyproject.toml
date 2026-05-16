@@ -57,7 +57,13 @@ dependencies = [
 memory = ["mempalace>=3.3.4"]
 voice = ["sounddevice", "elevenlabs>=1.0.0"]
 webbridge = ["playwright>=1.40.0"]
-full = ["mempalace>=3.3.4", "sounddevice", "elevenlabs>=1.0.0", "playwright>=1.40.0"]
+# LiteLLM unified gateway — one provider entry, 100+ backends (OpenRouter,
+# Groq, Together, Bedrock, Vertex, Cohere, Perplexity, xAI, Mistral, …).
+# Optional because it pulls a sizeable transitive dep tree (tokenizers,
+# tiktoken, click, importlib-metadata, etc.) most users won't need until
+# they pick litellm in the welcome wizard.
+litellm = ["litellm>=1.50.0"]
+full = ["mempalace>=3.3.4", "sounddevice", "elevenlabs>=1.0.0", "playwright>=1.40.0", "litellm>=1.50.0"]
 
 [project.scripts]
 dulus = "dulus:main"

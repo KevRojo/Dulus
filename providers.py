@@ -545,6 +545,42 @@ PROVIDERS: dict[str, dict] = {
             "deepseek-v3", "deepseek-r1",
         ],
     },
+    # LiteLLM unified gateway. ONE provider entry that fans out to 100+
+    # underlying backends via prefixed model strings:
+    #     openrouter/anthropic/claude-3-5-sonnet
+    #     groq/llama-3.3-70b-versatile
+    #     together_ai/meta-llama/Llama-3-70b-chat-hf
+    #     bedrock/anthropic.claude-3-sonnet-20240229-v1:0
+    #     vertex_ai/gemini-1.5-pro
+    #     cohere/command-r-plus
+    #     perplexity/sonar-large-online
+    #     xai/grok-2-latest
+    #     mistral/mistral-large-latest
+    #     fireworks_ai/...   anyscale/...   replicate/...   azure/...
+    # LiteLLM auto-reads per-backend env vars (OPENROUTER_API_KEY,
+    # GROQ_API_KEY, TOGETHER_API_KEY, …). User picks the model string in
+    # the welcome wizard; the right env var must exist for that backend.
+    "litellm": {
+        "type":       "litellm",
+        "api_key_env": None,   # backend-specific; LiteLLM resolves the right one
+        "context_limit": 200000,   # safe default; LiteLLM has accurate per-model values
+        "models": [
+            # A curated, useful slice — LiteLLM supports ~1000 model strings.
+            # The user can type any of them; these are just suggestions for /model picker.
+            "openrouter/anthropic/claude-3-5-sonnet",
+            "openrouter/openai/gpt-4o",
+            "openrouter/google/gemini-pro-1.5",
+            "openrouter/meta-llama/llama-3.3-70b-instruct",
+            "openrouter/x-ai/grok-2-1212",
+            "groq/llama-3.3-70b-versatile",
+            "groq/mixtral-8x7b-32768",
+            "together_ai/meta-llama/Llama-3-70b-chat-hf",
+            "perplexity/sonar-large-online",
+            "cohere/command-r-plus",
+            "mistral/mistral-large-latest",
+            "fireworks_ai/accounts/fireworks/models/llama-v3p3-70b-instruct",
+        ],
+    },
     "minimax": {
         "type":       "openai",
         "api_key_env": "MINIMAX_API_KEY",
@@ -3191,6 +3227,151 @@ def stream_kimi(
                         cache_read_tokens=cached_tok)
 
 
+def stream_litellm(
+    model: str,
+    system: str,
+    messages: list,
+    tool_schemas: list,
+    config: dict,
+) -> Generator:
+    """Stream via LiteLLM — one entry point routing to 100+ backends.
+
+    `model` arrives WITHOUT the leading "litellm/" prefix (bare_model strips
+    one level). So for `litellm/openrouter/anthropic/claude-3-5-sonnet`,
+    `model` here is `openrouter/anthropic/claude-3-5-sonnet` — exactly the
+    format LiteLLM's `completion()` expects.
+
+    LiteLLM auto-resolves the underlying API key from env (OPENROUTER_API_KEY,
+    GROQ_API_KEY, TOGETHER_API_KEY, …). For Dulus we also mirror the relevant
+    config-stored key into the env before dispatching, so users who put their
+    keys under `/config openrouter_api_key=...` Just Work without `export`.
+    """
+    try:
+        import litellm  # type: ignore
+    except ImportError:
+        msg = (
+            "[litellm] Package not installed. Run:\n"
+            "  pip install 'dulus[litellm]'\n"
+            "or:\n"
+            "  pip install litellm"
+        )
+        yield TextChunk(msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+        return
+
+    # Mirror config-stored API keys into the env so LiteLLM finds them.
+    # LiteLLM reads ~30 env vars depending on the backend prefix; we surface
+    # the most common ones from config.
+    import os as _os
+    _env_map = {
+        "openrouter":   "OPENROUTER_API_KEY",
+        "groq":         "GROQ_API_KEY",
+        "together_ai":  "TOGETHER_API_KEY",
+        "perplexity":   "PERPLEXITYAI_API_KEY",
+        "cohere":       "COHERE_API_KEY",
+        "mistral":      "MISTRAL_API_KEY",
+        "fireworks_ai": "FIREWORKS_API_KEY",
+        "xai":          "XAI_API_KEY",
+        "anyscale":     "ANYSCALE_API_KEY",
+        "deepinfra":    "DEEPINFRA_API_KEY",
+        "replicate":    "REPLICATE_API_KEY",
+        "azure":        "AZURE_API_KEY",
+        "bedrock":      "AWS_ACCESS_KEY_ID",     # bedrock needs AWS creds, not single key
+        "vertex_ai":    "GOOGLE_APPLICATION_CREDENTIALS",
+        "openai":       "OPENAI_API_KEY",
+        "anthropic":    "ANTHROPIC_API_KEY",
+        "gemini":       "GEMINI_API_KEY",
+    }
+    backend = model.split("/", 1)[0] if "/" in model else ""
+    env_name = _env_map.get(backend)
+    if env_name:
+        cfg_key = (
+            config.get(f"{backend}_api_key", "")
+            or config.get(f"litellm_{backend}_api_key", "")
+            or config.get("litellm_api_key", "")
+        )
+        if cfg_key and not _os.environ.get(env_name):
+            _os.environ[env_name] = cfg_key
+
+    oai_messages = [{"role": "system", "content": system}] + messages_to_openai(messages)
+
+    kwargs: dict = {
+        "model":    model,
+        "messages": oai_messages,
+        "stream":   True,
+    }
+    if tool_schemas and not config.get("no_tools"):
+        kwargs["tools"] = tools_to_openai(tool_schemas)
+        if not config.get("disable_tool_choice"):
+            kwargs["tool_choice"] = "auto"
+    if config.get("max_tokens"):
+        kwargs["max_tokens"] = config["max_tokens"]
+
+    text     = ""
+    thinking = ""
+    tool_buf: dict = {}
+    in_tok = out_tok = 0
+
+    try:
+        response = litellm.completion(**kwargs)
+    except Exception as e:
+        msg = f"[litellm] {type(e).__name__}: {e}"
+        yield TextChunk(msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+        return
+
+    try:
+        for chunk in response:
+            # LiteLLM normalises every backend into OpenAI ChunkChoice format.
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                # Usage block sometimes arrives in a separate trailing chunk.
+                u = getattr(chunk, "usage", None)
+                if u is not None:
+                    in_tok = getattr(u, "prompt_tokens", 0) or 0
+                    out_tok = getattr(u, "completion_tokens", 0) or 0
+                continue
+            delta = getattr(choices[0], "delta", None)
+            if delta is None:
+                continue
+            piece = getattr(delta, "content", None) or ""
+            if piece:
+                text += piece
+                yield TextChunk(piece)
+            tc_list = getattr(delta, "tool_calls", None) or []
+            for tc in tc_list:
+                idx = getattr(tc, "index", 0) or 0
+                slot = tool_buf.setdefault(idx, {"id": "", "name": "", "args": ""})
+                if getattr(tc, "id", None):
+                    slot["id"] = tc.id
+                fn = getattr(tc, "function", None)
+                if fn is not None:
+                    if getattr(fn, "name", None):
+                        slot["name"] = fn.name
+                    args_piece = getattr(fn, "arguments", "") or ""
+                    if args_piece:
+                        slot["args"] += args_piece
+    except Exception as e:
+        msg = f"[litellm stream] {type(e).__name__}: {e}"
+        yield TextChunk(msg)
+        yield AssistantTurn(text or msg, [], in_tok, out_tok, error=True)
+        return
+
+    # Flatten tool_buf into AssistantTurn tool_calls.
+    tool_calls = []
+    for idx in sorted(tool_buf.keys()):
+        slot = tool_buf[idx]
+        if not slot["name"]:
+            continue
+        try:
+            args = json.loads(slot["args"] or "{}")
+        except Exception:
+            args = {}
+        tool_calls.append({"id": slot["id"] or f"call_{idx}", "name": slot["name"], "input": args})
+
+    yield AssistantTurn(text, tool_calls, in_tok, out_tok, thinking=thinking)
+
+
 def stream_openai_compat(
     api_key: str,
     base_url: str,
@@ -3987,6 +4168,8 @@ def stream(
             yield from stream_qwen_web(auth_file, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "gcloud":
             yield from stream_gcloud(model_name, system, messages, tool_schemas, config)
+        elif prov["type"] == "litellm":
+            yield from stream_litellm(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "anthropic":
             yield from stream_anthropic(api_key, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "ollama":
