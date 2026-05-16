@@ -8665,6 +8665,19 @@ def repl(config: dict, initial_prompt: str = None):
     verbose = config.get("verbose", False)
     config["_tg_send_callback"] = _tg_send
 
+    # One-shot: the welcome wizard sets this flag on first run so the user's
+    # very first sight of Dulus is a /doctor report showing what got wired up.
+    if config.pop("_show_doctor_on_next_start", False):
+        try:
+            cmd_doctor("", state, config)
+        except Exception as _e:
+            print(f"(skipping first-run /doctor: {_e})")
+        try:
+            from config import save_config as _save_cfg
+            _save_cfg(config)
+        except Exception:
+            pass
+
     # Hydrate the STT-language global from config so /voice lang setting
     # actually survives across sessions.
     global _voice_language
