@@ -711,6 +711,22 @@ def _load_plugin_module(plugin_dir: Path, safe_name: str) -> tuple[Any, str]:
         sys.path[:] = original_path
 
 
+def _get_bloat_cap() -> int | None:
+    """Read the smoke-test output-bloat cap from config (user-tunable).
+
+    Returns the cap in chars, or None if the user hasn't configured one
+    (caller then falls back to the in-code default of 8000). The previous
+    hardcoded 2500 was too aggressive — most legitimate API responses
+    (yfinance info, sherlock multi-site, financials) land between 3-7K
+    and used to send the worker into infinite refactor loops.
+    """
+    try:
+        from config import load_config as _lc
+        return int(_lc().get("adapter_bloat_cap", 0)) or None
+    except Exception:
+        return None
+
+
 def _smoke_test_tool(td: Any) -> tuple[bool, str]:
     """
     Run a single tool with minimal valid params, mirroring execute_tool()'s
@@ -808,11 +824,33 @@ def _smoke_test_tool(td: Any) -> tuple[bool, str]:
             if len(merged) > 2000:
                 return False, merged[:2000] + "\n... (truncated)"
             return False, merged
-        # Output-efficiency check: tools that return >2500 chars with default
-        # params are wasting context. Fail the smoke test so the worker fix
-        # cycle refactors the tool to curate its output.
-        BLOAT_CAP = 2500
-        if len(merged) > BLOAT_CAP:
+        # Output-efficiency check: tools that dump truly absurd amounts of
+        # text waste context AND get truncated at runtime anyway. We fail
+        # the smoke test only on EGREGIOUS bloat (>8000 chars by default)
+        # so the worker fix cycle refactors the tool to curate output.
+        #
+        # The previous threshold of 2500 was too aggressive — legitimate
+        # API responses (yfinance company info, sherlock multi-site
+        # results, pokemon state dumps, financials tables) regularly land
+        # between 3-7K chars and got pushed into infinite refactor loops
+        # because the agent kept slicing legitimate data thinner and
+        # thinner without ever clearing the cap. 8000 still blocks true
+        # offenders (raw DataFrame dumps, json.dumps of full library
+        # objects) without penalizing real-world responses.
+        #
+        # Also: if the tool exposes a `verbose` or `limit` param, the
+        # user is opting into bigger output deliberately — skip the cap
+        # entirely.
+        BLOAT_CAP = config_bloat_cap if (config_bloat_cap := _get_bloat_cap()) else 8000
+        try:
+            schema = getattr(td, "schema", None)
+            params_dict = (schema or {}).get("input_schema", {}).get("properties", {})
+            opted_in_to_verbose = any(
+                k in params_dict for k in ("verbose", "limit", "max_results", "full")
+            )
+        except Exception:
+            opted_in_to_verbose = False
+        if len(merged) > BLOAT_CAP and not opted_in_to_verbose:
             preview = merged[:400].replace("\n", " ")
             return False, (
                 f"OUTPUT_TOO_VERBOSE: tool returned {len(merged)} chars "
