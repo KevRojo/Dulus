@@ -2238,6 +2238,67 @@ def _normalize_thinking_level(value) -> int:
     if lvl > 4: return 4
     return lvl
 
+def cmd_lang(args: str, state, config) -> bool:
+    """Switch the language Dulus replies in.
+
+    Usage:
+      /lang                     — show current language and a curated picker
+      /lang <iso>               — switch by ISO-639 code (en, es, zh, pt, ja, …)
+      /lang <free description>  — any natural-language descriptor passed verbatim
+                                  to the model ("very formal British English",
+                                  "dominicano callejero", "pirate", "Shakespeare")
+
+    Persists in config["lang"]; the next user message gets the new voice.
+    """
+    from config import save_config
+    try:
+        from context import _LANG_NAMES, _resolve_reply_language
+    except Exception:
+        _LANG_NAMES = {}
+        _resolve_reply_language = lambda c: c.get("lang", "Dominican Spanish")  # type: ignore
+
+    arg = (args or "").strip()
+    current = _resolve_reply_language(config)
+
+    if not arg:
+        # Show current + curated common picks.
+        ok(f"Current reply language: {current}")
+        print()
+        info("Common picks (run /lang <code>):")
+        picks = [
+            ("es",    "Dominican Spanish (default)"),
+            ("en",    "English"),
+            ("zh",    "Simplified Chinese (Mandarin)"),
+            ("zh-tw", "Traditional Chinese"),
+            ("pt-br", "Brazilian Portuguese"),
+            ("ja",    "Japanese"),
+            ("ko",    "Korean"),
+            ("fr",    "French"),
+            ("de",    "German"),
+            ("it",    "Italian"),
+            ("ru",    "Russian"),
+            ("ar",    "Arabic"),
+            ("hi",    "Hindi"),
+            ("id",    "Indonesian"),
+        ]
+        for code, label in picks:
+            print(f"  {clr(code, 'cyan'):<14} {label}")
+        print()
+        info("Free-form is allowed too — e.g. /lang \"very formal British English\"")
+        return True
+
+    config["lang"] = arg
+    try:
+        save_config(config)
+    except Exception:
+        pass
+    resolved = _resolve_reply_language(config)
+    ok(f"Reply language → {resolved}")
+    if resolved == arg and arg.lower() not in _LANG_NAMES:
+        info("(Free-form descriptor — passed verbatim to the model)")
+    return True
+
+
 def cmd_soul(args: str, state, config) -> bool:
     """List available souls or switch the active one mid-session.
 
@@ -8582,6 +8643,7 @@ COMMANDS = {
     "max_fix":     cmd_max_fix,
     "thinking":    cmd_thinking,
     "soul":        cmd_soul,
+    "lang":        cmd_lang,
     "schema":      cmd_schema,
     "deep_override": cmd_deep_override,
     "deep_tools":  cmd_deep_tools,
@@ -8711,6 +8773,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "git":         ("Toggle Git status injection",        []),
     "thinking":    ("Set extended-thinking level",        ["off", "min", "med", "max", "raw", "normal", "0", "1", "2", "3", "4"]),
     "soul":        ("List/switch active soul identity",   ["chill", "forensic"]),
+    "lang":        ("Switch reply language (en, es, zh, pt-br, ja, …)", ["en", "es", "zh", "zh-tw", "pt-br", "ja", "ko", "fr", "de", "ar"]),
     "schema":      ("Inspect tool input schemas (human)",  ["--json"]),
     "deep_override": ("Toggle DeepSeek simplified prompt",  []),
     "deep_tools":  ("Toggle DeepSeek auto tool-wrap",     []),

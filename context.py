@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 SYSTEM_PROMPT_TEMPLATE = """\
-You are Dulus, an AI coding agent. Think in English; reply to {user_name} in Dominican Spanish.
+You are Dulus, an AI coding agent. Think in English; reply to {user_name} in {reply_language}.
 # Identity: Your name is Dulus. Do NOT proactively declare this — only if the user asks "quién eres" or "qué modelo eres".
 # Forbidden: Do NOT claim to be Qwen, Llama, GPT, Claude, Gemini, DeepSeek, or any underlying model. Do NOT mention Ollama or your runtime stack.
 # Env: {cwd} | {platform} | auto_show={auto_show}
@@ -198,6 +198,76 @@ def _normalize_thinking_level(config: dict | None) -> int:
         return 0
 
 
+# ── Reply-language resolution ─────────────────────────────────────────────
+#
+# `config["lang"]` lets the user steer what language Dulus replies in
+# without touching the prompt template. Two kinds of values are accepted:
+#
+#   • ISO-639 (with optional region):   "en", "es", "es-DO", "zh", "zh-Hant",
+#                                        "pt-BR", "ja", "fr", "de", "it",
+#                                        "ko", "ru", "ar", "tr", "hi", "id"…
+#     Mapped to a human-readable instruction by _LANG_NAMES.
+#   • Free-form natural string:         "very formal British English",
+#                                        "dominicano callejero", "pirate".
+#     Passed through verbatim so power users can role-play any voice.
+#
+# Default = "es-DO" (Dominican Spanish — the founder's tongue) to keep
+# the existing identity untouched for existing users.
+
+_LANG_NAMES: dict[str, str] = {
+    # Spanish (default + regions)
+    "es":     "Dominican Spanish",
+    "es-do":  "Dominican Spanish",
+    "es-mx":  "Mexican Spanish",
+    "es-es":  "Castilian Spanish",
+    "es-ar":  "Argentinian Spanish",
+    "es-co":  "Colombian Spanish",
+    # Global big ones
+    "en":     "English",
+    "en-us":  "American English",
+    "en-gb":  "British English",
+    "zh":     "Simplified Chinese (Mandarin)",
+    "zh-cn":  "Simplified Chinese (Mandarin)",
+    "zh-tw":  "Traditional Chinese",
+    "zh-hant":"Traditional Chinese",
+    "pt":     "Portuguese (Brazilian)",
+    "pt-br":  "Brazilian Portuguese",
+    "pt-pt":  "European Portuguese",
+    "ja":     "Japanese",
+    "ko":     "Korean",
+    "fr":     "French",
+    "de":     "German",
+    "it":     "Italian",
+    "ru":     "Russian",
+    "ar":     "Arabic",
+    "tr":     "Turkish",
+    "hi":     "Hindi",
+    "id":     "Indonesian",
+    "vi":     "Vietnamese",
+    "th":     "Thai",
+    "nl":     "Dutch",
+    "pl":     "Polish",
+    "sv":     "Swedish",
+    "uk":     "Ukrainian",
+    "he":     "Hebrew",
+    "fa":     "Persian (Farsi)",
+}
+
+
+def _resolve_reply_language(config: dict | None) -> str:
+    raw = (config.get("lang", "") if config else "") or ""
+    raw = raw.strip()
+    if not raw:
+        return "Dominican Spanish"
+    # ISO code shortcut.
+    code = raw.lower().replace("_", "-")
+    if code in _LANG_NAMES:
+        return _LANG_NAMES[code]
+    # Free-form descriptor — return verbatim so the user can role-play
+    # voice ("Shakespeare-era English", "callejero dominicano", "pirate").
+    return raw
+
+
 def build_system_prompt(config: dict | None = None) -> str:
     import platform
     model_lower = (config.get("model", "") if config else "").lower()
@@ -214,11 +284,13 @@ def build_system_prompt(config: dict | None = None) -> str:
     # supposed to do all along — previously the flag flipped a config bit
     # that nothing actually consumed.
     user_name = (config.get("user_name") if config else None) or "KevRojo"
+    reply_language = _resolve_reply_language(config)
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         cwd=str(Path.cwd()),
         platform=platform.system(),
         auto_show=auto_show,
         user_name=user_name,
+        reply_language=reply_language,
         platform_hints="" if lite else get_platform_hints(config),
         git_info="" if lite else get_git_info(config),
         dulus_md="" if lite else get_dulus_md(),
