@@ -165,7 +165,14 @@ TOOL_SCHEMAS = [
     {
         "name": "WebFetch",
         "description": (
-            "Fetch a URL and return its text content (HTML stripped). "
+            "Fetch a URL and return its TEXT content (HTML stripped, no JS). "
+            "Use for: reading docs, articles, READMEs, API responses, anything "
+            "where you only need the textual content of a static page.\n\n"
+            "⚠️ NOT for media playback or anything the user needs to SEE/HEAR. "
+            "If the user said 'play X on YouTube', 'reproduce / pon / ponme X', "
+            "'watch Y', 'open Z in the browser', or anything that implies "
+            "experiencing the page → use WebBridgeNavigate (or NewTab) instead. "
+            "WebFetch returns text; it does not open a browser window for the user."
         ),
         "input_schema": {
             "type": "object",
@@ -177,7 +184,19 @@ TOOL_SCHEMAS = [
     },
     {
         "name": "WebSearch",
-        "description": "Search the web (via Brave or DuckDuckGo). DO NOT save search results to files - just process them or use PrintToConsole to show them to the user.",
+        "description": (
+            "Search the web (Brave or DuckDuckGo) and return TEXT result snippets. "
+            "Use for: looking up info on behalf of the user — weather, news, prices, "
+            "definitions, finding the right URL before a WebFetch, anything where "
+            "the answer is text you'll relay back.\n\n"
+            "⚠️ NOT for 'play / open / watch / reproduce / pon X' — those are "
+            "experiential requests. If the user wants to SEE or HEAR something "
+            "(YouTube video, music, Spotify, a site they want to interact with), "
+            "go straight to WebBridgeNavigate. Returning a search-result link "
+            "when they asked you to play it is the wrong tool.\n\n"
+            "DO NOT save search results to files — process them inline or use "
+            "PrintToConsole to show them."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
