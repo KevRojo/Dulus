@@ -5870,17 +5870,35 @@ def _tg_poll_loop(token: str, chat_ids, config: dict):
     """Long-polling loop. chat_ids: int (legacy) or list[int].
     All listed users are authorized; replies go back to whoever sent the msg.
 
-    NOTE: the authorized list is RE-READ from `config` on every poll
-    iteration so `/config telegram_chat_ids=...` takes effect live
-    without restarting the daemon. The `chat_ids` argument is only the
-    seed used for the startup announcement.
+    Authorization is cached for the fast-path (in-set lookup). On a cache
+    MISS — i.e. someone the bot has never seen messages it — we re-read
+    `_tg_get_chat_ids(config)` once to pick up any `/config telegram_
+    chat_ids=...` changes the user made since startup. If the new id is
+    in the refreshed config we admit them AND send a one-shot welcome
+    (just for that new user, never re-sent to existing ones). Cheap and
+    correct: 99% of inbound messages hit the cached set and never touch
+    config.
     """
     if isinstance(chat_ids, int):
         chat_ids = [chat_ids]
     chat_ids = list(chat_ids or [])
-    # `authorized` is now a function — recomputed on every check below.
-    def authorized() -> set[int]:
-        return set(_tg_get_chat_ids(config))
+    authorized_cache: set[int] = set(chat_ids)
+    welcomed: set[int] = set(chat_ids)  # startup-welcomed below
+
+    def is_authorized(cid: int) -> bool:
+        nonlocal authorized_cache
+        if cid in authorized_cache:
+            return True
+        # Cache miss — the only case where we touch config. Maybe the
+        # user just added this chat_id via /config; pick that up live.
+        fresh = set(_tg_get_chat_ids(config))
+        if cid in fresh:
+            authorized_cache = fresh
+            if cid not in welcomed:
+                _tg_send(token, cid, "🟢 Dulus is now online for you. Send me a message.")
+                welcomed.add(cid)
+            return True
+        return False
 
     run_query_cb = config.get("_run_query_callback")
     # Flush old messages so we don't process stale commands on startup
@@ -5917,7 +5935,7 @@ def _tg_poll_loop(token: str, chat_ids, config: dict):
                 msg_chat_id = msg.get("chat", {}).get("id")
                 text = sanitize_text(msg.get("text", ""))
 
-                if msg_chat_id not in authorized():
+                if not is_authorized(msg_chat_id):
                     _tg_api(token, "sendMessage", {
                         "chat_id": msg_chat_id,
                         "text": "⛔ Unauthorized."
