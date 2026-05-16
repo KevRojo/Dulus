@@ -30,6 +30,7 @@ from gui.chat_widget import ChatWidget
 from gui.tasks_view import TasksView
 from gui.themes import get_theme, set_theme, list_themes, CURATED_MODELS, get_quality_color, get_quality_label
 from gui.sidebar import DulusSidebar
+from gui.sandbox_server import SandboxServer
 
 # ── Theme constants (loaded from active theme) ──────────────────────────────
 _SIDEBAR_WIDTH = 260
@@ -357,7 +358,21 @@ class WebappLoader(ctk.CTkFrame):
             hover_color=ACCENT_HOVER, text_color=BG_COLOR,
             corner_radius=6, command=self._nav_go,
         )
-        self.go_btn.pack(side="left", padx=(2, 8), pady=4)
+        self.go_btn.pack(side="left", padx=(2, 4), pady=4)
+
+        # 🦅 Sandbox launcher button (replaces the old "Web" experience —
+        # local files only, works offline, chromeless app window via
+        # Playwright subprocess when available, default-browser fallback
+        # otherwise). Owned by the loader so the click handler can reach
+        # the shared SandboxServer instance held by the outer window.
+        self._sandbox_server: SandboxServer | None = None
+        self.sandbox_btn = ctk.CTkButton(
+            self.nav_frame, text="🦅 Sandbox", font=(FONT_FAMILY, 11, "bold"),
+            width=110, height=28, fg_color=ACCENT_COLOR,
+            hover_color=ACCENT_HOVER, text_color=BG_COLOR,
+            corner_radius=6, command=self._launch_sandbox,
+        )
+        self.sandbox_btn.pack(side="left", padx=(2, 8), pady=4)
 
         # ── Content area ────────────────────────────────────────────────────
         self.content_frame = ctk.CTkFrame(self, fg_color=BG_COLOR, corner_radius=0)
@@ -453,6 +468,111 @@ class WebappLoader(ctk.CTkFrame):
         self._push_history(endpoint)
         self._load_url(endpoint)
 
+    # ── Sandbox launcher ────────────────────────────────────────────────────
+
+    def set_sandbox_server(self, srv: SandboxServer) -> None:
+        """Hand off the GUI-owned SandboxServer so the launcher can reach it."""
+        self._sandbox_server = srv
+
+    def _launch_sandbox(self) -> None:
+        """Open the Dulus Sandbox UI (offline, served from sandbox/dist).
+
+        Order of preference:
+          1. Playwright subprocess in `--app=URL` chromeless mode if the
+             `webbridge` extra is installed → looks like a dedicated
+             Dulus app window, no tabs, no URL bar.
+          2. Default browser via webbrowser.open() → always works,
+             slightly less integrated UX but zero extra deps.
+        """
+        srv = self._sandbox_server
+        if srv is None or not srv.available:
+            self._placeholder.configure(
+                text=(
+                    "❌  No encontré el bundle del sandbox en disco.\n\n"
+                    "Reinstala Dulus o asegúrate de que sandbox/dist/index.html "
+                    "exista en el repo."
+                ),
+                text_color="#ff5555",
+            )
+            return
+
+        url = srv.start()   # idempotent — only first call binds the port
+        if not url:
+            self._placeholder.configure(
+                text="❌  No pude arrancar el server local del sandbox.",
+                text_color="#ff5555",
+            )
+            return
+
+        # Reflect the URL in the nav bar for transparency.
+        self.url_entry.delete(0, "end")
+        self.url_entry.insert(0, url)
+        self._push_history(url)
+        self._current_url = url
+
+        # 1) Try Playwright chromeless app window.
+        launched_via = ""
+        try:
+            import playwright  # noqa: F401  (presence check only)
+            import subprocess
+            import sys as _sys
+            launch_script = (
+                "from playwright.sync_api import sync_playwright\n"
+                "with sync_playwright() as p:\n"
+                f"    browser = p.chromium.launch(headless=False, args=['--app={url}','--window-size=1280,820'])\n"
+                "    page = browser.new_page(viewport={'width': 1280, 'height': 820})\n"
+                f"    page.goto({url!r})\n"
+                "    try: page.wait_for_event('close', timeout=0)\n"
+                "    except Exception: pass\n"
+            )
+            # Detach: spawn fully independent, so closing the GUI doesn't kill
+            # the sandbox window and vice versa.
+            kwargs: dict = {"close_fds": True}
+            if _sys.platform == "win32":
+                # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+                kwargs["creationflags"] = 0x00000008 | 0x00000200
+            else:
+                kwargs["start_new_session"] = True
+            subprocess.Popen(
+                [_sys.executable, "-c", launch_script],
+                **kwargs,
+            )
+            launched_via = "Playwright (Chromium --app)"
+        except ImportError:
+            # 2) Default browser fallback.
+            try:
+                _webbrowser_lib.open_new_tab(url)
+                launched_via = "tu navegador por defecto"
+            except Exception as e:
+                self._placeholder.configure(
+                    text=f"❌  No pude abrir el sandbox:\n{e}",
+                    text_color="#ff5555",
+                )
+                return
+        except Exception as e:
+            # Playwright is installed but failed to launch (e.g. browser not
+            # installed). Fall back to webbrowser.
+            try:
+                _webbrowser_lib.open_new_tab(url)
+                launched_via = f"navegador (Playwright falló: {e})"
+            except Exception as ee:
+                self._placeholder.configure(
+                    text=f"❌  No pude abrir el sandbox:\n{ee}",
+                    text_color="#ff5555",
+                )
+                return
+
+        self._placeholder.configure(
+            text=(
+                f"🦅  Dulus Sandbox abierto vía {launched_via}\n\n"
+                f"URL: {url}\n\n"
+                "Los archivos se sirven localmente desde sandbox/dist/.\n"
+                "Funciona offline. La ventana es independiente — cerrarla\n"
+                "no afecta el GUI principal."
+            ),
+            text_color=TEXT_DIM,
+        )
+
     def apply_theme(self) -> None:
         """Re-apply current theme colors."""
         t = get_theme()
@@ -499,6 +619,12 @@ class DulusMainWindow(ctk.CTk):
         # Quality monitor
         self.quality = QualityMonitor()
         self._quality_tooltip: tk.Toplevel | None = None
+
+        # Sandbox server: a tiny localhost HTTP server bound to a random
+        # port that serves sandbox/dist/ on demand. Built once per window
+        # so subsequent Sandbox clicks reuse the same port and don't
+        # pile up TCP listeners.
+        self.sandbox_server = SandboxServer()
 
         # ── Callback placeholders (inject from bridge) ───────────────────────
         self.on_send: Callable[[str], None] = lambda text: None
@@ -701,6 +827,10 @@ class DulusMainWindow(ctk.CTk):
 
         # ── Webapp loader (hidden by default) ────────────────────────────────
         self.webapp_loader = WebappLoader(self.main_frame)
+        # Wire the shared SandboxServer so the loader's "🦅 Sandbox" button
+        # can serve sandbox/dist/ on a local port and launch Playwright /
+        # the browser pointed at it.
+        self.webapp_loader.set_sandbox_server(self.sandbox_server)
         self.webapp_loader.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
         self.webapp_loader.grid_remove()
         self._webapp_visible = False
