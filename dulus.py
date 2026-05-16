@@ -8665,19 +8665,12 @@ def repl(config: dict, initial_prompt: str = None):
     verbose = config.get("verbose", False)
     config["_tg_send_callback"] = _tg_send
 
-    # One-shot: the welcome wizard sets this flag on first run so the user's
-    # very first sight of Dulus is a /doctor report showing what got wired up.
-    # (Public key name — save_config drops keys starting with "_".)
-    if config.pop("pending_first_run_doctor", False):
-        try:
-            cmd_doctor("", state, config)
-        except Exception as _e:
-            print(f"(skipping first-run /doctor: {_e})")
-        try:
-            from config import save_config as _save_cfg
-            _save_cfg(config)
-        except Exception:
-            pass
+    # First-run /doctor — flag set by the welcome wizard. Actual invocation
+    # happens AFTER all the boot prints (banner, ASCII art, Memory Palace,
+    # Soul, Tool schema injection, Gold memories, Shell detection) so the
+    # health report is the last thing on screen before the prompt — not
+    # buried under the boot waterfall. See _maybe_run_first_doctor() below.
+    _first_run_doctor_pending = config.pop("pending_first_run_doctor", False)
 
     # Hydrate the STT-language global from config so /voice lang setting
     # actually survives across sessions.
@@ -8972,6 +8965,20 @@ def repl(config: dict, initial_prompt: str = None):
             for msg in startup_status_msgs:
                 print(msg)
         print()
+
+        # First-run /doctor — runs LAST, after every boot print so it's the
+        # final thing the user sees before the prompt. Welcome wizard set
+        # the flag; we cleared it into _first_run_doctor_pending earlier.
+        if _first_run_doctor_pending:
+            try:
+                cmd_doctor("", state, config)
+            except Exception as _e:
+                print(f"(skipping first-run /doctor: {_e})")
+            try:
+                from config import save_config as _save_cfg
+                _save_cfg(config)
+            except Exception:
+                pass
 
     query_lock = threading.RLock()
     config["_query_lock"] = query_lock
