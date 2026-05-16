@@ -28,10 +28,27 @@ class SkillDef:
 # ── Directory paths ────────────────────────────────────────────────────────
 
 def _get_skill_paths() -> list[Path]:
-    return [
-        Path.cwd() / ".dulus-context" / "skills",   # project-level (priority)
-        Path.home() / ".dulus" / "skills",   # user-level
+    """Skill search roots in PRIORITY order (first wins after dedup).
+
+    Order: project > user > bundled. The loader iterates `reversed()`
+    of this list and overwrites by name as it goes, so anything listed
+    first here ends up as the surviving entry on collisions.
+
+    The `bundled` directory ships inside the wheel (`skill/bundled/`)
+    and seeds Dulus with curated third-party Agent Skills — currently
+    kepano's obsidian-skills bundle (defuddle, json-canvas,
+    obsidian-bases, obsidian-cli, obsidian-markdown). Users can shadow
+    any bundled skill by dropping their own SKILL.md with the same
+    name under `~/.dulus/skills` or `.dulus-context/skills`.
+    """
+    paths = [
+        Path.cwd() / ".dulus-context" / "skills",   # project-level (highest)
+        Path.home() / ".dulus" / "skills",          # user-level
     ]
+    bundled = Path(__file__).resolve().parent / "bundled"
+    if bundled.is_dir():
+        paths.append(bundled)                        # bundled (lowest)
+    return paths
 
 
 # ── List field parser ──────────────────────────────────────────────────────
@@ -135,12 +152,25 @@ def load_skills(include_builtins: bool = True) -> list[SkillDef]:
         for sk in _BUILTIN_SKILLS:
             seen[sk.name] = sk
 
-    # User-level next, project-level last (highest priority)
+    # Walk skill paths from LOWEST to HIGHEST priority so the higher-
+    # priority entries overwrite the lower ones on name collisions.
+    # _get_skill_paths() returns [project, user, bundled] in
+    # priority-descending order, so reversed = [bundled, user, project].
     skill_paths = _get_skill_paths()
-    for i, skill_dir in enumerate(reversed(skill_paths)):
-        src = "user" if i == 0 else "project"
+    for skill_dir in reversed(skill_paths):
         if not skill_dir.is_dir():
             continue
+        # Tag source by which directory we're in. Bundled lives next
+        # to this file under `skill/bundled/`; user under ~/.dulus;
+        # everything else (project) under .dulus-context.
+        sd_str = str(skill_dir)
+        if sd_str.endswith(str(Path("skill") / "bundled")) or "skill/bundled" in sd_str.replace("\\", "/"):
+            src = "bundled"
+        elif ".dulus-context" in sd_str.replace("\\", "/"):
+            src = "project"
+        else:
+            src = "user"
+
         # Support both flat files and directories (new style)
         for md_file in sorted(skill_dir.rglob("SKILL.md")):
             skill = _parse_skill_file(md_file, source=src)
