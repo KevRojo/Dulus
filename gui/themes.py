@@ -254,3 +254,34 @@ def set_theme(name: str) -> dict[str, str] | None:
 def list_themes() -> list[str]:
     """Return available theme names."""
     return list(THEMES.keys())
+
+
+# ── Quality score color helpers ────────────────────────────────────────────
+
+def get_quality_color(score: int) -> str:
+    """Return a color for the given quality score (0-100).
+    
+    0-40: red (poor)
+    41-70: yellow (fair)
+    71-100: green (good)
+    """
+    if score <= 40:
+        return "#ff5555"
+    elif score <= 70:
+        return "#ffb347"
+    else:
+        return "#50fa7b"
+
+
+def get_quality_label(score: int) -> str:
+    """Return a human-readable label for the quality score."""
+    if score >= 90:
+        return "Excelente"
+    elif score >= 71:
+        return "Bueno"
+    elif score >= 41:
+        return "Regular"
+    elif score >= 21:
+        return "Deficiente"
+    else:
+        return "Crítico"
