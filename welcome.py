@@ -169,7 +169,7 @@ def run_welcome_wizard(config: dict) -> dict:
 
         # 2. Ask for the model string (full LiteLLM form). Suggest the default.
         model_full = _prompt(
-            "Modelo LiteLLM (formato `backend/modelo`, ej. openrouter/anthropic/claude-3-5-sonnet)",
+            "Modelo LiteLLM (formato `backend/modelo`)",
             default_model,
         )
         # Strip any leading "litellm/" the user typed by accident; we re-prepend below.
