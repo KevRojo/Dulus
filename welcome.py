@@ -139,26 +139,92 @@ def run_welcome_wizard(config: dict) -> dict:
     idx = _prompt_choice("Que proveedor queres usar de entrada?", choices, default_idx=0)
     provider, _label, default_model, needs_key = _PROVIDER_MENU[idx]
 
-    model = _prompt("Modelo", default_model)
-    # Dulus identifies the provider via the `provider/model` prefix in config.model.
-    # Strip any prefix the user typed by accident, then re-prepend the chosen one.
-    if "/" in model:
-        model = model.split("/", 1)[1]
-    config["model"] = f"{provider}/{model}"
-
-    if needs_key:
+    # LiteLLM gets a slightly different flow: model strings are
+    # `backend/model` (e.g. openrouter/anthropic/claude-3-5-sonnet), the
+    # package may need installing on the spot, and the API key the user
+    # types is for the SELECTED BACKEND, not a generic "litellm key".
+    if provider == "litellm":
+        # 1. Offer to install the package right now if missing — better UX
+        #    than telling the user to exit, pip-install, and re-run.
         try:
-            from providers import PROVIDERS
-            env_var = PROVIDERS.get(provider, {}).get("api_key_env", "")
+            import importlib.util as _iu, litellm as _ll  # type: ignore
+            _ok = bool(_iu.find_spec("litellm")) and hasattr(_ll, "completion")
         except Exception:
-            env_var = ""
-        if env_var and os.environ.get(env_var):
-            print(f"  OK Usando {env_var} del entorno")
-        else:
-            key = _prompt_secret(f"API key para {provider} (Enter pa' saltar)")
+            _ok = False
+        if not _ok:
+            print("\n  LiteLLM no esta instalado en este Python.")
+            ans = _prompt("Lo instalo ahora? (recomendado) [Y/n]", "Y")
+            if ans.lower().startswith("y"):
+                import subprocess, sys
+                print("\n  Instalando litellm... (~30s)")
+                r = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-U", "litellm"],
+                )
+                if r.returncode != 0:
+                    print("  ! pip install fallo — podes reintentarlo manualmente:")
+                    print("    pip install -U litellm")
+                else:
+                    print("  OK litellm instalado.")
+            else:
+                print("  (Saltado — podes instalarlo despues con: pip install dulus[litellm])")
+
+        # 2. Ask for the model string (full LiteLLM form). Suggest the default.
+        model_full = _prompt(
+            "Modelo LiteLLM (formato `backend/modelo`, ej. openrouter/anthropic/claude-3-5-sonnet)",
+            default_model,
+        )
+        # Strip any leading "litellm/" the user typed by accident; we re-prepend below.
+        if model_full.startswith("litellm/"):
+            model_full = model_full[len("litellm/"):]
+        config["model"] = f"litellm/{model_full}"
+
+        # 3. Detect backend (openrouter/groq/...) and ask for THAT backend's key.
+        backend = model_full.split("/", 1)[0] if "/" in model_full else ""
+        _backend_env = {
+            "openrouter":   "OPENROUTER_API_KEY",
+            "groq":         "GROQ_API_KEY",
+            "together_ai":  "TOGETHER_API_KEY",
+            "perplexity":   "PERPLEXITYAI_API_KEY",
+            "cohere":       "COHERE_API_KEY",
+            "mistral":      "MISTRAL_API_KEY",
+            "fireworks_ai": "FIREWORKS_API_KEY",
+            "xai":          "XAI_API_KEY",
+            "anyscale":     "ANYSCALE_API_KEY",
+            "deepinfra":    "DEEPINFRA_API_KEY",
+            "replicate":    "REPLICATE_API_KEY",
+            "openai":       "OPENAI_API_KEY",
+            "anthropic":    "ANTHROPIC_API_KEY",
+            "gemini":       "GEMINI_API_KEY",
+        }
+        env_var = _backend_env.get(backend, "")
+        if backend and env_var and os.environ.get(env_var):
+            print(f"  OK Usando {env_var} del entorno para backend '{backend}'")
+        elif backend:
+            key = _prompt_secret(f"API key para '{backend}' (Enter pa' saltar)")
             if key:
-                config[f"{provider}_api_key"] = key
-                print("  OK Key guardada (encriptada en config.json)")
+                config[f"{backend}_api_key"] = key
+                print(f"  OK Key guardada como {backend}_api_key")
+    else:
+        model = _prompt("Modelo", default_model)
+        # Dulus identifies the provider via the `provider/model` prefix in config.model.
+        # Strip any prefix the user typed by accident, then re-prepend the chosen one.
+        if "/" in model:
+            model = model.split("/", 1)[1]
+        config["model"] = f"{provider}/{model}"
+
+        if needs_key:
+            try:
+                from providers import PROVIDERS
+                env_var = PROVIDERS.get(provider, {}).get("api_key_env", "")
+            except Exception:
+                env_var = ""
+            if env_var and os.environ.get(env_var):
+                print(f"  OK Usando {env_var} del entorno")
+            else:
+                key = _prompt_secret(f"API key para {provider} (Enter pa' saltar)")
+                if key:
+                    config[f"{provider}_api_key"] = key
+                    print("  OK Key guardada (encriptada en config.json)")
 
     if _mempalace_available():
         print("\nDetecte MemPalace instalado - inicializando memoria persistente...")
