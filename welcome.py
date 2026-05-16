@@ -225,6 +225,37 @@ def run_welcome_wizard(config: dict) -> dict:
                     config[f"{provider}_api_key"] = key
                     print("  OK Key guardada (encriptada en config.json)")
 
+    # ── Step: web-harvest pitch ──────────────────────────────────────────
+    # Dulus's actually killer differentiator: use Claude.ai / Kimi.com /
+    # Gemini / Qwen / DeepSeek from your BROWSER LOGIN — no API key, no
+    # token bill, no rate limits beyond what the web UI gives you. This
+    # is the feature that drives the "60% IA cost reduction" line on the
+    # website, and 99% of new users miss it because nothing in the
+    # wizard surfaces it. Fix: educate them right here, with a one-shot
+    # opt-in to run a /harvest now.
+    print()
+    print("─" * 60)
+    print("  ✨ Feature clave de Dulus: usá Claude.ai / Kimi / Gemini")
+    print("     desde tu sesión del browser — SIN api key, SIN factura.")
+    print("     ('Write poetry while Anthropic only sees text.')")
+    print("─" * 60)
+    harvest_choice = _prompt(
+        "¿Querés correr un /harvest ahora? "
+        "(claude / kimi / gemini / qwen / deepseek / no) [no]",
+        "no",
+    ).strip().lower()
+    if harvest_choice in ("claude", "kimi", "gemini", "qwen", "deepseek"):
+        # Defer the actual run to the REPL — needs Playwright + interactive
+        # browser, which is awkward to spawn from inside the wizard.
+        # Persist the user's pick so the REPL auto-fires it on next boot.
+        config["pending_first_run_harvest"] = harvest_choice
+        print(f"  OK — voy a correr /harvest-{harvest_choice} apenas arranque el REPL.")
+    elif harvest_choice == "yes" or harvest_choice == "si":
+        config["pending_first_run_harvest"] = "claude"
+        print("  OK — voy a correr /harvest-claude apenas arranque el REPL.")
+    else:
+        print("  Saltado. Podés correrlo después con  /harvest  (o /harvest-kimi, etc.)")
+
     if _mempalace_available():
         print("\nDetecte MemPalace instalado - inicializando memoria persistente...")
         _run_mempalace_init()
