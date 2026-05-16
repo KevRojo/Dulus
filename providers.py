@@ -3246,14 +3246,28 @@ def stream_litellm(
     config-stored key into the env before dispatching, so users who put their
     keys under `/config openrouter_api_key=...` Just Work without `export`.
     """
+    # Robust detection: ImportError covers "not installed at all", but a
+    # phantom `litellm` namespace (stale stub, name collision with a local
+    # litellm.py, partial pip install) can let the import succeed while
+    # `.completion` is missing — that surfaces as a confusing AttributeError
+    # mid-call. Check both, and treat missing-completion the same as
+    # missing-package so the user gets the same friendly install hint.
     try:
         import litellm  # type: ignore
     except ImportError:
+        litellm = None  # type: ignore
+    if litellm is None or not hasattr(litellm, "completion"):
+        where = ""
+        try:
+            if litellm is not None and getattr(litellm, "__file__", None):
+                where = f"\n  (found a partial 'litellm' module at: {litellm.__file__})"
+        except Exception:
+            pass
         msg = (
-            "[litellm] Package not installed. Run:\n"
+            "[litellm] Not installed (or installed module is missing .completion). Run:\n"
             "  pip install 'dulus[litellm]'\n"
-            "or:\n"
-            "  pip install litellm"
+            "or directly:\n"
+            "  pip install -U litellm" + where
         )
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
