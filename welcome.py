@@ -155,7 +155,6 @@ def run_welcome_wizard(config: dict) -> dict:
             print("\n  LiteLLM no esta instalado en este Python.")
             ans = _prompt("Lo instalo ahora? (recomendado) [Y/n]", "Y")
             if ans.lower().startswith("y"):
-                import subprocess, sys
                 print("\n  Instalando litellm... (~30s)")
                 r = subprocess.run(
                     [sys.executable, "-m", "pip", "install", "-U", "litellm"],
