@@ -156,15 +156,23 @@ _TOOL_SCHEMAS = [
     {
         "name": "WebBridgeScreenshot",
         "description": (
-            "Take a screenshot of the current page. "
-            "If path is provided, saves to file. Otherwise returns base64 data."
+            "Take a screenshot of the current page. Always saves to disk and "
+            "returns the path. If `path` is omitted, auto-saves to "
+            "`~/.dulus/outputs/screenshots/screenshot-<timestamp>.png` so the "
+            "user has a predictable place to find them.\n\n"
+            "⚠️ DO NOT try to Read the returned .png file as text — it's "
+            "binary PNG data and you'll dump several KB of garbage characters. "
+            "If you need the textual content of the page, use "
+            "ExtractTextFromImage on the saved path (local OCR, no vision "
+            "tokens) or call WebBridgeExtract mode='text' on the live page "
+            "instead."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Optional file path to save the screenshot (e.g. /tmp/screenshot.png)",
+                    "description": "Optional file path. Omit to auto-save under ~/.dulus/outputs/screenshots/.",
                 },
                 "tab_id": {
                     "type": "string",
@@ -309,9 +317,28 @@ def _webbridge_type(params: dict, config: dict) -> str:
 def _webbridge_screenshot(params: dict, config: dict) -> str:
     path = params.get("path")
     tab_id = params.get("tab_id")
+
+    # Auto-save default: ~/.dulus/outputs/screenshots/screenshot-<ts>.png
+    # Two wins from forcing this: (a) the user always knows where the
+    # captures land instead of digging in /tmp; (b) the tool never has
+    # to return base64, which we used to truncate-and-pray — most models
+    # would then try to Read the .png as text and dump KBs of garbage
+    # control chars. Now we hand back a stable path and tell them to
+    # OCR it if they actually need the content.
+    if not path:
+        from pathlib import Path as _P
+        import time as _t
+        out_dir = _P.home() / ".dulus" / "outputs" / "screenshots"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = str(out_dir / f"screenshot-{int(_t.time())}.png")
+
     result = _bridge.screenshot_sync(path=path, tab_id=tab_id)
     if path:
-        return json.dumps({"ok": True, "saved_to": path}, ensure_ascii=False)
+        return json.dumps({
+            "ok": True,
+            "saved_to": path,
+            "hint": "To get the textual content of the page, run ExtractTextFromImage on this path (local OCR, no vision tokens) OR re-run WebBridgeExtract mode='text' on the live tab. Do NOT Read the PNG file directly.",
+        }, ensure_ascii=False)
     # Return base64 but truncate the data to avoid token bloat
     b64 = result.get("base64", "") if isinstance(result, dict) else ""
     if b64:
