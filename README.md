@@ -2,7 +2,9 @@
 
 > **Use IA agents without an API key. $0.**
 >
-> **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely: opens your browser, captures your Gemini / Claude.ai / Kimi / Qwen / DeepSeek session, and lets you drive frontier IA as if it were an API — **no api key, no subscription, no credit card**. Plus 100+ paid providers via LiteLLM, local models via Ollama. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
+> **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely opens your browser, captures your **Gemini** (guest, no login) · **Claude.ai** · **Claude Code** · **Kimi.com** · **Qwen** · **DeepSeek** session, then lets you drive frontier IA as if it were an API. **No api key. No subscription. No credit card.**
+>
+> Plus 100+ paid providers via LiteLLM (OpenRouter, Groq, Together, xAI, Mistral, Bedrock, …), local models via Ollama, `/lang` in 34 languages, Mesa Redonda multi-model debate, voice in/out, local OCR, MemPalace semantic memory, embedded sandbox OS. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
 >
 > `pip install dulus` → press Enter → working IA in 30 seconds. Try it.
 
