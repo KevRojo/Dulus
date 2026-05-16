@@ -7108,6 +7108,32 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
         warn(f"Could not write clipboard image to disk: {_e}")
 
     user_prompt = args.strip() if args.strip() else "What do you see in this image? Describe it in detail."
+
+    # Local OCR pass: extract any readable text from the clipboard image
+    # and inline it next to the vision payload. Two wins:
+    #   • Vision models get image AND a verbatim text transcription —
+    #     fewer OCR-style misreads on receipts, code, error stacks,
+    #     dense tables (vision models hallucinate digits/punctuation).
+    #   • Text-only models (no multimodal endpoint) still get SOMETHING
+    #     useful — graceful degrade to "describe what the text says"
+    #     instead of the bridge silently dropping the image.
+    # Failures are swallowed — the original /img flow is the floor.
+    ocr_text = ""
+    if img_path is not None:
+        try:
+            from tools import _ocr_extract  # type: ignore
+            raw = _ocr_extract(str(img_path), languages="en,es")
+            if raw and not raw.startswith("Error:"):
+                if raw.startswith("[engine:"):
+                    nl = raw.find("\n\n")
+                    ocr_text = (raw[nl + 2:] if nl != -1 else raw).strip()
+                else:
+                    ocr_text = raw.strip()
+                if ocr_text:
+                    info(f"   OCR extracted {len(ocr_text)} chars (local, no vision tokens)")
+        except Exception:
+            ocr_text = ""
+
     if img_path is not None:
         prompt = (
             f"{user_prompt}\n\n"
@@ -7115,8 +7141,21 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
             f"If your harness can't render an inline image, Read that path "
             f"to see the PNG (it's a real file on disk)."
         )
+        if ocr_text:
+            prompt += (
+                "\n\n[Local OCR transcription of the image (verbatim, no "
+                "vision model involved — use this to ground your reading "
+                "of dense text / numbers / code. If the image is mostly "
+                "visual content this may be empty or noisy):]\n"
+                f"```\n{ocr_text}\n```"
+            )
     else:
         prompt = user_prompt
+        if ocr_text:
+            prompt += (
+                "\n\n[Local OCR transcription of the clipboard image:]\n"
+                f"```\n{ocr_text}\n```"
+            )
     return ("__image__", prompt)
 
 
