@@ -5,8 +5,10 @@
 SET /sticky_input ON since the first run for the best experience!
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/hero.svg" alt="Dulus" width="100%">
+  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/dulus-bird.png" alt="Dulus — Cigua Palmera" width="320">
 </p>
+
+<p align="center"><i>The Dulus (Cigua Palmera) — Dominican national bird. Named after the bird, not the rocket.</i></p>
 
 <p align="center">
   <a href="#quick-start"><b>Quick Start</b></a> ·
@@ -22,9 +24,9 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
   <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
-  <img src="https://img.shields.io/badge/version-v0.2.60-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
-  <img src="https://img.shields.io/badge/providers-11-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
-  <img src="https://img.shields.io/badge/tools-27-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
+  <img src="https://img.shields.io/badge/version-v0.2.89-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
+  <img src="https://img.shields.io/badge/providers-100%2B%20via%20LiteLLM-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
+  <img src="https://img.shields.io/badge/tools-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
   <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="x"/></a>
 </p>
