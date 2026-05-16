@@ -547,11 +547,20 @@ class WebappLoader(ctk.CTkFrame):
         # ── Spawn pywebview in its OWN subprocess (so pywebview owns the
         #    main thread of that process). We then locate its OS window
         #    by our unique title and reparent it into our tk frame.
+        # NOTE: frameless=False is intentional. With frameless=True the
+        # EdgeChromium backend enables "drag the body to move the
+        # window" (-webkit-app-region semantics applied to the whole
+        # client area). Once SetParent + WS_CHILD lock the child to the
+        # frame that drag becomes meaningless but visually it still
+        # tries to follow the cursor — that was the "OS se mueve cuando
+        # le hago drag" behaviour. With frameless=False pywebview adds
+        # an OS title bar instead of body-drag, then we strip the
+        # title/border via SetWindowLongW so the user never sees them.
         import subprocess as _sp
         launch_script = (
             "import webview\n"
             f"webview.create_window({embed_title!r}, {url!r}, "
-            "frameless=True, width=900, height=650, resizable=True)\n"
+            "frameless=False, width=900, height=650, resizable=True)\n"
             "webview.start(gui='edgechromium')\n"
         )
         # CREATE_NO_WINDOW = 0x08000000 — don't pop a console for the child.
@@ -629,19 +638,41 @@ class WebappLoader(ctk.CTkFrame):
             except Exception:
                 pass
 
-            # Resize child whenever the container resizes.
-            def _on_resize(_evt=None) -> None:
-                if not self._embedded_hwnd:
+            # NO live-resize binding. KevRojo's preference: open at the
+            # frame's current size, freeze there. If the user resizes the
+            # outer GUI later, the embed stays put — that's the contract.
+            # (Live resize was too jumpy: every drag-pixel fired a
+            # MoveWindow and the surface flickered.)
+
+            # However, we DO pin the child's position to (0,0) in case
+            # any stray window-move call sneaks through. Cheap poll:
+            # every 250ms verify the child is still at the origin.
+            def _pin_origin() -> None:
+                hwnd = self._embedded_hwnd
+                if not hwnd:
                     return
-                w = max(100, self.content_frame.winfo_width())
-                h = max(100, self.content_frame.winfo_height())
                 try:
-                    user32.MoveWindow(self._embedded_hwnd, 0, 0, w, h, True)
+                    rc = (_ctypes.c_long * 4)()
+                    if user32.GetWindowRect(hwnd, rc):
+                        # rc[0]=left, rc[1]=top (in screen coords)
+                        pr = (_ctypes.c_long * 4)()
+                        if user32.GetWindowRect(parent_hwnd, pr):
+                            # Child's screen-top-left should equal parent's
+                            # screen-top-left when its client offset is (0,0).
+                            if rc[0] != pr[0] or rc[1] != pr[1]:
+                                ww = max(100, self.content_frame.winfo_width())
+                                hh = max(100, self.content_frame.winfo_height())
+                                user32.MoveWindow(hwnd, 0, 0, ww, hh, True)
+                except Exception:
+                    pass
+                # Reschedule.
+                try:
+                    self.after(250, _pin_origin)
                 except Exception:
                     pass
 
             try:
-                self.content_frame.bind("<Configure>", _on_resize)
+                self.after(250, _pin_origin)
             except Exception:
                 pass
 
