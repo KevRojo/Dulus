@@ -5869,11 +5869,18 @@ def _tg_get_chat_ids(config: dict) -> list[int]:
 def _tg_poll_loop(token: str, chat_ids, config: dict):
     """Long-polling loop. chat_ids: int (legacy) or list[int].
     All listed users are authorized; replies go back to whoever sent the msg.
+
+    NOTE: the authorized list is RE-READ from `config` on every poll
+    iteration so `/config telegram_chat_ids=...` takes effect live
+    without restarting the daemon. The `chat_ids` argument is only the
+    seed used for the startup announcement.
     """
     if isinstance(chat_ids, int):
         chat_ids = [chat_ids]
     chat_ids = list(chat_ids or [])
-    authorized = set(chat_ids)
+    # `authorized` is now a function — recomputed on every check below.
+    def authorized() -> set[int]:
+        return set(_tg_get_chat_ids(config))
 
     run_query_cb = config.get("_run_query_callback")
     # Flush old messages so we don't process stale commands on startup
@@ -5910,7 +5917,7 @@ def _tg_poll_loop(token: str, chat_ids, config: dict):
                 msg_chat_id = msg.get("chat", {}).get("id")
                 text = sanitize_text(msg.get("text", ""))
 
-                if msg_chat_id not in authorized:
+                if msg_chat_id not in authorized():
                     _tg_api(token, "sendMessage", {
                         "chat_id": msg_chat_id,
                         "text": "⛔ Unauthorized."
