@@ -479,12 +479,13 @@ class WebappLoader(ctk.CTkFrame):
     # ── Embedded pywebview via Win32 SetParent ──────────────────────────────
 
     def _try_embed_pywebview(self, url: str) -> bool:
-        """Return True if we successfully launched the embedded view.
+        """Return True if the embedded view at least STARTED.
 
-        Quietly returns False on any non-Windows host, any missing dep,
-        or any setup error — the caller then falls back to a browser
-        open. We deliberately don't surface errors here unless something
-        actively breaks AFTER the embed succeeded.
+        Quietly returns False on any non-Windows host or missing dep so
+        the caller falls back to a browser open. The runner threads log
+        errors to stderr AND surface them to the inline placeholder so
+        we can diagnose embed failures live instead of seeing a black
+        frame.
         """
         import sys as _sys
         if _sys.platform != "win32":
@@ -497,9 +498,13 @@ class WebappLoader(ctk.CTkFrame):
         # Tear down any previous embedded HWND so re-clicks don't stack.
         self._teardown_embedded_hwnd()
 
-        # Hide the placeholder while the embed lands.
+        # Show a "loading" state — replaced when the embed lands or fails.
         try:
-            self._placeholder.grid_forget()
+            self._placeholder.grid()
+            self._placeholder.configure(
+                text=f"⏳  Iniciando vista embebida…\n\n{url}",
+                text_color=TEXT_DIM,
+            )
         except Exception:
             pass
 
@@ -510,10 +515,27 @@ class WebappLoader(ctk.CTkFrame):
         import threading
         import time as _time
         import ctypes as _ctypes
+        import traceback as _tb
 
-        # Unique title so we can FindWindowW it without colliding with
-        # any other pywebview instance the user has open.
+        # Unique title so we can find pywebview's wrapper window without
+        # colliding with any other instance the user has open.
         embed_title = f"_DulusEmbed_{int(_time.time() * 1000)}"
+
+        def _surface_error(msg: str) -> None:
+            print(f"[embed] {msg}", flush=True)
+            def _ui():
+                try:
+                    self._placeholder.grid()
+                    self._placeholder.configure(
+                        text=f"❌  Embed falló:\n\n{msg}",
+                        text_color="#ff5555",
+                    )
+                except Exception:
+                    pass
+            try:
+                self.after(0, _ui)
+            except Exception:
+                pass
 
         def _reparent_loop():
             user32 = _ctypes.windll.user32
@@ -522,35 +544,84 @@ class WebappLoader(ctk.CTkFrame):
             WS_THICKFRAME = 0x00040000
             WS_BORDER   = 0x00800000
             WS_CHILD    = 0x40000000
-            deadline = _time.time() + 6
+
+            deadline = _time.time() + 8
             child = 0
+
+            # Strategy A: use pywebview's API to get the native HWND directly.
+            # webview.windows is the global list of open windows. The newest
+            # one is our embed candidate. Its `.gui` (or `.native` on
+            # newer pywebview) carries the OS handle.
             while _time.time() < deadline:
+                try:
+                    for w in getattr(webview, "windows", []) or []:
+                        # pywebview ≤4: w.gui.window_handle  (BrowserView)
+                        # pywebview 5.x: w.native (after on_loaded fires)
+                        h = (
+                            getattr(getattr(w, "native", None), "winfo_id", lambda: None)()
+                            or getattr(getattr(w, "gui", None), "window_handle", None)
+                            or getattr(w, "_window_handle", None)
+                        )
+                        if h:
+                            child = int(h)
+                            break
+                except Exception:
+                    pass
+                if child:
+                    break
+                # Strategy B fallback: find by our unique title.
                 child = user32.FindWindowW(None, embed_title)
                 if child:
                     break
-                _time.sleep(0.1)
+                _time.sleep(0.15)
+
             if not child:
+                _surface_error(
+                    "pywebview no creó ninguna ventana visible en 8s.\n"
+                    "Mirar la consola pa' el traceback (Edge WebView2 missing?)."
+                )
                 return
+
             # Strip decorations and mark as child window.
-            style = user32.GetWindowLongW(child, GWL_STYLE)
-            style = (style & ~WS_CAPTION & ~WS_THICKFRAME & ~WS_BORDER) | WS_CHILD
-            user32.SetWindowLongW(child, GWL_STYLE, style)
-            # Reparent into our tk frame's HWND.
-            user32.SetParent(child, parent_hwnd)
-            # Fit it to the frame.
-            w = max(100, self.content_frame.winfo_width())
-            h = max(100, self.content_frame.winfo_height())
-            user32.MoveWindow(child, 0, 0, w, h, True)
+            try:
+                style = user32.GetWindowLongW(child, GWL_STYLE)
+                new_style = (style & ~WS_CAPTION & ~WS_THICKFRAME & ~WS_BORDER) | WS_CHILD
+                user32.SetWindowLongW(child, GWL_STYLE, new_style)
+                if user32.SetParent(child, parent_hwnd) == 0:
+                    err_code = _ctypes.windll.kernel32.GetLastError()
+                    _surface_error(
+                        f"SetParent falló (err={err_code}). HWND={child:#x}"
+                    )
+                    return
+                w = max(100, self.content_frame.winfo_width())
+                h = max(100, self.content_frame.winfo_height())
+                user32.MoveWindow(child, 0, 0, w, h, True)
+                user32.ShowWindow(child, 5)  # SW_SHOW
+            except Exception as e:
+                _surface_error(f"Reparent threw: {type(e).__name__}: {e}")
+                return
+
             self._embedded_hwnd = child
+
+            # Hide the placeholder now that the embed is visible.
+            def _hide_placeholder():
+                try:
+                    self._placeholder.grid_forget()
+                except Exception:
+                    pass
+            try:
+                self.after(0, _hide_placeholder)
+            except Exception:
+                pass
 
             # Keep size in sync when the frame resizes.
             def _on_resize(_evt=None) -> None:
                 if not self._embedded_hwnd:
                     return
-                w = max(100, self.content_frame.winfo_width())
-                h = max(100, self.content_frame.winfo_height())
+                ww = max(100, self.content_frame.winfo_width())
+                hh = max(100, self.content_frame.winfo_height())
                 try:
-                    user32.MoveWindow(self._embedded_hwnd, 0, 0, w, h, True)
+                    user32.MoveWindow(self._embedded_hwnd, 0, 0, ww, hh, True)
                 except Exception:
                     pass
 
@@ -563,11 +634,14 @@ class WebappLoader(ctk.CTkFrame):
             try:
                 webview.create_window(
                     embed_title, url, frameless=True,
-                    width=800, height=600, resizable=True,
+                    width=900, height=650, resizable=True,
                 )
-                webview.start()  # blocks this worker thread
-            except Exception:
-                pass
+                # gui='edgechromium' is the most thread-friendly backend on
+                # Windows. Letting pywebview auto-pick sometimes selected
+                # MSHTML which has its own thread issues.
+                webview.start(gui="edgechromium")
+            except Exception as e:
+                _surface_error(f"webview.start failed: {type(e).__name__}: {e}\n{_tb.format_exc()}")
 
         threading.Thread(target=_reparent_loop, daemon=True).start()
         threading.Thread(target=_webview_runner, daemon=True).start()
@@ -602,35 +676,50 @@ class WebappLoader(ctk.CTkFrame):
     def _launch_sandbox(self) -> None:
         """Open the Dulus Sandbox UI embedded inside the content frame.
 
-        Starts the local SandboxServer (sandbox/dist served on a random
-        port) and then renders that URL through the same embedded
-        pywebview path used by _load_url() — same SetParent reparenting,
-        no subprocess pop-out window.
+        URL selection (in order):
+          1. http://127.0.0.1:5000/sandbox/ — the existing /webchat server
+             if it's already running. This is the preferred path because
+             that server ALSO exposes the sandbox API endpoints
+             (/api/sandbox/fs/list, /api/sandbox/exec, etc.) — the
+             sandbox UI can fully integrate.
+          2. The bundled local SandboxServer on a random port — works
+             offline even with no /webchat running, but the sandbox API
+             routes won't be available (it's just static dist/).
         """
-        srv = self._sandbox_server
-        if srv is None or not srv.available:
-            self._placeholder.configure(
-                text=(
-                    "❌  No encontré el bundle del sandbox en disco.\n\n"
-                    "Reinstala Dulus o asegúrate de que sandbox/dist/index.html "
-                    "exista en el repo."
-                ),
-                text_color="#ff5555",
-            )
-            return
+        # 1) Probe :5000 — if the user already has /webchat live, use it.
+        import socket
+        url = ""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.25)
+            s.connect(("127.0.0.1", 5000))
+            s.close()
+            url = "http://127.0.0.1:5000/sandbox/"
+        except OSError:
+            pass
 
-        url = srv.start()   # idempotent — only first call binds the port
+        # 2) Fallback to the local sandbox bundle server.
         if not url:
-            self._placeholder.configure(
-                text="❌  No pude arrancar el server local del sandbox.",
-                text_color="#ff5555",
-            )
-            return
+            srv = self._sandbox_server
+            if srv is None or not srv.available:
+                self._placeholder.configure(
+                    text=(
+                        "❌  No encontré el bundle del sandbox en disco "
+                        "y :5000 no responde.\n\n"
+                        "Arranca /webchat o reinstala Dulus."
+                    ),
+                    text_color="#ff5555",
+                )
+                return
+            url = srv.start()
+            if not url:
+                self._placeholder.configure(
+                    text="❌  No pude arrancar el server local del sandbox.",
+                    text_color="#ff5555",
+                )
+                return
 
         self._push_history(url)
-        # Delegate to the unified embedded-render path. _load_url tries
-        # pywebview-embed first (Windows) and falls back to default
-        # browser only when the embed isn't possible.
         self._load_url(url)
 
     def apply_theme(self) -> None:
