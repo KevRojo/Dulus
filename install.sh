@@ -585,6 +585,54 @@ if [ "$WANT_WEBBRIDGE" -eq 1 ] && [ "$DRY_RUN" -eq 0 ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 7b. FIX ~/.dulus PERMISSIONS
+#
+# Recurring Linux/WSL footgun: the user runs `sudo ./install.sh` (or pip
+# installs a system dep that touches ~/.dulus), and afterwards ~/.dulus
+# is owned by root. Dulus then crashes on first launch with a Permission
+# denied trying to write soul.md / config.json / sandbox/.
+#
+# Cure: detect the real user (SUDO_USER takes priority over $USER when the
+# script was sudo'd), make sure ~/.dulus exists owned by them, and if
+# anything inside is root-owned, chown it back. chmod is a belt-and-
+# suspenders pass.
+# ═══════════════════════════════════════════════════════════════════════════
+if [ "$DRY_RUN" -eq 0 ]; then
+    REAL_USER="${SUDO_USER:-${USER:-$(id -un 2>/dev/null || echo "")}}"
+    if [ -n "$REAL_USER" ] && [ "$REAL_USER" != "root" ]; then
+        REAL_HOME=$(getent passwd "$REAL_USER" 2>/dev/null | cut -d: -f6 || echo "")
+        [ -z "$REAL_HOME" ] && REAL_HOME="$HOME"
+        REAL_GROUP=$(id -gn "$REAL_USER" 2>/dev/null || echo "$REAL_USER")
+        DULUS_HOME="$REAL_HOME/.dulus"
+
+        # Create as the real user (not root) when running under sudo.
+        if [ ! -d "$DULUS_HOME" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+                sudo -u "$REAL_USER" mkdir -p "$DULUS_HOME" 2>/dev/null || mkdir -p "$DULUS_HOME"
+            else
+                mkdir -p "$DULUS_HOME"
+            fi
+        fi
+
+        # Reclaim any root-owned content (sudo accident).
+        if [ -d "$DULUS_HOME" ]; then
+            ROOT_OWNED=$(find "$DULUS_HOME" -uid 0 -print -quit 2>/dev/null || true)
+            if [ -n "$ROOT_OWNED" ]; then
+                say "Fixing root-owned files under $DULUS_HOME → $REAL_USER:$REAL_GROUP"
+                if [ "$(id -u)" -eq 0 ]; then
+                    chown -R "$REAL_USER:$REAL_GROUP" "$DULUS_HOME" 2>/dev/null || true
+                elif command -v sudo >/dev/null 2>&1; then
+                    sudo -n chown -R "$REAL_USER:$REAL_GROUP" "$DULUS_HOME" 2>/dev/null || \
+                        warn "Could not reclaim $DULUS_HOME — run: sudo chown -R $REAL_USER:$REAL_GROUP $DULUS_HOME"
+                fi
+            fi
+            chmod -R u+rwX,go+rX "$DULUS_HOME" 2>/dev/null || true
+            ok "Permissions OK on $DULUS_HOME"
+        fi
+    fi
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 8. VERIFY
 # ═══════════════════════════════════════════════════════════════════════════
 header "6. Verifying"
