@@ -825,6 +825,11 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     # re-bind them here or they'll override the well-tested defaults.
 
     # Build layout: output on top, separator, recent-strip + input at bottom
+    import re as _re_toolbar
+    import shutil as _shutil_toolbar
+    import sys as _sys_toolbar
+    _ANSI_RE = _re_toolbar.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
     def _get_toolbar_text():
         # Get base text from provider
         base_text = ""
@@ -834,13 +839,54 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
                 base_text = str(provider())
             except Exception:
                 pass
-        
+
         # Combine with background status (e.g. wake energy bar)
         global _toolbar_status
         status = _toolbar_status or ""
-        
-        # Format: [Base]  [Status]
-        combined = f" {base_text}   {status}".strip()
+
+        # Strip newlines defensively — anything multi-line in the toolbar
+        # would push the layout's other regions and look broken.
+        base_text = base_text.replace("\n", " ").replace("\r", " ")
+        status = status.replace("\n", " ").replace("\r", " ")
+
+        combined = f" {base_text}   {status}".strip() if status else base_text.strip()
+
+        # Truncate by visible-cell width so the toolbar never wraps onto a
+        # second row. On Windows Terminal, emojis (🧠 📁 📊 🔒 🎙️) and
+        # the energy-bar glyphs (▁▂▃▄▅▆▇█) render as 2 cells while
+        # prompt_toolkit's Window/cwidth math treats them as 1 — the gap
+        # was leaking the right tail of the status onto a second line
+        # ("Waking up..." on row 1, "Listening..." on row 2). Strip ANSI
+        # for the char count, then keep a generous safety margin on
+        # Windows because there's no portable way to ask the OS how wide
+        # an emoji actually rendered.
+        try:
+            cols = _shutil_toolbar.get_terminal_size((120, 24)).columns
+        except Exception:
+            cols = 120
+        margin = 12 if _sys_toolbar.platform == "win32" else 2
+        budget = max(20, cols - margin)
+        visible = _ANSI_RE.sub("", combined)
+        if len(visible) > budget:
+            # Trim from the END (preserves the model/cwd info on the left;
+            # the energy-bar tail is the dispensable part).
+            keep = budget - 1
+            out, taken = [], 0
+            i = 0
+            while i < len(combined) and taken < keep:
+                ch = combined[i]
+                if ch == "\x1b":
+                    m = _ANSI_RE.match(combined, i)
+                    if m:
+                        out.append(m.group(0))
+                        i = m.end()
+                        continue
+                out.append(ch)
+                taken += 1
+                i += 1
+            out.append("…")
+            combined = "".join(out)
+
         return ANSI(combined) if combined else ""
 
     toolbar_window = ConditionalContainer(
