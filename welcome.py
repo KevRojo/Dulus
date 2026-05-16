@@ -168,5 +168,10 @@ def run_welcome_wizard(config: dict) -> dict:
     except Exception as e:
         print(f"  ! soul seeding fallo: {e}")
 
-    print("\nListo. Escribi algo o proba /help pa' ver comandos.\n")
+    # Signal the REPL to run /doctor on the next boot so the user immediately
+    # sees a health snapshot — what providers got keys, what voice/TTS bits
+    # are live, which optional deps are missing, etc. Cleared after the run.
+    config["_show_doctor_on_next_start"] = True
+
+    print("\nListo. Voy a correr /doctor pa' que veas como quedo todo.\n")
     return config
