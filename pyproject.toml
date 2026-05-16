@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dulus"
 version = "0.2.92"
-description = "Spanish-first multi-provider AI CLI — 14 NVIDIA models free, Mesa Redonda, voice, TTS, RTK token reducer, MemPalace"
+description = "Multilingual Python autonomous AI agent — 100+ providers via LiteLLM, /lang switches any voice (zh/ja/pt-br/ar/hi or free-form), Mesa Redonda, voice, TTS, OCR, MemPalace, embedded sandbox OS"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "GPL-3.0"}
