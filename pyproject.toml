@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "0.2.92"
-description = "Use frontier IA as an agent — no API key, no subscription, $0. Python autonomous agent that harvests Gemini / Claude.ai / Kimi / Qwen / DeepSeek browser sessions. Plus LiteLLM (100+ providers), /lang (any language), Mesa Redonda, voice, OCR, MemPalace, embedded sandbox OS."
+version = "0.2.93"
+description = "Use IA as an agent without an API key. $0. Harvest your browser session for Gemini (guest, no login), Claude.ai, Claude Code, Kimi.com, Qwen, DeepSeek — drive them like an API, no per-token billing. Plus LiteLLM (100+ paid providers), local models via Ollama, /lang in 34 languages, Mesa Redonda, voice, OCR, MemPalace, embedded sandbox OS."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "GPL-3.0"}
