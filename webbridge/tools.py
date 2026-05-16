@@ -157,15 +157,16 @@ _TOOL_SCHEMAS = [
         "name": "WebBridgeScreenshot",
         "description": (
             "Take a screenshot of the current page. Always saves to disk and "
-            "returns the path. If `path` is omitted, auto-saves to "
-            "`~/.dulus/outputs/screenshots/screenshot-<timestamp>.png` so the "
-            "user has a predictable place to find them.\n\n"
-            "⚠️ DO NOT try to Read the returned .png file as text — it's "
-            "binary PNG data and you'll dump several KB of garbage characters. "
-            "If you need the textual content of the page, use "
-            "ExtractTextFromImage on the saved path (local OCR, no vision "
-            "tokens) or call WebBridgeExtract mode='text' on the live page "
-            "instead."
+            "returns BOTH the saved path AND the OCR-extracted text from the "
+            "image in one shot — no second tool call needed.\n\n"
+            "Response shape:\n"
+            "  { \"ok\": true, \"saved_to\": \"<absolute path>\", \"text\": \"<page text>\" }\n\n"
+            "If `path` is omitted, the screenshot lands at "
+            "`~/.dulus/outputs/screenshots/screenshot-<timestamp>.png`.\n\n"
+            "The `text` field is populated by local OCR (pytesseract → "
+            "easyocr fallback, no vision tokens). If no OCR engine is "
+            "available on the host, `text` comes back empty and the user "
+            "can install one via `pip install dulus[ocr]`."
         ),
         "input_schema": {
             "type": "object",
@@ -320,11 +321,10 @@ def _webbridge_screenshot(params: dict, config: dict) -> str:
 
     # Auto-save default: ~/.dulus/outputs/screenshots/screenshot-<ts>.png
     # Two wins from forcing this: (a) the user always knows where the
-    # captures land instead of digging in /tmp; (b) the tool never has
-    # to return base64, which we used to truncate-and-pray — most models
-    # would then try to Read the .png as text and dump KBs of garbage
-    # control chars. Now we hand back a stable path and tell them to
-    # OCR it if they actually need the content.
+    # captures land instead of digging in /tmp; (b) we can run local OCR
+    # on the saved file and include the extracted text inline in the
+    # response — the model gets PNG-path + readable text in a single
+    # tool call instead of having to chain Screenshot → OCR.
     if not path:
         from pathlib import Path as _P
         import time as _t
@@ -334,10 +334,33 @@ def _webbridge_screenshot(params: dict, config: dict) -> str:
 
     result = _bridge.screenshot_sync(path=path, tab_id=tab_id)
     if path:
+        # Auto-OCR: bundle the textual content so the model doesn't have
+        # to make a second tool call (and doesn't get tempted to Read the
+        # raw PNG bytes). If OCR engines aren't installed we still return
+        # the saved_to path — the model just doesn't get text this turn.
+        text = ""
+        try:
+            from tools import _ocr_extract  # type: ignore
+            raw = _ocr_extract(path, languages="en,es")
+            # _ocr_extract returns either "[engine: …]\n\n<text>" on
+            # success, or an "Error: …" string when no engine is wired
+            # up. Strip the engine prefix line so the model gets clean
+            # text, and treat any "Error:" prefix as "no text available".
+            if raw and not raw.startswith("Error:"):
+                # Drop the leading "[engine: …]\n\n" header if present.
+                if raw.startswith("[engine:"):
+                    nl = raw.find("\n\n")
+                    text = raw[nl + 2:] if nl != -1 else raw
+                else:
+                    text = raw
+                text = text.strip()
+        except Exception:
+            text = ""
+
         return json.dumps({
             "ok": True,
             "saved_to": path,
-            "hint": "To get the textual content of the page, run ExtractTextFromImage on this path (local OCR, no vision tokens) OR re-run WebBridgeExtract mode='text' on the live tab. Do NOT Read the PNG file directly.",
+            "text": text,
         }, ensure_ascii=False)
     # Return base64 but truncate the data to avoid token bloat
     b64 = result.get("base64", "") if isinstance(result, dict) else ""
