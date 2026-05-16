@@ -217,6 +217,43 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "ExtractTextFromImage",
+        "description": (
+            "Extract text from an image LOCALLY via OCR — no vision model "
+            "tokens, no API calls, offline. Pass an absolute path to a .png "
+            "/ .jpg / .jpeg / .webp / .bmp / .tiff file (e.g. a screenshot "
+            "saved by WebBridgeScreenshot). Returns the extracted text.\n\n"
+            "✅ USE THIS for: screenshots of webpages, receipts, error stacks, "
+            "code in screenshots, tables, dense text inside images, anything "
+            "where the meaning lives in WRITTEN TEXT inside the picture.\n\n"
+            "⚠️ DO NOT use the Read tool on a .png / image file directly — "
+            "Read will dump several KB of binary garbage characters and burn "
+            "the user's context window. Image bytes are not text; OCR them "
+            "first.\n\n"
+            "⚠️ NOT for: charts, diagrams, faces, scenes, anything where the "
+            "meaning is VISUAL. For those, ask the user to /img the file or "
+            "use a vision-capable model.\n\n"
+            "Engines (auto-fallback): pytesseract (fast, accurate, needs "
+            "Tesseract binary) → easyocr (pure-Python, heavier, only if user "
+            "installed it). If neither is available the tool returns a "
+            "friendly install hint instead of erroring."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "image_path": {
+                    "type": "string",
+                    "description": "Absolute path to the image file on disk.",
+                },
+                "languages": {
+                    "type": "string",
+                    "description": "Optional ISO-639 codes for OCR languages, comma-separated (e.g. 'en' or 'en,es'). Default: 'en,es'.",
+                },
+            },
+            "required": ["image_path"],
+        },
+    },
+    {
         "name": "SearchLastOutput",
         "description": (
             "Search or summarize the tool outputs accumulated during this turn. "
@@ -577,6 +614,88 @@ def _line_count(file_path: str) -> str:
         return f"File: {file_path}\nTotal lines: {count}"
     except Exception as e:
         return f"Error: {e}"
+
+
+def _ocr_extract(image_path: str, languages: str = "en,es") -> str:
+    """Local OCR backend for the ExtractTextFromImage tool.
+
+    Mirrors the engine-order logic of cmd_ocr in dulus.py: try pytesseract
+    first (fast, accurate, needs Tesseract binary), fall back to easyocr
+    (pure-Python, heavier, only if user installed it). Returns the
+    extracted text as a plain string, or a friendly install hint when
+    neither engine is available — never raises so the model gets a
+    useful tool response instead of a tool-error stack.
+    """
+    import os as _os, sys as _sys
+    p = Path(image_path)
+    if not p.exists():
+        return f"Error: file not found: {image_path}"
+    if not p.is_file():
+        return f"Error: not a file: {image_path}"
+
+    # ── Engine 1: pytesseract ────────────────────────────────────────
+    try:
+        import pytesseract  # type: ignore
+        from PIL import Image
+        if _sys.platform == "win32":
+            for tp in (
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ):
+                if _os.path.exists(tp):
+                    pytesseract.pytesseract.tesseract_cmd = tp  # type: ignore[attr-defined]
+                    break
+        try:
+            # pytesseract takes a single lang= string like "eng+spa". Map
+            # ISO-639 (en, es) → pytesseract codes (eng, spa).
+            iso_to_tess = {
+                "en": "eng", "es": "spa", "fr": "fra", "de": "deu",
+                "it": "ita", "pt": "por", "ja": "jpn", "ko": "kor",
+                "zh": "chi_sim", "ru": "rus", "ar": "ara",
+            }
+            lang_codes = [iso_to_tess.get(l.strip(), l.strip())
+                          for l in (languages or "en").split(",") if l.strip()]
+            lang_arg = "+".join(lang_codes) or "eng"
+            text = pytesseract.image_to_string(Image.open(image_path), lang=lang_arg).rstrip()
+            if text:
+                return f"[engine: tesseract, languages: {lang_arg}]\n\n{text}"
+        except pytesseract.TesseractNotFoundError:  # type: ignore[attr-defined]
+            pass
+        except Exception as e:
+            # tesseract data file missing for the requested language is the
+            # common subcase here; retry with English only before giving up.
+            try:
+                text = pytesseract.image_to_string(Image.open(image_path)).rstrip()
+                if text:
+                    return f"[engine: tesseract, languages: eng (fallback after: {e})]\n\n{text}"
+            except Exception:
+                pass
+    except ImportError:
+        pass
+
+    # ── Engine 2: easyocr fallback ───────────────────────────────────
+    try:
+        import easyocr  # type: ignore
+        langs = [l.strip() for l in (languages or "en").split(",") if l.strip()] or ["en"]
+        reader = easyocr.Reader(langs, gpu=False, verbose=False)
+        chunks = reader.readtext(image_path, detail=0)
+        text = "\n".join(chunks).rstrip()
+        if text:
+            return f"[engine: easyocr, languages: {','.join(langs)}]\n\n{text}"
+        return f"[engine: easyocr] ran but extracted no text — image may be too small/blurry or have no readable text."
+    except ImportError:
+        pass
+
+    # ── No engine available ──────────────────────────────────────────
+    return (
+        "Error: no OCR engine available. Install one:\n"
+        "  pip install dulus[ocr]            (uses pytesseract — needs Tesseract binary)\n"
+        "  Windows: winget install -e --id UB-Mannheim.TesseractOCR\n"
+        "  Linux:   sudo apt-get install -y tesseract-ocr\n"
+        "  macOS:   brew install tesseract\n"
+        "Or as a pure-Python fallback (~1 GB):\n"
+        "  pip install easyocr"
+    )
 
 
 def _print_last_output() -> str:
@@ -2177,6 +2296,13 @@ def _register_builtins() -> None:
             name="LineCount",
             schema=_schemas["LineCount"],
             func=lambda p, c: _line_count(p["file_path"]),
+            read_only=True,
+            concurrent_safe=True,
+        ),
+        ToolDef(
+            name="ExtractTextFromImage",
+            schema=_schemas["ExtractTextFromImage"],
+            func=lambda p, c: _ocr_extract(p["image_path"], p.get("languages", "en,es")),
             read_only=True,
             concurrent_safe=True,
         ),
