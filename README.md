@@ -46,6 +46,20 @@ SET /sticky_input ON since the first run for the best experience!
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
+## 🔥 What's new
+
+> Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
+
+- **v0.2.92** — **`/lang` command.** 34 ISO codes + free-form descriptors. `/lang zh`, `/lang ja`, `/lang pt-br`, `/lang "speak as my gym tutor"`, `/lang "tigre de calle dominicano"`, `/lang "Yoda"`. The model role-plays the voice across the whole session. Triggered after Doubao (China's biggest IA assistant) started referring traffic to the repo.
+- **v0.2.91** — **CORS on the daemon.** The Android Sandbox APK now connects every app live — same daemon, finally cross-origin reachable.
+- **v0.2.89** — **Sandbox embedded INSIDE the desktop GUI.** Click `🦅 Sandbox` in the GUI Web tab → the Dulus OS renders inside the content frame via pywebview subprocess + Win32 `SetParent` reparent. Not a popup. Inside the frame.
+- **v0.2.89** — **Local OCR shipped first-class.** `/ocr` + `ExtractTextFromImage` tool, `WebBridgeScreenshot` auto-OCRs, `/img` sends image + verbatim OCR text together. Zero vision-model tokens for receipts / code screenshots / error stacks.
+- **v0.2.89** — **`kepano/obsidian-skills` bundled.** Dulus writes Obsidian-flavored markdown by default. Open `~/.dulus/memory/` as an Obsidian vault → instant graph view.
+- **v0.2.88** — **LiteLLM gateway: one provider entry, 100+ backends.** OpenRouter, Groq, Together, Bedrock, Vertex, Cohere, Perplexity, xAI, Mistral, Fireworks, Anyscale, Replicate, Azure, DeepInfra — the welcome wizard auto-installs the package and asks for the right per-backend key.
+- **v0.2.85** — **Slim wheel 11.4 MB → 2.5 MB.** Smaller than the original baseline.
+
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
+
 ## What is this
 Talent cant be copied.
 
