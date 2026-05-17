@@ -41,6 +41,11 @@ SET /sticky_input ON since the first run for the best experience!
 >
 > **$DULUS token (community-launched, Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://pump.fun/coin/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump) — I didn't create it, the community did. I'm part of the journey, won't sell, will keep building. This open-source project stays free forever — business version incoming. 🦅🇩🇴
 
+-----
+
+$Dulus Ai CA > 9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
+
+-----
 <p align="center">
   <code>pip install dulus</code>
 </p>
