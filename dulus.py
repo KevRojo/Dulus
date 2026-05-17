@@ -561,6 +561,7 @@ _tool_spinner_stop = threading.Event()
 
 _telegram_thread: threading.Thread | None = None
 _telegram_stop: threading.Event | None = None
+_telegram_dashboard_bridge = None  # TelegramDashboardBridge instance when dashboard mode is active
 
 _spinner_phrase = ""
 _spinner_lock = threading.Lock()
@@ -6185,6 +6186,7 @@ def _run_daemon(config: dict) -> None:
     No REPL, no GUI. Just a persistent state + callback loop so external
     triggers (Telegram) can wake the agent at any time.
     """
+    global _telegram_dashboard_bridge
     from agent import AgentState, run as agent_run
     from checkpoint import set_session
     from common import ok, info, warn, err, clr
@@ -6385,16 +6387,75 @@ def _run_daemon(config: dict) -> None:
     token = config.get("telegram_token", "")
     chat_ids = _tg_get_chat_ids(config)
     if token and chat_ids:
-        global _telegram_stop, _telegram_thread
-        _telegram_stop = threading.Event()
-        _telegram_thread = threading.Thread(
-            target=_tg_poll_loop, args=(token, chat_ids, config), daemon=True
-        )
-        _telegram_thread.start()
-        ok(f"Telegram bridge started  →  chats: {', '.join(str(c) for c in chat_ids)}")
+        global _telegram_stop, _telegram_thread, _telegram_dashboard_bridge
+
+        # Dashboard mode: multi-user with approval queue
+        if config.get("telegram_dashboard"):
+            try:
+                from telegram_dashboard import start_dashboard_bridge
+                admin_id = chat_ids[0]
+
+                def _dashboard_run_query(text: str, chat_id: int, on_complete):
+                    cb = config.get("_run_query_callback")
+                    if cb:
+                        config["_telegram_incoming"] = True
+                        config["_active_tg_chat_id"] = chat_id
+                        try:
+                            cb(text)
+                        except Exception as e:
+                            on_complete(f"⚠️ Error: {e}")
+                            return
+                        # Extract last assistant response from state
+                        st = config.get("_state")
+                        if st and st.messages:
+                            for m in reversed(st.messages):
+                                if m.get("role") == "assistant":
+                                    content = m.get("content", "")
+                                    if isinstance(content, list):
+                                        parts = []
+                                        for block in content:
+                                            if isinstance(block, dict) and block.get("type") == "text":
+                                                parts.append(block["text"])
+                                            elif isinstance(block, str):
+                                                parts.append(block)
+                                        content = "\n".join(parts)
+                                    on_complete(content or "⚠️ No content in response.")
+                                    return
+                        on_complete("⚠️ No response from Dulus.")
+                    else:
+                        on_complete("⚠️ Dulus daemon callback not ready yet.")
+
+                _telegram_dashboard_bridge = start_dashboard_bridge(
+                    token=token,
+                    admin_chat_id=admin_id,
+                    config=config,
+                    dashboard_host=config.get("telegram_dashboard_host", "127.0.0.1"),
+                    dashboard_port=config.get("telegram_dashboard_port", 9876),
+                    run_query_callback=_dashboard_run_query,
+                )
+                ok(f"Telegram dashboard started  →  admin: {admin_id}  →  panel: {_telegram_dashboard_bridge.dashboard_url}")
+                info("New users will be held for approval.")
+            except Exception as e:
+                err(f"Telegram dashboard failed to start: {e}")
+                warn("Falling back to legacy bridge...")
+                config["telegram_dashboard"] = False
+                _telegram_stop = threading.Event()
+                _telegram_thread = threading.Thread(
+                    target=_tg_poll_loop, args=(token, chat_ids, config), daemon=True
+                )
+                _telegram_thread.start()
+                ok(f"Telegram bridge (legacy) started  →  chats: {', '.join(str(c) for c in chat_ids)}")
+        else:
+            _telegram_stop = threading.Event()
+            _telegram_thread = threading.Thread(
+                target=_tg_poll_loop, args=(token, chat_ids, config), daemon=True
+            )
+            _telegram_thread.start()
+            ok(f"Telegram bridge started  →  chats: {', '.join(str(c) for c in chat_ids)}")
     else:
         warn("No Telegram config found. Bridge not started.")
         info("Set it later with: /telegram <token> <chat_id>[,<chat_id>...]")
+        info("Or use: /telegram dashboard <token> <admin_chat_id>  for multi-user mode.")
 
     info("Press Ctrl+C to stop.\n")
 
@@ -6417,6 +6478,14 @@ def _run_daemon(config: dict) -> None:
     except KeyboardInterrupt:
         print()
         info("Daemon shutting down…")
+        global _telegram_dashboard_bridge
+        if _telegram_dashboard_bridge is not None:
+            try:
+                _telegram_dashboard_bridge.stop()
+                info("Telegram dashboard stopped.")
+            except Exception:
+                pass
+            _telegram_dashboard_bridge = None
         if _telegram_stop is not None:
             _telegram_stop.set()
         if _telegram_thread and _telegram_thread.is_alive():
@@ -6428,9 +6497,14 @@ def _run_daemon(config: dict) -> None:
 def cmd_telegram(args: str, _state, config) -> bool:
     """Telegram bot bridge — receive and respond to messages via Telegram.
 
-    Usage: /telegram <bot_token> <chat_id>   — start the bridge
-           /telegram stop                    — stop the bridge
-           /telegram status                  — show current status
+    Usage: /telegram <bot_token> <chat_id>              — start legacy bridge
+           /telegram dashboard <token> <admin_chat_id>  — start multi-user dashboard
+           /telegram stop                               — stop bridge/dashboard
+           /telegram status                             — show current status
+
+    Dashboard mode: new users are held for approval. Admin gets notified and
+    can approve/reject via Telegram commands (/pending /approve /reject) or
+    the web panel at http://127.0.0.1:9876.
 
     First time: create a bot via @BotFather, then send any message to your bot
     and check https://api.telegram.org/bot<TOKEN>/getUpdates to find your chat_id.
@@ -6443,40 +6517,73 @@ def cmd_telegram(args: str, _state, config) -> bool:
 
     # /telegram stop
     if parts and parts[0].lower() in ("stop", "off"):
+        global _telegram_dashboard_bridge
+        stopped = False
+        if _telegram_dashboard_bridge is not None:
+            try:
+                _telegram_dashboard_bridge.stop()
+                info("Telegram dashboard stopped.")
+            except Exception:
+                pass
+            _telegram_dashboard_bridge = None
+            stopped = True
         if _telegram_thread and _telegram_thread.is_alive():
             _telegram_stop.set()
             _telegram_thread.join(timeout=5)
             _telegram_thread = None
+            stopped = True
             ok("Telegram bridge stopped.")
-        else:
+        if not stopped:
             warn("Telegram bridge is not running.")
         return True
 
     # /telegram status
     if parts and parts[0].lower() == "status":
-        running = _telegram_thread and _telegram_thread.is_alive()
+        global _telegram_dashboard_bridge
+        running_legacy = _telegram_thread and _telegram_thread.is_alive()
+        running_dashboard = _telegram_dashboard_bridge is not None
         token = config.get("telegram_token", "")
         chat_ids = _tg_get_chat_ids(config)
         ids_str = ",".join(str(c) for c in chat_ids) if chat_ids else "(none)"
-        if running:
-            ok(f"Telegram bridge is running. Chat IDs: {ids_str}")
+        if running_dashboard:
+            url = _telegram_dashboard_bridge.dashboard_url if _telegram_dashboard_bridge else ""
+            ok(f"Telegram dashboard is running. Admin: {chat_ids[0] if chat_ids else 'none'}  →  {url}")
+        elif running_legacy:
+            ok(f"Telegram bridge (legacy) is running. Chat IDs: {ids_str}")
         elif token:
-            info(f"Configured but not running. Use /telegram to start.")
+            info(f"Configured but not running. Use /telegram or /telegram dashboard to start.")
         else:
             info("Not configured. Use /telegram <bot_token> <chat_id>[,<chat_id>...]")
         return True
 
-    # /telegram <token> <chat_id>[,<chat_id>...] — configure and start
-    if len(parts) >= 2:
+    # /telegram dashboard <token> <admin_chat_id> — multi-user approval mode
+    if parts and parts[0].lower() == "dashboard" and len(parts) >= 3:
+        token = parts[1]
+        admin_id = parts[2]
+        chat_ids = _parse_chat_ids(admin_id)
+        if not chat_ids:
+            err("Admin chat ID must be a number.")
+            return True
+        config["telegram_token"] = token
+        config["telegram_chat_ids"] = ",".join(str(c) for c in chat_ids)
+        config["telegram_dashboard"] = True
+        config.pop("telegram_chat_id", None)
+        save_config(config)
+        ok(f"Dashboard config saved. Admin: {chat_ids[0]}")
+        # Fall through to start below
+        token = config.get("telegram_token", "")
+        chat_ids = _tg_get_chat_ids(config)
+    elif len(parts) >= 2:
+        # /telegram <token> <chat_id>[,<chat_id>...] — legacy mode
         token = parts[0]
-        chat_ids = _parse_chat_ids(parts[1])
+        chat_ids_str = ",".join(parts[1:])
+        chat_ids = _parse_chat_ids(chat_ids_str)
         if not chat_ids:
             err("Chat ID must be a number (or comma-separated list, e.g. 12345,67890).")
             return True
         config["telegram_token"] = token
-        # Persist as comma-separated string in the new key; clear the legacy
-        # single-id key so the file stays clean.
         config["telegram_chat_ids"] = ",".join(str(c) for c in chat_ids)
+        config["telegram_dashboard"] = False
         config.pop("telegram_chat_id", None)
         save_config(config)
         ok(f"Telegram config saved. Authorized chats: {', '.join(str(c) for c in chat_ids)}")
@@ -6486,10 +6593,13 @@ def cmd_telegram(args: str, _state, config) -> bool:
         chat_ids = _tg_get_chat_ids(config)
 
     if not token or not chat_ids:
-        err("No config found. Usage: /telegram <bot_token> <chat_id>[,<chat_id>...]")
+        err("No config found. Usage: /telegram <bot_token> <chat_id>  or  /telegram dashboard <token> <admin_chat_id>")
         return True
 
     # Already running?
+    if _telegram_dashboard_bridge is not None:
+        warn("Telegram dashboard is already running. Use /telegram stop first.")
+        return True
     if _telegram_thread and _telegram_thread.is_alive():
         warn("Telegram bridge is already running. Use /telegram stop first.")
         return True
@@ -6506,14 +6616,65 @@ def cmd_telegram(args: str, _state, config) -> bool:
     # Store state reference so the poll loop can read responses
     config["_state"] = _state
 
-    _telegram_stop = threading.Event()
-    _telegram_thread = threading.Thread(
-        target=_tg_poll_loop, args=(token, chat_ids, config), daemon=True
-    )
-    _telegram_thread.start()
-    ok(f"Telegram bridge active. Chat IDs: {', '.join(str(c) for c in chat_ids)}")
-    info("Send messages to your bot — they'll be processed here.")
-    info("Stop with /telegram stop or send /stop in Telegram.")
+    is_dashboard = config.get("telegram_dashboard", False)
+
+    if is_dashboard:
+        global _telegram_dashboard_bridge
+        try:
+            from telegram_dashboard import start_dashboard_bridge
+            admin_id = chat_ids[0]
+
+            def _dashboard_run_query(text: str, chat_id: int, on_complete):
+                cb = config.get("_run_query_callback")
+                if cb:
+                    config["_telegram_incoming"] = True
+                    config["_active_tg_chat_id"] = chat_id
+                    try:
+                        cb(text)
+                    except Exception as e:
+                        on_complete(f"⚠️ Error: {e}")
+                        return
+                    st = config.get("_state")
+                    if st and st.messages:
+                        for m in reversed(st.messages):
+                            if m.get("role") == "assistant":
+                                content = m.get("content", "")
+                                if isinstance(content, list):
+                                    parts = []
+                                    for block in content:
+                                        if isinstance(block, dict) and block.get("type") == "text":
+                                            parts.append(block["text"])
+                                        elif isinstance(block, str):
+                                            parts.append(block)
+                                    content = "\n".join(parts)
+                                on_complete(content or "⚠️ No content in response.")
+                                return
+                    on_complete("⚠️ No response from Dulus.")
+                else:
+                    on_complete("⚠️ Dulus callback not ready.")
+
+            _telegram_dashboard_bridge = start_dashboard_bridge(
+                token=token,
+                admin_chat_id=admin_id,
+                config=config,
+                dashboard_host=config.get("telegram_dashboard_host", "127.0.0.1"),
+                dashboard_port=config.get("telegram_dashboard_port", 9876),
+                run_query_callback=_dashboard_run_query,
+            )
+            ok(f"Telegram dashboard active. Admin: {admin_id}  →  {_telegram_dashboard_bridge.dashboard_url}")
+            info("New users will be held for approval. Use /pending, /approve, /reject in Telegram.")
+        except Exception as e:
+            err(f"Dashboard failed: {e}")
+            return True
+    else:
+        _telegram_stop = threading.Event()
+        _telegram_thread = threading.Thread(
+            target=_tg_poll_loop, args=(token, chat_ids, config), daemon=True
+        )
+        _telegram_thread.start()
+        ok(f"Telegram bridge active. Chat IDs: {', '.join(str(c) for c in chat_ids)}")
+        info("Send messages to your bot — they'll be processed here.")
+        info("Stop with /telegram stop or send /stop in Telegram.")
     return True
 
 
