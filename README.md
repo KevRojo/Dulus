@@ -45,6 +45,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 $Dulus Ai CA > 9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
 
+My Sol Wallet ;) > FVpmthNx2NwCrzSoWU3Z2po5CAxgV5FYoqH757BMzbqb
 -----
 <p align="center">
   <code>pip install dulus</code>
