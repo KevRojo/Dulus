@@ -53,6 +53,47 @@ I didn't want that. The people who bet on Dulus early deserved a token backed by
 
 I'm top holder. I bought my position with my own funds. I'm not selling.
 
+### $DULUS — Token Utility Roadmap
+
+The token isn't decoration. It's the fuel layer for everything Dulus is building.
+
+| Phase | Utility |
+|---|---|
+| **Now** | Community ownership. Creator-fee rewards locked on-chain to the builder. Alignment over extraction. |
+| **Business v1** | $DULUS holders get early access + discounted seats on the Dulus Business tier (multi-user workspaces, cloud-hosted instances, shared MemPalace). |
+| **Credits** | Pay for Dulus Business API credits with $DULUS — provider costs, inference minutes, premium model usage. |
+| **Deployments** | Spin up a cloud Dulus instance and pay the hosting with $DULUS. No fiat friction, no middleman. |
+| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS. Hold enough → fee discount tier. |
+| **Governance** | Top holders vote on feature priority and plugin marketplace policies. The flock decides. |
+
+> The open-source REPL stays free forever. $DULUS is the key to the business layer — not a gate on what already exists.
+
+---
+
+**A message to the community —**
+
+I want to talk about the token. Honestly. No hype.
+
+I didn't launch it to get rich. The community launched it first, and when I saw early believers exposed without the actual builder behind it, I stepped in. I bought my position using the contract's own creator rewards. Zero personal capital deployed. I haven't sold a single token.
+
+But there's something bigger I want you to understand:
+
+**$DULUS has a real purpose.**
+
+The open-source project isn't going anywhere. The REPL, the tools, the free model tier — that stays free forever. But Dulus is growing into a business layer: cloud-hosted instances, multi-user workspaces, model credits, managed deployments.
+
+And that business layer is going to run on $DULUS.
+
+The token will be how you pay for Pro subscriptions. How you buy inference credits. How you spin up a cloud instance without fiat friction. Holders with enough weight get automatic tier discounts. And eventually — the flock votes: top holders decide feature priority and plugin marketplace policies.
+
+This isn't a promise. It's the architecture. That's how I've designed it.
+
+So when someone asks "what's the token for" — the answer is: it's the fuel for Dulus's business layer. The more I build, the more it makes sense to hold.
+
+We keep flying. 🦅🇩🇴
+
+— KevRojo / [@KevRojox](https://x.com/KevRojox)
+
 -----
 
 $Dulus Ai CA > 9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
