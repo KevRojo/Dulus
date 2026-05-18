@@ -3386,6 +3386,28 @@ def stream_litellm(
     yield AssistantTurn(text, tool_calls, in_tok, out_tok, thinking=thinking)
 
 
+def _get_nvidia_fallback_chain(config: dict) -> list[str]:
+    chain = config.get("nvidia_fallback_chain")
+    if chain:
+        return chain
+    import json as _json, os as _os
+    p = _os.path.join(_os.path.expanduser("~"), ".dulus", "nvidia-providers.json")
+    if _os.path.exists(p):
+        try:
+            return _json.loads(open(p, encoding="utf-8").read()).get("fallback_models", [])
+        except Exception:
+            pass
+    return [
+        "deepseek-ai/deepseek-v4-flash",
+        "moonshotai/kimi-k2-instruct",
+        "mistralai/mistral-nemotron",
+        "meta/llama-3.3-70b-instruct",
+        "deepseek-ai/deepseek-r1",
+        "nvidia/llama-3.1-nemotron-70b-instruct",
+        "qwen/qwen2.5-72b-instruct",
+    ]
+
+
 def stream_openai_compat(
     api_key: str,
     base_url: str,
@@ -3476,8 +3498,23 @@ def stream_openai_compat(
         from openai import AuthenticationError, RateLimitError, APIConnectionError, APIStatusError
         stream = client.chat.completions.create(**kwargs)
     except (AuthenticationError, RateLimitError, APIConnectionError, APIStatusError) as e:
+        import sys;
         if _is_nvidia:
-            import sys; print(f"[nvidia-web RAW ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+            print(f"[nvidia-web RAW ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+            if not config.get("_nvidia_fallback_active"):
+                chain = _get_nvidia_fallback_chain(config)
+                bare = model.split("/", 1)[-1] if "/" in model else model
+                try:
+                    idx = chain.index(bare)
+                    remaining = chain[idx + 1:]
+                except ValueError:
+                    remaining = chain
+                for next_model in remaining:
+                    full = f"nvidia-web/{next_model}"
+                    yield TextChunk(f"\n⚡ NVIDIA rate limit — switching to {next_model}...\n")
+                    fallback_config = {**config, "_nvidia_fallback_active": True}
+                    yield from stream_openai_compat(api_key, base_url, full, system, messages, tool_schemas, fallback_config)
+                    return
         msg = friendly_api_error(e)
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)

@@ -427,31 +427,33 @@ dulus --model nvidia-web/deepseek-r1
 
 | Model | Type | ID |
 |---|---|---|
-| **DeepSeek R1** | Reasoning | `nvidia-web/deepseek-r1` |
-| **DeepSeek V3** | Instruct | `nvidia-web/deepseek-v3` |
-| **Kimi K2.5** | Long context | `nvidia-web/kimi-k2.5` |
-| **GLM-4** | Zhipu AI | `nvidia-web/glm-4` |
-| **MiniMax Text-01** | Text + Vision | `nvidia-web/minimax-text-01` |
-| **Mistral Nemotron** | NVIDIA-tuned | `nvidia-web/mistral-nemotron` |
-| **Mistral Large** | Instruct | `nvidia-web/mistral-large` |
-| **Llama 3.3 70B** | Meta | `nvidia-web/llama-3.3-70b` |
-| **Llama 3.1 405B** | Meta · flagship | `nvidia-web/llama-3.1-405b` |
-| **Llama Nemotron** | NVIDIA reasoning | `nvidia-web/llama-nemotron` |
-| **Qwen2.5 Coder** | Alibaba | `nvidia-web/qwen2.5-coder` |
-| **Qwen3 235B A22B** | MoE · Alibaba | `nvidia-web/qwen3-235b-a22b` |
-| **Phi-4** | Microsoft | `nvidia-web/phi-4` |
-| **Gemma 3 27B** | Google | `nvidia-web/gemma-3-27b` |
+| **DeepSeek V4 Flash** | Instruct | `nvidia-web/deepseek-ai/deepseek-v4-flash` |
+| **GLM-4.7** | Zhipu AI | `nvidia-web/z-ai/glm-4.7` |
+| **GLM-5.1** | Zhipu AI | `nvidia-web/z-ai/glm-5.1` |
+| **MiniMax M2.7** | Text + Vision | `nvidia-web/minimaxai/minimax-m2.7` |
+| **Kimi K2 Instruct** | Long context | `nvidia-web/moonshotai/kimi-k2-instruct` |
+| **Mistral Nemotron** | NVIDIA-tuned | `nvidia-web/mistralai/mistral-nemotron` |
+| **Seed OSS 36B** | ByteDance | `nvidia-web/bytedance/seed-oss-36b-instruct` |
+| **Solar 10.7B** | Upstage | `nvidia-web/upstage/solar-10.7b-instruct` |
+| **Step 3.5 Flash** | StepFun | `nvidia-web/stepfun-ai/step-3.5-flash` |
+| **Llama 3.3 70B** | Meta | `nvidia-web/meta/llama-3.3-70b-instruct` |
+| **Kimi K2.5** | Long context | `nvidia-web/moonshotai/kimi-k2.5` |
+| **DeepSeek R1** | Reasoning | `nvidia-web/deepseek-ai/deepseek-r1` |
+| **Llama Nemotron 70B** | NVIDIA reasoning | `nvidia-web/nvidia/llama-3.1-nemotron-70b-instruct` |
+| **Qwen2.5 72B** | Alibaba | `nvidia-web/qwen/qwen2.5-72b-instruct` |
 
-**Automatic fallback.** Configure the chain in `~/.dulus/config.json`:
+**Automatic fallback** — when a model hits its rate limit Dulus switches to the next one automatically. The default chain is built-in; override it in `~/.dulus/nvidia-providers.json`:
 
 ```json
 {
-  "nvidia_fallback_chain": [
-    "deepseek-r1",
-    "kimi-k2.5",
-    "llama-3.3-70b",
-    "mistral-nemotron",
-    "phi-4"
+  "fallback_models": [
+    "deepseek-ai/deepseek-v4-flash",
+    "moonshotai/kimi-k2-instruct",
+    "mistralai/mistral-nemotron",
+    "meta/llama-3.3-70b-instruct",
+    "deepseek-ai/deepseek-r1",
+    "nvidia/llama-3.1-nemotron-70b-instruct",
+    "qwen/qwen2.5-72b-instruct"
   ]
 }
 ```
@@ -812,6 +814,39 @@ git diff | dulus -p "write a commit message"
 
 **Is this safe to point at prod?**
 `--accept-all` isn't. `plan` mode is. Use your head.
+
+---
+
+## $DULUS — Token Utility
+
+The token isn't decoration. It's the fuel layer for everything Dulus is building.
+
+| Phase | Utility |
+|---|---|
+| **Now** | Community ownership. Creator-fee rewards locked on-chain to the builder. Alignment over extraction. |
+| **Business v1** | $DULUS holders get early access + discounted seats on the Dulus Business tier (multi-user workspaces, cloud-hosted instances, shared MemPalace). |
+| **Credits** | Pay for Dulus Business API credits with $DULUS — provider costs, inference minutes, premium model usage. |
+| **Deployments** | Spin up a cloud Dulus instance and pay the hosting with $DULUS. No fiat friction, no middleman. |
+| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS. Hold enough → automatic fee discount tier. |
+| **Governance** | Top holders vote on feature priority and plugin marketplace policies. The flock decides. |
+
+> The open-source REPL stays free forever. $DULUS is the key to the business layer — not a gate on what already exists.
+
+**A message to the community —**
+
+I want to talk about the token. Honestly. No hype.
+
+I didn't launch it to get rich. The community launched it first, and when I saw early believers exposed without the actual builder behind it, I stepped in. I bought my position using the contract's own creator rewards. Zero personal capital deployed. I haven't sold a single token.
+
+The open-source project isn't going anywhere. The REPL, the tools, the free model tier — that stays free forever. But Dulus is growing into a business layer: cloud-hosted instances, multi-user workspaces, model credits, managed deployments. And that business layer is going to run on $DULUS.
+
+The token will be how you pay for Pro subscriptions. How you buy inference credits. How you spin up a cloud instance without fiat friction. Holders with enough weight get automatic tier discounts. And eventually — the flock votes: top holders decide feature priority and plugin marketplace policies.
+
+This isn't a promise. It's the architecture. That's how I've designed it.
+
+We keep flying. 🦅🇩🇴
+
+— KevRojo / [@KevRojox](https://x.com/KevRojox)
 
 ---
 
