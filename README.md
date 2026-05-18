@@ -43,11 +43,40 @@ SET /sticky_input ON since the first run for the best experience!
 > 
 > **$DULUS AI GemPump  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://www.gempump.io/en/token/dulusai) 
 
->  I'm part of the journey,I won't sell,I will keep building. This open-source project stays free forever — business version incoming. 🦅🇩🇴
+> I created this token. I won't sell. I will keep building. This open-source project stays free forever — business version incoming. 🦅🇩🇴
+
+### Why a Solana Token?
+
+Someone from the community launched a $DULUS token before I did. Good intentions — but confidence was shaky and the early believers were at risk of being taken advantage of by people who didn't actually care about the project.
+
+I didn't want that. The people who bet on Dulus early deserved a token backed by the actual builder. So I launched the official one myself — full transparency, public GitHub, my name on it. No anonymous dev. No locked liquidity tricks. Just the project and its creator.
+
+I'm top holder. I bought my position with my own funds. I'm not selling.
 
 -----
 
 $Dulus Ai CA > 9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
+
+-----
+
+## 🦅 The real story behind this
+
+I'm a solo developer from Santo Domingo, Dominican Republic. No team. No funding. No VC backing. No office.
+
+When I started building Dulus I was struggling financially — the kind of struggling where you think twice before buying a coffee. I built this between late nights and real-life pressure, on a single machine, with whatever free compute I could scrape together.
+
+I didn't have the resources to get Dulus to where I'm planning to take it. I still don't — not fully. But I kept shipping anyway. 10+ releases in 10 days. ~19K PyPI downloads. 2,000 GitHub clones in 14 days. A Telegram community that built itself around a token I didn't even create.
+
+The $DULUS token was launched by someone in the community — not me. But the creator fees were locked to my GitHub immutably at launch, on-chain, can never change. Day 1 alone generated enough to cover real expenses I couldn't otherwise afford. **Dulus literally paid for my wisdom tooth extraction.** That's not a joke. That's the level of impact this community had on my actual life in week 1.
+
+I'm not selling. I'm not pivoting. I'm building the business version, the docs site, the CI/CD pipeline — everything it takes to make this the agent framework it deserves to be.
+
+If you're here because of the token: thank you for believing before there was a reason to.
+If you're here because of the code: you found something real. Keep exploring — there's more than the README shows.
+
+> *"Do what is right, not what is easy nor what is popular."* — Roy T. Bennett
+
+That's been on my profile for years. It didn't start with Dulus. It won't end with it either. 🇩🇴
 
 -----
 <p align="center">
