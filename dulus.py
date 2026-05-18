@@ -6386,18 +6386,11 @@ def _run_daemon(config: dict) -> None:
     # Start Telegram bridge if previously configured
     token = config.get("telegram_token", "")
     chat_ids = _tg_get_chat_ids(config)
-    is_group = bool(config.get("telegram_group_bot"))
-    if token and (chat_ids or is_group):
+    if token and chat_ids:
         global _telegram_stop, _telegram_thread, _telegram_dashboard_bridge
 
-        if config.get("telegram_group_bot"):
-            try:
-                import telegram_community as _tc
-                _telegram_dashboard_bridge = _tc.start_group_bot(config, token)
-                ok("Telegram Group Bot started (Rose-style).")
-            except Exception as e:
-                err(f"Telegram group bot failed to start: {e}")
-        elif config.get("telegram_dashboard"):
+        # Dashboard mode: multi-user with approval queue (dev-only)
+        if config.get("telegram_dashboard"):
             try:
                 import telegram_community as _tc
                 _telegram_dashboard_bridge = _tc.start(config, chat_ids, token)
@@ -6464,7 +6457,6 @@ def cmd_telegram(args: str, _state, config) -> bool:
     """Telegram bot bridge — receive and respond to messages via Telegram.
 
     Usage: /telegram <bot_token> <chat_id>   — start bridge
-           /telegram group <bot_token>       — start Rose-style group bot
            /telegram stop                    — stop bridge
            /telegram status                  — show current status
 
@@ -6504,14 +6496,8 @@ def cmd_telegram(args: str, _state, config) -> bool:
         chat_ids = _tg_get_chat_ids(config)
         ids_str = ",".join(str(c) for c in chat_ids) if chat_ids else "(none)"
         if running_dashboard:
-            is_grp = config.get("telegram_group_bot", False)
-            if is_grp:
-                bot_user = getattr(_telegram_dashboard_bridge, "bot_username", "unknown")
-                ok(f"Telegram Group Bot is running as @{bot_user}.")
-                info("Mention the bot in your group or reply to it to talk.")
-            else:
-                url = getattr(_telegram_dashboard_bridge, "dashboard_url", "")
-                ok(f"Telegram dashboard is running. Admin: {chat_ids[0] if chat_ids else 'none'}  →  {url}")
+            url = _telegram_dashboard_bridge.dashboard_url if _telegram_dashboard_bridge else ""
+            ok(f"Telegram dashboard is running. Admin: {chat_ids[0] if chat_ids else 'none'}  →  {url}")
         elif running_legacy:
             ok(f"Telegram bridge (legacy) is running. Chat IDs: {ids_str}")
         elif token:
@@ -6520,47 +6506,8 @@ def cmd_telegram(args: str, _state, config) -> bool:
             info("Not configured. Use /telegram <bot_token> <chat_id>[,<chat_id>...]")
         return True
 
-    # /telegram group <token> [perm 1-4] [hammer 1-4]
-    # perm:   1=Q&A only  2=+skills  3=+websearch  4=+most tools
-    # hammer: 1=ban after 1 warn  2=ban after 2  3=ban after 3  4=warn only (no ban)
-    # Requires telegram_group_bot.py in the same directory (not in public release)
-    if parts and parts[0].lower() == "group":
-        import os as _os
-        _gbf = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "telegram_group_bot.py")
-        if not _os.path.exists(_gbf):
-            err("telegram_group_bot.py not found — group bot feature not available in this install.")
-            info("This is a local-only feature. See the source repo for details.")
-            return True
-        if len(parts) < 2:
-            err("Usage: /telegram group <token> [perm 1-4] [hammer 1-4]")
-            info("  perm   1=Q&A  2=+skills  3=+websearch  4=+tools")
-            info("  hammer 1=strict  2=medium  3=lenient  4=warn-only")
-            return True
-        token = parts[1]
-        level = 1
-        hammer = 2
-        if len(parts) >= 3:
-            try:
-                level = max(1, min(4, int(parts[2])))
-            except ValueError:
-                err("Permission level must be 1-4.")
-                return True
-        if len(parts) >= 4:
-            try:
-                hammer = max(1, min(4, int(parts[3])))
-            except ValueError:
-                err("Hammer tolerance must be 1-4.")
-                return True
-        config["telegram_token"] = token
-        config["telegram_group_bot"] = True
-        config["telegram_group_permission"] = level
-        config["telegram_group_hammer"] = hammer
-        config["telegram_dashboard"] = False
-        save_config(config)
-        hammer_label = {1:"strict (ban@2nd)", 2:"medium (ban@3rd)", 3:"lenient (ban@4th)", 4:"warn-only"}.get(hammer, hammer)
-        ok(f"Group bot config saved. perm={level}/4  hammer={hammer}/4 ({hammer_label})")
-        chat_ids = []
-    elif parts and parts[0].lower() == "dashboard":
+    # /telegram dashboard <token> <admin_chat_id> — dev-only multi-user mode
+    if parts and parts[0].lower() == "dashboard":
         import telegram_community as _tc
         if not _tc.is_dev_mode(config):
             warn("Dashboard mode requires dev_mode.")
@@ -6603,15 +6550,13 @@ def cmd_telegram(args: str, _state, config) -> bool:
         token = config.get("telegram_token", "")
         chat_ids = _tg_get_chat_ids(config)
 
-    is_group = config.get("telegram_group_bot", False)
-    if not token or (not chat_ids and not is_group):
-        err("No config found. Usage: /telegram <bot_token> <chat_id>  or  /telegram group <token>")
+    if not token or not chat_ids:
+        err("No config found. Usage: /telegram <bot_token> <chat_id>")
         return True
 
     # Already running?
     if _telegram_dashboard_bridge is not None:
-        is_grp = config.get("telegram_group_bot", False)
-        warn(f"Telegram {'group bot' if is_grp else 'dashboard'} is already running. Use /telegram stop first.")
+        warn("Telegram dashboard is already running. Use /telegram stop first.")
         return True
     if _telegram_thread and _telegram_thread.is_alive():
         warn("Telegram bridge is already running. Use /telegram stop first.")
@@ -6630,18 +6575,8 @@ def cmd_telegram(args: str, _state, config) -> bool:
     config["_state"] = _state
 
     is_dashboard = config.get("telegram_dashboard", False)
-    is_group = config.get("telegram_group_bot", False)
 
-    if is_group:
-        try:
-            import telegram_community as _tc
-            _telegram_dashboard_bridge = _tc.start_group_bot(config, token)
-            ok(f"Telegram Group Bot active.")
-            info("Add the bot to a Telegram group and mention it (@username) to talk.")
-        except Exception as e:
-            err(f"Group Bot failed: {e}")
-            return True
-    elif is_dashboard:
+    if is_dashboard:
         try:
             import telegram_community as _tc
             _telegram_dashboard_bridge = _tc.start(config, chat_ids, token)
@@ -8982,7 +8917,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "worker":      ("Auto-implement pending tasks",       []),
     "kill_tmux":   ("Kill all tmux/psmux servers",        []),
     "ssj":         ("SSJ Developer Mode — power menu",    []),
-    "telegram":    ("Telegram bot bridge",                ["stop", "status", "dashboard", "group"]),
+    "telegram":    ("Telegram bot bridge",                ["stop", "status", "dashboard"]),
     "checkpoint":  ("List / restore checkpoints",          ["clear"]),
     "rewind":      ("Rewind to checkpoint (alias)",        ["clear"]),
     "plan":        ("Enter/exit plan mode",                ["done", "status"]),
