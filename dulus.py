@@ -1253,7 +1253,7 @@ def cmd_clear(_args: str, state, config) -> bool:
     state.turn_count = 0
     # Wipe paste placeholders so old pasted text doesn't leak into new session
     if _paste_ph is not None:
-        _paste_ph.reset_handler()
+        _paste_ph.clear()
     # Reset git prompt cache so branch info refreshes after clear
     if _git_prompt is not None:
         _git_prompt.reset_git_cache()
