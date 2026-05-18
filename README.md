@@ -116,6 +116,8 @@ $Dulus Ai CA > 9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
+- **Dulus Agent — Telegram communities.** Dulus evolved from a CLI tool into a live AI agent inside Telegram groups. The first fully autonomous AI moderating and conversing in real communities — not a bot, not a filter, a real agent. Groups pay in $DULUS to activate him. We host Dulus for them — that's the business model. The CLI stays free forever. This is the paid layer. 🦅🇩🇴
+
 - **v0.2.93 — IA WITHOUT AN API KEY, FIRST-RUN.** 🦅 The welcome wizard now offers, by default, to open Gemini in a browser and capture its **guest session** — no Google login, no API key, no credit card. From `pip install` to working IA in 30 seconds. Same flow works for Claude.ai / Kimi.com / Qwen / DeepSeek if you have those accounts. This was Dulus's ace under the sleeve. Now it's the front door.
 - **v0.2.92** — **`/lang` command.** 34 ISO codes + free-form descriptors. `/lang zh`, `/lang ja`, `/lang pt-br`, `/lang "speak as my gym tutor"`, `/lang "tigre de calle dominicano"`, `/lang "Yoda"`. The model role-plays the voice across the whole session. Triggered after Doubao (China's biggest IA assistant) started referring traffic to the repo.
 - **v0.2.91** — **CORS on the daemon.** The Android Sandbox APK now connects every app live — same daemon, finally cross-origin reachable.
