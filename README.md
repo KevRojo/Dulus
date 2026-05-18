@@ -49,7 +49,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 Someone from the community launched a $DULUS token before I did. Good intentions — but confidence was shaky and the early believers were at risk of being taken advantage of by people who didn't actually care about the project.
 
-I didn't want that. The people who bet on Dulus early deserved a token backed by the actual builder. So I launched the official one myself — full transparency, public GitHub, my name on it. No anonymous dev. No locked liquidity tricks. Just the project and its creator.
+I didn't want that. The people who bet on Dulus early deserved a token backed by the actual builder. So I launched the official one myself — full transparency, public GitHub, my name on it. No anonymous dev. 30M tokens locked. Just the project and its creator.
 
 I'm top holder. I bought my position with my own funds. I'm not selling.
 
