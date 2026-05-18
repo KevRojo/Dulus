@@ -1,11 +1,13 @@
 ---
 name: obsidian-markdown
-description: Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, and other Obsidian-specific syntax. Use when working with .md files in Obsidian, or when the user mentions wikilinks, callouts, frontmatter, tags, embeds, or Obsidian notes.
+description: Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, and other Obsidian-specific syntax. Use when working with .md files in Obsidian, or when the user mentions wikilinks, callouts, frontmatter, tags, embeds, or Obsidian notes. Also applies to Dulus memory files at ~/.dulus/memory/ — open that folder as an Obsidian vault for instant graph view of your agent's memory.
 ---
 
 # Obsidian Flavored Markdown Skill
 
 Create and edit valid Obsidian Flavored Markdown. Obsidian extends CommonMark and GFM with wikilinks, embeds, callouts, properties, comments, and other syntax. This skill covers only Obsidian-specific extensions -- standard Markdown (headings, bold, italic, lists, quotes, code blocks, tables) is assumed knowledge.
+
+> **Dulus tip:** Your agent memory lives at `~/.dulus/memory/`. Open it as an Obsidian vault — every memory file becomes a node, wikilinks between notes form a graph, and you get a visual map of everything your agent knows. Works out of the box, no extra config.
 
 ## Workflow: Creating an Obsidian Note
 
