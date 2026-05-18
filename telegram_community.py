@@ -42,16 +42,24 @@ def _make_run_query_callback(config: dict) -> Callable[[str, int, Callable[[str]
 
         config["_telegram_incoming"] = True
         config["_active_tg_chat_id"] = chat_id
+
+        # Snapshot message count BEFORE the call so we only read NEW messages
+        st = config.get("_state")
+        msgs_before = len(st.messages) if st and st.messages else 0
+
         try:
             cb(text)
         except Exception as e:
+            config["_telegram_incoming"] = False
             on_complete(f"⚠️ Error: {e}")
             return
+        finally:
+            config["_telegram_incoming"] = False
 
-        # Extract last assistant response from state
-        st = config.get("_state")
+        # Extract the first NEW assistant message added after this call
         if st and st.messages:
-            for m in reversed(st.messages):
+            new_messages = st.messages[msgs_before:]
+            for m in reversed(new_messages):
                 if m.get("role") == "assistant":
                     content = m.get("content", "")
                     if isinstance(content, list):
@@ -95,6 +103,32 @@ def start(config: dict, chat_ids: list[int], token: str) -> Any:
     )
     return bridge
 
+def start_group_bot(config: dict, token: str) -> Any:
+    """Start the Group Community Bot (Rose-style). Returns the bridge instance.
+    Requires telegram_group_bot.py to be present in the same directory.
+    """
+    import importlib.util, os
+    _here = os.path.dirname(os.path.abspath(__file__))
+    if not os.path.exists(os.path.join(_here, "telegram_group_bot.py")):
+        raise RuntimeError(
+            "telegram_group_bot.py not found. "
+            "This feature is not included in the public release."
+        )
+
+    from telegram_group_bot import TelegramGroupBotBridge
+
+    level = config.get("telegram_group_permission", 1)
+    hammer = config.get("telegram_group_hammer", 2)
+    bridge = TelegramGroupBotBridge(
+        token=token,
+        config=config,
+        run_query_callback=_make_run_query_callback(config),
+        permission_level=level,
+        hammer_tolerance=hammer,
+    )
+    bridge.start()
+    return bridge
+
 
 def stop(bridge: Any) -> None:
     """Stop the community dashboard bridge gracefully."""
@@ -112,3 +146,18 @@ def status(bridge: Any, config: dict, chat_ids: list[int]) -> str:
         admin = chat_ids[0] if chat_ids else "none"
         return f"✅ Telegram dashboard is running. Admin: {admin}  →  {url}"
     return ""
+
+
+# ── Standalone CLI (Info Only) ───────────────────────────────────────────────
+
+if __name__ == "__main__":
+    print("\n" + "="*60)
+    print("🦅 DULUS TELEGRAM COMMUNITY GLUE 🦅".center(60))
+    print("="*60 + "\n")
+    print("  Este archivo es código 'pegamento' interno de Dulus.")
+    print("  No hace nada por sí solo.\n")
+    print("  Para usar sus funciones (Dashboard o Bot de Grupo), usa Dulus:\n")
+    print("  * Dashboard Privado:  /telegram dashboard <token> <admin_id>")
+    print("  * Bot de Grupos:      /telegram group <token>\n")
+    print("="*60 + "\n")
+
