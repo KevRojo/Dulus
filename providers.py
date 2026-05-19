@@ -3399,9 +3399,16 @@ def _get_nvidia_fallback_chain(config: dict) -> list[str]:
             pass
     return [
         "deepseek-ai/deepseek-v4-flash",
+        "z-ai/glm-4.7",
+        "z-ai/glm-5.1",
+        "minimaxai/minimax-m2.7",
         "moonshotai/kimi-k2-instruct",
         "mistralai/mistral-nemotron",
+        "bytedance/seed-oss-36b-instruct",
+        "upstage/solar-10.7b-instruct",
+        "stepfun-ai/step-3.5-flash",
         "meta/llama-3.3-70b-instruct",
+        "moonshotai/kimi-k2.5",
         "deepseek-ai/deepseek-r1",
         "nvidia/llama-3.1-nemotron-70b-instruct",
         "qwen/qwen2.5-72b-instruct",
