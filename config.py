@@ -16,7 +16,7 @@ MR_SESSION_DIR = SESSIONS_DIR / "mr_sessions"
 
 DEFAULTS = {
     "model":            "ollama/gemma4:latest",
-    "max_tokens":       250000,
+    "max_tokens":       128000,
     "permission_mode":  "auto",   # auto | accept-all | manual
     "verbose":          False,
     "thinking":         False,

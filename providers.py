@@ -1232,14 +1232,59 @@ def stream_claude_code(
     import subprocess as _sp
     from pathlib import Path as _Path
 
+    def _slugify(p: str) -> str:
+        # Claude Code escapes path separators AND spaces to '-'
+        return (p.replace(":", "-")
+                 .replace("\\", "-")
+                 .replace("/", "-")
+                 .replace(" ", "-"))
+
+    _projects_root = _Path.home() / ".claude" / "projects"
     _project_override = config.get("claude_code_project_dir", "").strip()
+
+    _jsonl_path = None
+    _session_dir = None
+
+    # 1. Try override → cwd slug (existing behavior)
+    _candidates = []
     if _project_override:
-        _slug = _project_override.replace(":", "-").replace("\\", "-").replace("/", "-")
-    else:
-        _slug = str(_Path.cwd()).replace(":", "-").replace("\\", "-").replace("/", "-")
-    _session_dir = _Path.home() / ".claude" / "projects" / _slug
-    _jsonl_files = sorted(_session_dir.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
-    _jsonl_path = _jsonl_files[0] if _jsonl_files else None
+        _candidates.append(_projects_root / _slugify(_project_override))
+    _candidates.append(_projects_root / _slugify(str(_Path.cwd())))
+
+    for _cand in _candidates:
+        if _cand.is_dir():
+            _files = sorted(_cand.glob("*.jsonl"),
+                            key=lambda f: f.stat().st_mtime, reverse=True)
+            if _files:
+                _session_dir = _cand
+                _jsonl_path = _files[0]
+                break
+
+    # 2. Fallback: scan ALL project dirs for a JSONL containing this
+    #    session_id (most accurate — handles moved repos, renamed folders).
+    if not _jsonl_path and _projects_root.is_dir():
+        _all_jsonls = sorted(
+            _projects_root.glob("*/*.jsonl"),
+            key=lambda f: f.stat().st_mtime, reverse=True,
+        )
+        # First pass — match session_id inside the file
+        for _f in _all_jsonls[:30]:  # cap scan to most-recent 30
+            try:
+                with open(_f, "r", encoding="utf-8", errors="ignore") as _fh:
+                    _head = _fh.read(20000)
+                if session_id in _head:
+                    _jsonl_path = _f
+                    _session_dir = _f.parent
+                    break
+            except Exception:
+                continue
+        # 3. Last resort: most-recent JSONL globally (best-effort)
+        if not _jsonl_path and _all_jsonls:
+            _jsonl_path = _all_jsonls[0]
+            _session_dir = _jsonl_path.parent
+
+    if _session_dir is None:
+        _session_dir = _projects_root / _slugify(str(_Path.cwd()))
 
     _seen_uuids: set = set()
     if _jsonl_path and _jsonl_path.exists():
@@ -2922,6 +2967,57 @@ def _thinking_level_from(value) -> int:
     return max(0, min(4, lvl))
 
 
+_ANTHROPIC_TOOL_ALLOWED_KEYS = {
+    "name", "description", "input_schema", "cache_control", "type",
+}
+
+
+def _sanitize_tool_for_anthropic(t: dict) -> dict | None:
+    """Coerce any tool schema (OpenAI / mixed / Anthropic) into Anthropic shape.
+
+    Handles three common mis-formats seen from plugins/MCP/auto-adapter:
+      (a) OpenAI wrapped:      {"type":"function","function":{"name","description","parameters"}}
+      (b) OpenAI custom:       {"type":"custom","custom":{"name","description","parameters"}}
+      (c) Loose:               {"name","description","parameters":{...}}   (parameters → input_schema)
+    Plus the correct Anthropic shape (passes through).
+
+    Returns None when the schema is irrecoverable (no name).
+    """
+    if not isinstance(t, dict):
+        return None
+
+    inner = t
+    if "function" in t and isinstance(t["function"], dict):
+        inner = {**t.get("function", {})}
+        inner.setdefault("type", "custom")
+    elif "custom" in t and isinstance(t["custom"], dict):
+        inner = {**t.get("custom", {})}
+        inner.setdefault("type", "custom")
+
+    out: dict = {}
+    name = inner.get("name") or t.get("name")
+    if not name:
+        return None
+    out["name"] = name
+
+    desc = inner.get("description") or t.get("description") or ""
+    if desc:
+        out["description"] = desc
+
+    schema = (inner.get("input_schema")
+              or inner.get("parameters")
+              or t.get("input_schema")
+              or t.get("parameters")
+              or {"type": "object", "properties": {}})
+    out["input_schema"] = schema
+
+    cc = inner.get("cache_control") or t.get("cache_control")
+    if cc:
+        out["cache_control"] = cc
+
+    return out
+
+
 def stream_anthropic(
     api_key: str,
     model: str,
@@ -2951,8 +3047,14 @@ def stream_anthropic(
     else:
         system_blocks = system  # already structured, leave as-is
 
-    # 2) Tools: cache the last tool's schema. Caches the whole tools array.
-    cached_tools = list(tool_schemas) if tool_schemas else tool_schemas
+    # 2) Tools: sanitize → some plugins/MCP/auto-adapter register schemas
+    #    using OpenAI's wire format ({type:"function", function:{...}} or
+    #    {custom:{parameters:...}}). Anthropic rejects anything outside
+    #    {name, description, input_schema, cache_control, type}. We coerce
+    #    each schema into the Anthropic shape and silently drop unknown
+    #    top-level keys so one bad plugin doesn't 400 the whole turn.
+    cached_tools = [_sanitize_tool_for_anthropic(t) for t in (tool_schemas or [])]
+    cached_tools = [t for t in cached_tools if t]
     if cached_tools:
         last_tool = dict(cached_tools[-1])
         last_tool["cache_control"] = {"type": "ephemeral"}
@@ -2981,7 +3083,7 @@ def stream_anthropic(
 
     kwargs = {
         "model":      model,
-        "max_tokens": config.get("max_tokens", 8192),
+        "max_tokens": config.get("max_tokens", 128000),
         "system":     system_blocks,
         "messages":   ant_messages,
         "tools":      cached_tools,
