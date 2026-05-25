@@ -8535,6 +8535,171 @@ def cmd_batch(args: str, _state, config) -> bool:
     return True
 
 
+def cmd_claude_batch(args: str, _state, config) -> bool:
+    """Manage Anthropic (Claude) Batch tasks — parallel to /batch (Kimi).
+
+    Uses Anthropic's native batch endpoint (50% discount, <24h SLA).
+    Submits requests INLINE in one API call; no JSONL upload step.
+
+    /claude_batch create <prompt1> | <prompt2> | ...   — create a batch
+                  [--model claude-sonnet-4-6] [--max 1024]
+    /claude_batch list                — list recent claude batch jobs
+    /claude_batch status [id]         — check progress
+    /claude_batch fetch  [id]         — download results when completed
+    /claude_batch cancel <id>         — cancel a running batch
+    """
+    from batch_api import (
+        AnthropicBatchManager, list_batch_jobs, get_batch_job_by_id,
+        save_batch_job, update_batch_job_status,
+    )
+    from providers import get_api_key
+
+    api_key = get_api_key("anthropic", config)
+    if not api_key:
+        err("Anthropic API key missing.  Set with:  /config anthropic_api_key=sk-ant-...")
+        return True
+
+    try:
+        mgr = AnthropicBatchManager(api_key)
+    except Exception as e:
+        err(f"Could not init Anthropic batch manager: {e}")
+        return True
+
+    parts = (args or "").strip().split()
+    sub = parts[0].lower() if parts else "list"
+
+    # ── CREATE ────────────────────────────────────────────────────────────
+    if sub == "create":
+        rest = " ".join(parts[1:])
+        model = "claude-haiku-4-5"
+        max_tokens = 1024
+        import re as _re
+        m = _re.search(r"--model\s+(\S+)", rest)
+        if m: model = m.group(1); rest = rest.replace(m.group(0), "").strip()
+        m = _re.search(r"--max\s+(\d+)", rest)
+        if m: max_tokens = int(m.group(1)); rest = rest.replace(m.group(0), "").strip()
+
+        prompts = [p.strip() for p in rest.split("|") if p.strip()]
+        if not prompts:
+            err("Usage: /claude_batch create <prompt1> | <prompt2> | ...  [--model X] [--max N]")
+            return True
+        info(f"Submitting {len(prompts)} prompt(s) to Anthropic batch "
+             f"(model={model}, max_tokens={max_tokens})...")
+        try:
+            requests = mgr.prepare_requests(prompts, model=model, max_tokens=max_tokens)
+            batch_id = mgr.create_batch(requests)
+            save_batch_job(
+                batch_id,
+                description=f"{len(prompts)} prompts · {model}",
+                provider="anthropic",
+            )
+            ok(f"Created claude batch: {batch_id}")
+            print(clr("    Check progress: ", "dim") + clr(f"/claude_batch status {batch_id}", "white"))
+            print(clr("    Fetch results: ", "dim") + clr(f"/claude_batch fetch {batch_id}", "white"))
+        except Exception as e:
+            err(f"Create failed: {e}")
+        return True
+
+    # ── LIST ──────────────────────────────────────────────────────────────
+    if sub == "list":
+        jobs = [j for j in list_batch_jobs(include_pollers=True)
+                if j.get("provider") == "anthropic"]
+        if not jobs:
+            info("No Anthropic batch jobs found.  Create one with: /claude_batch create ...")
+            return True
+        print(clr("\n  Recent Claude Batch Jobs:", "cyan", "bold"))
+        for j in reversed(jobs[-10:]):
+            st = j.get("status", "unknown")
+            s_clr = ("green" if st == "completed"
+                     else ("red" if st in ("failed", "expired", "cancelled") else "yellow"))
+            counts = j.get("request_counts", {})
+            count_str = (f"({counts.get('completed', 0)}/{counts.get('total', 0)})"
+                         if counts else "")
+            print(f"    {clr(j['id'], 'yellow')} | {j.get('created_at', 'N/A')[:19]} | "
+                  f"{clr(st, s_clr)} {count_str}")
+            if j.get("description"):
+                print(clr(f"      {j['description']}", "dim"))
+        return True
+
+    # ── STATUS ────────────────────────────────────────────────────────────
+    if sub == "status":
+        batch_id = parts[1] if len(parts) > 1 else None
+        if not batch_id:
+            jobs = [j for j in list_batch_jobs(include_pollers=True)
+                    if j.get("provider") == "anthropic"]
+            if jobs: batch_id = jobs[0]["id"]
+            else:
+                err("No batch ID given and no recent Anthropic batches found.")
+                return True
+        try:
+            res = mgr.retrieve_batch(batch_id)
+            status = res.get("status", "unknown")
+            counts = res.get("request_counts", {})
+            comp, total = counts.get("completed", 0), counts.get("total", 0)
+            s_clr = ("green" if status == "completed"
+                     else ("red" if status in ("failed", "expired", "cancelled") else "yellow"))
+            update_batch_job_status(batch_id, {
+                "status": status, "request_counts": counts,
+                "completed_at": res.get("completed_at"),
+            })
+            ok(f"Batch {batch_id}: {clr(status, s_clr)} ({comp}/{total})")
+            if status == "completed":
+                print(clr("    Fetch results: ", "dim") +
+                      clr(f"/claude_batch fetch {batch_id}", "white"))
+        except Exception as e:
+            err(f"Status check failed: {e}")
+        return True
+
+    # ── FETCH ─────────────────────────────────────────────────────────────
+    if sub == "fetch":
+        batch_id = parts[1] if len(parts) > 1 else None
+        if not batch_id:
+            jobs = [j for j in list_batch_jobs(include_pollers=True)
+                    if j.get("provider") == "anthropic"]
+            done = [j for j in jobs if j.get("status") == "completed"]
+            if done: batch_id = done[0]["id"]
+            elif jobs: batch_id = jobs[0]["id"]
+            else:
+                err("No Anthropic batch jobs found.")
+                return True
+        try:
+            res_status = mgr.retrieve_batch(batch_id)
+            if res_status.get("status") != "completed":
+                err(f"Batch {batch_id} is not completed yet (status: {res_status.get('status')}).")
+                return True
+            results = mgr.results(batch_id)
+            results_dir = Path.home() / ".dulus" / "batch_results"
+            results_dir.mkdir(parents=True, exist_ok=True)
+            out_file = results_dir / f"claude_results_{batch_id}.jsonl"
+            with open(out_file, "w", encoding="utf-8") as f:
+                for r in results:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            ok(f"Results saved to {out_file}  ({len(results)} entries)")
+            preview = next((r for r in results if r.get("type") == "succeeded"), None)
+            if preview:
+                print(clr("\n  Preview of first result:", "dim"))
+                print(clr(preview.get("text", "")[:600], "cyan"))
+        except Exception as e:
+            err(f"Fetch failed: {e}")
+        return True
+
+    # ── CANCEL ────────────────────────────────────────────────────────────
+    if sub == "cancel":
+        batch_id = parts[1] if len(parts) > 1 else None
+        if not batch_id:
+            err("Usage: /claude_batch cancel <batch_id>")
+            return True
+        try:
+            res = mgr.cancel_batch(batch_id)
+            ok(f"Cancel requested for {batch_id}: status={res.get('status')}")
+        except Exception as e:
+            err(f"Cancel failed: {e}")
+        return True
+
+    warn("Usage: /claude_batch {create | list | status [id] | fetch [id] | cancel <id>}")
+    return True
+
+
 def cmd_webbridge(args: str, state, config) -> bool:
     """Control the Dulus WebBridge browser automation."""
     from os import makedirs, path, getenv
@@ -8827,6 +8992,11 @@ COMMANDS = {
     "resume":      cmd_resume,
     "news":        cmd_news,
     "batch":       cmd_batch,
+    "claude_batch": cmd_claude_batch,
+    "claude-batch": cmd_claude_batch,
+    "batch_claude": cmd_claude_batch,
+    "batch-claude": cmd_claude_batch,
+    "anthropic_batch": cmd_claude_batch,
     "claude_chats": cmd_claude_chats,
     "roundtable":  cmd_roundtable,
 }
@@ -8912,6 +9082,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "img":         ("Send clipboard image (alias)",       []),
     "ocr":         ("Local OCR — extract text from image, no vision model", []),
     "batch":       ("Manage Kimi Batch tasks",            ["status", "list", "fetch"]),
+    "claude_batch": ("Manage Claude (Anthropic) Batch tasks — 50% off", ["create", "list", "status", "fetch", "cancel"]),
+    "claude-batch": ("Manage Claude (Anthropic) Batch tasks — 50% off", ["create", "list", "status", "fetch", "cancel"]),
     "roundtable":  ("Start a multi-model roundtable discussion", ["stop"]),
     "brainstorm":  ("Multi-persona AI debate + auto tasks", []),
     "worker":      ("Auto-implement pending tasks",       []),
@@ -10201,6 +10373,8 @@ def repl(config: dict, initial_prompt: str = None):
 
     batch_buffer = []
     in_batch_mode = False
+    claude_batch_buffer = []
+    in_claude_batch_mode = False
     import uuid
 
     while True:
@@ -10365,6 +10539,8 @@ def repl(config: dict, initial_prompt: str = None):
             prompt = _rl_safe(clr(f"\n[{cwd_short}] ", "dim") + ctx_tag + clr("» ", "cyan", "bold"))
             if in_batch_mode:
                 prompt = _rl_safe(clr(f"  batch[{len(batch_buffer)}] » ", "yellow", "bold"))
+            elif in_claude_batch_mode:
+                prompt = _rl_safe(clr(f"  claude-batch[{len(claude_batch_buffer)}] » ", "magenta", "bold"))
 
             if _wake_cmd is not None:
                 user_input = _wake_cmd
@@ -10606,6 +10782,85 @@ def repl(config: dict, initial_prompt: str = None):
             batch_buffer.append(user_input)
             continue
 
+        # ── Claude (Anthropic) Batch Mode (triple SINGLE quote trigger ''') ─────
+        if user_input.strip() == "'''":
+            if not in_claude_batch_mode:
+                in_claude_batch_mode = True
+                ok("Claude Batch Mode enabled. Enter one prompt per line. End with ''' to submit.")
+                info("50% discount on input+output tokens. Up to 24h SLA (usually minutes).")
+                continue
+            else:
+                in_claude_batch_mode = False
+                if not claude_batch_buffer:
+                    warn("Claude batch buffer empty. Mode disabled.")
+                    continue
+
+                from batch_api import AnthropicBatchManager, save_batch_job
+                from providers import get_api_key
+
+                api_key = get_api_key("anthropic", config)
+                if not api_key:
+                    err("Anthropic API key missing. Set with: /config anthropic_api_key=sk-ant-...")
+                    claude_batch_buffer.clear()
+                    continue
+
+                try:
+                    cmgr = AnthropicBatchManager(api_key)
+                except Exception as _e:
+                    err(f"Could not init Anthropic batch manager: {_e}")
+                    claude_batch_buffer.clear()
+                    continue
+
+                cbatch_model = (config.get("claude_batch_model")
+                                or "claude-haiku-4-5")
+                info(f"Starting Claude Batch with {len(claude_batch_buffer)} requests...")
+                info(f"Using model: {cbatch_model} (override with /config claude_batch_model=...)")
+
+                try:
+                    reqs = cmgr.prepare_requests(
+                        claude_batch_buffer,
+                        model=cbatch_model,
+                        max_tokens=config.get("claude_batch_max_tokens", 1024),
+                    )
+                    batch_id = cmgr.create_batch(reqs)
+                    desc = (f"Claude batch · {len(claude_batch_buffer)} prompts "
+                            f"(first: {claude_batch_buffer[0][:30]}...)")
+                    save_batch_job(batch_id, description=desc, provider="anthropic")
+
+                    ok(f"Claude batch submitted! ID: {batch_id}")
+                    info("Check status: /claude_batch status")
+                    info("Fetch when done: /claude_batch fetch")
+
+                    from datetime import datetime as _dt
+                    job_id = str(uuid.uuid4())[:8]
+                    def _is_serializable(v):
+                        try: json.dumps(v); return True
+                        except (TypeError, ValueError): return False
+                    serializable_config = {k: v for k, v in config.items() if _is_serializable(v)}
+                    job_data = {
+                        "id": job_id,
+                        "tool_name": "claude_batch_poll",
+                        "params": {"batch_id": batch_id},
+                        "status": "running",
+                        "created_at": _dt.now().isoformat(),
+                        "config": serializable_config,
+                        "batch_job": True,
+                        "provider": "anthropic",
+                    }
+                    job_path = Path.home() / ".dulus" / "jobs" / f"{job_id}.json"
+                    with open(job_path, "w", encoding="utf-8") as f:
+                        json.dump(job_data, f, indent=2, ensure_ascii=False)
+                    info("Background polling active (central job notifier)")
+                except Exception as _e:
+                    err(f"Anthropic Batch API error: {_e}")
+
+                claude_batch_buffer.clear()
+                continue
+
+        if in_claude_batch_mode:
+            claude_batch_buffer.append(user_input)
+            continue
+
         # ── Shell escape: !<anything> runs the WHOLE line in the system shell ──
         # If the first char is '!', everything after it is the command.
         # Use '!!' at the start to escape and send literal '!...' as a message.
@@ -10656,6 +10911,7 @@ def repl(config: dict, initial_prompt: str = None):
                 in_roundtable_active = False
                 roundtable_models = []
                 in_batch_mode = False
+                in_claude_batch_mode = False
                 ok("\nMesa Redonda Setup. Introduzca de 3 a 5 modelos (uno por linea). Termine con \"\"\" para empezar.")
                 break
             if result[0] == "__roundtable_stop__":

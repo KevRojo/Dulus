@@ -171,6 +171,171 @@ class BatchManager:
 KimiBatchManager = BatchManager  # old name still works
 
 
+# ── Anthropic Batch Manager ──────────────────────────────────────────────────
+#
+# Anthropic batch API is conceptually identical to OpenAI's but the wire format
+# differs:
+#   - Requests are sent INLINE in a single create() call (no JSONL upload step).
+#   - The key under each item is "params" (not "body").
+#   - Status is "processing_status" with values: in_progress | canceling | ended.
+#   - Results stream as individual JSONL records, accessible via .results(id).
+#
+# 50% discount on both input and output tokens. Up to 24h SLA (usually <1h).
+
+class AnthropicBatchManager:
+    """Manager for Anthropic's native batch API (claude messages).
+
+    Same surface as BatchManager (prepare / create / retrieve / results /
+    cancel) so the rest of dulus can treat it interchangeably.
+    """
+
+    DEFAULT_MODEL = "claude-haiku-4-5"
+
+    def __init__(self, api_key: str):
+        try:
+            import anthropic  # noqa: F401
+        except ImportError as e:
+            raise RuntimeError(
+                "anthropic SDK not installed (pip install anthropic)"
+            ) from e
+        import anthropic as _ant
+        self.api_key = api_key
+        self.client  = _ant.Anthropic(api_key=api_key)
+
+    def prepare_requests(
+        self,
+        prompts: List[str],
+        model: str = None,
+        system_prompt: str = None,
+        max_tokens: int = 1024,
+    ) -> List[Dict[str, Any]]:
+        """Build the requests array for batches.create()."""
+        if model is None:
+            model = self.DEFAULT_MODEL
+        if system_prompt is None:
+            system_prompt = BATCH_SYSTEM_PROMPT
+
+        ts = int(time.time())
+        out: List[Dict[str, Any]] = []
+        for i, prompt in enumerate(prompts):
+            params: Dict[str, Any] = {
+                "model":      model,
+                "max_tokens": max_tokens,
+                "messages":   [{"role": "user", "content": prompt}],
+            }
+            if system_prompt:
+                params["system"] = system_prompt
+            out.append({
+                "custom_id": f"req_{ts}_{i}",
+                "params":    params,
+            })
+        return out
+
+    def create_batch(self, requests: List[Dict[str, Any]]) -> str:
+        """Create a batch inline. Returns batch_id."""
+        batch = self.client.messages.batches.create(requests=requests)
+        return batch.id
+
+    def retrieve_batch(self, batch_id: str) -> Dict[str, Any]:
+        """Get batch status. Normalizes field names to match BatchManager."""
+        b = self.client.messages.batches.retrieve(batch_id)
+        proc = getattr(b, "processing_status", None)
+        status = {
+            "in_progress": "in_progress",
+            "canceling":   "cancelling",
+            "ended":       "completed",
+        }.get(proc, proc or "unknown")
+
+        counts_raw = getattr(b, "request_counts", None)
+        counts: Dict[str, int] = {}
+        if counts_raw is not None:
+            for k in ("processing", "succeeded", "errored",
+                      "canceled", "expired"):
+                v = getattr(counts_raw, k, 0)
+                if v:
+                    counts[k] = v
+            counts["completed"] = counts.get("succeeded", 0)
+            counts["total"]     = sum([
+                counts.get("processing", 0),
+                counts.get("succeeded",  0),
+                counts.get("errored",    0),
+                counts.get("canceled",   0),
+                counts.get("expired",    0),
+            ])
+
+        if status == "completed" and counts:
+            if counts.get("errored", 0) and not counts.get("succeeded", 0):
+                status = "failed"
+            elif counts.get("expired", 0) and not counts.get("succeeded", 0):
+                status = "expired"
+
+        return {
+            "id":             b.id,
+            "status":         status,
+            "processing_status": proc,
+            "request_counts": counts,
+            "output_file_id": None,
+            "results_url":    getattr(b, "results_url", None),
+            "created_at":     str(getattr(b, "created_at", "")),
+            "ended_at":       str(getattr(b, "ended_at", "") or ""),
+            "expires_at":     str(getattr(b, "expires_at", "") or ""),
+            "completed_at":   str(getattr(b, "ended_at", "") or ""),
+        }
+
+    def cancel_batch(self, batch_id: str) -> Dict[str, Any]:
+        """Cancel a running batch."""
+        b = self.client.messages.batches.cancel(batch_id)
+        return {"id": b.id, "status": getattr(b, "processing_status", "unknown")}
+
+    def results(self, batch_id: str) -> List[Dict[str, Any]]:
+        """Fetch all results for a completed batch.
+
+        Returns: [{custom_id, type, text, error?, usage}]
+          where type in {succeeded, errored, canceled, expired}
+        """
+        out: List[Dict[str, Any]] = []
+        for r in self.client.messages.batches.results(batch_id):
+            entry: Dict[str, Any] = {
+                "custom_id": getattr(r, "custom_id", None),
+                "type":      None,
+                "text":      "",
+                "error":     None,
+                "usage":     None,
+            }
+            res = getattr(r, "result", None)
+            if res is None:
+                out.append(entry); continue
+            t = getattr(res, "type", None)
+            entry["type"] = t
+            if t == "succeeded":
+                msg = getattr(res, "message", None)
+                if msg:
+                    parts = []
+                    for block in getattr(msg, "content", []) or []:
+                        if getattr(block, "type", None) == "text":
+                            parts.append(getattr(block, "text", "") or "")
+                    entry["text"] = "\n".join(parts).strip()
+                    u = getattr(msg, "usage", None)
+                    if u:
+                        entry["usage"] = {
+                            "input_tokens":  getattr(u, "input_tokens", 0),
+                            "output_tokens": getattr(u, "output_tokens", 0),
+                            "cache_read_input_tokens":
+                                getattr(u, "cache_read_input_tokens", 0),
+                            "cache_creation_input_tokens":
+                                getattr(u, "cache_creation_input_tokens", 0),
+                        }
+            elif t == "errored":
+                err_obj = getattr(res, "error", None)
+                entry["error"] = (
+                    {"type": getattr(err_obj, "type", None),
+                     "message": getattr(err_obj, "message", None)}
+                    if err_obj else "unknown_error"
+                )
+            out.append(entry)
+        return out
+
+
 # ── Local job persistence ────────────────────────────────────────────────────
 
 _JOBS_DIR = os.path.join(os.path.expanduser("~"), ".dulus", "jobs")
