@@ -1,0 +1,72 @@
+# Build & publish the Dulus Docker image to GitHub Container Registry.
+#
+# Triggers:
+#   - Push to main          → updates ghcr.io/kevrojo/dulus:latest
+#   - Push of a v* tag      → adds ghcr.io/kevrojo/dulus:<version> + updates latest
+#   - Manual dispatch       → rebuild on demand
+#
+# Builds multi-arch (amd64 + arm64) so Apple Silicon Macs and ARM servers
+# (Graviton, Raspberry Pi 5, etc.) get a native image — no QEMU emulation.
+
+name: docker
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/dulus
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # required to push to ghcr.io
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for cross-arch builds)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Compute tags:
+      #   - on a tag push (refs/tags/v3.1.0)  →  ghcr.io/.../dulus:3.1.0  + :latest
+      #   - on a main push                    →  ghcr.io/.../dulus:latest
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push (multi-arch)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # GHA cache speeds repeated builds from ~5 min to ~1 min when the
+          # Dockerfile layers haven't changed.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
