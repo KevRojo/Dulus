@@ -1623,17 +1623,77 @@ def cmd_load(args: str, state, config) -> bool:
 
     if not path:
         fname = args.strip()
-        path = Path(fname) if "/" in fname or "\\" in fname else SESSIONS_DIR / fname
-        if not path.exists() and ("/" not in fname and "\\" not in fname):
-            for alt in [*(d / fname for d in DAILY_DIR.iterdir()
-                          if DAILY_DIR.exists() and d.is_dir())]:
-                if alt.exists():
-                    path = alt
-                    break
-        if not path.exists():
-            err(f"File not found: {path}")
-            return True
-        
+
+        # ── Wildcard syntax handler (e.g. /load *1*1 or /load *1*1,*2*3) ──
+        # Before treating the input as a literal filename, see if it's the
+        # *<day>*<session> token shown in the interactive menu. Users hit
+        # this when they read the menu, then re-invoke /load with the token
+        # they saw, expecting it to resolve the same way.
+        import re as _re
+        _wildcard_re = _re.compile(r"^\*(\d+)\*(\d+)$")
+        _wc_tokens = [p.strip() for p in fname.split(",") if p.strip()]
+        if _wc_tokens and all(_wildcard_re.match(p) for p in _wc_tokens):
+            # Build the same day list the menu builds.
+            _PER_DAY_SHOW = 7
+            _days: list[tuple[str, list[Path]]] = []
+            if DAILY_DIR.exists():
+                for _d in sorted(DAILY_DIR.iterdir(), reverse=True):
+                    if not _d.is_dir():
+                        continue
+                    _all = sorted(_d.glob("session_*.json"), reverse=True)
+                    if _all:
+                        _days.append((_d.name, _all[:_PER_DAY_SHOW]))
+            if not _days:
+                err("No saved sessions found.")
+                return True
+
+            _picked: list[Path] = []
+            for _t in _wc_tokens:
+                _m = _wildcard_re.match(_t)
+                _di, _si = int(_m.group(1)), int(_m.group(2))
+                if _di < 1 or _di > len(_days):
+                    err(f"Day {_di} out of range (valid: 1-{len(_days)})")
+                    return True
+                _shown = _days[_di - 1][1]
+                if _si < 1 or _si > len(_shown):
+                    err(f"Session {_si} out of range for day {_di} (valid: 1-{len(_shown)})")
+                    return True
+                _p = _shown[_si - 1]
+                if _p not in _picked:
+                    _picked.append(_p)
+
+            if len(_picked) == 1:
+                path = _picked[0]
+            else:
+                # Merge multiple in pick order
+                _all_messages = []
+                _total_turns  = 0
+                _loaded_names = []
+                for _sp in _picked:
+                    _sd = json.loads(_sp.read_text(encoding="utf-8", errors="replace"))
+                    _all_messages.extend(_sd.get("messages", []))
+                    _total_turns += _sd.get("turn_count", 0)
+                    _loaded_names.append(_sp.name)
+                state.messages   = _all_messages
+                state.turn_count = _total_turns
+                ok(f"Merged {len(_picked)} sessions ({len(_all_messages)} messages, {_total_turns} turns)")
+                for _n in _loaded_names:
+                    info(f"  + {_n}")
+                return True
+        else:
+            # Legacy: treat as a literal filename (full path or basename).
+            path = Path(fname) if "/" in fname or "\\" in fname else SESSIONS_DIR / fname
+            if not path.exists() and ("/" not in fname and "\\" not in fname):
+                for alt in [*(d / fname for d in DAILY_DIR.iterdir()
+                              if DAILY_DIR.exists() and d.is_dir())]:
+                    if alt.exists():
+                        path = alt
+                        break
+            if not path.exists():
+                err(f"File not found: {path}")
+                info("Tip: also accepts wildcard syntax like `/load *1*1` (day 1, session 1)")
+                return True
+
     data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     state.messages = data.get("messages", [])
     state.turn_count = data.get("turn_count", 0)
