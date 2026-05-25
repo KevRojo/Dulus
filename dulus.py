@@ -6456,18 +6456,94 @@ def _run_daemon(config: dict) -> None:
 def cmd_telegram(args: str, _state, config) -> bool:
     """Telegram bot bridge — receive and respond to messages via Telegram.
 
-    Usage: /telegram <bot_token> <chat_id>   — start bridge
-           /telegram stop                    — stop bridge
-           /telegram status                  — show current status
+    Usage: /telegram <bot_token> <chat_id>       — start bridge
+           /telegram stop                        — stop bridge
+           /telegram status                      — show current status
+           /telegram add_id <chat_id>            — ADD another authorized DM
+                                                   chat (keeps existing ones)
+           /telegram remove_id <chat_id>         — remove a chat from the list
+           /telegram list_ids                    — show all authorized chats
 
     First time: create a bot via @BotFather, then send any message to your bot
     and check https://api.telegram.org/bot<TOKEN>/getUpdates to find your chat_id.
     Settings are saved so you only configure once.
+
+    Multi-chat note: add_id lets the SAME bot answer DMs from multiple chats
+    (you, your wife, a second device, etc.) — NOT groups. If the bridge is
+    already running the new id takes effect on the next polled update (hot
+    reload, no restart needed).
     """
     global _telegram_thread, _telegram_stop, _telegram_dashboard_bridge
     from config import save_config
 
     parts = args.strip().split()
+
+    # ── /telegram add_id <chat_id> — append without wiping existing ───────
+    if parts and parts[0].lower() in ("add_id", "add-id", "addid", "add"):
+        if len(parts) < 2:
+            err("Usage: /telegram add_id <chat_id>")
+            return True
+        new_ids = _parse_chat_ids(",".join(parts[1:]))
+        if not new_ids:
+            err("Chat ID must be numeric (e.g. 785117267).")
+            return True
+        existing = _tg_get_chat_ids(config)
+        merged: list = []
+        for c in existing + new_ids:
+            if c not in merged:
+                merged.append(c)
+        added   = [c for c in new_ids if c not in existing]
+        dupes   = [c for c in new_ids if c in existing]
+        config["telegram_chat_ids"] = ",".join(str(c) for c in merged)
+        config.pop("telegram_chat_id", None)
+        save_config(config)
+        if added:
+            ok(f"Added: {', '.join(str(c) for c in added)}")
+        if dupes:
+            warn(f"Already present: {', '.join(str(c) for c in dupes)}")
+        info(f"Authorized chats now ({len(merged)}): {', '.join(str(c) for c in merged)}")
+        running = bool(_telegram_thread and _telegram_thread.is_alive())
+        if running:
+            info("Hot reload: new chat will be authorized on next polled update.")
+        return True
+
+    # ── /telegram remove_id <chat_id> ─────────────────────────────────────
+    if parts and parts[0].lower() in ("remove_id", "remove-id", "removeid",
+                                       "rm_id", "del_id"):
+        if len(parts) < 2:
+            err("Usage: /telegram remove_id <chat_id>")
+            return True
+        target_ids = _parse_chat_ids(",".join(parts[1:]))
+        if not target_ids:
+            err("Chat ID must be numeric.")
+            return True
+        existing = _tg_get_chat_ids(config)
+        kept    = [c for c in existing if c not in target_ids]
+        removed = [c for c in target_ids if c in existing]
+        if not removed:
+            warn(f"Not in list: {', '.join(str(c) for c in target_ids)}")
+            return True
+        config["telegram_chat_ids"] = ",".join(str(c) for c in kept)
+        config.pop("telegram_chat_id", None)
+        save_config(config)
+        ok(f"Removed: {', '.join(str(c) for c in removed)}")
+        info(f"Authorized chats now ({len(kept)}): "
+             f"{', '.join(str(c) for c in kept) if kept else '(none)'}")
+        return True
+
+    # ── /telegram list_ids ────────────────────────────────────────────────
+    if parts and parts[0].lower() in ("list_ids", "list-ids", "listids",
+                                       "ids", "list"):
+        ids = _tg_get_chat_ids(config)
+        if not ids:
+            info("No authorized chats. Add one with: /telegram add_id <chat_id>")
+            return True
+        primary = ids[0]
+        print(clr(f"\n  Authorized Telegram chats ({len(ids)}):", "cyan", "bold"))
+        for i, c in enumerate(ids):
+            tag = clr(" (primary)", "yellow") if c == primary else ""
+            print(f"    {i+1}. {clr(str(c), 'white')}{tag}")
+        return True
 
     # /telegram stop
     if parts and parts[0].lower() in ("stop", "off"):
