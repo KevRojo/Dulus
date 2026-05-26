@@ -1,5 +1,14 @@
 # ▲ DULUS
 
+Just remember... 
+
+Dulus is  not MIT Licensed. (not even Dulus free)
+
+If we found you with my code closed and monetizing you'r cooked.
+
+Just saying.
+
+
 > **Use IA agents without an API key. $0.**
 >
 > **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely opens your browser, captures your **Gemini** (guest, no login) · **Claude.ai** · **Claude Code** · **Kimi.com** · **Qwen** · **DeepSeek** session, then lets you drive frontier IA as if it were an API. **No api key. No subscription. No credit card.**
