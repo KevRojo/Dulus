@@ -1,12 +1,5 @@
 # ▲ DULUS
 
-Just remember... 
-
-Dulus is  not MIT Licensed. (not even Dulus free)
-
-If we found you with my code closed and monetizing you'r cooked.
-
-Just saying.
 
 
 > **Use IA agents without an API key. $0.**
@@ -14,6 +7,20 @@ Just saying.
 > **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely opens your browser, captures your **Gemini** (guest, no login) · **Claude.ai** · **Claude Code** · **Kimi.com** · **Qwen** · **DeepSeek** session, then lets you drive frontier IA as if it were an API. **No api key. No subscription. No credit card.**
 >
 > Plus 100+ paid providers via LiteLLM (OpenRouter, Groq, Together, xAI, Mistral, Bedrock, …), local models via Ollama, `/lang` in 34 languages, Mesa Redonda multi-model debate, voice in/out, local OCR, MemPalace semantic memory, embedded sandbox OS. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
+>
+> Dulus is here to save IA
+
+<img width="1786" height="360" alt="image" src="https://github.com/user-attachments/assets/4eef327d-6b02-454b-8b1c-5c34894d03dc" />
+
+<img width="1282" height="399" alt="image" src="https://github.com/user-attachments/assets/2c52f4a4-bdb0-439b-a8b2-553f4202d6b4" />
+
+if someone could help me please send me and email
+I really need funds to complete the business version of dulus
+
+Lov <3
+
+dev@dulus.ai
+
 >
 > `pip install dulus` → press Enter → working IA in 30 seconds. Try it.
 
@@ -82,10 +89,6 @@ The token isn't decoration. It's the fuel layer for everything Dulus is building
 **A message to the community —**
 
 I want to talk about the token. Honestly. No hype.
-
-I didn't launch it to get rich. The community launched it first, and when I saw early believers exposed without the actual builder behind it, I stepped in. I bought my position using the contract's own creator rewards. Zero personal capital deployed. I haven't sold a single token.
-
-But there's something bigger I want you to understand:
 
 **$DULUS has a real purpose.**
 
