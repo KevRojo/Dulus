@@ -3137,7 +3137,21 @@ def stream_anthropic(
                 cache_creation_tokens=_cc,
                 cache_read_tokens=_cr,
             )
+    except KeyboardInterrupt:
+        # User Ctrl+C'd mid-stream. Yield whatever text we already got and
+        # bail cleanly — do NOT route through friendly_api_error, which sees
+        # cleanup-side httpx noise ("401", "authentication") and mislabels
+        # the cancel as a "wrong API key" error.
+        yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking, error=False)
+        return
     except Exception as _e:
+        # Filter out cancellation/cleanup exceptions that masquerade as auth
+        # errors. httpx ReadError / RemoteProtocolError / CancelledError raised
+        # during stream teardown after a Ctrl+C are NOT auth failures.
+        _etype = type(_e).__name__
+        if _etype in ("CancelledError", "ReadError", "RemoteProtocolError", "CloseError"):
+            yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking, error=False)
+            return
         msg = friendly_api_error(_e)
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
