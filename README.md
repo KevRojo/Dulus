@@ -1,6 +1,9 @@
 # ▲ DULUS
 
 
+BUY $DULUS MORE THAN 300 HOLDERS ALREADY!!!!!
+
+https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
 
 > **Use IA agents without an API key. $0.**
 >
