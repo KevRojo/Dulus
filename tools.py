@@ -571,7 +571,7 @@ def _read(file_path: str, limit: int = None, offset: int = None) -> str:
         # Threshold for "large" file: 10MB
         size = p.stat().st_size
         if size < 10 * 1024 * 1024:
-            lines = p.read_text(encoding="utf-8", errors="replace", newline="").splitlines(keepends=True)
+            lines = p.open("r", encoding="utf-8", errors="replace", newline="").read().splitlines(keepends=True)
             total = len(lines)
             start = offset or 0
             chunk = lines[start:start + effective_limit]
@@ -786,7 +786,7 @@ def _write(file_path: str, content: str) -> str:
     try:
         is_new = not p.exists()
         # Ensure utf-8 and newline="" for reading existing content to generate diff
-        old_content = "" if is_new else p.read_text(encoding="utf-8", errors="replace", newline="")
+        old_content = "" if is_new else p.open("r", encoding="utf-8", errors="replace", newline="").read()
         p.parent.mkdir(parents=True, exist_ok=True)
         # Always write as utf-8 with newline="" to prevent double CRLF on Windows
         p.write_text(content, encoding="utf-8", newline="")
@@ -809,7 +809,7 @@ def _edit(file_path: str, old_string: str, new_string: str, replace_all: bool = 
         return f"Error: file not found: {file_path}"
     try:
         # Read with newline="" to get original line endings
-        content = p.read_text(encoding="utf-8", errors="replace", newline="")
+        content = p.open("r", encoding="utf-8", errors="replace", newline="").read()
         
         # Detect original line endings: only treat as pure CRLF if every \n is part of \r\n
         crlf_count = content.count("\r\n")
