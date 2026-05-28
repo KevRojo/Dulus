@@ -1,10 +1,5 @@
 # ▲ DULUS
 
-
-BUY $DULUS MORE THAN 300 HOLDERS ALREADY!!!!!
-
-https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
-
 > **Use IA agents without an API key. $0.**
 >
 > **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely opens your browser, captures your **Gemini** (guest, no login) · **Claude.ai** · **Claude Code** · **Kimi.com** · **Qwen** · **DeepSeek** session, then lets you drive frontier IA as if it were an API. **No api key. No subscription. No credit card.**
@@ -16,11 +11,6 @@ https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
 <img width="1786" height="360" alt="image" src="https://github.com/user-attachments/assets/4eef327d-6b02-454b-8b1c-5c34894d03dc" />
 
 <img width="1282" height="399" alt="image" src="https://github.com/user-attachments/assets/2c52f4a4-bdb0-439b-a8b2-553f4202d6b4" />
-
-if someone could help me please send me and email
-I really need funds to complete the business version of dulus
-
-Lov <3
 
 dev@dulus.ai
 
@@ -89,10 +79,6 @@ The token isn't decoration. It's the fuel layer for everything Dulus is building
 
 ---
 
-**A message to the community —**
-
-I want to talk about the token. Honestly. No hype.
-
 **$DULUS has a real purpose.**
 
 The open-source project isn't going anywhere. The REPL, the tools, the free model tier — that stays free forever. But Dulus is growing into a business layer: cloud-hosted instances, multi-user workspaces, model credits, managed deployments.
@@ -109,9 +95,6 @@ We keep flying. 🦅🇩🇴
 
 — KevRojo / [@KevRojox](https://x.com/KevRojox)
 
------
-
-$Dulus Ai CA > 9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
 
 -----
 <p align="center">
