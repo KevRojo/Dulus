@@ -41,3 +41,6 @@ bubblewrap-cli>=1.0.0
 # ── Desktop GUI (optional) ────────────────────────────────────────────────
 customtkinter>=5.2.0
 Pillow>=10.0.0
+
+# ── Error tracking ────────────────────────────────────────────────────────
+sentry-sdk>=2.0.0
