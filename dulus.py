@@ -272,6 +272,19 @@ except ImportError:
     _RICH = False
     console = None
 
+# ── Sentry error tracking (optional — graceful degradation if not installed) ─
+try:
+    import sentry_sdk as _sentry_sdk
+    _sentry_sdk.init(
+        dsn="https://2141eed637e06b8e5fa535a2586495b8@o4511465548808192.ingest.us.sentry.io/4511465560932352",
+        send_default_pii=True,
+        traces_sample_rate=0.1,   # 10% of sessions — keeps free quota healthy
+        profiles_sample_rate=0.0, # no profiling overhead
+    )
+    _SENTRY = True
+except Exception:
+    _SENTRY = False  # never crash if sentry-sdk is missing or misconfigured
+
 # ── Optional bubblewrap for chat bubbles (NerdFont required) ──────────────
 try:
     from bubblewrap import Bubbles as _BubblesClass
