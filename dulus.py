@@ -275,11 +275,28 @@ except ImportError:
 # ── Sentry error tracking (optional — graceful degradation if not installed) ─
 try:
     import sentry_sdk as _sentry_sdk
+    # Disable auto-integrations: some (rq, celery) try to use `fork`
+    # which doesn't exist on Windows → ValueError on import. Add back
+    # only the safe essentials so crashes still reach Sentry.
+    _sentry_integrations = []
+    for _cls_name, _mod in [
+        ("ExcepthookIntegration", "sentry_sdk.integrations.excepthook"),
+        ("AtexitIntegration",     "sentry_sdk.integrations.atexit"),
+        ("DedupeIntegration",     "sentry_sdk.integrations.dedupe"),
+        ("StdlibIntegration",     "sentry_sdk.integrations.stdlib"),
+    ]:
+        try:
+            import importlib as _il
+            _sentry_integrations.append(getattr(_il.import_module(_mod), _cls_name)())
+        except Exception:
+            pass
     _sentry_sdk.init(
         dsn="https://2141eed637e06b8e5fa535a2586495b8@o4511465548808192.ingest.us.sentry.io/4511465560932352",
         send_default_pii=True,
-        traces_sample_rate=0.1,   # 10% of sessions — keeps free quota healthy
-        profiles_sample_rate=0.0, # no profiling overhead
+        traces_sample_rate=0.1,    # 10% of sessions — keeps free quota healthy
+        profiles_sample_rate=0.0,  # no profiling overhead
+        default_integrations=False,
+        integrations=_sentry_integrations,
     )
     _SENTRY = True
 except Exception:

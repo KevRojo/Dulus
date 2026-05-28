@@ -44,3 +44,10 @@ Pillow>=10.0.0
 
 # ── Error tracking ────────────────────────────────────────────────────────
 sentry-sdk>=2.0.0
+
+# ── OCR (local image text extraction) ────────────────────────────────────
+pytesseract>=0.3.10
+# Tesseract binary required:
+#   Windows: winget install -e --id UB-Mannheim.TesseractOCR
+#   Linux:   sudo apt-get install -y tesseract-ocr
+#   macOS:   brew install tesseract

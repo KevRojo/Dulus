@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "3.1.5"
+version = "3.1.6"
 description = "Use IA as an agent without an API key. $0. Harvest your browser session for Gemini (guest, no login), Claude.ai, Claude Code, Kimi.com, Qwen, DeepSeek — drive them like an API, no per-token billing. Plus LiteLLM (100+ paid providers), local models via Ollama, /lang in 34 languages, Mesa Redonda, voice, OCR, MemPalace, embedded sandbox OS."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -46,6 +46,10 @@ dependencies = [
     # and several plugins. Tiny dep; ship it by default.
     "beautifulsoup4>=4.12.0",
     "sentry-sdk>=2.0.0",
+    # OCR — local text extraction from images/screenshots. pytesseract is
+    # lightweight; Tesseract binary must be installed separately (see README).
+    # Pillow already listed above — no duplicate needed.
+    "pytesseract>=0.3.10",
 ]
 
 # mempalace pulls chromadb (26 transitive deps incl. numpy + onnxruntime),
