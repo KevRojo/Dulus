@@ -545,6 +545,22 @@ PROVIDERS: dict[str, dict] = {
             "deepseek-v3", "deepseek-r1",
         ],
     },
+    # Azure OpenAI (v1 OpenAI-compatible endpoint). Deployment name == model
+    # name. The endpoint is per-resource, so set it via your environment:
+    #   AZURE_OPENAI_ENDPOINT=https://<your-resource>.cognitiveservices.azure.com
+    #   AZURE_OPENAI_KEY=<your-key>     (or: /config azure_api_key=...)
+    # Pick models as 'azure/<deployment-name>'. Also serves Kimi/other
+    # deployments hosted on Azure AI Foundry.
+    "azure": {
+        "type":       "openai",
+        "api_key_env": "AZURE_OPENAI_KEY",
+        "base_url":   "",  # resolved at call time from AZURE_OPENAI_ENDPOINT / config
+        "context_limit": 128000,
+        "max_completion_tokens": 16384,
+        "models": [
+            "gpt-4.1-nano", "gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-4o-mini",
+        ],
+    },
     # LiteLLM unified gateway. ONE provider entry that fans out to 100+
     # underlying backends via prefixed model strings:
     #     openrouter/anthropic/claude-3-5-sonnet
@@ -3578,7 +3594,14 @@ def stream_openai_compat(
         kwargs["extra_body"] = {"options": {"num_ctx": ctx_limit}}
 
     # Kimi thinking control (v1.0.1.20+)
-    if detect_provider(model) in ("kimi", "moonshot", "kimi-code", "kimi-code2", "kimi-code3"):
+    # Gate by the REAL endpoint host, not just the model-name prefix: Kimi models
+    # are also hosted on Azure/other OpenAI-compatible gateways that reject the
+    # non-standard `thinking` arg (400 unrecognized_request_argument).
+    _is_native_kimi_host = any(
+        h in (base_url or "")
+        for h in ("api.moonshot.ai", "api.kimi.com")
+    )
+    if _is_native_kimi_host and detect_provider(model) in ("kimi", "moonshot", "kimi-code", "kimi-code2", "kimi-code3"):
         if not kwargs.get("extra_body"): kwargs["extra_body"] = {}
         # Kimi expects an object: {"type": "enabled" | "disabled"}
         mode = "enabled" if config.get("thinking", False) else "disabled"
@@ -4362,6 +4385,20 @@ def stream(
                         "custom provider requires a base_url. "
                         "Set CUSTOM_BASE_URL env var or run: /config custom_base_url=http://..."
                     )
+            elif provider_name == "azure":
+                # Azure OpenAI endpoint is per-resource — read it from the user's
+                # env/config instead of hardcoding one. Accept either the bare
+                # resource URL or one already ending in /openai/v1/.
+                base_url = (config.get("azure_base_url")
+                            or _os.environ.get("AZURE_OPENAI_ENDPOINT", "")).rstrip("/")
+                if not base_url:
+                    raise ValueError(
+                        "azure provider requires an endpoint. Set AZURE_OPENAI_ENDPOINT "
+                        "env var or run: /config azure_base_url=https://<resource>.cognitiveservices.azure.com"
+                    )
+                if not base_url.endswith("/openai/v1"):
+                    base_url = base_url + "/openai/v1"
+                base_url = base_url + "/"
             else:
                 base_url = prov.get("base_url", "https://api.openai.com/v1")
             yield from stream_openai_compat(
