@@ -914,6 +914,7 @@ def _render_toggle_footer(config) -> None:
         ("cloudsave_auto",  False, "/cloudsave auto",  "Auto-upload session to Gist on exit"),
         ("lite_mode",       False, "/lite",            "Lite mode (smaller system prompt)"),
         ("brave_search_enabled", False, "/brave",      "Brave Search API integration"),
+        ("bocha_search_enabled", False, "/bocha",      "Bocha AI Search (博查, Chinese-optimized)"),
         ("tts_enabled",     False, "/tts",             "Automatic Text-to-Speech"),
         ("wake_enabled",    False, "/wake",            "Wake-word hotword detection"),
         ("daemon",          False, "/daemon",          "External triggers without REPL"),
@@ -1829,6 +1830,14 @@ def cmd_brave(_args: str, _state, config) -> bool:
     config["brave_search_enabled"] = not config.get("brave_search_enabled", False)
     state_str = "ON" if config["brave_search_enabled"] else "OFF"
     ok(f"Brave Search: {state_str}")
+    save_config(config)
+    return True
+
+def cmd_bocha(_args: str, _state, config) -> bool:
+    from config import save_config
+    config["bocha_search_enabled"] = not config.get("bocha_search_enabled", False)
+    state_str = "ON" if config["bocha_search_enabled"] else "OFF"
+    ok(f"Bocha AI Search: {state_str}")
     save_config(config)
     return True
 
@@ -9130,6 +9139,7 @@ COMMANDS = {
     "sandbox":     cmd_sandbox,
     "gui":         cmd_gui,
     "brave":       cmd_brave,
+    "bocha":       cmd_bocha,
     "rtk":         cmd_rtk,
     "image":       cmd_image,
     "img":         cmd_image,

@@ -40,6 +40,9 @@ DEFAULTS = {
     # DeepSeek-specific overrides (for models that struggle with tools)
     "deep_override": False,  # Use simplified system prompt for DeepSeek
     "deep_tools":    False,  # Enable auto JSON wrapping for DeepSeek tool calls
+    # Bocha AI Search (博查) — optional native Chinese search backend (opt-in)
+    "bocha_search_key": "",
+    "bocha_search_enabled": False,
     # Brave Search API Key
     "brave_search_key": "",
     "brave_search_enabled": False,
