@@ -43,6 +43,9 @@ DEFAULTS = {
     # Brave Search API Key
     "brave_search_key": "",
     "brave_search_enabled": False,
+    # Bocha AI Search API Key (Chinese-optimized search)
+    "bocha_search_key": "",
+    "bocha_search_enabled": False,
     "tts_enabled":          False,
     "tts_provider":         "auto",   # auto | azure | openai | gtts | pyttsx3 | riva | edge | elevenlabs
     "azure_speech_key":     "",

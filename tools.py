@@ -185,7 +185,7 @@ TOOL_SCHEMAS = [
     {
         "name": "WebSearch",
         "description": (
-            "Search the web (Brave or DuckDuckGo) and return TEXT result snippets. "
+            "Search the web (Bocha for Chinese, Brave, or DuckDuckGo) and return TEXT result snippets. "
             "Use for: looking up info on behalf of the user — weather, news, prices, "
             "definitions, finding the right URL before a WebFetch, anything where "
             "the answer is text you'll relay back.\n\n"
@@ -1562,6 +1562,39 @@ def _bravesearch(query: str, api_key: str, country: str = None) -> str:
         return f"Error: Brave Search failed: {e}"
 
 
+def _bochasearch(query: str, api_key: str) -> str:
+    """Search using Bocha AI Search API (Chinese-optimized)."""
+    try:
+        import requests
+        url = "https://api.bochaai.com/v1/web-search"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "query": query,
+            "count": 10,
+            "freshness": "noLimit",
+            "summary": True,
+        }
+        r = requests.post(url, headers=headers, json=body, timeout=30)
+        if r.status_code != 200:
+            return f"Error: Bocha Search API returned {r.status_code}: {r.text[:200]}"
+
+        data = r.json()
+        results = []
+        for item in data.get("data", {}).get("webPages", {}).get("value", [])[:10]:
+            title = item.get("name", "")
+            href = item.get("url", "")
+            snippet = item.get("snippet", "")
+            if title and href:
+                results.append(f"{title}\n{href}\n{snippet}")
+
+        return "\n\n".join(results[:8]) if results else "No results found"
+    except Exception as e:
+        return f"Error: Bocha Search failed: {e}"
+
+
 def _websearch(query: str, config: dict = None, region: str = None) -> str:
     try:
         import requests
@@ -1571,7 +1604,11 @@ def _websearch(query: str, config: dict = None, region: str = None) -> str:
         # Determine region (priority: tool call param > config > None)
         active_region = region or (config.get("search_region") if config else None)
 
-        # ── Brave Search Fallback ───────────────────────────────────────────────
+        # ── Bocha AI Search (Chinese-optimized) ────────────────────────────────
+        if config and config.get("bocha_search_enabled") and config.get("bocha_search_key"):
+            return _bochasearch(query, config["bocha_search_key"])
+
+        # ── Brave Search ───────────────────────────────────────────────────────
         if config and config.get("brave_search_enabled") and config.get("brave_search_key"):
             # Brave uses 2-letter country code (e.g. 'do', 'us', 'mx')
             cc = active_region.split("-")[0] if active_region else None
