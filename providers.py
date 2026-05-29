@@ -4145,6 +4145,12 @@ def stream_ollama(
         }
     }
 
+    # Honor `thinking: false` — tell Ollama-hosted reasoning models (Qwen3, etc.)
+    # to skip the thinking phase instead of streaming <think> blocks.
+    if not config.get("thinking", False):
+        payload["think"] = False
+        payload["options"]["enable_thinking"] = False
+
     if tool_schemas and not config.get("no_tools") and not _prompt_tool_mode:
         payload["tools"] = tools_to_openai(tool_schemas)
     

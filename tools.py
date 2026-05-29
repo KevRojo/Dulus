@@ -1562,6 +1562,36 @@ def _bravesearch(query: str, api_key: str, country: str = None) -> str:
         return f"Error: Brave Search failed: {e}"
 
 
+def _bochasearch(query: str, api_key: str) -> str:
+    """Search using Bocha AI Search (博查) — native Chinese web search API."""
+    try:
+        import requests
+        url = "https://api.bochaai.com/v1/web-search"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        body = {"query": query, "summary": True, "count": 10}
+        r = requests.post(url, headers=headers, json=body, timeout=30)
+        if r.status_code != 200:
+            return f"Error: Bocha Search API returned {r.status_code}: {r.text[:200]}"
+
+        data = r.json()
+        # Bocha returns results under data.webPages.value[]
+        pages = (data.get("data", {}) or {}).get("webPages", {}).get("value", [])
+        results = []
+        for res in pages[:10]:
+            title = res.get("name", "")
+            href = res.get("url", "")
+            desc = res.get("summary") or res.get("snippet", "")
+            if title and href:
+                results.append(f"{title}\n{href}\n{desc}")
+
+        return "\n\n".join(results[:8]) if results else "No results found"
+    except Exception as e:
+        return f"Error: Bocha Search failed: {e}"
+
+
 def _websearch(query: str, config: dict = None, region: str = None) -> str:
     try:
         import requests
@@ -1571,11 +1601,15 @@ def _websearch(query: str, config: dict = None, region: str = None) -> str:
         # Determine region (priority: tool call param > config > None)
         active_region = region or (config.get("search_region") if config else None)
 
-        # ── Brave Search Fallback ───────────────────────────────────────────────
+        # ── Brave Search ────────────────────────────────────────────────────────
         if config and config.get("brave_search_enabled") and config.get("brave_search_key"):
             # Brave uses 2-letter country code (e.g. 'do', 'us', 'mx')
             cc = active_region.split("-")[0] if active_region else None
             return _bravesearch(query, config["brave_search_key"], country='ALL')
+
+        # ── Bocha AI Search (博查) — optional, Chinese-optimized (opt-in) ─────────
+        if config and config.get("bocha_search_enabled") and config.get("bocha_search_key"):
+            return _bochasearch(query, config["bocha_search_key"])
 
         # User-provided stealth headers (Firefox 150 style)
         headers = {
