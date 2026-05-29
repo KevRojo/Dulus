@@ -4193,6 +4193,17 @@ def stream_ollama(
         resp_cm = urllib.request.urlopen(req)
     except urllib.error.HTTPError:
         raise
+    except (urllib.error.URLError, ConnectionError, OSError) as e:
+        # Ollama not reachable (not running, wrong port, refused connection).
+        # Fail soft with a helpful message instead of crashing to excepthook.
+        msg = (
+            f"[ollama] Could not connect to Ollama at {base_url} ({e}). "
+            "Is the Ollama server running? Start it with `ollama serve`, or switch "
+            "to a cloud provider with /model. Run /help for options."
+        )
+        yield TextChunk(msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+        return
 
     # Buffer for accumulating thinking content to reduce word-by-word chunks
     _thinking_buffer = ""
