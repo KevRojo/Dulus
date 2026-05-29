@@ -4145,6 +4145,11 @@ def stream_ollama(
         }
     }
 
+    # Disable thinking for Ollama models that support it (qwen3.5 etc.)
+    # When thinking is off in config, pass enable_thinking:false to save tokens
+    if not config.get("thinking"):
+        payload["enable_thinking"] = False
+
     if tool_schemas and not config.get("no_tools") and not _prompt_tool_mode:
         payload["tools"] = tools_to_openai(tool_schemas)
     
