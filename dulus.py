@@ -7500,6 +7500,159 @@ def cmd_image(args: str, state, config) -> Union[bool, tuple]:
     return ("__image__", prompt)
 
 
+def cmd_video(args: str, state, config) -> Union[bool, tuple]:
+    """Attach a video and send it to a Kimi K2.5 / K2.6 vision model.
+
+      /video <path>          — a local video file (mp4/webm/mov/mkv/...)
+      /video <url>           — an http(s) URL to a video
+      /video <src> :: ask    — attach <src> and send "ask" as the prompt
+
+    The video is base64-encoded and sent as a `video_url` data URL. Only
+    Kimi K2.5 / K2.6 accept video input (on ANY provider — native Moonshot,
+    Azure deployment, etc.); other models silently ignore it.
+    """
+    import base64, os as _os
+    raw = (args or "").strip()
+    if not raw:
+        err("Usage: /video <path-or-url> [:: prompt]")
+        return True
+
+    if "::" in raw:
+        src, _, user_prompt = raw.partition("::")
+        src, user_prompt = src.strip(), user_prompt.strip()
+    else:
+        src, user_prompt = raw, ""
+    user_prompt = user_prompt or "Describe this video in detail."
+
+    model = (config.get("model") or "").lower()
+    if "kimi-k2.5" not in model and "kimi-k2.6" not in model:
+        warn(f"Active model '{config.get('model')}' may not support video. "
+             "Switch to a kimi-k2.5 / kimi-k2.6 model (any provider) with /model.")
+
+    mime_by_ext = {
+        ".mp4": "video/mp4", ".m4v": "video/mp4", ".webm": "video/webm",
+        ".mov": "video/quicktime", ".mkv": "video/x-matroska",
+        ".avi": "video/x-msvideo",
+    }
+    try:
+        if src.lower().startswith(("http://", "https://")):
+            import requests
+            info(f"⬇️  downloading video: {src}")
+            data = requests.get(src, timeout=60).content
+            ext = _os.path.splitext(src.split("?")[0])[1].lower()
+        else:
+            p = _os.path.expanduser(src)
+            if not _os.path.isfile(p):
+                err(f"File not found: {p}")
+                return True
+            with open(p, "rb") as f:
+                data = f.read()
+            ext = _os.path.splitext(p)[1].lower()
+        mime = mime_by_ext.get(ext, "video/mp4")
+        b64 = base64.b64encode(data).decode("utf-8")
+        size_mb = len(data) / (1024 * 1024)
+        info(f"🎬 Video captured ({size_mb:.1f} MB, {mime})")
+        if size_mb > 20:
+            warn("Video is large (>20 MB). Base64 inflates ~33% and may exceed "
+                 "the model context. Consider a shorter clip.")
+    except Exception as e:
+        err(f"Failed to load video: {e}")
+        return True
+
+    config["_pending_video"] = {"data": b64, "mime": mime}
+    return ("__video__", user_prompt)
+
+
+def cmd_budget(args: str, state, config) -> bool:
+    """Show or set the per-session resource budget (governance ledger).
+
+      /budget                    — show current usage vs limits
+      /budget tokens 200000      — set the token limit (enables the budget)
+      /budget tool_calls 300     — set the tool-call limit
+      /budget cost_micro 5000000 — set a cost ceiling (micro-USD)
+      /budget warn 0.8           — set the warning threshold (fraction 0-1)
+      /budget off                — disable the budget
+
+    When a limit is reached mid-run the agent stops gracefully instead of
+    burning more tokens. Great for capping cost on long autonomous tasks and
+    (in Dulus Business) enforcing per-tenant plan limits.
+    """
+    from config import save_config
+    parts = (args or "").strip().split()
+    gov_cfg = config.setdefault("governance", {})
+    limits = gov_cfg.setdefault("limits", {})
+
+    # ── status ──
+    if not parts:
+        gov = config.get("_governance_obj")
+        led = getattr(gov, "ledger", None) if gov else None
+        if led is not None:
+            snap = led.snapshot()
+            if not snap:
+                info("Budget active — nothing charged yet this session.")
+            else:
+                info("Budget (this session):")
+                for dim, s in sorted(snap.items()):
+                    g = s["granted"]
+                    cap = "unlimited" if g < 0 else str(g)
+                    left = "unlimited" if g < 0 else str(s["remaining"])
+                    print(f"   {dim:<12} {s['used']} / {cap}   (left: {left})")
+        elif limits:
+            info("Budget configured (activates on next turn):")
+            for d, v in limits.items():
+                print(f"   {d:<12} limit {v}")
+        else:
+            info("No budget set. Try: /budget tokens 200000")
+        return True
+
+    sub = parts[0].lower()
+
+    # ── off ──
+    if sub in ("off", "disable", "none"):
+        config.pop("governance", None)
+        config.pop("_governance_obj", None)
+        ok("Budget disabled.")
+        save_config(config)
+        return True
+
+    # ── warn threshold ──
+    if sub == "warn" and len(parts) >= 2:
+        try:
+            w = float(parts[1])
+            if not (0 < w <= 1):
+                raise ValueError
+        except ValueError:
+            err("warn must be a fraction in (0, 1], e.g. /budget warn 0.8")
+            return True
+        gov_cfg["warn_at"] = w
+        config.pop("_governance_obj", None)  # rebuild next turn
+        ok(f"Warn threshold set to {int(w * 100)}%.")
+        save_config(config)
+        return True
+
+    # ── set a dimension limit ──
+    if len(parts) >= 2:
+        dim = sub
+        try:
+            amount = int(parts[1])
+        except ValueError:
+            err(f"Amount must be an integer: /budget {dim} 200000")
+            return True
+        limits[dim] = amount
+        gov = config.get("_governance_obj")
+        led = getattr(gov, "ledger", None) if gov else None
+        if led is not None:
+            led.set_limit(dim, amount)      # live update, keeps usage
+        else:
+            config.pop("_governance_obj", None)  # rebuild next turn
+        ok(f"Budget: {dim} limit = {amount}.")
+        save_config(config)
+        return True
+
+    err("Usage: /budget [tokens|tool_calls|cost_micro <N> | warn <frac> | off]")
+    return True
+
+
 def cmd_ocr(args: str, state, config) -> Union[bool, tuple]:
     """Extract text from an image WITHOUT calling a vision model.
 
@@ -9143,6 +9296,8 @@ COMMANDS = {
     "rtk":         cmd_rtk,
     "image":       cmd_image,
     "img":         cmd_image,
+    "video":       cmd_video,
+    "budget":      cmd_budget,
     "ocr":         cmd_ocr,
     "brainstorm":  cmd_brainstorm,
     "worker":      cmd_worker,
@@ -9191,7 +9346,7 @@ def handle_slash(line: str, state, config) -> Union[bool, tuple]:
     if handler:
         result = handler(args, state, config)
         # cmd_voice/cmd_image/cmd_brainstorm/cmd_plan return sentinels to ask the REPL to run_query
-        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__plugin_main_agent__", "__roundtable__", "__roundtable_stop__"):
+        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__plugin_main_agent__", "__roundtable__", "__roundtable_stop__"):
             return result
         return True
 
@@ -9256,6 +9411,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "wake":        ("Wake-word hotword detection",        ["on", "off", "status", "phrases", "calibrate", "test", "threshold", "feedback"]),
     "image":       ("Send clipboard image to model",      []),
     "img":         ("Send clipboard image (alias)",       []),
+    "video":       ("Send a video to Kimi K2.5/K2.6 vision", []),
+    "budget":      ("Show/set per-session resource budget", []),
     "ocr":         ("Local OCR — extract text from image, no vision model", []),
     "batch":       ("Manage Kimi Batch tasks",            ["status", "list", "fetch"]),
     "claude_batch": ("Manage Claude (Anthropic) Batch tasks — 50% off", ["create", "list", "status", "fetch", "cancel"]),
@@ -11119,6 +11276,16 @@ def repl(config: dict, initial_prompt: str = None):
                 _, image_prompt = result
                 try:
                     run_query(image_prompt)
+                except KeyboardInterrupt:
+                    _track_ctrl_c()
+                    print(clr("\n  (interrupted)", "yellow"))
+                break
+
+            # Video sentinel: ("__video__", prompt_text) — Kimi K2.5/K2.6 only
+            if result[0] == "__video__":
+                _, video_prompt = result
+                try:
+                    run_query(video_prompt)
                 except KeyboardInterrupt:
                     _track_ctrl_c()
                     print(clr("\n  (interrupted)", "yellow"))
