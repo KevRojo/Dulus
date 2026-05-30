@@ -1,136 +1,449 @@
-# $DULUS AI — Whitepaper
+# $DULUS AI — Technical Whitepaper
 
-**Contract Address (Solana):** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`  
-**Network:** Solana  
-**Creator:** KevRojo ([@KevRojox](https://x.com/KevRojox))  
-**GitHub:** [github.com/KevRojo/Dulus](https://github.com/KevRojo/Dulus)  
-**PyPI:** [pypi.org/project/dulus](https://pypi.org/project/dulus)  
-**Version:** v0.2.96 — May 2026
+**Contract Address (Solana):** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
+**Network:** Solana
+**Creator:** KevRojo ([@KevRojox](https://x.com/KevRojox))
+**GitHub:** [github.com/KevRojo/Dulus](https://github.com/KevRojo/Dulus)
+**PyPI:** [pypi.org/project/dulus](https://pypi.org/project/dulus)
+**Version:** v3.2.0 — June 2026
+**License:** GPLv3
+
+---
+
+## Table of Contents
+
+1. [Abstract](#1-abstract)
+2. [Vision & Philosophy](#2-vision--philosophy)
+3. [Technical Architecture](#3-technical-architecture)
+4. [MemPalace: Semantic Memory](#4-mempalace-semantic-memory)
+5. [Multi-Agent System](#5-multi-agent-system)
+6. [Security Model](#6-security-model)
+7. [Tokenomics of $DULUS](#7-tokenomics-of-dulus)
+8. [Technical Roadmap](#8-technical-roadmap)
+9. [Comparative Analysis](#9-comparative-analysis)
+10. [A Message to the Community](#10-a-message-to-the-community)
+11. [References](#11-references)
 
 ---
 
 ## 1. Abstract
 
-Dulus is an open-source, multi-provider autonomous AI agent harness built by a solo developer from Santo Domingo, Dominican Republic. It enables any developer to run frontier AI models — including Claude, GPT-4, Gemini, DeepSeek, Qwen, Kimi, and 100+ others via LiteLLM — from a single Python CLI, with zero API key required on first run.
+Dulus is an open-source, multi-provider autonomous AI agent harness built in ~31,000 lines of Python by a solo developer from Santo Domingo, Dominican Republic. It enables any developer to run frontier AI models — including Claude, GPT-4, Gemini, DeepSeek, Qwen, Kimi, and 100+ others via LiteLLM — from a single CLI, with zero API key required on first run.
 
-The $DULUS AI token on Solana is the community and ecosystem token for the Dulus project. It is backed by a real, actively maintained, and publicly auditable open-source codebase — not a concept or a promise.
+The $DULUS AI token on Solana serves as the utility and governance layer for the Dulus ecosystem. The open-source REPL remains free forever; $DULUS unlocks the business tier.
 
----
-
-## 2. The Problem
-
-AI agent frameworks today fall into two categories:
-
-1. **Locked ecosystems** — tied to one model, one cloud, one pricing tier. If the provider raises prices or changes terms, users are stuck.
-2. **Complex frameworks** — require extensive setup, configuration, and deep ML knowledge. Inaccessible to most developers.
-
-Additionally, integrating any new Python tool, library, or repository into an AI agent traditionally requires writing custom adapters, manifests, and glue code. This is slow, error-prone, and creates friction.
+**Key innovations:**
+- Browser session harvesting (zero-API-key access)
+- Auto-Adapter plugin system (any Python repo becomes a tool)
+- MemPalace semantic memory (ChromaDB-based)
+- The Flock sub-agent system (isolated git worktrees)
+- Mesa Redonda multi-model debate
 
 ---
 
-## 3. The Solution — Dulus
+## 2. Vision & Philosophy
 
-Dulus eliminates all of that friction.
+### The Problem with AI Today
 
-### 3.1 Zero Lock-in, Zero API Key
+AI agent frameworks have split into two broken categories:
 
-`pip install dulus` → working AI in 30 seconds. On first run, Dulus offers to open a browser and capture a live Gemini guest session — no login, no API key, no credit card. The same flow works for Claude.ai, Kimi, Qwen, and DeepSeek.
+1. **Closed ecosystems** — locked to one model, one cloud, one pricing tier
+2. **Complex frameworks** — require extensive setup, configuration, and ML expertise
 
-For users who want API access: 100+ providers via LiteLLM (OpenRouter, Groq, Together, Bedrock, Vertex, Mistral, xAI, Fireworks, Azure, and more). Local models via Ollama. NVIDIA NIM free tier (14 models, 40 RPM, no card required).
+Neither serves the global developer community. The promise of "AI for everyone" remains unfulfilled.
 
-### 3.2 Auto-Adapter — The Killer Feature
+### The Dulus Philosophy
 
-Any Python repository becomes a live Dulus tool with a single command:
+**Dulus is not a chatbot. Dulus is your companion.**
 
-```bash
-/plugin install yfinance@https://github.com/ranaroussi/yfinance
-/plugin install sherlock@https://github.com/sherlock-project/sherlock
+| Principle | Meaning |
+|---|---|
+| **Universal access** | Any model, any provider, any language |
+| **Zero friction** | 30 seconds from install to working AI |
+| **Zero cost to start** | No API key, no credit card, no subscription |
+| **Open forever** | GPLv3. The engine is free. The business is SaaS on top. |
+| **Built different** | ~31K lines of readable Python. No build step. No gatekeeping. |
+| **Community-owned** | $DULUS token aligns incentives between builders and users |
+
+### The Bird
+
+The Palmchat (*Dulus dominicus*) is the national bird of the Dominican Republic. It symbolizes:
+- **Freedom** — flying without boundaries
+- **Resilience** — thriving in any environment
+- **Community** — nesting in colonies, flying together
+
+This is the spirit of Dulus: an AI companion that is free, adaptable, and built for the flock.
+
+---
+
+## 3. Technical Architecture
+
+### 3.1 System Overview
+
+```
+User Input
+    |
+    v
++----------------------------------+
+| dulus.py (Entry Point)           |
+| - REPL with prompt_toolkit       |
+| - 30+ slash commands             |
+| - Voice, Telegram, GUI           |
++----------------------------------+
+    |
+    v
++----------------------------------+
+| agent.py (Core Loop)             |
+| - Multi-turn conversation        |
+| - Permission gating              |
+| - Governance integration         |
+| - Context compaction             |
++----------------------------------+
+    |
+    +------+------+------+------+
+    |      |      |      |      |
+    v      v      v      v      v
++------+ +------+ +------+ +------+ +---------+
+|provid| |tool_ | |compac| |gover-| |multi_  |
+|ers.py| |regist| |tion. | |nance | |agent/  |
+|(4.5K)| |ry.py | |py    | |.py   | |(Flock) |
++------+ +------+ +------+ +------+ +---------+
+    |      |
+    v      v
++------+ +------+
+|tools | |context|
+|(2.9K)| |.py   |
++------+ +------+
+              |
+              v
+    +---------+---------+
+    |         |         |
+    v         v         v
++------+  +------+  +------+
+|memory|  |skill |  |plugin|
+|(Mem- |  |/     |  |/Auto |
+|Palace|  |      |  |Adapt)|
++------+  +------+  +------+
 ```
 
-Dulus reads the repository, generates the adapter, and the tool is immediately available to the agent. No manifest files. No custom code. This is a category shift — not a feature.
+### 3.2 Key Design Decisions
 
-### 3.3 Core Capabilities
+**Flat module layout:** Every module is importable from the top level. No deep package hierarchies. This makes the codebase readable and forkable.
 
-| Capability | Details |
-|---|---|
-| **Providers** | 11 native + 100+ via LiteLLM |
-| **Tools** | 30+ built-in (file, shell, web, browser, memory, voice, OCR, finance, OSINT) |
-| **Browser automation** | WebBridge via Playwright — navigate, click, evaluate JS, screenshot |
-| **Voice** | Whisper STT (offline) + ElevenLabs/local TTS |
-| **Memory** | MemPalace semantic memory (ChromaDB), hall/wing organization |
-| **Sub-agents** | Isolated git worktrees, true parallelism |
-| **Mesa Redonda** | Multi-model debate — multiple models working the same problem simultaneously |
-| **Sandbox OS** | Full browser-based OS with 58 lazy-loaded apps, Android APK available |
-| **Telegram bridge** | Multi-user, community bot, approval queue |
-| **MCP** | Model Context Protocol server support |
-| **Languages** | `/lang` command, 34 ISO codes + free-form descriptors |
-| **Daemon mode** | Background process with WebChat UI + IPC bus |
-| **Composio** | 1,000+ SaaS integrations |
+**Neutral message format:** All messages use a provider-independent schema:
+```python
+{"role": "user|assistant|tool", "content": "...", "tool_calls": [...]}
+```
+This enables seamless model switching mid-conversation.
 
-### 3.4 Codebase
+**Generator-based streaming:** The agent loop yields events as they happen, enabling real-time UI updates and always-interruptible operation (Ctrl+C works even during API calls).
 
-~12,000 lines of readable Python. No build step. No gatekeeping. GPLv3 licensed. Fork it, bend it, run it offline.
+**Threading, not asyncio:** Synchronous generators via `concurrent.futures` keep the codebase simple and debuggable. No event loop complexity.
 
-External validation (independent Claude user, @DoediLiem on X, May 2026):
-> *"matches or exceeds many funded agent frameworks."*
+**Graceful degradation:** Every optional dependency (voice, MemPalace, Playwright) fails softly. The CLI always boots and chats.
+
+### 3.3 Provider Architecture
+
+Two streaming adapters cover all providers:
+
+| Adapter | Providers | Lines |
+|---|---|---|
+| `stream_anthropic()` | Anthropic (native SDK) | ~800 |
+| `stream_openai_compat()` | OpenAI, Gemini, Kimi, Qwen, Zhipu, DeepSeek, Ollama, LM Studio, Custom | ~2,000 |
+
+**Provider resilience:** Exponential backoff with full jitter:
+- Retry on: timeout, connection errors, 429, 5xx
+- No retry on: 4xx client errors, auth failures
+- Max 3 retries, max 30s delay
+
+### 3.4 Tool System
+
+The tool registry (`tool_registry.py`, ~215 lines) is the foundation of extensibility:
+
+```python
+@dataclass
+class ToolDef:
+    name: str               # unique identifier
+    schema: dict            # JSON schema for LLM API
+    func: Callable          # (params, config) -> str
+    read_only: bool         # auto-approve in 'auto' mode
+    concurrent_safe: bool   # safe for parallel agents
+```
+
+**30+ built-in tools** across categories:
+- **File:** Read, Write, Edit, Glob, Grep
+- **Shell:** Bash (with safety whitelist)
+- **Web:** WebFetch, WebSearch, WebBridge (Playwright)
+- **Memory:** MemorySave, MemoryDelete, MemorySearch, MemoryList
+- **Agents:** Agent, SendMessage, CheckAgentResult
+- **Tasks:** TaskCreate, TaskUpdate, TaskGet, TaskList
+- **Skills:** Skill, SkillList
+- **Voice:** VoiceRecord, VoiceSpeak
+- **Other:** AskUserQuestion, SleepTimer, LaunchSandbox, ExtractTextFromImage
+
+**MCP integration:** Any MCP server (stdio/SSE/HTTP) auto-registers tools as `mcp__<server>__<tool>`.
+
+### 3.5 Context Management
+
+Two-layer compression system (`compaction.py`, ~375 lines):
+
+**Layer 1: Snip (rule-based)**
+- Truncates old tool results
+- Keeps first half + last quarter
+- Zero API cost
+
+**Layer 2: Auto-Compact (model-driven)**
+- Calls current model to summarize old messages
+- 70/30 old/recent split
+- Replaces old messages with summary
+
+**Trigger:** Context > 70% of model limit.
+
+**Token estimation:** `len(content) / 3.5` (heuristic that works for most models).
 
 ---
 
-## 4. Traction (as of May 2026 — Day 14 public)
+## 4. MemPalace: Semantic Memory
 
-| Metric | Value |
-|---|---|
-| PyPI launch | May 5, 2026 |
-| PyPI downloads | ~19,000+ |
-| GitHub clones (14 days) | 2,000 |
-| Unique cloners | 747 |
-| X impressions (7 days) | 13,600+ |
-| X engagement rate | 4% baseline, 25–50% on key posts |
-| Telegram community | Active, growing |
-| AI model migrations to Dulus | Confirmed by community reports |
+### 4.1 Architecture
 
-Doubao (China's largest AI assistant) began referring traffic to the repository — triggering the `/lang` multilingual feature that now ships by default.
+MemPalace gives Dulus long-term memory across sessions. Built on ChromaDB with sentence-transformer embeddings.
+
+```
+User Query
+    |
+    v
++-------------+     +-------------+     +-------------+
+| Embedding   |---->| ChromaDB    |---->| Ranked      |
+| (sentence   |     | (vector     |     | Results     |
+| transformer)|     |  store)     |     | (confidence |
++-------------+     +-------------+     |  x recency) |
+                                        +------+------+
+                                               |
+                                               v
+                                        +-------------+
+                                        | Injected    |
+                                        | into System |
+                                        | Prompt      |
+                                        +-------------+
+```
+
+### 4.2 Storage Format
+
+Markdown files with YAML frontmatter:
+
+```markdown
+---
+name: user preferences
+description: coding style preferences
+type: feedback
+created: 2026-04-02
+---
+
+User prefers 4-space indentation and type hints.
+Never uses asyncio. Prefers FastAPI over Flask.
+```
+
+**Scopes:**
+- **User:** `~/.dulus/memory/` — cross-project
+- **Project:** `.dulus/memory/` — project-specific
+
+**Types:** `user`, `feedback`, `project`, `reference`
+
+### 4.3 Search Algorithm
+
+Results ranked by: **confidence x recency**
+
+Gold-starred memories are pinned to the top of results.
+
+### 4.4 Soul File
+
+The soul (`~/.dulus/memory/soul.md`) defines Dulus's personality:
+- Name, tone, communication style
+- Autonomy preferences
+- Trust model
+- Creator attribution (immutable)
+
+The soul is editable by the user, making each Dulus unique.
 
 ---
 
-## 5. The $DULUS AI Token
+## 5. Multi-Agent System
 
-### 5.1 Origin
+### 5.1 The Flock
 
-The $DULUS AI token was created by the project's creator, KevRojo, to establish an official, builder-backed community token on Solana. Before the official token existed, a community member launched an unofficial $DULUS token — with good intentions, but confidence was shaky and early believers were at risk. KevRojo launched the official token to protect the community and align incentives with the actual builder.
+Dulus can spawn typed sub-agents that work in **isolated git worktrees**:
 
-### 5.2 Creator Commitment
+```
+Agent(type="coder",    task="refactor auth")
+Agent(type="reviewer", task="review #042")
+Agent(type="tester",   task="run e2e on auth")
+```
 
-- **KevRojo is the creator.** Full transparency — public GitHub, real identity, public X handle.
-- **30 million tokens locked.** Verifiable on-chain.
-- **Top holder position** acquired with personal funds. Not extracted — invested.
-- **Not selling.** Building.
+### 5.2 Key Design Decisions
 
-### 5.3 Token Details
+- **Fresh context** — Each sub-agent starts with empty history + task prompt
+- **Depth limiting** — Max depth 3, checked at spawn time
+- **Cooperative cancellation** — Flag-based, checked each loop iteration
+- **Threading** — `ThreadPoolExecutor` for true parallelism
+
+### 5.3 Agent Communication
+
+Agents communicate via:
+- `SendMessage` — Send a message to another agent
+- `CheckAgentResult` — Poll for completion and get results
+
+### 5.4 Mesa Redonda
+
+Multi-model debate where multiple AI models work the same problem:
+
+1. User poses a question
+2. Dulus spawns agents with different models
+3. Each agent analyzes from its model's perspective
+4. Results are synthesized into a consensus answer
+
+This mitigates model-specific biases and hallucinations.
+
+---
+
+## 6. Security Model
+
+### 6.1 Permission System
+
+| Mode | Behavior |
+|---|---|
+| `auto` | Reads always allowed. Prompts before writes/shell. |
+| `accept-all` | No prompts (dangerous — CI/CD only) |
+| `manual` | Prompt for every operation |
+| `plan` | Read-only. Only plan file writable. |
+
+### 6.2 Safe Execution
+
+- Bash whitelist for auto-approved commands (`ls`, `cat`, `grep`)
+- Dangerous commands always require explicit approval
+- Config encryption (XOR + base64) for API keys
+- Governance layer for budget and capability restrictions
+
+### 6.3 Data Privacy
+
+- All processing local (except API calls to chosen provider)
+- No telemetry, analytics, or tracking
+- MemPalace data stays on user's machine
+- Open source — fully auditable
+
+### 6.4 Sandbox
+
+The experimental `sandbox/` directory contains Dulus OS — a browser-based mini-OS with 58 lazy-loaded apps for isolated tool execution.
+
+---
+
+## 7. Tokenomics of $DULUS
+
+### 7.1 Token Overview
 
 | Field | Value |
 |---|---|
 | **Network** | Solana |
-| **Contract Address** | `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump` |
-| **Platform** | pump.fun / DexScreener |
-| **Locked tokens** | 30,000,000 |
+| **Contract** | `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump` |
+| **Standard** | SPL |
+| **Locked** | 30,000,000 tokens |
 | **Creator** | KevRojo (@KevRojox) |
-| **DexScreener** | [View chart](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump) |
 
-### 5.4 Token Utility (Roadmap)
-
-The $DULUS AI token is the fuel layer for everything Dulus is building. The open-source REPL stays free forever — $DULUS is the key to the business layer, not a gate on what already exists.
+### 7.2 Token Utility Roadmap
 
 | Phase | Utility |
 |---|---|
-| **Now** | Community ownership. Creator-fee rewards locked on-chain to the builder. Alignment over extraction. |
-| **Business v1** | $DULUS holders get early access + discounted seats on the Dulus Business tier (multi-user workspaces, cloud-hosted instances, shared MemPalace). |
-| **Credits** | Pay for Dulus Business API credits with $DULUS — provider costs, inference minutes, premium model usage. |
-| **Deployments** | Spin up a cloud Dulus instance and pay the hosting with $DULUS. No fiat friction, no middleman. |
-| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS. Hold enough → automatic fee discount tier. |
-| **Governance** | Top holders vote on feature priority and plugin marketplace policies. The flock decides. |
+| **Now** | Community ownership. Creator-fee rewards locked on-chain. |
+| **Business v1** | $DULUS holders get early access + discounted seats on Pro/Business tiers. |
+| **Credits** | Pay for Dulus Business API credits with $DULUS. |
+| **Deployments** | Spin up cloud Dulus instances, pay hosting with $DULUS. |
+| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS. |
+| **Governance** | Top holders vote on feature priority and plugin marketplace policies. |
 
-### 5.5 A Message to the Community
+### 7.3 Economic Model
+
+The token creates a virtuous cycle:
+
+```
+Free open-source REPL
+    -> Developer adoption
+    -> Community growth
+    -> Demand for Pro/Business tiers
+    -> $DULUS utility demand
+    -> Creator incentivized to build
+    -> Better product
+    -> More adoption
+```
+
+### 7.4 Creator Commitment
+
+- KevRojo is the creator — full transparency, public identity
+- 30M tokens locked (verifiable on-chain)
+- Top holder position acquired with personal funds
+- **Not selling. Building.**
+
+---
+
+## 8. Technical Roadmap
+
+### Q3 2026
+- [ ] Dulus Pro cloud hosting (pay with $DULUS)
+- [ ] Plugin marketplace with monetization
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Quality badges and coverage reporting
+- [ ] Mobile app wrapper
+
+### Q4 2026
+- [ ] Dulus Business (multi-user, SSO, audit logs)
+- [ ] Enterprise tier (on-premise, SLA)
+- [ ] Plugin SDK + documentation
+- [ ] Series A preparation
+
+### 2027
+- [ ] Distributed Flock (remote sub-agents)
+- [ ] Model fine-tuning pipeline
+- [ ] Enterprise marketplace
+- [ ] $10M ARR target
+
+---
+
+## 9. Comparative Analysis
+
+### vs Claude Code
+
+| Dimension | Claude Code | Dulus |
+|---|---|---|
+| Models | Claude only | 100+ |
+| API key | Required | Optional (browser harvest) |
+| Code | ~100K+ lines, proprietary | ~31K lines, GPLv3 |
+| Voice | No | Yes (offline) |
+| Memory | Basic | Semantic (ChromaDB) |
+| Sub-agents | No | Yes |
+| Plugins | No | Auto-Adapter |
+| Cost | $20+/mo | Free |
+
+### vs AutoGPT
+
+| Dimension | AutoGPT | Dulus |
+|---|---|---|
+| Setup | Hours (Docker, configs) | 30 seconds |
+| Models | Limited | 100+ |
+| Memory | File-based | Semantic |
+| Voice | No | Yes |
+| Code complexity | High | Low |
+
+### vs Continue.dev
+
+| Dimension | Continue.dev | Dulus |
+|---|---|---|
+| Type | IDE extension | Standalone agent |
+| Interfaces | Editor sidebar | REPL / Web / GUI / Telegram |
+| Sub-agents | No | Yes |
+| Plugin system | Limited | Auto-Adapter |
+
+---
+
+## 10. A Message to the Community
 
 I want to talk about the token. Honestly. No hype.
 
@@ -156,79 +469,19 @@ We keep flying. 🦅🇩🇴
 
 ---
 
-## 6. Roadmap
+## 11. References
 
-### ✅ Shipped (May 2026)
-- Multi-provider harness (11 native + 100+ via LiteLLM)
-- Auto-adapter for any Python repository
-- WebBridge (Playwright browser automation)
-- Voice in/out (Whisper + ElevenLabs)
-- MemPalace semantic memory
-- Mesa Redonda multi-model debate
-- Sandbox OS (browser + Android APK)
-- Telegram community bridge
-- One-liner installer (Linux/macOS/WSL/Windows)
-- Docker multi-arch stack
-- MCP server support
-- LiteLLM gateway (100+ backends)
-- Local OCR first-class
-- `/lang` — 34 languages
-
-### 🟡 In Progress
-- Docs site (mkdocs-material, gh-pages)
-- CI/CD pipeline (GitHub Actions, auto-release on tag)
-- Android APK polish (full immersive, safe-area dock)
-
-### 🟢 Upcoming
-- **Business version v1** — multi-user team workspaces, shared MemPalace, cloud-hosted instances
-- Plugin marketplace with monetization
-- Enterprise SSO + audit logs
-- CHANGELOG automation, CONTRIBUTING.md, issue/PR templates
-- Quality badges (CI, coverage, downloads, security)
+1. Dulus GitHub Repository: https://github.com/KevRojo/Dulus
+2. PyPI Package: https://pypi.org/project/dulus
+3. Dulus Website: https://dulus.ai/
+4. $DULUS on DexScreener: https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
+5. Creator X: https://x.com/KevRojox
+6. ChromaDB: https://www.trychroma.com
+7. LiteLLM: https://github.com/BerriAI/litellm
+8. MCP Specification: https://modelcontextprotocol.io
+9. Whisper (OpenAI): https://github.com/openai/whisper
+10. Playwright: https://playwright.dev
 
 ---
 
-## 7. Team
-
-| Role | Person |
-|---|---|
-| **Founder / Solo Developer** | KevRojo ([@KevRojox](https://x.com/KevRojox)) |
-| **GitHub** | [github.com/KevRojo](https://github.com/KevRojo) |
-| **Location** | Santo Domingo, Dominican Republic 🇩🇴 |
-| **Contributors** | Open-source — PRs welcome |
-
-Dulus is currently a 1-person project. The roadmap includes expanding to a small team (2–3 contributors) by Month 6.
-
----
-
-## 8. Risk Factors
-
-- **Solo developer risk** — currently one primary contributor; mitigated by open-source license and public codebase
-- **Crypto market risk** — token price subject to general Solana/crypto market conditions
-- **Regulatory risk** — crypto regulation evolving globally; token utility may be adjusted to comply
-- **Technology risk** — AI model providers may change APIs or terms; Dulus's multi-provider design is the primary mitigation
-
----
-
-## 9. Legal Disclaimer
-
-$DULUS AI is a utility and community token. This whitepaper is for informational purposes only and does not constitute financial or investment advice. Cryptocurrency investments carry significant risk. Do your own research (DYOR). Past performance is not indicative of future results.
-
-The Dulus open-source project (github.com/KevRojo/Dulus) is licensed under GPLv3 and will remain free and open-source regardless of token performance.
-
----
-
-## 10. Links
-
-| Resource | URL |
-|---|---|
-| GitHub | https://github.com/KevRojo/Dulus |
-| PyPI | https://pypi.org/project/dulus |
-| Website | https://kevrojo.github.io/Dulus |
-| DexScreener | https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump |
-| X / Twitter | https://x.com/KevRojox |
-| Contract | `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump` |
-
----
-
-*Dulus — Named after the bird, not the rocket. 🦅🇩🇴*
+*Dulus — Named after the bird, not the rocket.*

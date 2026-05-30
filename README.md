@@ -46,6 +46,19 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="x"/></a>
 </p>
 
+<p align="center">
+  🌐 <b>Multilingual</b> ·
+  <a href="docs/README_EN.md">English</a> ·
+  <a href="docs/README_ES.md">Español</a> ·
+  <a href="docs/README_FR.md">Français</a> ·
+  <a href="docs/README_ZH.md">中文</a> ·
+  <a href="docs/README_JA.md">日本語</a> ·
+  <a href="docs/README_KO.md">한국어</a> ·
+  <a href="docs/README_PT.md">Português</a> ·
+  <a href="docs/README_RU.md">Русский</a> ·
+  <a href="docs/README_AR.md">العربية</a>
+</p>
+
 > **Official X / creator handle:** [@KevRojox](https://x.com/KevRojox) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
 >
 > **$DULUS AI token  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump)
@@ -104,7 +117,7 @@ We keep flying. 🦅🇩🇴
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
 <p align="center">
-  <a href="https://kevrojo.github.io/Dulus/"><b>🌐 Visit the Dulus website →</b></a><br>
+  <a href="https://dulus.ai/"><b>🌐 Visit the Dulus website →</b></a><br>
   <sub>The site covers features, demos, and details not documented in this README.</sub>
 </p>
 
@@ -787,6 +800,8 @@ dulus/
 ├── task/                 # task management
 └── tests/                # 263+ unit tests
 ```
+
+> **Interactive dependency graph & API docs:** [`docs/api.html`](docs/api.html) — open it in a browser to explore the full module graph (D3.js, zoom/pan, clusters by package).
 
 ---
 
