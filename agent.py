@@ -15,6 +15,7 @@ from tools import execute_tool
 import tools as _tools_init  # ensure built-in tools are registered on import
 from providers import stream, AssistantTurn, TextChunk, ThinkingChunk, detect_provider
 from compaction import maybe_compact
+import governance
 
 _SENTINEL = object()
 
@@ -116,12 +117,24 @@ def run(
     pending_img = config.pop("_pending_image", None)
     if pending_img:
         user_msg["images"] = [pending_img]
+    # Attach pending video from /video command (Kimi K2.5/K2.6 only — the
+    # provider layer drops it for non-multimodal models). Item may be a bare
+    # base64 string or {"data": b64, "mime": "video/mp4"}.
+    pending_vid = config.pop("_pending_video", None)
+    if pending_vid:
+        user_msg["videos"] = [pending_vid]
     
     initial_msg_count = len(state.messages)
     state.messages.append(user_msg)
 
     # Inject runtime metadata into config so tools (e.g. Agent) can access it
     config.update({"_depth": depth, "_system_prompt": system_prompt})
+
+    # Governance layer (opt-in via config["governance"]). Built once per session
+    # and cached so the budget/ledger persists across turns. None when disabled.
+    if "_governance_obj" not in config:
+        config["_governance_obj"] = governance.from_config(config)
+    _gov = config["_governance_obj"]
 
     while True:
         if cancel_check and cancel_check():
@@ -184,12 +197,51 @@ def run(
             cache_creation_tokens=c_create,
         )
 
+        # Charge the token budget. On warn → notify; on first hard breach →
+        # fire on_breach and stop the loop gracefully (protects the wallet).
+        if _gov is not None and _gov.ledger is not None:
+            cr = _gov.ledger.charge("tokens", assistant_turn.in_tokens + assistant_turn.out_tokens)
+            if cr.warned and _gov.hooks:
+                _gov.hooks.fire("on_breach", kind="warn", dim=cr.dim, used=cr.used, granted=cr.granted)
+            if cr.first_breach:
+                if _gov.hooks:
+                    _gov.hooks.fire("on_breach", kind="hard", dim=cr.dim, used=cr.used, granted=cr.granted)
+                yield TextChunk(
+                    f"\n[governance] token budget reached ({cr.used}/{cr.granted}). "
+                    "Stopping this run.\n"
+                )
+                break
+
         if not assistant_turn.tool_calls:
             break   # No tools → conversation turn complete
 
         # ── Execute tools ────────────────────────────────────────────────
         for tc in assistant_turn.tool_calls:
             yield ToolStart(tc["name"], tc["input"])
+
+            # ── Governance gate (capabilities + pre_tool hook) ───────────────
+            # Runs BEFORE the normal permission gate. A capability denial or a
+            # vetoing pre_tool hook short-circuits the tool with a recorded
+            # denial, so the model sees why and can adapt.
+            if _gov is not None:
+                _gov_deny = None
+                if _gov.capabilities is not None and not _gov.capabilities.allows_tool(tc["name"]):
+                    _gov_deny = f"tool '{tc['name']}' not permitted by capability policy"
+                if _gov_deny is None and _gov.hooks is not None:
+                    _ok, _why = _gov.hooks.fire(
+                        "pre_tool", name=tc["name"], inputs=tc["input"], depth=depth)
+                    if not _ok:
+                        _gov_deny = _why
+                if _gov_deny is not None:
+                    result = f"Denied by governance: {_gov_deny}"
+                    if _gov.ledger is not None:
+                        _gov.ledger.charge("tool_calls", 1)
+                    yield ToolEnd(tc["name"], result, False)
+                    state.messages.append({
+                        "role": "tool", "tool_call_id": tc["id"],
+                        "name": tc["name"], "content": result,
+                    })
+                    continue
 
             # Permission gate
             permitted = _check_permission(tc, config)
@@ -222,6 +274,15 @@ def run(
                 # time.sleep(1) # Removed delay as requested
 
             yield ToolEnd(tc["name"], result, permitted)
+
+            # Governance: charge the tool-call budget + fire post_tool hook
+            # (observational — audit, notify, metrics). Never blocks here.
+            if _gov is not None:
+                if _gov.ledger is not None:
+                    _gov.ledger.charge("tool_calls", 1)
+                if _gov.hooks is not None:
+                    _gov.hooks.fire("post_tool", name=tc["name"], inputs=tc["input"],
+                                    result=result, permitted=permitted, depth=depth)
 
             # Determine what the USER actually saw rendered, based on tool type +
             # auto_show + verbose. Inject a SYSTEM HINT when user saw nothing useful,

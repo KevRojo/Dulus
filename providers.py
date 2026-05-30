@@ -2836,7 +2836,7 @@ def messages_to_anthropic(messages: list) -> list:
     return result
 
 
-def messages_to_openai(messages: list, ollama_native_images: bool = False) -> list:
+def messages_to_openai(messages: list, ollama_native_images: bool = False, model: str = "") -> list:
     """Convert neutral messages → OpenAI API format.
 
     Also sanitizes orphan tool_calls — if an assistant message has tool_calls
@@ -2860,23 +2860,43 @@ def messages_to_openai(messages: list, ollama_native_images: bool = False) -> li
             sanitized.append(m)
     messages = sanitized
 
+    # Kimi K2.5 / K2.6 accept image_url AND video_url multimodal content, no
+    # matter which provider serves them (native Moonshot, Azure deployment, etc.).
+    _ml = (model or "").lower()
+    _is_kimi_mm = "kimi-k2.5" in _ml or "kimi-k2.6" in _ml
+
     result = []
     for m in messages:
         role = m["role"]
 
         if role == "user":
             content = m["content"]
-            if ollama_native_images and m.get("images"):
+            imgs = m.get("images")
+            vids = m.get("videos")
+            if ollama_native_images and imgs:
                 # Ollama /api/chat native: bare base64 list on the message
-                msg_out = {"role": "user", "content": content, "images": m["images"]}
-            elif not ollama_native_images and m.get("images"):
-                # OpenAI / Gemini multipart vision format
+                msg_out = {"role": "user", "content": content, "images": imgs}
+            elif imgs or (vids and _is_kimi_mm):
+                # OpenAI / Gemini / Kimi multipart vision format
                 parts = [{"type": "text", "text": content}]
-                for img_b64 in m["images"]:
+                for img_b64 in (imgs or []):
                     parts.append({
                         "type": "image_url",
                         "image_url": {"url": f"data:image/png;base64,{img_b64}"},
                     })
+                # Kimi K2.5/K2.6 also accept video_url as a data URL. Other models
+                # would reject it, so videos are attached ONLY for those models.
+                if _is_kimi_mm:
+                    for vid in (vids or []):
+                        if isinstance(vid, dict):
+                            v_b64, v_mime = vid.get("data", ""), vid.get("mime", "video/mp4")
+                        else:
+                            v_b64, v_mime = vid, "video/mp4"
+                        if v_b64:
+                            parts.append({
+                                "type": "video_url",
+                                "video_url": {"url": f"data:{v_mime};base64,{v_b64}"},
+                            })
                 msg_out = {"role": "user", "content": parts}
             else:
                 msg_out = {"role": "user", "content": content}
@@ -3194,7 +3214,7 @@ def stream_kimi(
     url = "https://api.moonshot.ai/v1/chat/completions"
 
     # Build messages
-    kimi_messages = [{"role": "system", "content": system}] + messages_to_openai(messages)
+    kimi_messages = [{"role": "system", "content": system}] + messages_to_openai(messages, model=model)
 
     # Kimi rejects assistant messages with null/empty content and no tool_calls
     # (happens when a prior turn was thinking-only or interrupted).
@@ -3574,7 +3594,7 @@ def stream_openai_compat(
         client_kwargs["default_headers"] = {"User-Agent": "KimiCLI/1.30.0"}
     client = OpenAI(**client_kwargs)
 
-    oai_messages = [{"role": "system", "content": system}] + messages_to_openai(messages)
+    oai_messages = [{"role": "system", "content": system}] + messages_to_openai(messages, model=model)
 
     _is_nvidia = detect_provider(model) == "nvidia-web"
 
@@ -4194,16 +4214,40 @@ def stream_ollama(
     except urllib.error.HTTPError:
         raise
     except (urllib.error.URLError, ConnectionError, OSError) as e:
-        # Ollama not reachable (not running, wrong port, refused connection).
-        # Fail soft with a helpful message instead of crashing to excepthook.
-        msg = (
-            f"[ollama] Could not connect to Ollama at {base_url} ({e}). "
-            "Is the Ollama server running? Start it with `ollama serve`, or switch "
-            "to a cloud provider with /model. Run /help for options."
-        )
-        yield TextChunk(msg)
-        yield AssistantTurn(msg, [], 0, 0, error=True)
-        return
+        # Ollama not reachable. If the `ollama` binary is installed, try to
+        # auto-start the server and retry once before giving up — most users
+        # just forgot to launch it. Only fail soft if it's truly unavailable.
+        import os as _os, shutil as _sh, subprocess as _sp, time as _t
+        resp_cm = None
+        if _sh.which("ollama") and ("11434" in (base_url or "")):
+            try:
+                _kw = {"stdout": _sp.DEVNULL, "stderr": _sp.DEVNULL}
+                if _os.name == "nt":
+                    _kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED | NEW_GROUP
+                else:
+                    _kw["start_new_session"] = True
+                _sp.Popen(["ollama", "serve"], **_kw)
+                yield ThinkingChunk("[ollama] server not running — starting it for you…\n")
+                for _ in range(24):  # wait up to ~12s for the port to come up
+                    _t.sleep(0.5)
+                    try:
+                        resp_cm = urllib.request.urlopen(req)
+                        break
+                    except Exception:
+                        continue
+            except Exception:
+                resp_cm = None
+        if resp_cm is None:
+            if _sh.which("ollama"):
+                msg = (f"[ollama] Tried to start Ollama but it didn't come up at {base_url} ({e}). "
+                       "Run `ollama serve` manually, or switch provider with /model.")
+            else:
+                msg = (f"[ollama] Could not connect to Ollama at {base_url} ({e}). "
+                       "Ollama isn't installed — get it at https://ollama.com/download, "
+                       "or switch to a cloud provider with /model. Run /help for options.")
+            yield TextChunk(msg)
+            yield AssistantTurn(msg, [], 0, 0, error=True)
+            return
 
     # Buffer for accumulating thinking content to reduce word-by-word chunks
     _thinking_buffer = ""
