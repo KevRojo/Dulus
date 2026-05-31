@@ -447,9 +447,9 @@ Free open-source REPL
 
 I want to talk about the token. Honestly. No hype.
 
-I didn't launch it to get rich. The community launched it first, and when I saw early believers exposed without the actual builder behind it, I stepped in. I bought my position using the contract's own creator rewards. Zero personal capital deployed. I haven't sold a single token.
+I didn't launch it to get rich. The community launched it first, and when I saw early believers exposed without the actual builder behind it, I stepped in. I bought my position using the contract's own creator rewards. 
 
-But there's something bigger I want you to understand:
+Them i see people dont trust on that token so i launch my own.
 
 **$DULUS has a real purpose.**
 
