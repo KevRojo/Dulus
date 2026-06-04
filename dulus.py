@@ -273,15 +273,25 @@ except ImportError:
     console = None
 
 # ── Sentry error tracking (optional — graceful degradation if not installed) ─
+# Off-switch for demos/privacy: set DULUS_NO_SENTRY=1 (or SENTRY_DSN="") to skip.
 try:
+    import os as _sentry_os
+    _sentry_dsn = _sentry_os.getenv(
+        "SENTRY_DSN",
+        "https://2141eed637e06b8e5fa535a2586495b8@o4511465548808192.ingest.us.sentry.io/4511465560932352",
+    )
+    if _sentry_os.getenv("DULUS_NO_SENTRY") or not _sentry_dsn:
+        raise RuntimeError("sentry disabled")
     import sentry_sdk as _sentry_sdk
     # Disable auto-integrations: some (rq, celery) try to use `fork`
-    # which doesn't exist on Windows → ValueError on import. Add back
-    # only the safe essentials so crashes still reach Sentry.
+    # which doesn't exist on Windows → ValueError on import. Add back only the
+    # safe essentials. NOTE: AtexitIntegration is intentionally NOT included — it
+    # prints the noisy "Sentry is attempting to send N pending events / Waiting up
+    # to 2 seconds" prompt on exit, which looks bad in a live demo. Crashes still
+    # reach Sentry via the Excepthook integration.
     _sentry_integrations = []
     for _cls_name, _mod in [
         ("ExcepthookIntegration", "sentry_sdk.integrations.excepthook"),
-        ("AtexitIntegration",     "sentry_sdk.integrations.atexit"),
         ("DedupeIntegration",     "sentry_sdk.integrations.dedupe"),
         ("StdlibIntegration",     "sentry_sdk.integrations.stdlib"),
     ]:
@@ -291,12 +301,13 @@ try:
         except Exception:
             pass
     _sentry_sdk.init(
-        dsn="https://2141eed637e06b8e5fa535a2586495b8@o4511465548808192.ingest.us.sentry.io/4511465560932352",
+        dsn=_sentry_dsn,
         send_default_pii=True,
-        traces_sample_rate=0.1,    # 10% of sessions — keeps free quota healthy
+        traces_sample_rate=0.0,    # no transaction events → no flush noise on exit
         profiles_sample_rate=0.0,  # no profiling overhead
         default_integrations=False,
         integrations=_sentry_integrations,
+        shutdown_timeout=0,        # don't block process exit waiting on uploads
     )
     _SENTRY = True
 except Exception:
@@ -9457,10 +9468,26 @@ def setup_readline(history_file: Path):
         return
     try:
         readline.read_history_file(str(history_file))
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError, OSError):
+        # macOS ships libedit (not GNU readline); it raises OSError[Errno 1/22]
+        # ("Operation not permitted" / "Invalid argument") on a history file
+        # without its _HiStOrY_V2_ header. History is optional — never let it
+        # crash startup. Reset the bad file so it self-heals next run.
+        try:
+            history_file.write_text("")
+        except OSError:
+            pass
+    try:
+        readline.set_history_length(1000)
+    except Exception:
         pass
-    readline.set_history_length(1000)
-    atexit.register(readline.write_history_file, str(history_file))
+
+    def _save_history():
+        try:
+            readline.write_history_file(str(history_file))
+        except Exception:
+            pass
+    atexit.register(_save_history)
 
     # Allow "/" to be part of a completion token so "/model" is one word
     delims = readline.get_completer_delims().replace("/", "")
