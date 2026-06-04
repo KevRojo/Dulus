@@ -3379,6 +3379,13 @@ def stream_kimi(
                         cache_read_tokens=cached_tok)
 
 
+def _oai_uses_completion_tokens(model: str) -> bool:
+    """Newer OpenAI models (gpt-5.x and the o1/o3/o4 reasoning family) reject the
+    legacy `max_tokens` parameter and require `max_completion_tokens` instead."""
+    m = (model or "").lower().rsplit("/", 1)[-1]
+    return m.startswith(("o1", "o3", "o4")) or m.startswith("gpt-5")
+
+
 def stream_litellm(
     model: str,
     system: str,
@@ -3471,7 +3478,10 @@ def stream_litellm(
         if not config.get("disable_tool_choice"):
             kwargs["tool_choice"] = "auto"
     if config.get("max_tokens"):
-        kwargs["max_tokens"] = config["max_tokens"]
+        if _oai_uses_completion_tokens(model):
+            kwargs["max_completion_tokens"] = config["max_tokens"]
+        else:
+            kwargs["max_tokens"] = config["max_tokens"]
 
     text     = ""
     thinking = ""
@@ -3652,7 +3662,11 @@ def stream_openai_compat(
     if config.get("max_tokens"):
         prov_cap = PROVIDERS.get(detect_provider(model), {}).get("max_completion_tokens")
         mt = config["max_tokens"]
-        kwargs["max_tokens"] = min(mt, prov_cap) if prov_cap else mt
+        mt = min(mt, prov_cap) if prov_cap else mt
+        if _oai_uses_completion_tokens(model):
+            kwargs["max_completion_tokens"] = mt
+        else:
+            kwargs["max_tokens"] = mt
 
     text          = ""
     thinking      = ""
