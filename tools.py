@@ -788,8 +788,11 @@ def _write(file_path: str, content: str) -> str:
         # Ensure utf-8 and newline="" for reading existing content to generate diff
         old_content = "" if is_new else p.open("r", encoding="utf-8", errors="replace", newline="").read()
         p.parent.mkdir(parents=True, exist_ok=True)
-        # Always write as utf-8 with newline="" to prevent double CRLF on Windows
-        p.write_text(content, encoding="utf-8", newline="")
+        # Always write as utf-8 with newline="" to prevent double CRLF on Windows.
+        # Use open().write() (not Path.write_text(newline=…), which is 3.10+) so it
+        # works on every Python 3 — newline="" on open() is universal.
+        with p.open("w", encoding="utf-8", newline="") as _f:
+            _f.write(content)
         if is_new:
             lc = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
             return f"Created {file_path} ({lc} lines)"
@@ -840,8 +843,10 @@ def _edit(file_path: str, old_string: str, new_string: str, replace_all: bool = 
             final_content = new_content_norm
             old_content_final = content_norm
                       
-        # Write with newline="" to prevent double CRLF translation on Windows
-        p.write_text(final_content, encoding="utf-8", newline="")
+        # Write with newline="" to prevent double CRLF translation on Windows.
+        # open().write() (not Path.write_text(newline=…), 3.10+) works on every Py3.
+        with p.open("w", encoding="utf-8", newline="") as _f:
+            _f.write(final_content)
         filename = p.name
         diff = generate_unified_diff(old_content_final, final_content, filename)
         return f"Changes applied to {filename}:\n\n{diff}"
