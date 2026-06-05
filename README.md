@@ -43,7 +43,7 @@ SET /sticky_input ON since the first run for the best experience!
   <img src="https://img.shields.io/badge/providers-100%2B%20via%20LiteLLM-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
-  <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="x"/></a>
+  <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="x"/></a>
 </p>
 
 <p align="center">
@@ -59,7 +59,7 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="docs/README_AR.md">العربية</a>
 </p>
 
-> **Official X / creator handle:** [@KevRojox](https://x.com/KevRojox) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
+> **Official X / creator handle:** [@KevRojo](https://x.com/KevRojo) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
 >
 > **$DULUS AI token  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump)
 > 
@@ -106,7 +106,7 @@ So when someone asks "what's the token for" — the answer is: it's the fuel for
 
 We keep flying. 🦅🇩🇴
 
-— KevRojo / [@KevRojox](https://x.com/KevRojox)
+— KevRojo / [@KevRojo](https://x.com/KevRojo)
 
 
 -----
@@ -861,7 +861,7 @@ This isn't a promise. It's the architecture. That's how I've designed it.
 
 We keep flying. 🦅🇩🇴
 
-— KevRojo / [@KevRojox](https://x.com/KevRojox)
+— KevRojo / [@KevRojo](https://x.com/KevRojo)
 
 ---
 
@@ -877,7 +877,7 @@ If Dulus saved you tokens, time, or sanity — throw some sats:
 ```
 BTC: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
 ```
-On x: @KevRojox
+On x: @KevRojo
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
