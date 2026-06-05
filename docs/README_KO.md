@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/제공자-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="제공자"/>
   <img src="https://img.shields.io/badge/도구-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="도구"/>
   <img src="https://img.shields.io/badge/테스트-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="테스트"/>
-  <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
+  <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
 <p>

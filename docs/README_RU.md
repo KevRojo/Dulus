@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/провайдеры-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Провайдеры"/>
   <img src="https://img.shields.io/badge/инструменты-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Инструменты"/>
   <img src="https://img.shields.io/badge/тесты-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Тесты"/>
-  <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
+  <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
 <p>

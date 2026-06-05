@@ -2,7 +2,7 @@
 
 **Contract Address (Solana):** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
 **Network:** Solana
-**Creator:** KevRojo ([@KevRojox](https://x.com/KevRojox))
+**Creator:** KevRojo ([@KevRojo](https://x.com/KevRojo))
 **GitHub:** [github.com/KevRojo/Dulus](https://github.com/KevRojo/Dulus)
 **PyPI:** [pypi.org/project/dulus](https://pypi.org/project/dulus)
 **Version:** v3.2.0 — June 2026
@@ -347,7 +347,7 @@ The experimental `sandbox/` directory contains Dulus OS — a browser-based mini
 | **Contract** | `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump` |
 | **Standard** | SPL |
 | **Locked** | 30,000,000 tokens |
-| **Creator** | KevRojo (@KevRojox) |
+| **Creator** | KevRojo (@KevRojo) |
 
 ### 7.2 Token Utility Roadmap
 
@@ -465,7 +465,7 @@ So when someone asks "what's the token for" — the answer is: it's the fuel for
 
 We keep flying. 🦅🇩🇴
 
-— KevRojo / [@KevRojox](https://x.com/KevRojox)
+— KevRojo / [@KevRojo](https://x.com/KevRojo)
 
 ---
 
@@ -475,7 +475,7 @@ We keep flying. 🦅🇩🇴
 2. PyPI Package: https://pypi.org/project/dulus
 3. Dulus Website: https://dulus.ai/
 4. $DULUS on DexScreener: https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump
-5. Creator X: https://x.com/KevRojox
+5. Creator X: https://x.com/KevRojo
 6. ChromaDB: https://www.trychroma.com
 7. LiteLLM: https://github.com/BerriAI/litellm
 8. MCP Specification: https://modelcontextprotocol.io

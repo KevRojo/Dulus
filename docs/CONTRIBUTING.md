@@ -361,13 +361,13 @@ We pledge to make participation in our project a harassment-free experience for 
 
 ### Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at [@KevRojox](https://x.com/KevRojox). All complaints will be reviewed and investigated promptly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at [@KevRojo](https://x.com/KevRojo). All complaints will be reviewed and investigated promptly.
 
 ---
 
 ## Questions?
 
-- Join the conversation on [X / @KevRojox](https://x.com/KevRojox)
+- Join the conversation on [X / @KevRojo](https://x.com/KevRojo)
 - Open an issue on [GitHub](https://github.com/KevRojo/Dulus/issues)
 
 ---

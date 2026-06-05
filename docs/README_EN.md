@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/providers-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Providers"/>
   <img src="https://img.shields.io/badge/tools-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tools"/>
   <img src="https://img.shields.io/badge/tests-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
-  <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
+  <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
 <p>
@@ -293,7 +293,7 @@ The $DULUS token is the fuel layer for the Dulus ecosystem. The open-source REPL
 
 ### Connect
 
-- **X / Twitter:** [@KevRojox](https://x.com/KevRojox) — Official creator account
+- **X / Twitter:** [@KevRojo](https://x.com/KevRojo) — Official creator account
 - **GitHub:** [github.com/KevRojo/Dulus](https://github.com/KevRojo/Dulus)
 - **Website:** [dulus.ai](https://dulus.ai/)
 - **PyPI:** [pypi.org/project/dulus](https://pypi.org/project/dulus)
