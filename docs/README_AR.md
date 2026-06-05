@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/مزودو-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="المزودون"/>
   <img src="https://img.shields.io/badge/أدوات-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="الأدوات"/>
   <img src="https://img.shields.io/badge/اختبارات-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="الاختبارات"/>
-  <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
+  <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
 <p>

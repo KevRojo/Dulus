@@ -7,7 +7,7 @@
 ---
 
 **Prepared by:** KevRojo, Founder & Solo Developer
-**Contact:** [@KevRojox](https://x.com/KevRojox) | dev@dulus.ai
+**Contact:** [@KevRojo](https://x.com/KevRojo) | dev@dulus.ai
 **Date:** June 2026
 **Ask:** Seed / Pre-Series A
 
@@ -251,7 +251,7 @@ Developers use Dulus (free)
 
 | Role | Person | Background |
 |---|---|---|
-| **Founder / Lead Developer** | KevRojo ([@KevRojox](https://x.com/KevRojox)) | Solo builder from Santo Domingo, Dominican Republic. Built Dulus from 0 to 19K downloads in 30 days. Full-stack Python developer. |
+| **Founder / Lead Developer** | KevRojo ([@KevRojo](https://x.com/KevRojo)) | Solo builder from Santo Domingo, Dominican Republic. Built Dulus from 0 to 19K downloads in 30 days. Full-stack Python developer. |
 
 **Hiring plan (funded):**
 - **Backend Engineer** — Distributed systems, scaling the Flock
@@ -303,7 +303,7 @@ Developers use Dulus (free)
 | GitHub | https://github.com/KevRojo/Dulus |
 | PyPI | https://pypi.org/project/dulus |
 | Website | https://dulus.ai/ |
-| X / Twitter | https://x.com/KevRojox |
+| X / Twitter | https://x.com/KevRojo |
 | DexScreener | https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump |
 
 ### Financial Summary

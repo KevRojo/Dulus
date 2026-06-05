@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/provedores-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Provedores"/>
   <img src="https://img.shields.io/badge/ferramentas-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Ferramentas"/>
   <img src="https://img.shields.io/badge/tests-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
-  <a href="https://x.com/KevRojox"><img src="https://img.shields.io/badge/x-%40KevRojox-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
+  <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
 <p>

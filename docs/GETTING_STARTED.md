@@ -390,7 +390,7 @@ Then run `dulus` again to re-run the welcome wizard.
 - Read the [Architecture Guide](ARCHITECTURE.md) to understand how Dulus works under the hood
 - Check the [API Reference](API.md) for programmatic usage
 - See [Contributing](CONTRIBUTING.md) to extend Dulus with your own tools
-- Join the community on [X / @KevRojox](https://x.com/KevRojox)
+- Join the community on [X / @KevRojo](https://x.com/KevRojo)
 
 ---
 
