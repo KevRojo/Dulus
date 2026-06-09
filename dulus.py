@@ -4748,9 +4748,31 @@ def cmd_skills(_args: str, _state, config) -> bool:
 
 def _pager(header: str, lines: list, page_size: int = 30) -> None:
     """Simple terminal pager: shows page_size lines, waits for n/q."""
-    import msvcrt
+    import sys
+
     total = len(lines)
     i = 0
+
+    def _getch() -> str:
+        """Read a single char without Enter (cross-platform)."""
+        try:
+            import msvcrt
+            return msvcrt.getwch()
+        except Exception:
+            pass
+        try:
+            import tty, termios
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setcbreak(fd)
+                return sys.stdin.read(1)
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        except Exception:
+            # Fallback: regular input (requires Enter)
+            return input().strip()[:1]
+
     while i < total:
         chunk = lines[i:i + page_size]
         if i == 0:
@@ -4765,7 +4787,7 @@ def _pager(header: str, lines: list, page_size: int = 30) -> None:
             )
             sys.stdout.flush()
             while True:
-                ch = msvcrt.getwch().lower()
+                ch = _getch().lower()
                 if ch in ("n", "\r", "\n", " "):
                     print()
                     break
