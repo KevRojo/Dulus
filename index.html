@@ -450,6 +450,42 @@ nav.scrolled{background:rgba(10,10,10,.95)}
 .qsi-btn--primary{background:var(--accent);color:#000;font-weight:700}
 .qsi-btn--primary:hover{background:var(--accent2)}
 .qsi-btn-icon{font-size:14px}
+/* ===== Windows native .msi download card (#DulusNoPy) ===== */
+.qs-native{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;
+  border:1px solid var(--accent);background:linear-gradient(135deg,rgba(255,107,31,.10),rgba(255,107,31,.02) 60%);
+  padding:30px 32px;margin-bottom:36px;
+}
+.qs-native::before{
+  content:"";position:absolute;top:-40%;right:-10%;width:340px;height:340px;
+  background:radial-gradient(circle,rgba(255,107,31,.18),transparent 70%);pointer-events:none;
+}
+.qs-native-text{position:relative;flex:1 1 360px}
+.qs-native-title{font-family:var(--display);font-size:30px;letter-spacing:-.02em;color:var(--ink);margin:6px 0 10px}
+.qs-native-title span{color:var(--accent);font-size:18px;font-weight:400}
+.qs-native-sub{font-size:13px;color:var(--dim);line-height:1.6;max-width:520px}
+.qs-native-sub strong{color:var(--accent);font-family:var(--mono);letter-spacing:.05em}
+.qs-native-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.qs-native-tags span{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);padding:3px 8px;font-family:var(--mono);opacity:.85}
+.qs-native-cta{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:10px;flex:0 0 auto}
+.qs-native-btn{
+  display:inline-flex;align-items:center;gap:14px;text-decoration:none;
+  background:var(--accent);color:#000;padding:16px 26px;
+  box-shadow:0 8px 30px rgba(255,107,31,.35);transition:transform .15s,box-shadow .15s,background .15s;
+}
+.qs-native-btn:hover{background:var(--accent2);transform:translateY(-2px);box-shadow:0 12px 38px rgba(255,107,31,.5)}
+.qs-native-btn-ico{font-size:26px;line-height:1}
+.qs-native-btn-lbl{display:flex;flex-direction:column;line-height:1.15;text-align:left}
+.qs-native-btn-lbl strong{font-family:var(--display);font-size:20px;letter-spacing:-.01em}
+.qs-native-btn-lbl small{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+.qs-native-note{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--dim);text-align:center}
+@media(max-width:900px){
+  .qs-native{padding:24px 20px;gap:22px}
+  .qs-native-title{font-size:24px}
+  .qs-native-cta{width:100%}
+  .qs-native-btn{justify-content:center}
+}
 .qsi-profiles-head{
   margin-top:24px;margin-bottom:14px;
   font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);
@@ -887,6 +923,23 @@ footer{
     <div class="section-header reveal">
       <div class="eyebrow">// zero to flight in 30 seconds</div>
       <h2>Quick Start</h2>
+    </div>
+
+    <!-- ===== WINDOWS NATIVE .MSI — #DulusNoPy ===== -->
+    <div class="qs-native reveal">
+      <div class="qs-native-text">
+        <div class="qsi-eyebrow">// windows · no python · no pip · 1-click</div>
+        <h3 class="qs-native-title">Download for Windows <span>— no Python needed</span></h3>
+        <p class="qs-native-sub">Double-click and fly. Embedded Python, every library, and the desktop GUI come <em>bundled inside</em> the installer. Nothing to install, nothing to configure, no terminal. <strong>#DulusNoPy</strong></p>
+        <div class="qs-native-tags"><span>no python</span><span>no pip</span><span>no terminal</span><span>gui included</span><span>~85 MB</span></div>
+      </div>
+      <div class="qs-native-cta">
+        <a class="qs-native-btn" href="https://github.com/KevRojo/Dulus/releases/download/v3.3.3/Dulus-Free-3.3.3-x64.msi">
+          <span class="qs-native-btn-ico">⇩</span>
+          <span class="qs-native-btn-lbl"><strong>Dulus Free</strong><small>Windows installer · .msi · v3.3.3</small></span>
+        </a>
+        <span class="qs-native-note">per-user install · no admin · uninstall anytime</span>
+      </div>
     </div>
 
     <!-- ===== ONE-LINE INSTALLER ===== -->
