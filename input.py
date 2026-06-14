@@ -975,11 +975,22 @@ def append_output(text: str) -> None:
     for line in text.split("\n"):
         if not line:
             continue
-        # Deduplicate Telegram/voice notifications — if an identical line
-        # already exists in the buffer, skip it to prevent re-rendering
-        # duplicates every time the split layout redraws.
-        _tg_markers = (" Telegram:", " Transcribed:")
-        if any(m in line for m in _tg_markers):
+        # Deduplicate NOTIFICATION lines — not just Telegram/voice. Background
+        # notifications (agents, offloaded jobs, batches, wake-word, system)
+        # also get re-emitted on redraw/re-run, but they don't carry an audio
+        # marker so the old gate let them slip through and reprint forever
+        # ("not everything is a job — that's what escapes"). We dedup any line
+        # that LOOKS like a notification against the recent buffer; normal model
+        # output never matches these markers, so it's left untouched (no risk of
+        # collapsing two legitimately-identical output lines, unlike a blanket
+        # dedup of every line).
+        _notif_markers = (
+            " Telegram:", " Transcribed:",        # chat / voice
+            "System Notification", "Background agent",  # agents
+            "Offloaded tool", "Job:", "FINISHED",       # tmux/offload jobs
+            "Batch", "[Wake]", "COMMAND:",              # batches, wake-word
+        )
+        if any(m in line for m in _notif_markers):
             # Strip ANSI for comparison (emojis may be corrupted on Windows)
             _clean = lambda s: re.sub(r'\x1b\[[0-9;]*m', '', s).strip()
             line_clean = _clean(line)
