@@ -4814,6 +4814,7 @@ def cmd_skill(args: str, state, config) -> bool:
         search_clawhub, read_skill,
         list_awesome_remote, list_composio_toolkits,
         install_awesome_remote,
+        list_dulus_remote, install_dulus_remote,
     )
     from pathlib import Path as _Path
 
@@ -4845,17 +4846,38 @@ def cmd_skill(args: str, state, config) -> bool:
         # Interactive picker when called with no source — pick where to look.
         if not rest:
             print(clr("\n  Pick a source:", "cyan", "bold"))
-            print(f"  1) {clr('awesome', 'yellow')}   — alirezarezvani/claude-skills (~235 skills, live from GitHub)")
-            print(f"  2) {clr('composio', 'yellow')}  — Composio Tool Router (1000+ apps via API)")
-            print(f"  3) {clr('local', 'yellow')}     — Anthropic + awesome marketplaces on disk (~/.claude/...)")
-            print(f"  4) {clr('installed', 'yellow')} — skills already in ~/.dulus/skills/")
-            print(f"  5) {clr('all', 'yellow')}       — combine awesome + composio + local")
+            print(f"  1) {clr('dulus', 'green', 'bold')}     — 🦅 kevrojo/dulus-skills — THE Dulus community marketplace (skills+plugins+memories)")
+            print(f"  2) {clr('awesome', 'yellow')}   — alirezarezvani/claude-skills (~235 skills, live from GitHub)")
+            print(f"  3) {clr('composio', 'yellow')}  — Composio Tool Router (1000+ apps via API)")
+            print(f"  4) {clr('local', 'yellow')}     — Anthropic + awesome marketplaces on disk (~/.claude/...)")
+            print(f"  5) {clr('installed', 'yellow')} — skills already in ~/.dulus/skills/")
+            print(f"  6) {clr('all', 'yellow')}       — combine dulus + awesome + composio + local")
             try:
                 choice = input(clr("  > ", "cyan")).strip().lower()
             except (EOFError, KeyboardInterrupt):
                 return True
-            mapping = {"1": "awesome", "2": "composio", "3": "local", "4": "installed", "5": "all"}
+            mapping = {"1": "dulus", "2": "awesome", "3": "composio", "4": "local", "5": "installed", "6": "all"}
             rest = mapping.get(choice, choice)
+
+        if rest.startswith("dulus"):
+            query = rest[5:].strip()
+            fast = False
+            if "--fast" in query.split():
+                fast = True
+                query = " ".join(t for t in query.split() if t != "--fast").strip()
+            info("🦅 Fetching Dulus community skills from kevrojo/dulus-skills...")
+            skills = list_dulus_remote(query, with_descriptions=not fast)
+            if not skills:
+                err("No Dulus community skills found (empty repo, network, or rate-limit).")
+                info("Be the first — upload yours to https://github.com/kevrojo/dulus-skills")
+                return True
+            lines = [
+                f"  {clr(s['id'], 'green'):55s}  {s.get('description', '')[:80]}"
+                for s in skills
+            ]
+            header = f"Dulus community skills ({len(skills)})" + (f" matching '{query}'" if query else "")
+            _pager(f"{header} — /skill get <id> to install — n=next q=quit", lines)
+            return True
 
         if rest.startswith("awesome"):
             query = rest[7:].strip()
@@ -4899,7 +4921,8 @@ def cmd_skill(args: str, state, config) -> bool:
         if rest.startswith("all"):
             query = rest[3:].strip()
             combined = (
-                list_awesome_remote(query)
+                list_dulus_remote(query)
+                + list_awesome_remote(query)
                 + list_composio_toolkits(query)
                 + list_local(query)
             )
@@ -5049,11 +5072,15 @@ def cmd_skill(args: str, state, config) -> bool:
         if rest.startswith("clawhub:"):
             slug = rest[8:]
             success, msg = install_clawhub(slug)
+        elif rest.startswith("dulus/"):
+            success, msg = install_dulus_remote(rest)
         elif rest.startswith("awesome/"):
             success, msg = install_awesome_remote(rest)
         else:
             success, msg = install_local(rest)
-            # Fallback to awesome-remote if not found locally
+            # Fallback chain: Dulus community repo first (it's ours), then awesome.
+            if not success:
+                success, msg = install_dulus_remote(rest)
             if not success:
                 success, msg = install_awesome_remote(rest)
         (ok if success else err)(msg)

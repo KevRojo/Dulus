@@ -375,6 +375,204 @@ def install_awesome_remote(slug: str) -> tuple[bool, str]:
     return True, f"Installed '{skill_name}' → {dest_dir}  ({len(downloaded)} files: {', '.join(downloaded[:5])}{'...' if len(downloaded)>5 else ''})"
 
 
+# ── DULUS COMMUNITY MARKETPLACE (kevrojo/dulus-skills) ─────────────────────
+# THE Dulus repo: where the whole Dulus community uploads skills, plugins and
+# memories. Same GitHub-tree + raw.githubusercontent fetch as the awesome
+# source, pointed at our own repo. Every `dir/SKILL.md` is a community skill.
+# This is the source we want users to reach for FIRST — it's ours, it grows
+# with the community, and installing from it is one `/skill get dulus/<name>`.
+
+_DULUS_REPO = "kevrojo/dulus-skills"
+_DULUS_BRANCH = "main"
+_DULUS_CACHE = Path.home() / ".dulus" / "cache" / "dulus-skills.json"
+_DULUS_TTL_SEC = 6 * 3600  # refresh more often than awesome — community moves fast
+
+_DULUS_EXCLUDE_REMOTE = {
+    "docs", "documentation", "tests", "scripts",
+    "templates", "standards", ".github",
+}
+
+
+def _fetch_dulus_remote(with_descriptions: bool = False) -> list[dict]:
+    """List skills in kevrojo/dulus-skills via the GitHub tree API.
+
+    Same shape as _fetch_awesome_remote but for our own community repo.
+    One API call lists every `<dir>/SKILL.md`; descriptions (optional) are
+    pulled in parallel from raw.githubusercontent.com (no rate limit).
+    """
+    import time
+    tree_url = (
+        f"https://api.github.com/repos/{_DULUS_REPO}/git/trees/"
+        f"{_DULUS_BRANCH}?recursive=1"
+    )
+    try:
+        with urllib.request.urlopen(tree_url, timeout=15) as resp:
+            tree = json.loads(resp.read())
+    except Exception:
+        return []
+
+    skill_paths = []
+    for entry in tree.get("tree", []):
+        path = entry.get("path", "")
+        if not path.endswith("/SKILL.md"):
+            continue
+        parts = path.split("/")
+        if any(p in (".git", ".github", ".gitignore", ".gitattributes") for p in parts):
+            continue
+        if _DULUS_EXCLUDE_REMOTE.intersection(parts):
+            continue
+        skill_paths.append(path)
+
+    skills = []
+    for path in skill_paths:
+        rel_dir = "/".join(path.split("/")[:-1])
+        skill_name = path.split("/")[-2]
+        raw_url = (
+            f"https://raw.githubusercontent.com/{_DULUS_REPO}/"
+            f"{_DULUS_BRANCH}/{path}"
+        )
+        skills.append({
+            "id": f"dulus/{rel_dir}",
+            "plugin": "dulus",
+            "skill": skill_name,
+            "description": "",
+            "path": raw_url,
+            "source": "dulus-remote",
+            "_remote_dir": rel_dir,
+        })
+
+    if with_descriptions and skills:
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _fetch_one(s):
+            try:
+                with urllib.request.urlopen(s["path"], timeout=8) as r:
+                    raw = r.read().decode("utf-8", errors="ignore")
+                meta = _parse_frontmatter(raw)
+                s["description"] = meta.get("description", "")
+            except Exception:
+                pass
+            return s
+
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(_fetch_one, skills))
+
+    _DULUS_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _DULUS_CACHE.write_text(
+            json.dumps({
+                "fetched_at": time.time(),
+                "with_descriptions": with_descriptions,
+                "skills": skills,
+            }, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+    return skills
+
+
+def list_dulus_remote(query: Optional[str] = None, force_refresh: bool = False, with_descriptions: bool = False) -> list[dict]:
+    """Return the kevrojo/dulus-skills community catalog (cached 6h)."""
+    import time
+    skills: list[dict] = []
+    cache_has_descriptions = False
+    if not force_refresh and _DULUS_CACHE.exists():
+        try:
+            data = json.loads(_DULUS_CACHE.read_text(encoding="utf-8"))
+            if time.time() - float(data.get("fetched_at", 0)) < _DULUS_TTL_SEC:
+                skills = data.get("skills", [])
+                cache_has_descriptions = bool(data.get("with_descriptions"))
+        except Exception:
+            skills = []
+    if not skills or (with_descriptions and not cache_has_descriptions):
+        skills = _fetch_dulus_remote(with_descriptions=with_descriptions)
+
+    if query:
+        q = query.lower()
+        skills = [
+            s for s in skills
+            if q in s.get("id", "").lower() or q in s.get("description", "").lower()
+        ]
+    return skills
+
+
+def get_dulus_remote(slug: str) -> Optional[dict]:
+    """Find a dulus-remote skill by id (dulus/<dir>/<skill>) or skill name."""
+    for s in list_dulus_remote():
+        if s.get("id") == slug or s.get("skill") == slug:
+            return s
+    return None
+
+
+def install_dulus_remote(slug: str) -> tuple[bool, str]:
+    """Download a skill from kevrojo/dulus-skills and install into ~/.dulus/skills/."""
+    entry = get_dulus_remote(slug)
+    if entry:
+        rel_dir = entry.get("_remote_dir", "")
+        skill_name = entry["skill"]
+    else:
+        parts = slug.replace("dulus/", "").strip("/").split("/")
+        if len(parts) < 1:
+            return False, f"Invalid dulus slug: '{slug}'. Expected dulus/<category>/<skill> or <skill>."
+        skill_name = parts[-1]
+        rel_dir = "/".join(parts)
+
+    dest_dir = DULUS_SKILLS_DIR / skill_name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    tree_url = (
+        f"https://api.github.com/repos/{_DULUS_REPO}/git/trees/"
+        f"{_DULUS_BRANCH}?recursive=1"
+    )
+    prefix = rel_dir.rstrip("/") + "/"
+    sibling_paths: list[str] = []
+    try:
+        with urllib.request.urlopen(tree_url, timeout=15) as resp:
+            tree = json.loads(resp.read())
+        for item in tree.get("tree", []):
+            p = item.get("path", "")
+            if p.startswith(prefix) and item.get("type") == "blob":
+                sibling_paths.append(p)
+    except Exception:
+        sibling_paths = []
+    if not sibling_paths:
+        sibling_paths = [f"{rel_dir}/SKILL.md"]
+
+    raw_base = f"https://raw.githubusercontent.com/{_DULUS_REPO}/{_DULUS_BRANCH}"
+    downloaded = []
+    for p in sibling_paths:
+        url = f"{raw_base}/{p}"
+        rel = p[len(prefix):] if p.startswith(prefix) else p.split("/")[-1]
+        dst = dest_dir / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with urllib.request.urlopen(url, timeout=15) as r:
+                data = r.read()
+            dst.write_bytes(data)
+            downloaded.append(rel)
+        except Exception:
+            pass
+
+    skill_md = dest_dir / "SKILL.md"
+    if not skill_md.exists():
+        return False, f"Could not download SKILL.md for '{skill_name}' from dulus repo."
+
+    raw = skill_md.read_text(encoding="utf-8")
+    body = _strip_frontmatter(raw)
+    frontmatter = (
+        f"---\n"
+        f"name: {skill_name}\n"
+        f"description: {(entry or {}).get('description', '')}\n"
+        f"source: dulus-remote\n"
+        f"triggers: [/{skill_name}]\n"
+        f"---\n\n"
+    )
+    skill_md.write_text(frontmatter + body, encoding="utf-8")
+
+    return True, f"Installed '{skill_name}' → {dest_dir}  ({len(downloaded)} files: {', '.join(downloaded[:5])}{'...' if len(downloaded)>5 else ''})"
+
+
 # ── COMPOSIO (live API listing of toolkits) ───────────────────────────────
 # The composio backend exposes a public toolkit list — we surface it as
 # pseudo-skills so users can browse `gmail`, `slack`, etc. and create a
