@@ -1,3 +1,9 @@
+
+A lot of Chinese people are opening issues about the project's credibility. I bet one of them buy some kind of package to the Stars project or something, and now they want to come here and spout nonsense to try and drive down the token price. What a coincidence that all the worried ones are Chinese, right? If they keep bothering me, I'll block all Chinese content from my website and repos, and that's it. 
+
+
+
+
 # ▲ DULUS
 
 > **Use IA agents without an API key. $0.**
