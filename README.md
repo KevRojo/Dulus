@@ -14,10 +14,6 @@ A lot of Chinese people are opening issues about the project's credibility. I be
 >
 > Dulus is here to save IA
 
-<img width="1786" height="360" alt="image" src="https://github.com/user-attachments/assets/4eef327d-6b02-454b-8b1c-5c34894d03dc" />
-
-<img width="1282" height="399" alt="image" src="https://github.com/user-attachments/assets/2c52f4a4-bdb0-439b-a8b2-553f4202d6b4" />
-
 dev@dulus.ai
 
 >
@@ -26,7 +22,9 @@ dev@dulus.ai
 SET /sticky_input ON since the first run for the best experience!
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/dulus-bird.png" alt="Dulus — Cigua Palmera" width="320">
+  
+  <img width="700" height="665" alt="mascot-hero" src="https://github.com/user-attachments/assets/8b122834-552c-4bd4-b46d-3e17deb74ab5" />
+
 </p>
 
 <p align="center"><i>The Dulus (Cigua Palmera) — Dominican national bird. Named after the bird, not the rocket.</i></p>
