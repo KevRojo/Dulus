@@ -268,12 +268,6 @@ echo "explain this diff" | git diff | dulus -p --accept-all
 <img width="1309" height="778" alt="image" src="https://github.com/user-attachments/assets/1c627990-7f87-489b-a0a2-14ad62fe2bb8" />
 
 ---
-<img width="1608" height="1903" alt="image" src="https://github.com/user-attachments/assets/450defa2-437b-470d-891a-9285d9e5e312" />
-
----
-<img width="3763" height="1975" alt="image" src="https://github.com/user-attachments/assets/10752aa2-6837-4097-a9a8-e02938992174" />
-
----
 The dulus sandbox is an early feature, expect bugs
 
 ---
@@ -412,23 +406,6 @@ Dulus's **Auto-Adapter** reads a random Python repo and figures out its tools on
 ```
 
 Adapt-and-install runs in under a second. New tools register **live**, no restart.
-
-Example adapting Sherlock repo:
-
-<img width="1765" height="166" alt="image" src="https://github.com/user-attachments/assets/c67dc15e-a2e3-4575-be34-8c9b54045510" />
-
------
-
-<img width="1327" height="751" alt="image" src="https://github.com/user-attachments/assets/676a0ef5-3699-4960-98a4-14a55fbef081" />
-
------
-
-<img width="885" height="301" alt="image" src="https://github.com/user-attachments/assets/52c02444-2606-41dc-bc33-ebe26ac41e5e" />
-
-----
-
-<img width="1006" height="271" alt="image" src="https://github.com/user-attachments/assets/d823428e-6344-4414-bf42-14ed3128f763" />
-
 
 ## MCP
 
