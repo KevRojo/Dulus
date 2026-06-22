@@ -107,20 +107,9 @@ them:
 
 dulus get the prices of NVDA, TSLA, SP500:
 
-<img width="2094" height="1365" alt="image" src="https://github.com/user-attachments/assets/1551d651-9d69-4607-bac0-4adbde645783" />
-
 Be creative!!! 
 
 Dulus adapt any python repository <3
-
-<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
-
-
-Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
-
-> **v0.2.60 — May 13, 2026** — **WebBridge**: browser automation with Playwright. Navigate, click, type, evaluate JS, take screenshots — all from the CLI. `pip install dulus[webbridge]` to enable.
-> Type `/news` to see the full changelog.
-
 ---
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/sec-quickstart.svg" alt="Quick Start" width="100%"></p>
