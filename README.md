@@ -1,21 +1,4 @@
-
-A lot of Chinese people are opening issues about the project's credibility. I bet one of them buy some kind of package to the Stars project or something, and now they want to come here and spout nonsense to try and drive down the token price. What a coincidence that all the worried ones are Chinese, right? If they keep bothering me, I'll block all Chinese content from my website and repos, and that's it. 
-
-
-
-
 # ▲ DULUS
-
-> **Use IA agents without an API key. $0.**
->
-> **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely opens your browser, captures your **Gemini** (guest, no login) · **Claude.ai** · **Claude Code** · **Kimi.com** · **Qwen** · **DeepSeek** session, then lets you drive frontier IA as if it were an API. **No api key. No subscription. No credit card.**
->
-> Plus 100+ paid providers via LiteLLM (OpenRouter, Groq, Together, xAI, Mistral, Bedrock, …), local models via Ollama, `/lang` in 34 languages, Mesa Redonda multi-model debate, voice in/out, local OCR, MemPalace semantic memory, embedded sandbox OS. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
->
-> Dulus is here to save IA
-
-dev@dulus.ai
-
 >
 > `pip install dulus` → press Enter → working IA in 30 seconds. Try it.
 
@@ -66,52 +49,6 @@ SET /sticky_input ON since the first run for the best experience!
 > **Official X / creator handle:** [@KevRojo](https://x.com/KevRojo) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
 >
 > **$DULUS AI token  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump)
-> 
-> **$DULUS AI GemPump  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://www.gempump.io/en/token/dulusai) 
-
-> I created this token. I won't sell. I will keep building. This open-source project stays free forever — business version incoming. 🦅🇩🇴
-
-### Why a Solana Token?
-
-Someone from the community launched a $DULUS token before I did. Good intentions — but confidence was shaky and the early believers were at risk of being taken advantage of by people who didn't actually care about the project.
-
-I didn't want that. The people who bet on Dulus early deserved a token backed by the actual builder. So I launched the official one myself — full transparency, public GitHub, my name on it. No anonymous dev. 30M tokens locked. Just the project and its creator.
-
-I'm top holder. I bought my position with my own funds. I'm not selling.
-
-### $DULUS — Token Utility Roadmap
-
-The token isn't decoration. It's the fuel layer for everything Dulus is building.
-
-| Phase | Utility |
-|---|---|
-| **Now** | Community ownership. Creator-fee rewards locked on-chain to the builder. Alignment over extraction. |
-| **Business v1** | $DULUS holders get early access + discounted seats on the Dulus Business tier (multi-user workspaces, cloud-hosted instances, shared MemPalace). |
-| **Credits** | Pay for Dulus Business API credits with $DULUS — provider costs, inference minutes, premium model usage. |
-| **Deployments** | Spin up a cloud Dulus instance and pay the hosting with $DULUS. No fiat friction, no middleman. |
-| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS. Hold enough → fee discount tier. |
-| **Governance** | Top holders vote on feature priority and plugin marketplace policies. The flock decides. |
-
-> The open-source REPL stays free forever. $DULUS is the key to the business layer — not a gate on what already exists.
-
----
-
-**$DULUS has a real purpose.**
-
-The open-source project isn't going anywhere. The REPL, the tools, the free model tier — that stays free forever. But Dulus is growing into a business layer: cloud-hosted instances, multi-user workspaces, model credits, managed deployments.
-
-And that business layer is going to run on $DULUS.
-
-The token will be how you pay for Pro subscriptions. How you buy inference credits. How you spin up a cloud instance without fiat friction. Holders with enough weight get automatic tier discounts. And eventually — the flock votes: top holders decide feature priority and plugin marketplace policies.
-
-This isn't a promise. It's the architecture. That's how I've designed it.
-
-So when someone asks "what's the token for" — the answer is: it's the fuel for Dulus's business layer. The more I build, the more it makes sense to hold.
-
-We keep flying. 🦅🇩🇴
-
-— KevRojo / [@KevRojo](https://x.com/KevRojo)
-
 
 -----
 <p align="center">
