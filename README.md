@@ -257,8 +257,6 @@ echo "explain this diff" | git diff | dulus -p --accept-all
 
 ---
 
-<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/terminal-boot.svg" alt="Dulus booting into session" width="100%"></p>
-
 <p align="center"><sub>↑ session boot. soul loaded, gold memory warm, shell sniffed. the little circles are real buttons on your Mac.</sub></p>
 
 ### 💻 Dulus OS (Sandbox)
