@@ -3,5 +3,5 @@ recursive-include docs *
 recursive-include data *
 recursive-include sandbox/dist *
 recursive-include webbridge *
-global-exclude __pycache__ *
+global-exclude __pycache__/*
 global-exclude *.pyc
