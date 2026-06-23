@@ -8093,6 +8093,149 @@ def cmd_compact(args: str, state, config) -> bool:
     return True
 
 
+def cmd_profile(args: str, state, config) -> bool:
+    """Manage agent Profiles — named bundles of skills/plugins/persona/config.
+
+    /profile                      — list profiles (active marked)
+    /profile list                 — same
+    /profile show [name]          — details: skills, plugins, persona, config
+    /profile create <name> [desc] — scaffold a new profile
+    /profile switch <name>        — make it active (default = Dulus core)
+    /profile delete <name>        — remove a profile
+    /profile inherit <name> on|off — toggle full-core power vs lean
+    """
+    import profiles as P
+    parts = args.strip().split(None, 1)
+    sub = parts[0].lower() if parts else ""
+    rest = parts[1].strip() if len(parts) > 1 else ""
+
+    # ── list ────────────────────────────────────────────────────────────────
+    if sub in ("", "list"):
+        profs = P.list_profiles()
+        print(clr("\n  Dulus Profiles (agents)", "cyan", "bold"))
+        for pr in profs:
+            mark = clr(" ● active", "green") if pr["active"] else ""
+            name = clr(pr["name"], "cyan", "bold") if pr["active"] else clr(pr["name"], "white")
+            extra = "" if pr["name"] == "default" else f"  [{pr['skills']} skills, {pr['plugins']} plugins]"
+            desc = f"  {clr(pr['description'][:50], 'dim')}" if pr["description"] else ""
+            print(f"   {name}{mark}{extra}{desc}")
+        print(clr("\n  /profile create <name> [desc]   switch <name>   show <name>   delete <name>   inherit <name> on|off", "dim"))
+        print()
+        return True
+
+    # ── show ─────────────────────────────────────────────────────────────────
+    if sub == "show":
+        name = rest or P.active_profile()
+        meta = P.profile_meta(name)
+        if name != "default" and not (P.PROFILES_DIR / name).is_dir():
+            err(f"Profile '{name}' not found.")
+            return True
+        print(clr(f"\n  Profile: {name}", "cyan", "bold"))
+        if meta.get("description"):
+            print(f"  {clr('desc:', 'dim')} {meta['description']}")
+        cfgo = meta.get("config", {}) or {}
+        if cfgo.get("model"):  print(f"  {clr('model:', 'dim')} {cfgo['model']}")
+        if cfgo.get("lang"):   print(f"  {clr('lang:', 'dim')} {cfgo['lang']}")
+        frag = P.profile_system_fragment(name)
+        if frag:               print(f"  {clr('persona:', 'dim')} {frag[:120]}")
+        if name != "default":
+            print(f"  {clr('skills:', 'dim')} {P._count_skills(name)}   {clr('plugins:', 'dim')} {P._count_plugins(name)}")
+            print(f"  {clr('dir:', 'dim')} {P.profile_dir(name)}")
+        print()
+        return True
+
+    # ── create ────────────────────────────────────────────────────────────────
+    if sub == "create":
+        if not rest:
+            err("Usage: /profile create <name> [description] [--inherit | --lean]")
+            return True
+        # Flags let scripts / `dulus -c` skip the interactive question.
+        tokens = rest.split()
+        inherit_choice = None  # None = ask; True = inherit current; False = lean
+        for fl in [t for t in tokens if t.lower() in ("--inherit", "--lean", "--base")]:
+            tokens.remove(fl)
+            inherit_choice = (fl.lower() == "--inherit")
+        cparts = " ".join(tokens).split(None, 1)
+        if not cparts or not cparts[0]:
+            err("Usage: /profile create <name> [description] [--inherit | --lean]")
+            return True
+        pname = cparts[0]
+        desc = cparts[1].strip() if len(cparts) > 1 else ""
+        cur = P.active_profile()
+        cur_label = "the Dulus core" if cur == "default" else f"'{cur}'"
+
+        # Ask how to seed the new profile, unless a flag already decided.
+        if inherit_choice is None:
+            print(clr(f"\n  New profile '{pname}' — start from:", "cyan", "bold"))
+            print("    1) Lean     — only mempalace + obsidian skills (clean agent)  [default]")
+            print(f"    2) Inherit  — copy skills/plugins from the current profile ({cur_label})")
+            try:
+                ans = input(clr("  Choose [1/2] (Enter = 1): ", "yellow")).strip()
+            except (EOFError, KeyboardInterrupt):
+                ans = ""
+                print()
+            inherit_choice = (ans == "2")
+
+        success, msg = P.create_profile(pname, description=desc)
+        (ok if success else err)(msg)
+        if success:
+            if inherit_choice:
+                ok2, m2 = P.seed_from(pname, cur)
+                (info if ok2 else err)(m2)
+            else:
+                info("Lean start: mempalace + obsidian skills (self-improvement tools always on).")
+            info(f"Switch into it: /profile switch {pname}")
+        return True
+
+    # ── switch ──────────────────────────────────────────────────────────────
+    if sub == "switch":
+        if not rest:
+            err("Usage: /profile switch <name>  (use 'default' for the Dulus core)")
+            return True
+        success, msg = P.switch_profile(rest)
+        if not success:
+            err(msg)
+            return True
+        # Apply the profile's model/lang overrides to the live session.
+        try:
+            P.apply_profile_config(config)
+        except Exception:
+            pass
+        # Hot-load the profile's plugin tools (hybrid: adds on top of core).
+        try:
+            from plugin.loader import register_plugin_tools
+            register_plugin_tools()
+        except Exception:
+            pass
+        ok(msg + "  (persona, skills, plugins & conciencia now active)")
+        return True
+
+    # ── delete ────────────────────────────────────────────────────────────────
+    if sub == "delete":
+        if not rest:
+            err("Usage: /profile delete <name>")
+            return True
+        success, msg = P.delete_profile(rest)
+        (ok if success else err)(msg)
+        return True
+
+    # ── inherit (toggle full-core power mode vs lean) ──────────────────────────
+    if sub == "inherit":
+        iparts = rest.split()
+        if len(iparts) < 2 or iparts[1].lower() not in ("on", "off", "true", "false"):
+            err("Usage: /profile inherit <name> on|off   (on = inherit ALL core plugins/skills; off = lean)")
+            return True
+        value = iparts[1].lower() in ("on", "true")
+        success, msg = P.set_inherit_core(iparts[0], value)
+        (ok if success else err)(msg)
+        if success:
+            info("Note: self-improvement tools (autoadapter, MarketplaceSearch/Install, mr_dulus, Skill) are always on either way.")
+        return True
+
+    info("Usage: /profile [list|show|create|switch|delete|inherit]")
+    return True
+
+
 def cmd_news(args: str, state, config) -> bool:
     """Show the latest news from docs/news.md."""
     news_file = Path(__file__).parent / "docs" / "news.md"
@@ -9333,6 +9476,8 @@ COMMANDS = {
     "cwd":         cmd_cwd,
     "skills":      cmd_skills,
     "skill":       cmd_skill,
+    "profile":     cmd_profile,
+    "profiles":    cmd_profile,
     "memory":      cmd_memory,
     "agents":      cmd_agents,
     "mcp":         cmd_mcp,
@@ -9450,6 +9595,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "cwd":         ("Show / change working directory",    []),
     "skills":      ("List available skills",              []),
     "skill":       ("Manage skills",                      ["list", "get", "use", "remove", "info"]),
+    "profile":     ("Manage agent Profiles (skills+plugins+persona bundles)", ["list", "show", "create", "switch", "delete", "inherit"]),
+    "profiles":    ("Manage agent Profiles (alias)",      ["list", "show", "create", "switch", "delete", "inherit"]),
     "memory":      ("Manage persistent memories",          ["list", "load", "permanent", "unbind", "consolidate", "delete", "purge", "purge-soul"]),
     "agents":      ("Show background agents",             []),
     "mcp":         ("Manage MCP servers",                 ["reload", "add", "remove"]),

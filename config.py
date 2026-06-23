@@ -155,7 +155,10 @@ def load_config() -> dict:
     for cfg_key, env_var in _ENV_BRIDGE.items():
         val = cfg.get(cfg_key)
         if val and not os.environ.get(env_var):
-            os.environ[env_var] = val
+            # Sanitize: embedded null bytes break os.environ on Windows.
+            clean_val = str(val).replace("\x00", "")
+            if clean_val:
+                os.environ[env_var] = clean_val
     return cfg
 
 
