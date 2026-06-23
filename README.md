@@ -1,32 +1,13 @@
-
-A lot of Chinese people are opening issues about the project's credibility. I bet one of them buy some kind of package to the Stars project or something, and now they want to come here and spout nonsense to try and drive down the token price. What a coincidence that all the worried ones are Chinese, right? If they keep bothering me, I'll block all Chinese content from my website and repos, and that's it. 
-
-
-
-
 # ▲ DULUS
-
-> **Use IA agents without an API key. $0.**
->
-> **Hunt. Patch. Ship.** A Python autonomous agent that flies on any model — and uniquely opens your browser, captures your **Gemini** (guest, no login) · **Claude.ai** · **Claude Code** · **Kimi.com** · **Qwen** · **DeepSeek** session, then lets you drive frontier IA as if it were an API. **No api key. No subscription. No credit card.**
->
-> Plus 100+ paid providers via LiteLLM (OpenRouter, Groq, Together, xAI, Mistral, Bedrock, …), local models via Ollama, `/lang` in 34 languages, Mesa Redonda multi-model debate, voice in/out, local OCR, MemPalace semantic memory, embedded sandbox OS. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
->
-> Dulus is here to save IA
-
-<img width="1786" height="360" alt="image" src="https://github.com/user-attachments/assets/4eef327d-6b02-454b-8b1c-5c34894d03dc" />
-
-<img width="1282" height="399" alt="image" src="https://github.com/user-attachments/assets/2c52f4a4-bdb0-439b-a8b2-553f4202d6b4" />
-
-dev@dulus.ai
-
 >
 > `pip install dulus` → press Enter → working IA in 30 seconds. Try it.
 
 SET /sticky_input ON since the first run for the best experience!
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/dulus-bird.png" alt="Dulus — Cigua Palmera" width="320">
+  
+  <img width="700" height="665" alt="mascot-hero" src="https://github.com/user-attachments/assets/8b122834-552c-4bd4-b46d-3e17deb74ab5" />
+
 </p>
 
 <p align="center"><i>The Dulus (Cigua Palmera) — Dominican national bird. Named after the bird, not the rocket.</i></p>
@@ -68,52 +49,6 @@ SET /sticky_input ON since the first run for the best experience!
 > **Official X / creator handle:** [@KevRojo](https://x.com/KevRojo) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
 >
 > **$DULUS AI token  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump)
-> 
-> **$DULUS AI GemPump  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://www.gempump.io/en/token/dulusai) 
-
-> I created this token. I won't sell. I will keep building. This open-source project stays free forever — business version incoming. 🦅🇩🇴
-
-### Why a Solana Token?
-
-Someone from the community launched a $DULUS token before I did. Good intentions — but confidence was shaky and the early believers were at risk of being taken advantage of by people who didn't actually care about the project.
-
-I didn't want that. The people who bet on Dulus early deserved a token backed by the actual builder. So I launched the official one myself — full transparency, public GitHub, my name on it. No anonymous dev. 30M tokens locked. Just the project and its creator.
-
-I'm top holder. I bought my position with my own funds. I'm not selling.
-
-### $DULUS — Token Utility Roadmap
-
-The token isn't decoration. It's the fuel layer for everything Dulus is building.
-
-| Phase | Utility |
-|---|---|
-| **Now** | Community ownership. Creator-fee rewards locked on-chain to the builder. Alignment over extraction. |
-| **Business v1** | $DULUS holders get early access + discounted seats on the Dulus Business tier (multi-user workspaces, cloud-hosted instances, shared MemPalace). |
-| **Credits** | Pay for Dulus Business API credits with $DULUS — provider costs, inference minutes, premium model usage. |
-| **Deployments** | Spin up a cloud Dulus instance and pay the hosting with $DULUS. No fiat friction, no middleman. |
-| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS. Hold enough → fee discount tier. |
-| **Governance** | Top holders vote on feature priority and plugin marketplace policies. The flock decides. |
-
-> The open-source REPL stays free forever. $DULUS is the key to the business layer — not a gate on what already exists.
-
----
-
-**$DULUS has a real purpose.**
-
-The open-source project isn't going anywhere. The REPL, the tools, the free model tier — that stays free forever. But Dulus is growing into a business layer: cloud-hosted instances, multi-user workspaces, model credits, managed deployments.
-
-And that business layer is going to run on $DULUS.
-
-The token will be how you pay for Pro subscriptions. How you buy inference credits. How you spin up a cloud instance without fiat friction. Holders with enough weight get automatic tier discounts. And eventually — the flock votes: top holders decide feature priority and plugin marketplace policies.
-
-This isn't a promise. It's the architecture. That's how I've designed it.
-
-So when someone asks "what's the token for" — the answer is: it's the fuel for Dulus's business layer. The more I build, the more it makes sense to hold.
-
-We keep flying. 🦅🇩🇴
-
-— KevRojo / [@KevRojo](https://x.com/KevRojo)
-
 
 -----
 <p align="center">
@@ -147,19 +82,9 @@ We keep flying. 🦅🇩🇴
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
 ## What is this
-Talent cant be copied.
 
 Dulus Reduce your IA costs by 60% parsing webchats and claude-code directly. Write poetry while Anthropic only see text.
 Use claude-code as an API without the new 'extra-usage' wall <3
-
-<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/poetry-banner.png" alt="Anthropic only sees text while you and Claude are writing poetry" width="100%"></p>
-
-<img width="1240" height="882" alt="image" src="https://github.com/user-attachments/assets/27dd76bc-8919-4bb9-b3c3-38ae7d92e482" />
-
-
-<p align="center">
-  <sub>⚡ <b>Saves you Claude tokens?</b> Throw a sat — BTC: <code>1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN</code></sub>
-</p>
 
 
 Another reminder of a Dulus magic spell: 
@@ -172,20 +97,9 @@ them:
 
 dulus get the prices of NVDA, TSLA, SP500:
 
-<img width="2094" height="1365" alt="image" src="https://github.com/user-attachments/assets/1551d651-9d69-4607-bac0-4adbde645783" />
-
 Be creative!!! 
 
 Dulus adapt any python repository <3
-
-<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
-
-
-Dulus is a **lightweight Python reimplementation of Claude Code** that isn't locked to Claude. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in roughly **12K lines you can actually read**. Fork it. Bend it. Run it offline against Qwen on your M2.
-
-> **v0.2.60 — May 13, 2026** — **WebBridge**: browser automation with Playwright. Navigate, click, type, evaluate JS, take screenshots — all from the CLI. `pip install dulus[webbridge]` to enable.
-> Type `/news` to see the full changelog.
-
 ---
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/sec-quickstart.svg" alt="Quick Start" width="100%"></p>
@@ -257,30 +171,6 @@ docker compose up -d
 docker compose exec dulus dulus
 ```
 
-Image: [`ghcr.io/kevrojo/dulus`](https://ghcr.io/kevrojo/dulus) · Memory persists in the `dulus-memory` volume.
-
-### Option C — Manual pip / source
-
-<img alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
-
------
-
-<img alt="image" src="https://github.com/user-attachments/assets/72526ae1-b69f-4529-adc7-eef1cd3876c8" />
-
------
-
-<img alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
-
------
-
-ROUND TABLE (DULUS UNIQUE FEATURE)
-
-<img alt="image" src="https://github.com/user-attachments/assets/9e8f17ed-6ca2-4ae0-b8c3-146ae5fef491" />
-
-Dulus is the first one meeting multiple models at the same time working for the same objective and sharing their ideas.
-
-
-
 ### One-liner
 
 ```bash
@@ -290,12 +180,7 @@ pip install "dulus[memory]" && dulus    # +MemPalace per-turn memory (pulls chro
 
 That's it. Dulus prompts you for a key on first run. The `[memory]` extra pulls in `mempalace` and its `chromadb` chain — skip it on Android/termux or anywhere wheels for `numpy`/`onnxruntime` aren't available; the CLI still boots and chats fine without it.
 
-Thanks for all the love on PyPi, the launch on PyPi was on 05-05-2026
------
-
-<img width="2593" height="1044" alt="image" src="https://github.com/user-attachments/assets/114b9ab1-e49f-490a-97b8-872f70b859bd" />
-
------
+---
 
 ### From source (hacking on Dulus itself)
 
@@ -343,8 +228,6 @@ echo "explain this diff" | git diff | dulus -p --accept-all
 
 ---
 
-<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/terminal-boot.svg" alt="Dulus booting into session" width="100%"></p>
-
 <p align="center"><sub>↑ session boot. soul loaded, gold memory warm, shell sniffed. the little circles are real buttons on your Mac.</sub></p>
 
 ### 💻 Dulus OS (Sandbox)
@@ -352,12 +235,6 @@ echo "explain this diff" | git diff | dulus -p --accept-all
 > **Experimental features:** The folder `sandbox/` contains the early implementation of **Dulus OS** — a mini-operating system that runs entirely in your browser. It is currently in heavy development and not 100% functional yet. It will serve as a secure, isolated environment for browser-based tool execution and visualizations.
 
 <img width="1309" height="778" alt="image" src="https://github.com/user-attachments/assets/1c627990-7f87-489b-a0a2-14ad62fe2bb8" />
-
----
-<img width="1608" height="1903" alt="image" src="https://github.com/user-attachments/assets/450defa2-437b-470d-891a-9285d9e5e312" />
-
----
-<img width="3763" height="1975" alt="image" src="https://github.com/user-attachments/assets/10752aa2-6837-4097-a9a8-e02938992174" />
 
 ---
 The dulus sandbox is an early feature, expect bugs
@@ -498,23 +375,6 @@ Dulus's **Auto-Adapter** reads a random Python repo and figures out its tools on
 ```
 
 Adapt-and-install runs in under a second. New tools register **live**, no restart.
-
-Example adapting Sherlock repo:
-
-<img width="1765" height="166" alt="image" src="https://github.com/user-attachments/assets/c67dc15e-a2e3-4575-be34-8c9b54045510" />
-
------
-
-<img width="1327" height="751" alt="image" src="https://github.com/user-attachments/assets/676a0ef5-3699-4960-98a4-14a55fbef081" />
-
------
-
-<img width="885" height="301" alt="image" src="https://github.com/user-attachments/assets/52c02444-2606-41dc-bc33-ebe26ac41e5e" />
-
-----
-
-<img width="1006" height="271" alt="image" src="https://github.com/user-attachments/assets/d823428e-6344-4414-bf42-14ed3128f763" />
-
 
 ## MCP
 
