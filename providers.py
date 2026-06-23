@@ -7,7 +7,10 @@ Supported providers:
   gemini     — Google Gemini (gemini-2.0-flash, gemini-1.5-pro, ...)
   kimi       — Moonshot AI (kimi-k2.5, moonshot-v1-8k/32k/128k)
   kimi-code  — Kimi Code (kimi-for-coding, membership API from kimi.com/code)
+               Supports fallback chain: KIMI_CODE_API_KEY → KIMI_CODE2_API_KEY → KIMI_CODE3_API_KEY
   qwen       — Alibaba DashScope (qwen-max, qwen-plus, ...)
+  modelstudio — Alibaba Cloud Model Studio, Singapore workspace (OpenAI-compatible)
+  amd        — AMD Developer Cloud / ROCm vLLM server (OpenAI-compatible)
   zhipu      — Zhipu GLM (glm-4, glm-4-plus, ...)
   deepseek   — DeepSeek (deepseek-chat, deepseek-reasoner, ...)
   minimax    — MiniMax (MiniMax-Text-01, abab6.5s-chat, ...)
@@ -33,6 +36,33 @@ import functools
 import subprocess
 import platform
 from typing import Generator, Any, Callable
+
+
+# ── TLS: trust the OS certificate store ──────────────────────────────────
+# Cloudflare WARP / Cloudflare One does TLS inspection with its own root CA,
+# which is installed in the OS trust store (Windows cert store / macOS Keychain
+# / Linux ca-certificates) but is NOT in Python's bundled `certifi`. Without
+# this, every HTTPS call fails with SSLCertVerificationError while WARP is on.
+# `truststore` makes Python's ssl module use the OS store, so the WARP CA is
+# trusted automatically — and normal browsing (WARP off) keeps working too.
+# This covers httpx (OpenAI + Anthropic SDKs), requests, and urllib at once.
+#
+# Optional manual override: set DULUS_CA_BUNDLE (or SSL_CERT_FILE) to a PEM
+# file with the Cloudflare cert if you prefer pinning it explicitly.
+import os as _os_tls
+_ca_bundle = _os_tls.environ.get("DULUS_CA_BUNDLE") or _os_tls.environ.get("SSL_CERT_FILE")
+if _ca_bundle and _os_tls.path.exists(_ca_bundle):
+    # Point the common HTTP stacks at the explicit bundle.
+    _os_tls.environ.setdefault("SSL_CERT_FILE", _ca_bundle)
+    _os_tls.environ.setdefault("REQUESTS_CA_BUNDLE", _ca_bundle)
+else:
+    try:
+        import truststore as _truststore
+        _truststore.inject_into_ssl()  # use OS trust store everywhere
+    except Exception:
+        # truststore not installed or injection failed — fall back to certifi.
+        # Install with:  pip install truststore   (Python 3.10+)
+        pass
 
 
 # ── Provider resilience: retry with exponential backoff + jitter ─────────
@@ -212,6 +242,21 @@ def _parse_tool_call_payload(payload: str):
     return None
 
 
+def _decode_webchat_entities(text: str) -> str:
+    """Decode the HTML entities a chat UI (e.g. Claude.ai webchat) may apply to a
+    `<tool_call>` block when it renders the assistant turn, so the parser still
+    finds the tags + JSON. Only entities relevant to tag/JSON detection are
+    decoded; everything else is left intact. (`&amp;` is decoded last to handle
+    single-level double-encoding like `&amp;lt;` → `&lt;`.)
+    """
+    if "&" not in text:
+        return text
+    return (text.replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&quot;", '"').replace("&#34;", '"')
+                .replace("&#39;", "'").replace("&#x27;", "'")
+                .replace("&amp;", "&"))
+
+
 class WebToolParser:
     """Shared parser for prompt-based tool calls in XML format.
     Also supports auto-wrapping raw JSON tool calls if auto_wrap_json=True.
@@ -227,6 +272,11 @@ class WebToolParser:
         """Parse chunk, return display text and accumulate tool calls."""
         if not chunk: return ""
         self._raw_buf += chunk
+        # Claude.ai (and other chat UIs) may HTML-encode our <tool_call> tags or
+        # wrap them in ``` fences when rendering. Decode the relevant entities so
+        # the tags + JSON stay detectable (calls inside ``` fences parse as-is).
+        if "&" in self._raw_buf:
+            self._raw_buf = _decode_webchat_entities(self._raw_buf)
         display = ""
 
         while True:
@@ -486,34 +536,6 @@ PROVIDERS: dict[str, dict] = {
             "kimi-for-coding", "kimi-k2.6", "kimi-k2.5", "kimi-latest",
         ],
     },
-    "kimi-code2": {
-        "type":       "openai",
-        "api_key_env": "KIMI_CODE2_API_KEY",
-        "base_url":   "https://api.kimi.com/coding/v1",
-        "context_limit": 256000,
-        "models": [
-            "kimi-for-coding", "kimi-k2.6", "kimi-k2.5", "kimi-latest",
-        ],
-    },
-    "kimi-code3": {
-        "type":       "openai",
-        "api_key_env": "KIMI_CODE3_API_KEY",
-        "base_url":   "https://api.kimi.com/coding/v1",
-        "context_limit": 256000,
-        "models": [
-            "kimi-for-coding", "kimi-k2.6", "kimi-k2.5", "kimi-latest",
-        ],
-    },
-    "moonshot": {
-        "type":       "openai",
-        "api_key_env": "MOONSHOT_API_KEY",
-        "base_url":   "https://api.moonshot.ai/v1",
-        "context_limit": 250000,
-        "models": [
-            "kimi-k2.5", "kimi-latest",
-            "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k",
-        ],
-    },
     "qwen": {
         "type":       "openai",
         "api_key_env": "DASHSCOPE_API_KEY",
@@ -523,6 +545,48 @@ PROVIDERS: dict[str, dict] = {
             "qwen-max", "qwen-plus", "qwen-turbo", "qwen-long",
             "qwen2.5-72b-instruct", "qwen2.5-coder-32b-instruct",
             "qwq-32b",
+        ],
+    },
+    # Alibaba Cloud Model Studio (Singapore / ap-southeast-1). OpenAI-compatible
+    # endpoint scoped to a workspace. The base_url embeds your Workspace ID:
+    #   https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+    # Override the workspace without editing code via env/config:
+    #   MODELSTUDIO_WORKSPACE_ID=ws-xxxx   (or MODELSTUDIO_BASE_URL=<full url>)
+    #   MODELSTUDIO_API_KEY=<key>          (falls back to DASHSCOPE_API_KEY)
+    # Pick models as 'modelstudio/<model>' e.g. 'modelstudio/qwen-max'.
+    "modelstudio": {
+        "type":       "openai",
+        "api_key_env": "MODELSTUDIO_API_KEY",
+        "base_url":   "https://ws-1qcqvxk37njsah79.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+        "context_limit": 1000000,
+        # qwen rejects max_tokens > 65536 (400 invalid_parameter). Cap output so a
+        # large config max_tokens (e.g. 1,000,000) doesn't blow up every call.
+        "max_completion_tokens": 32768,
+        # Ordered fallback chain (strongest → cheaper) of the free-quota LLM
+        # models in the Singapore plan. Override per-account with
+        #   /config modelstudio_fallback_chain=<id>,<id>,...
+        # A wrong/retired id just falls through to the next one automatically.
+        "models": [
+            "qwen3-max", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+            "qwen3.5-plus-2026-04-20", "qwen3.6-flash", "qwen3.5-flash",
+            "qwen3.5-122b-a10b", "deepseek-v4-pro", "deepseek-v3.2", "glm-5.1",
+        ],
+    },
+    # AMD Developer Cloud / ROCm. Serve any open model with vLLM (or TGI) on an
+    # AMD GPU instance — both expose an OpenAI-compatible /v1 endpoint. Point
+    # Dulus at it without editing code:
+    #   AMD_BASE_URL=http://<instance-ip>:8000/v1   (your vLLM server)
+    #   AMD_API_KEY=<token>   (optional; vLLM accepts any value by default)
+    # Pick models as 'amd/<served-model-name>' e.g. 'amd/Qwen2.5-72B-Instruct'.
+    # The served name must match what you launched vLLM with (--served-model-name).
+    "amd": {
+        "type":       "openai",
+        "api_key_env": "AMD_API_KEY",
+        "base_url":   "",  # resolved at call time from AMD_BASE_URL / config
+        "context_limit": 131072,
+        "models": [
+            "Qwen2.5-72B-Instruct", "Qwen2.5-Coder-32B-Instruct",
+            "Llama-3.3-70B-Instruct", "Mixtral-8x7B-Instruct",
         ],
     },
     "zhipu": {
@@ -627,13 +691,6 @@ PROVIDERS: dict[str, dict] = {
         "context_limit": 128000,
         "models": [],   # dynamic, depends on loaded model
     },
-    "custom22": {
-        "type":       "openai",
-        "api_key_env": "MIMO_API_KEY",
-        "base_url":   "https://api.xiaomimimo.com/v1",   # read from config["custom_base_url"]
-        "context_limit": 128000,
-        "models": ["MiMo-V2-Pro"],
-    },
     "claude-web": {
         "type":       "claude_web",
         "api_key_env": None,
@@ -704,6 +761,36 @@ PROVIDERS: dict[str, dict] = {
             "gemini-1.5-pro",
         ],
     },
+    "xai-oauth": {
+        "type":       "xai-oauth",
+        "api_key_env": None,
+        "context_limit": 128000,
+        "models": [
+            "grok-4", "grok-3", "grok-2-latest", "grok-beta", "grok-build",
+        ],
+    },
+    "xiaomi": {
+        "type": "openai_compat",
+        "api_key_env": "XIAOMI_API_KEY",
+        "base_url": "https://api.xiaomimimo.com/v1",
+        "context_limit": 128000,
+        "models": [
+            "mimo-v2.5", "mimo-v2.5-pro", "mimo-v2-omni", "MiMo-V2-Pro",
+        ],
+        # Quirks ripped from open Hermes Xiaomi provider:
+        # - supports_vision=True but supports_vision_tool_messages=False (rejects list tool content)
+        # - health check /v1/models returns 401 even with key
+        # - thinking mode support on some variants
+    },
+    "sakana": {
+        "type":       "openai",
+        "api_key_env": "SAKANA_API_KEY",
+        "base_url":   "https://api.sakana.ai/v1",
+        "context_limit": 128000,
+        "models": [
+            "fugu-mini", "fugu-ultra",
+        ],
+    },
 }
 
 # Cost per million tokens (approximate, fallback to 0 for unknown)
@@ -743,8 +830,6 @@ _PREFIXES = [
     ("o3",            "openai"),
     ("gemini-",       "gemini"),
     ("kimi-code/",    "kimi-code"),
-    ("kimi-code2/",   "kimi-code2"),
-    ("kimi-code3/",   "kimi-code3"),
     ("kimi-for-coding", "kimi-code"),
     ("kimi",          "kimi"),  # matches 'kimi-' and 'kimi'
     ("moonshot-",     "kimi"),
@@ -763,6 +848,15 @@ _PREFIXES = [
     ("gemma",         "ollama"),
     ("gcloud/",       "gcloud"),
     ("gcloud-",       "gcloud"),
+    ("grok-",         "xai-oauth"),
+    ("grok-build",    "xai-oauth"),
+    ("xai-",          "xai-oauth"),
+    ("xai-oauth",     "xai-oauth"),
+    ("xiaomi-",       "xiaomi"),
+    ("mimo-",         "xiaomi"),
+    ("xiaomi",        "xiaomi"),
+    ("fugu-",         "sakana"),
+    ("sakana-",       "sakana"),
 ]
 
 # Models available under claude-web/ prefix
@@ -786,22 +880,14 @@ def detect_provider(model: str) -> str:
     return "openai"   # fallback
 
 
-def _claude_web_cookies_path(config: dict) -> str:
-    """Return path to claude.ai cookies JSON file."""
-    import os, pathlib
-    p = config.get("claude_web_cookies") or str(
-        pathlib.Path.home() / ".dulus" / "claude_cookies.json"
-    )
-    return p
+def _web_auth_path(config: dict, key: str, filename: str) -> str:
+    """Return path to a harvested web auth/cookies JSON file.
 
-
-def _kimi_web_auth_path(config: dict) -> str:
-    """Return path to kimi.com consumer auth JSON file."""
-    import os, pathlib
-    p = config.get("kimi_web_auth_path") or str(
-        pathlib.Path.home() / ".dulus" / "kimi_consumer.json"
-    )
-    return p
+    Looks for an explicit override in `config[key]` first, otherwise falls
+    back to `~/.dulus/<filename>`.
+    """
+    import pathlib
+    return config.get(key) or str(pathlib.Path.home() / ".dulus" / filename)
 
 
 def _kimi_web_list_chats(auth_data: dict, page_size: int = 50,
@@ -841,31 +927,519 @@ def _kimi_web_list_chats(auth_data: dict, page_size: int = 50,
     return resp.json()
 
 
-def _gemini_web_auth_path(config: dict) -> str:
-    """Return path to gemini.google.com consumer auth JSON file."""
+# ── XAI / Grok OAuth (SuperGrok / X Premium+ black magic, no separate key) ──
+XAI_OAUTH_CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828"
+XAI_OAUTH_SCOPE = "openid profile email offline_access grok-cli:access api:access"
+XAI_OAUTH_ISSUER = "https://auth.x.ai"
+XAI_OAUTH_DISCOVERY_URL = f"{XAI_OAUTH_ISSUER}/.well-known/openid-configuration"
+XAI_OAUTH_REDIRECT_HOST = "127.0.0.1"
+XAI_OAUTH_REDIRECT_PORT = 56121
+XAI_OAUTH_REDIRECT_PATH = "/callback"
+XAI_OAUTH_BASE_URL = "https://api.x.ai/v1"
+
+
+def _load_grok_build_session_token() -> str | None:
+    """Load the real session token from the official Grok Build TUI (this Grok you're talking to).
+    Stored in ~/.grok/auth.json after `grok login` (or when you launched this session).
+    This is THE auth the official `grok` / Grok Build CLI uses — same OAuth client_id,
+    same backend. Using it directly is 100x more reliable than Playwright harvest.
+    "grok build y ya".
+    """
+    import json
+    import os
+    import pathlib
+
+    grok_home = os.environ.get("GROK_HOME") or str(pathlib.Path.home() / ".grok")
+    auth_path = pathlib.Path(grok_home) / "auth.json"
+
+    if not auth_path.exists():
+        return None
+
+    try:
+        data = json.loads(auth_path.read_text())
+        # The key is usually "https://auth.x.ai::b1a00492-073a-47ea-816f-4c329264a828"
+        # (exact same client_id we had hardcoded for the harvest flow)
+        for entry in data.values():
+            if isinstance(entry, dict):
+                key = entry.get("key")
+                if isinstance(key, str) and len(key) > 40:
+                    # Looks like a JWT / access token
+                    return key
+        # Fallback: sometimes it might be under 'token' or top level
+        if isinstance(data.get("key"), str) and len(data["key"]) > 40:
+            return data["key"]
+    except Exception:
+        pass
+    return None
+
+
+# NOTE: The old Playwright browser harvest for Grok (/login grok with _xai_oauth_login)
+# has been completely removed for cleanliness.
+# The only supported ways to authenticate Grok models are now:
+#   - Official Grok Build TUI (`grok login`) → ~/.grok/auth.json (preferred)
+#   - Direct XAI_API_KEY
+#
+# If you want the old harvest behavior you can keep a copy of the previous providers.py
+# or implement it yourself. We no longer maintain it here.
+
+
+# ── Native OAuth 2.0 + PKCE login (no browser automation, no `grok` binary) ──
+# Implements the exact Authorization-Code + PKCE flow the official Grok CLI uses
+# against auth.x.ai. Opens the system browser, captures the code on the loopback
+# redirect (127.0.0.1:56121/callback), exchanges it for tokens, and persists them
+# with refresh support. This lets `/login grok` work WITHOUT the `grok` binary.
+
+def _xai_oauth_store_path():
     import os, pathlib
-    p = config.get("gemini_web_auth_path") or str(
-        pathlib.Path.home() / ".dulus" / "gemini_web.json"
-    )
-    return p
+    home = pathlib.Path(os.environ.get("DULUS_HOME") or (pathlib.Path.home() / ".dulus"))
+    home.mkdir(parents=True, exist_ok=True)
+    return home / "xai_oauth.json"
 
 
-def _deepseek_web_auth_path(config: dict) -> str:
-    """Return path to chat.deepseek.com consumer auth JSON file."""
-    import pathlib
-    p = config.get("deepseek_web_auth_path") or str(
-        pathlib.Path.home() / ".dulus" / "deepseek_web.json"
-    )
-    return p
+def _xai_oauth_load_store() -> dict:
+    import json
+    p = _xai_oauth_store_path()
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
-def _qwen_web_auth_path(config: dict) -> str:
-    """Return path to chat.qwen.ai consumer auth JSON file."""
-    import pathlib
-    p = config.get("qwen_web_auth_path") or str(
-        pathlib.Path.home() / ".dulus" / "qwen_web.json"
-    )
-    return p
+def _xai_oauth_save_store(data: dict) -> None:
+    import json
+    try:
+        _xai_oauth_store_path().write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _xai_pkce_pair():
+    """Return (code_verifier, code_challenge) for PKCE S256."""
+    import base64, hashlib, secrets
+    verifier = base64.urlsafe_b64encode(secrets.token_bytes(40)).decode("ascii").rstrip("=")
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    challenge = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    return verifier, challenge
+
+
+def _xai_oauth_endpoints() -> dict:
+    """Fetch OIDC discovery; fall back to known endpoints if the network call fails."""
+    import requests as _req
+    try:
+        r = _req.get(XAI_OAUTH_DISCOVERY_URL, timeout=15)
+        if r.status_code == 200:
+            d = r.json()
+            return {
+                "authorization_endpoint": d["authorization_endpoint"],
+                "token_endpoint": d["token_endpoint"],
+            }
+    except Exception:
+        pass
+    return {
+        "authorization_endpoint": f"{XAI_OAUTH_ISSUER}/oauth2/authorize",
+        "token_endpoint": f"{XAI_OAUTH_ISSUER}/oauth2/token",
+    }
+
+
+def _xai_oauth_refresh(refresh_token: str) -> dict | None:
+    """Exchange a refresh_token for a fresh access_token. Returns the new store dict or None."""
+    import time
+    import requests as _req
+    eps = _xai_oauth_endpoints()
+    try:
+        r = _req.post(eps["token_endpoint"], data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": XAI_OAUTH_CLIENT_ID,
+        }, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=30)
+        if r.status_code != 200:
+            return None
+        tok = r.json()
+    except Exception:
+        return None
+    store = {
+        "access_token": tok.get("access_token", ""),
+        # Some servers rotate the refresh token; keep the new one if present.
+        "refresh_token": tok.get("refresh_token") or refresh_token,
+        "token_type": tok.get("token_type", "Bearer"),
+        "obtained_at": time.time(),
+        "expires_at": time.time() + int(tok.get("expires_in", 3600)) - 60,
+    }
+    _xai_oauth_save_store(store)
+    return store
+
+
+def _xai_oauth_login(config: dict, notify=print) -> str | None:
+    """Run the native Authorization-Code + PKCE flow. Opens the browser, captures
+    the loopback callback, exchanges the code, persists tokens. Returns the access
+    token on success, None on failure."""
+    import secrets, threading, time, webbrowser
+    from urllib.parse import urlencode, urlparse, parse_qs
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import requests as _req
+
+    eps = _xai_oauth_endpoints()
+    verifier, challenge = _xai_pkce_pair()
+    state = secrets.token_urlsafe(24)
+    redirect_uri = f"http://{XAI_OAUTH_REDIRECT_HOST}:{XAI_OAUTH_REDIRECT_PORT}{XAI_OAUTH_REDIRECT_PATH}"
+
+    captured: dict = {}
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            qs = parse_qs(urlparse(self.path).query)
+            captured["code"] = (qs.get("code") or [None])[0]
+            captured["state"] = (qs.get("state") or [None])[0]
+            captured["error"] = (qs.get("error") or [None])[0]
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            ok = captured.get("code") and not captured.get("error")
+            msg = ("<h2>&#129413; Dulus &mdash; Grok login complete</h2>"
+                   "<p>You can close this tab and return to the terminal.</p>") if ok else \
+                  ("<h2>Dulus &mdash; login failed</h2><p>%s</p>" % (captured.get("error") or "no code"))
+            self.wfile.write(b"<html><body style='font-family:sans-serif;background:#111;color:#eee;"
+                             b"text-align:center;padding-top:60px'>" + msg.encode("utf-8") + b"</body></html>")
+
+        def log_message(self, *_a):
+            pass  # silence the default stderr logging
+
+    try:
+        server = HTTPServer((XAI_OAUTH_REDIRECT_HOST, XAI_OAUTH_REDIRECT_PORT), _Handler)
+    except OSError as e:
+        notify(f"[xai/grok] Cannot bind {redirect_uri} ({e}). Is another login in progress?")
+        return None
+    server.timeout = 1
+
+    auth_url = eps["authorization_endpoint"] + "?" + urlencode({
+        "response_type": "code",
+        "client_id": XAI_OAUTH_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "scope": XAI_OAUTH_SCOPE,
+        "state": state,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    })
+
+    notify("[xai/grok] Opening your browser to log in to X / Grok…")
+    notify(f"[xai/grok] If it doesn't open, paste this URL manually:\n{auth_url}")
+    try:
+        webbrowser.open(auth_url)
+    except Exception:
+        pass
+
+    # Wait for the callback (up to ~3 minutes), staying responsive.
+    deadline = time.time() + 180
+    while "code" not in captured and "error" not in captured and time.time() < deadline:
+        server.handle_request()
+    try:
+        server.server_close()
+    except Exception:
+        pass
+
+    if captured.get("error"):
+        notify(f"[xai/grok] Login denied: {captured['error']}")
+        return None
+    if not captured.get("code"):
+        notify("[xai/grok] Login timed out (no callback received).")
+        return None
+    if captured.get("state") != state:
+        notify("[xai/grok] State mismatch — aborting for safety (possible CSRF).")
+        return None
+
+    # Exchange the authorization code for tokens.
+    try:
+        r = _req.post(eps["token_endpoint"], data={
+            "grant_type": "authorization_code",
+            "code": captured["code"],
+            "redirect_uri": redirect_uri,
+            "client_id": XAI_OAUTH_CLIENT_ID,
+            "code_verifier": verifier,
+        }, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=30)
+    except Exception as e:
+        notify(f"[xai/grok] Token exchange failed: {e}")
+        return None
+    if r.status_code != 200:
+        notify(f"[xai/grok] Token endpoint HTTP {r.status_code}: {(r.text or '')[:300]}")
+        return None
+
+    tok = r.json()
+    store = {
+        "access_token": tok.get("access_token", ""),
+        "refresh_token": tok.get("refresh_token", ""),
+        "token_type": tok.get("token_type", "Bearer"),
+        "obtained_at": time.time(),
+        "expires_at": time.time() + int(tok.get("expires_in", 3600)) - 60,
+    }
+    _xai_oauth_save_store(store)
+    notify("[xai/grok] ✅ Logged in. Token saved — Grok models are ready.")
+    return store["access_token"] or None
+
+
+def _xai_oauth_get_token(config: dict) -> str:
+    """Get access token for xAI / Grok, in priority order:
+    1. Official Grok Build TUI session from ~/.grok/auth.json (if `grok login` was used).
+    2. Dulus-native OAuth store from /login grok (auto-refreshes when expired).
+    3. XAI_API_KEY (env or config) as direct fallback.
+    """
+    import os, time
+
+    # 1. Official Grok Build TUI session (best path if the user has the binary)
+    grok_token = _load_grok_build_session_token()
+    if grok_token:
+        return grok_token
+
+    # 2. Dulus-native OAuth store (from /login grok). Refresh on expiry.
+    store = _xai_oauth_load_store()
+    if store.get("access_token"):
+        if not _is_token_expired(store):
+            return store["access_token"]
+        if store.get("refresh_token"):
+            refreshed = _xai_oauth_refresh(store["refresh_token"])
+            if refreshed and refreshed.get("access_token"):
+                return refreshed["access_token"]
+        # Expired and refresh failed — fall through (caller may re-login).
+
+    # 3. Direct API key fallback
+    return os.environ.get("XAI_API_KEY") or config.get("xai_api_key") or ""
+
+
+def _is_token_expired(auth_data: dict) -> bool:
+    """True if the stored token is past (or within the 60s buffer of) expiry."""
+    import time
+    exp = auth_data.get("expires_at")
+    if not exp:
+        return False  # unknown lifetime → assume valid, let a 401 trigger refresh
+    try:
+        return time.time() >= float(exp)
+    except Exception:
+        return False
+
+
+def stream_xai_oauth(
+    model: str,
+    system: str,
+    messages: list,
+    tool_schemas: list,
+    config: dict,
+    _auth_path: str | None = None,  # ignored: we only use official Grok TUI (~/.grok/auth.json) or XAI_API_KEY
+) -> Generator:
+    """Stream from xAI / Grok using the official Grok Build TUI session (preferred)
+    or a direct XAI_API_KEY.
+
+    The old Playwright browser harvest for Grok has been removed for cleanliness.
+    We source the token exclusively via _load_grok_build_session_token() + XAI_API_KEY.
+    """
+    import requests as _req
+
+    # Now that Dulus uses the official Grok Build TUI session (grok login),
+    # we get the raw token (JWT / access token) from ~/.grok/auth.json.
+    # XAI_API_KEY (env or config) is the fallback and is also expected raw.
+    # We normalize to always send a proper "Bearer <token>" header.
+    token = _xai_oauth_get_token(config) or ""
+
+    if not token:
+        yield TextChunk("[xai/grok] No official Grok Build TUI session found and no XAI_API_KEY.\n"
+                        "Run `grok login` (recommended) or set XAI_API_KEY.")
+        return
+
+    # Clean session + headers for official Grok Build TUI session token
+    # or direct XAI_API_KEY fallback.
+    # The old Playwright harvest flow for xAI/Grok has been removed.
+    session = _req.Session()
+
+    # Present as the official Grok CLI client. We're reusing the Grok Build TUI
+    # session token (scope grok-cli:access) even when the binary isn't running,
+    # so the headers must match what xAI's backend expects from its first-party
+    # client — otherwise some accounts get throttled/blocked. (OpenClaw learned
+    # this the hard way: spoof the real client headers and the API behaves.)
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        "User-Agent": "grok-cli/1.0.0",
+        "x-client-name": "grok-cli",
+        "x-client-platform": "cli",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    # Always produce a single proper "Bearer <token>" (handles raw tokens from
+    # the TUI auth.json or XAI_API_KEY, and tolerates if someone put "Bearer ..."
+    # in the env var by accident).
+    t = str(token).strip()
+    if not t.lower().startswith("bearer "):
+        t = f"Bearer {t}"
+    headers["Authorization"] = t
+
+    # --- Dulus environment awareness (stronger for native Grok) ---
+    # We send real structured tools=, but we also inject explicit context so the model
+    # strongly understands it is inside Dulus and that tools are executed for real by the harness.
+    # This is the native-API equivalent of the raw text manifest injection you used for web models.
+    effective_system = system or ""
+    if tool_schemas and not config.get("no_tools"):
+        dulus_note = (
+            "\n\n[ YOU ARE RUNNING INSIDE DULUS AGENT HARNESS ]\n"
+            "You are the LLM backend for Dulus, a powerful autonomous agent.\n"
+            "The Dulus runtime will actually execute any tool calls you make using the provided function definitions.\n"
+            "Output tool calls in the standard function calling format.\n"
+            "Tool results will be returned to you in subsequent messages with role \"tool\" (with the tool_call_id).\n"
+            "Use tools aggressively when they help. After tools return, continue until you can give a complete final answer.\n"
+            "Never simulate tool results yourself — always call the tool."
+        )
+        effective_system = (system or "") + dulus_note
+
+    oai_messages = [{"role": "system", "content": effective_system}] + messages_to_openai(messages)
+    payload = {
+        "model": model,
+        "messages": oai_messages,
+        "stream": True,
+    }
+    if tool_schemas and not config.get("no_tools"):
+        payload["tools"] = tools_to_openai(tool_schemas)
+
+    # reasoning_effort: ONLY the grok-3-mini family accepts it, and xAI only
+    # supports two values here ("low" | "high") — there is no "medium". So we
+    # fold the harness-wide 0-4 thinking level into those two buckets:
+    #   level >= 3  -> "high"   (max/raw and the True default both land here)
+    #   level 1-2   -> "low"
+    #   level 0     -> "low"    (mini always reasons a little; can't fully disable)
+    # grok-4 reasons by default and 400s if you send this param, so we skip it there.
+    if "mini" in model.lower():
+        _lvl = _thinking_level_from(config.get("thinking", 0))
+        payload["reasoning_effort"] = "high" if _lvl >= 3 else "low"
+
+    # Ask for usage in the stream (helps /cost and visibility)
+    payload["stream_options"] = {"include_usage": True}
+
+    url = f"{XAI_OAUTH_BASE_URL}/chat/completions"
+    try:
+        # timeout=(connect, read): read is the gap allowed *between* streamed chunks.
+        # grok-4 reasons internally and can pause well past 120s, which would raise
+        # ReadTimeout mid-stream and truncate the reply — give it a generous window.
+        resp = session.post(url, headers=headers, json=payload, stream=True, timeout=(15, 180))
+        # On 401, the native-OAuth access token likely expired mid-session. Try a
+        # silent refresh with the stored refresh_token and retry the request once.
+        if resp.status_code == 401:
+            _store = _xai_oauth_load_store()
+            if _store.get("refresh_token"):
+                _refreshed = _xai_oauth_refresh(_store["refresh_token"])
+                if _refreshed and _refreshed.get("access_token"):
+                    headers["Authorization"] = f"Bearer {_refreshed['access_token']}"
+                    resp = session.post(url, headers=headers, json=payload, stream=True, timeout=(15, 180))
+        if resp.status_code != 200:
+            body_preview = ""
+            try:
+                body_preview = (resp.text or "")[:500]
+            except Exception:
+                pass
+            if resp.status_code in (401, 403):
+                yield TextChunk(f"[xai/grok] Auth error {resp.status_code}. Run `/login grok` to re-authenticate "
+                                f"(native OAuth), or `grok login` for the official CLI. Body: {body_preview}")
+            else:
+                yield TextChunk(f"[xai-oauth] HTTP {resp.status_code}: {body_preview}")
+            return
+    except Exception as e:
+        yield TextChunk(f"[xai-oauth] Error: {e}")
+        return
+
+    # Proper native OpenAI tool_calls handling (critical for grok-* via real API).
+    # Previously this only did WebToolParser on content deltas → when Grok emitted
+    # structured tool_calls the stream would finish with no tool_calls returned,
+    # making the agent think the model didn't want to use tools → "no termina de responder".
+    text = ""
+    thinking = ""
+    tool_buf = {}
+    in_tok = out_tok = 0
+    parser = WebToolParser()  # fallback: catch any <tool_call> XML the model might emit in content
+
+    stream_interrupted = False
+
+    def _iter_stream(r):
+        # Guard iter_lines so a mid-stream drop (read timeout, connection reset,
+        # chunked-encoding error) ends the loop cleanly instead of bubbling up and
+        # killing the whole turn — otherwise everything Grok already streamed (text
+        # AND buffered tool_calls) would be lost and the agent gets an empty reply.
+        nonlocal stream_interrupted
+        try:
+            for _ln in r.iter_lines():
+                yield _ln
+        except Exception:
+            stream_interrupted = True
+
+    for line in _iter_stream(resp):
+        if not line:
+            continue
+        line = line.decode("utf-8") if isinstance(line, bytes) else line
+        if line.startswith("data: "):
+            data_str = line[6:]
+            if data_str.strip() == "[DONE]":
+                break
+            try:
+                data = json.loads(data_str)
+                delta = data.get("choices", [{}])[0].get("delta", {})
+
+                # Normal text content
+                content = delta.get("content") or ""
+                if content:
+                    text += content
+                    display = parser.parse_chunk(content)
+                    if display:
+                        yield TextChunk(display)
+
+                # Native tool_calls (OpenAI format) — this is what real Grok returns
+                # when we send "tools": [...] in the payload.
+                for tc in (delta.get("tool_calls") or []):
+                    idx = tc.get("index", 0)
+                    if idx not in tool_buf:
+                        tool_buf[idx] = {"id": "", "name": "", "args": ""}
+                    if tc.get("id"):
+                        tool_buf[idx]["id"] = tc["id"]
+                    fn = tc.get("function", {}) or {}
+                    if fn.get("name"):
+                        tool_buf[idx]["name"] += fn["name"]
+                    if fn.get("arguments"):
+                        tool_buf[idx]["args"] += fn["arguments"]
+
+                # Some Grok variants stream reasoning/thinking (grok-3-mini family
+                # returns reasoning_content; grok-4 reasons internally and hides it).
+                # Show it when it arrives — every other provider here yields it too.
+                reasoning = delta.get("reasoning_content") or delta.get("reasoning")
+                if reasoning:
+                    thinking += reasoning
+                    yield ThinkingChunk(reasoning)
+
+                # Usage (comes especially when we set stream_options include_usage)
+                usage = data.get("usage") or {}
+                if usage:
+                    in_tok = usage.get("prompt_tokens", in_tok) or in_tok
+                    out_tok = usage.get("completion_tokens", out_tok) or out_tok
+
+            except Exception:
+                continue
+
+    # Flush any leftover XML-style tool calls that might have been in content
+    remaining = parser.flush()
+    if remaining:
+        text += remaining
+        yield TextChunk(remaining)
+
+    # If the stream dropped mid-response and the model was not in the middle of a
+    # tool call, mark the reply as partial so a cut answer isn't mistaken for a
+    # complete one. We still yield everything received below.
+    if stream_interrupted and not tool_buf:
+        note = "\n\n_[grok: el streaming se cortó a media respuesta — esto es parcial, reintenta]_"
+        text += note
+        yield TextChunk(note)
+
+    final_tool_calls = _finalize_tool_calls(tool_buf)
+
+    # Belt-and-suspenders: merge anything the XML parser caught too
+    if getattr(parser, "tool_calls", None):
+        final_tool_calls.extend(parser.tool_calls)
+
+    yield AssistantTurn(text, final_tool_calls, in_tok, out_tok, thinking=thinking)
 
 
 def _claude_web_org_id(cookies_data: dict, config: dict) -> str:
@@ -921,23 +1495,29 @@ def _claude_web_headers(cookies_data: dict, referer: str = "https://claude.ai/ne
     return h
 
 
+def _claude_web_session(cookies_data: dict):
+    """Build a requests.Session with harvested claude.ai cookies and headers."""
+    import requests as _req
+    s = _req.Session()
+    for c in cookies_data.get("cookies", []):
+        s.cookies.set(c["name"], c["value"],
+                      domain=c.get("domain", "claude.ai"),
+                      path=c.get("path", "/"))
+    ua = cookies_data.get("user_agent", "Mozilla/5.0")
+    s.headers.update({
+        "User-Agent": ua,
+        "Accept": "application/json",
+        "anthropic-client-platform": "web_claude_ai",
+        "Origin": "https://claude.ai",
+        "Referer": "https://claude.ai/new",
+    })
+    return s
+
+
 def _claude_web_fetch_org_id(cookies_data: dict) -> str | None:
     """Call /api/organizations using requests.Session with harvested cookies."""
     try:
-        import requests as _req
-        s = _req.Session()
-        for c in cookies_data.get("cookies", []):
-            s.cookies.set(c["name"], c["value"],
-                          domain=c.get("domain", "claude.ai"),
-                          path=c.get("path", "/"))
-        ua = cookies_data.get("user_agent", "Mozilla/5.0")
-        s.headers.update({
-            "User-Agent": ua,
-            "Accept": "application/json",
-            "anthropic-client-platform": "web_claude_ai",
-            "Origin": "https://claude.ai",
-            "Referer": "https://claude.ai/new",
-        })
+        s = _claude_web_session(cookies_data)
         resp = s.get("https://claude.ai/api/organizations", timeout=10)
         if resp.status_code == 200:
             orgs = resp.json()
@@ -954,20 +1534,7 @@ def _claude_web_create_conversation(cookies_data: dict, org_id: str) -> str | No
     """Create a new claude.ai chat conversation using requests.Session."""
     from datetime import datetime as _dt
     try:
-        import requests as _req
-        s = _req.Session()
-        for c in cookies_data.get("cookies", []):
-            s.cookies.set(c["name"], c["value"],
-                          domain=c.get("domain", "claude.ai"),
-                          path=c.get("path", "/"))
-        ua = cookies_data.get("user_agent", "Mozilla/5.0")
-        s.headers.update({
-            "User-Agent": ua,
-            "Accept": "application/json",
-            "anthropic-client-platform": "web_claude_ai",
-            "Origin": "https://claude.ai",
-            "Referer": "https://claude.ai/new",
-        })
+        s = _claude_web_session(cookies_data)
         url = f"https://claude.ai/api/organizations/{org_id}/chat_conversations"
         resp = s.post(url, json={"name": f"Dulus — {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}"}, timeout=15)
         if resp.status_code == 200:
@@ -1128,12 +1695,7 @@ def stream_claude_web(
         if stop_reason and stop_reason != "null":
             break
 
-    remaining = parser.flush()
-    if remaining:
-        text += remaining
-        yield TextChunk(remaining)
-
-    yield AssistantTurn(text, parser.tool_calls, 0, 0)
+    yield from _yield_final_turn(text, parser, update_text=True)
 
 
 def stream_claude_code(
@@ -1304,21 +1866,10 @@ def stream_claude_code(
 
     _seen_uuids: set = set()
     if _jsonl_path and _jsonl_path.exists():
-        try:
-            with open(_jsonl_path, "r", encoding="utf-8", errors="ignore") as _f:
-                for _line in _f:
-                    _line = _line.strip()
-                    if not _line:
-                        continue
-                    try:
-                        _e = json.loads(_line)
-                        _uid = _e.get("uuid") or _e.get("id")
-                        if _uid:
-                            _seen_uuids.add(_uid)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+        _seen_uuids = {
+            _uid for _e in _iter_jsonl(_jsonl_path)
+            if (_uid := _e.get("uuid") or _e.get("id"))
+        }
 
     parser = WebToolParser()
     text = ""
@@ -1388,26 +1939,15 @@ def stream_claude_code(
 
     while _time.time() < _deadline:
         # Scan for new entries
-        try:
-            with open(_jsonl_path, "r", encoding="utf-8", errors="ignore") as _f:
-                for _line in _f:
-                    _line = _line.strip()
-                    if not _line:
-                        continue
-                    try:
-                        _e = json.loads(_line)
-                    except Exception:
-                        continue
-                    _uid = _e.get("uuid") or _e.get("id")
-                    if _uid in _seen_uuids:
-                        continue
-                    _seen_uuids.add(_uid)
-                    _t = _extract_text(_e)
-                    if _t:
-                        _accumulated.append(_t)
-                        _last_new_entry_time = _time.time()
-        except Exception:
-            pass
+        for _e in _iter_jsonl(_jsonl_path):
+            _uid = _e.get("uuid") or _e.get("id")
+            if _uid in _seen_uuids:
+                continue
+            _seen_uuids.add(_uid)
+            _t = _extract_text(_e)
+            if _t:
+                _accumulated.append(_t)
+                _last_new_entry_time = _time.time()
 
         # If we have text and silence window passed — flush
         if _accumulated and (_time.time() - _last_new_entry_time) >= _silence:
@@ -1433,6 +1973,54 @@ def stream_claude_code(
     yield AssistantTurn(msg, [], 0, 0, error=True)
 
 
+def _load_web_auth(provider_label: str, auth_file: str, harvest_cmd: str = "harvest"):
+    """Load a harvested web auth JSON file; yield error and return None if missing."""
+    import os
+    import json
+    if not os.path.exists(auth_file):
+        msg = f"[{provider_label}] Auth file not found: {auth_file}. Run /{harvest_cmd}."
+        yield TextChunk(msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+        return None
+    with open(auth_file, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _yield_web_parsed(parser: WebToolParser, raw_content: str):
+    """Parse accumulated raw content and yield any resulting text chunk."""
+    if raw_content:
+        text = parser.parse_chunk(raw_content)
+        text += parser.flush()
+        if text:
+            yield TextChunk(text)
+
+
+def _yield_final_turn(text: str, parser: WebToolParser, update_text: bool = False):
+    """Flush parser, yield remaining text, and emit final AssistantTurn."""
+    remaining = parser.flush()
+    if remaining:
+        if update_text:
+            text += remaining
+        yield TextChunk(remaining)
+    yield AssistantTurn(text, parser.tool_calls, 0, 0)
+
+
+def _iter_jsonl(path):
+    """Yield parsed JSON objects from a JSONL file, skipping invalid lines."""
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except Exception:
+                    continue
+    except Exception:
+        return
+
+
 def stream_kimi_web(
     auth_file: str,
     model: str,
@@ -1448,14 +2036,9 @@ def stream_kimi_web(
     from pathlib import Path
 
     # 1. Load harvested auth
-    if not os.path.exists(auth_file):
-        msg = f"[kimi-web] Auth file not found: {auth_file}. Run harvester first."
-        yield TextChunk(msg)
-        yield AssistantTurn(msg, [], 0, 0, error=True)
+    auth_data = yield from _load_web_auth("kimi-web", auth_file, "harvest-kimi")
+    if auth_data is None:
         return
-
-    with open(auth_file, "r", encoding="utf-8") as f:
-        auth_data = json.load(f)
 
     session = urllib.request.build_opener()
     
@@ -1575,12 +2158,7 @@ def stream_kimi_web(
             yield AssistantTurn(msg, [], 0, 0, error=True)
             return
 
-    # Parse the full response once — avoids tool_call tags split across chunks
-    if raw_content:
-        text = parser.parse_chunk(raw_content)
-        text += parser.flush()
-        if text:
-            yield TextChunk(text)
+    yield from _yield_web_parsed(parser, raw_content)
 
     yield AssistantTurn(text, parser.tool_calls, 0, 0)
 
@@ -1605,14 +2183,9 @@ def stream_gemini_web(
     import re
     import urllib.parse
 
-    if not os.path.exists(auth_file):
-        msg = f"[gemini-web] Error: Auth file {auth_file} not found. Run /harvest-gemini."
-        yield TextChunk(msg)
-        yield AssistantTurn(msg, [], 0, 0, error=True)
+    auth_data = yield from _load_web_auth("gemini-web", auth_file, "harvest-gemini")
+    if auth_data is None:
         return
-
-    with open(auth_file, "r", encoding="utf-8") as f:
-        auth_data = json.load(f)
 
     # ── State / Prompt Extraction ──────────────────────────────────────────
     manifest = _format_web_tool_manifest(tool_schemas, config, messages)
@@ -1859,12 +2432,7 @@ def stream_gemini_web(
         if raw_content:
             break
 
-    # Parse the full response once — avoids tool_call tags split across chunks
-    if raw_content:
-        text = parser.parse_chunk(raw_content)
-        text += parser.flush()
-        if text:
-            yield TextChunk(text)
+    yield from _yield_web_parsed(parser, raw_content)
 
     if not text and not parser.tool_calls:
         yield AssistantTurn("[gemini-web: no response after retries]", [], 0, 0)
@@ -1959,14 +2527,9 @@ def stream_deepseek_web(
     import requests
     import os
 
-    if not os.path.exists(auth_file):
-        msg = f"[deepseek-web] Auth file not found: {auth_file}. Run /harvest-deepseek."
-        yield TextChunk(msg)
-        yield AssistantTurn(msg, [], 0, 0, error=True)
+    auth_data = yield from _load_web_auth("deepseek-web", auth_file, "harvest-deepseek")
+    if auth_data is None:
         return
-
-    with open(auth_file, "r", encoding="utf-8") as f:
-        auth_data = json.load(f)
 
     # ── Load persisted chat state (session + parent message) ─────────────────
     import pathlib as _pl
@@ -2200,14 +2763,16 @@ def stream_deepseek_web(
         yield AssistantTurn(msg, [], 0, 0, error=True)
         return
 
-    # Parse the full response once — avoids tool_call tags split across chunks
-    if raw_content:
-        text = parser.parse_chunk(raw_content)
-        text += parser.flush()
-        if text:
-            yield TextChunk(text)
+    yield from _yield_web_parsed(parser, raw_content)
 
     yield AssistantTurn(text or "[deepseek-web: no response]", parser.tool_calls, 0, 0)
+
+
+def _qwen_web_error(e: Exception):
+    """Yield a standardized qwen-web error turn."""
+    msg = f"[qwen-web] Error: {e}"
+    yield TextChunk(msg)
+    yield AssistantTurn(msg, [], 0, 0, error=True)
 
 
 def stream_qwen_web(
@@ -2240,14 +2805,9 @@ def stream_qwen_web(
     import time
     import uuid
 
-    if not os.path.exists(auth_file):
-        msg = f"[qwen-web] Auth file not found: {auth_file}. Run /harvest-qwen."
-        yield TextChunk(msg)
-        yield AssistantTurn(msg, [], 0, 0, error=True)
+    auth_data = yield from _load_web_auth("qwen-web", auth_file, "harvest-qwen")
+    if auth_data is None:
         return
-
-    with open(auth_file, "r", encoding="utf-8") as f:
-        auth_data = json.load(f)
 
     # ── Load persisted chat state (chat_id + parent_id across restarts) ──
     import pathlib as _pl
@@ -2391,9 +2951,7 @@ def stream_qwen_web(
                 stream=True, timeout=120,
             )
         except Exception as e:
-            msg = f"[qwen-web] Error: {e}"
-            yield TextChunk(msg)
-            yield AssistantTurn(msg, [], 0, 0, error=True)
+            yield from _qwen_web_error(e)
             return
 
         if response.status_code == 401:
@@ -2502,9 +3060,7 @@ def stream_qwen_web(
                 if content_chunk:
                     raw_content += content_chunk
         except Exception as e:
-            msg = f"[qwen-web] Error: {e}"
-            yield TextChunk(msg)
-            yield AssistantTurn(msg, [], 0, 0, error=True)
+            yield from _qwen_web_error(e)
             return
 
         # If first attempt produced nothing, retry with a fresh thread once
@@ -2513,12 +3069,7 @@ def stream_qwen_web(
 
         break  # success — exit retry loop
 
-    # Parse the full response once — avoids tool_call tags split across chunks
-    if raw_content:
-        text = parser.parse_chunk(raw_content)
-        text += parser.flush()
-        if text:
-            yield TextChunk(text)
+    yield from _yield_web_parsed(parser, raw_content)
 
     # Persist next-turn state in config + disk (covers the case where the
     # chat_id was generated client-side and never echoed back in the stream).
@@ -2538,6 +3089,9 @@ def bare_model(model: str) -> str:
 
 
 def get_api_key(provider_name: str, config: dict) -> str:
+    # moonshot is an alias for kimi (same API backend and credentials)
+    if provider_name == "moonshot":
+        provider_name = "kimi"
     prov = PROVIDERS.get(provider_name, {})
     # 1. Check config dict (e.g. config["kimi_api_key"])
     cfg_key = config.get(f"{provider_name}_api_key", "")
@@ -2552,14 +3106,10 @@ def get_api_key(provider_name: str, config: dict) -> str:
         cfg_key = config.get("moonshot_api_key", "")
         if cfg_key: return cfg_key
     elif provider_name == "kimi-code":
-        cfg_key = config.get("kimi_code_api_key", "")
-        if cfg_key: return cfg_key
-    elif provider_name == "kimi-code2":
-        cfg_key = config.get("kimi_code2_api_key", "")
-        if cfg_key: return cfg_key
-    elif provider_name == "kimi-code3":
-        cfg_key = config.get("kimi_code3_api_key", "")
-        if cfg_key: return cfg_key
+        # Try multiple API keys in order of preference (fallback chain)
+        for key_name in ("kimi_code_api_key", "kimi_code2_api_key", "kimi_code3_api_key"):
+            cfg_key = config.get(key_name, "")
+            if cfg_key: return cfg_key
 
     # 2. Check env var
     env_var = prov.get("api_key_env")
@@ -2750,6 +3300,29 @@ def scrub_any_type(obj: Any) -> Any:
     return obj
 
 
+def coerce_type_arrays(obj: Any) -> Any:
+    """Coerce JSON-Schema ``"type": [...]`` arrays to a single string type.
+
+    Optional/Union Python hints adapt to schemas like ``"type": ["string", "null"]``.
+    Anthropic/OpenAI tolerate that, but Moonshot/Kimi rejects type arrays outright
+    ("invalid type in type array"), which 400s every request once such a tool is
+    loaded. We pick the first non-"null" concrete type (falling back to "string")
+    so an auto-adapted plugin can never brick the whole session.
+    """
+    if isinstance(obj, dict):
+        new_obj = {}
+        for k, v in obj.items():
+            if k == "type" and isinstance(v, list):
+                concrete = [t for t in v if isinstance(t, str) and t != "null"]
+                new_obj[k] = concrete[0] if concrete else "string"
+            else:
+                new_obj[k] = coerce_type_arrays(v)
+        return new_obj
+    elif isinstance(obj, list):
+        return [coerce_type_arrays(item) for item in obj]
+    return obj
+
+
 def tools_to_openai(tool_schemas: list) -> list:
     """Convert Anthropic-style tool schemas to OpenAI function-calling format."""
     out = []
@@ -2762,10 +3335,22 @@ def tools_to_openai(tool_schemas: list) -> list:
         if params is None:
             # Fallback to empty object if missing, better than crashing
             params = {"type": "object", "properties": {}}
+        elif isinstance(params, str):
+            # Auto-adapted plugins / external skills sometimes serialize the
+            # JSON-Schema parameters as a JSON string. OpenAI/Anthropic tolerate
+            # it in places, but Perplexity (and other strict OpenAI-compatible
+            # backends) reject it with "Tool parameters must be a JSON object".
+            try:
+                params = json.loads(params)
+            except Exception:
+                params = {"type": "object", "properties": {}}
         
         # Scrub invalid 'any' types that some models hallucinate
         params = scrub_any_type(params)
-            
+        # Coerce ["string","null"]-style type arrays to a single type — Moonshot/Kimi
+        # rejects type arrays and would 400 every request once such a tool loads.
+        params = coerce_type_arrays(params)
+
         out.append({
             "type": "function",
             "function": {
@@ -3361,20 +3946,8 @@ def stream_kimi(
             if fn.get("arguments"):
                 tool_buf[idx]["args"] += fn["arguments"]
     
-    # Build final tool calls
-    final_tool_calls = []
-    for idx in sorted(tool_buf):
-        v = tool_buf[idx]
-        try:
-            inp = json.loads(v["args"]) if v["args"] else {}
-        except json.JSONDecodeError:
-            inp = {"_raw": v["args"]}
-        final_tool_calls.append({
-            "id": v["id"] or f"call_{idx}",
-            "name": v["name"],
-            "input": inp
-        })
-    
+    final_tool_calls = _finalize_tool_calls(tool_buf)
+
     yield AssistantTurn(text, final_tool_calls, in_tok, out_tok, thinking=thinking,
                         cache_read_tokens=cached_tok)
 
@@ -3384,6 +3957,22 @@ def _oai_uses_completion_tokens(model: str) -> bool:
     legacy `max_tokens` parameter and require `max_completion_tokens` instead."""
     m = (model or "").lower().rsplit("/", 1)[-1]
     return m.startswith(("o1", "o3", "o4")) or m.startswith("gpt-5")
+
+
+def _finalize_tool_calls(tool_buf: dict, include_extra: bool = False) -> list:
+    """Convert buffered OpenAI-style tool deltas into final tool_call dicts."""
+    tool_calls = []
+    for idx in sorted(tool_buf):
+        v = tool_buf[idx]
+        try:
+            inp = json.loads(v["args"]) if v["args"] else {}
+        except json.JSONDecodeError:
+            inp = {"_raw": v["args"]}
+        tc_entry = {"id": v["id"] or f"call_{idx}", "name": v["name"], "input": inp}
+        if include_extra and v.get("extra_content"):
+            tc_entry["extra_content"] = v["extra_content"]
+        tool_calls.append(tc_entry)
+    return tool_calls
 
 
 def stream_litellm(
@@ -3445,6 +4034,7 @@ def stream_litellm(
         "mistral":      "MISTRAL_API_KEY",
         "fireworks_ai": "FIREWORKS_API_KEY",
         "xai":          "XAI_API_KEY",
+        "xai-oauth":    None,  # X login (SuperGrok/Premium+) – black magic, no separate key
         "anyscale":     "ANYSCALE_API_KEY",
         "deepinfra":    "DEEPINFRA_API_KEY",
         "replicate":    "REPLICATE_API_KEY",
@@ -3477,11 +4067,39 @@ def stream_litellm(
         kwargs["tools"] = tools_to_openai(tool_schemas)
         if not config.get("disable_tool_choice"):
             kwargs["tool_choice"] = "auto"
-    if config.get("max_tokens"):
+        if backend == "perplexity":
+            # Perplexity has two APIs reachable through LiteLLM:
+            #   1. Sonar Chat Completions (perplexity/sonar*): does NOT accept
+            #      OpenAI function tools at all; sending them returns
+            #      "Tool parameters must be a JSON object".
+            #   2. Agent/Responses API third-party wrappers (perplexity/openai/*,
+            #      perplexity/anthropic/*, presets, etc.): do support tools.
+            # We keep tools only for the second group.
+            _perplexity_tail = model.split("/", 1)[1] if "/" in model else ""
+            _perplexity_native_prefixes = ("sonar", "r1-1776", "preset")
+            _is_perplexity_native = any(
+                _perplexity_tail.startswith(p) for p in _perplexity_native_prefixes
+            )
+            if _is_perplexity_native:
+                kwargs.pop("tools", None)
+                kwargs.pop("tool_choice", None)
+                if not getattr(stream_litellm, "_perplexity_tool_warned", False):
+                    stream_litellm._perplexity_tool_warned = True  # type: ignore[attr-defined]
+                    yield TextChunk(
+                        "[litellm/perplexity] Sonar chat completions do not support "
+                        "function tools; tools omitted for this call."
+                    )
+            else:
+                kwargs["allowed_openai_params"] = ["tools", "tool_choice"]
+    _litellm_tokens = min(
+        int(config.get("litellm_tokens") or config.get("max_tokens") or 128000),
+        128000,
+    )
+    if _litellm_tokens:
         if _oai_uses_completion_tokens(model):
-            kwargs["max_completion_tokens"] = config["max_tokens"]
+            kwargs["max_completion_tokens"] = _litellm_tokens
         else:
-            kwargs["max_tokens"] = config["max_tokens"]
+            kwargs["max_tokens"] = _litellm_tokens
 
     text     = ""
     thinking = ""
@@ -3577,6 +4195,21 @@ def _get_nvidia_fallback_chain(config: dict) -> list[str]:
     ]
 
 
+def _get_modelstudio_fallback_chain(config: dict) -> list[str]:
+    """Ordered model fallback chain for Alibaba Model Studio (Singapore).
+
+    Override via `/config modelstudio_fallback_chain=qwen-max,qwen-plus,...`
+    (comma string or list); otherwise defaults to the provider's model list.
+    Lets Dulus auto-switch models when one fails (e.g. 403 quota exhausted).
+    """
+    chain = config.get("modelstudio_fallback_chain")
+    if isinstance(chain, str):
+        chain = [m.strip() for m in chain.split(",") if m.strip()]
+    if not chain:
+        chain = PROVIDERS.get("modelstudio", {}).get("models", [])
+    return list(chain or [])
+
+
 def stream_openai_compat(
     api_key: str,
     base_url: str,
@@ -3608,6 +4241,15 @@ def stream_openai_compat(
 
     _is_nvidia = detect_provider(model) == "nvidia-web"
 
+    # Alibaba Model Studio (Singapore): detect by endpoint host so it stays true
+    # even though the bare model name (qwen-*) would route to plain DashScope.
+    _is_modelstudio = "maas.aliyuncs.com" in (base_url or "")
+    _ms_remaining = None
+    if _is_modelstudio:
+        _ms_remaining = config.get("_modelstudio_remaining")
+        if _ms_remaining is None:
+            _ms_remaining = [m for m in _get_modelstudio_fallback_chain(config) if m != model]
+
     kwargs: dict = {
         "model":    model,
         "messages": oai_messages,
@@ -3631,7 +4273,7 @@ def stream_openai_compat(
         h in (base_url or "")
         for h in ("api.moonshot.ai", "api.kimi.com")
     )
-    if _is_native_kimi_host and detect_provider(model) in ("kimi", "moonshot", "kimi-code", "kimi-code2", "kimi-code3"):
+    if _is_native_kimi_host and detect_provider(model) in ("kimi", "moonshot", "kimi-code"):
         if not kwargs.get("extra_body"): kwargs["extra_body"] = {}
         # Kimi expects an object: {"type": "enabled" | "disabled"}
         mode = "enabled" if config.get("thinking", False) else "disabled"
@@ -3661,6 +4303,8 @@ def stream_openai_compat(
             kwargs["tool_choice"] = "auto"
     if config.get("max_tokens"):
         prov_cap = PROVIDERS.get(detect_provider(model), {}).get("max_completion_tokens")
+        if _is_modelstudio:
+            prov_cap = PROVIDERS.get("modelstudio", {}).get("max_completion_tokens") or prov_cap
         mt = config["max_tokens"]
         mt = min(mt, prov_cap) if prov_cap else mt
         if _oai_uses_completion_tokens(model):
@@ -3695,6 +4339,14 @@ def stream_openai_compat(
                     fallback_config = {**config, "_nvidia_fallback_active": True}
                     yield from stream_openai_compat(api_key, base_url, full, system, messages, tool_schemas, fallback_config)
                     return
+        if _is_modelstudio and _ms_remaining:
+            _nm = _ms_remaining[0]
+            yield TextChunk(f"\n⚡ Model Studio: '{model}' failed ({type(e).__name__}) — switching to {_nm}…\n")
+            yield from stream_openai_compat(
+                api_key, base_url, _nm, system, messages, tool_schemas,
+                {**config, "_modelstudio_remaining": _ms_remaining[1:]},
+            )
+            return
         msg = friendly_api_error(e)
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
@@ -3702,6 +4354,14 @@ def stream_openai_compat(
     except Exception as e:
         if _is_nvidia:
             import sys; print(f"[nvidia-web RAW ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        if _is_modelstudio and _ms_remaining:
+            _nm = _ms_remaining[0]
+            yield TextChunk(f"\n⚡ Model Studio: '{model}' failed ({type(e).__name__}) — switching to {_nm}…\n")
+            yield from stream_openai_compat(
+                api_key, base_url, _nm, system, messages, tool_schemas,
+                {**config, "_modelstudio_remaining": _ms_remaining[1:]},
+            )
+            return
         msg = friendly_api_error(e)
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
@@ -3811,17 +4471,7 @@ def stream_openai_compat(
                     in_tok = getattr(u, "prompt_tokens", 0) or in_tok
                     out_tok = getattr(u, "completion_tokens", 0) or out_tok
 
-    tool_calls = []
-    for idx in sorted(tool_buf):
-        v = tool_buf[idx]
-        try:
-            inp = json.loads(v["args"]) if v["args"] else {}
-        except json.JSONDecodeError:
-            inp = {"_raw": v["args"]}
-        tc_entry = {"id": v["id"] or f"call_{idx}", "name": v["name"], "input": inp}
-        if v.get("extra_content"):
-            tc_entry["extra_content"] = v["extra_content"]
-        tool_calls.append(tc_entry)
+    tool_calls = _finalize_tool_calls(tool_buf, include_extra=True)
 
     yield AssistantTurn(
         text, tool_calls, in_tok, out_tok,
@@ -4420,24 +5070,29 @@ def stream(
     api_key       = get_api_key(provider_name, config)
 
     def _inner_stream() -> Generator:
+        nonlocal api_key  # modelstudio branch may reassign (DashScope fallback)
         if prov["type"] == "claude_web":
-            cookies_file = _claude_web_cookies_path(config)
+            cookies_file = _web_auth_path(config, "claude_web_cookies", "claude_cookies.json")
             yield from stream_claude_web(cookies_file, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "claude_code":
-            cookies_file = _claude_web_cookies_path(config)
+            cookies_file = _web_auth_path(config, "claude_web_cookies", "claude_cookies.json")
             yield from stream_claude_code(cookies_file, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "kimi_web":
-            auth_file = _kimi_web_auth_path(config)
+            auth_file = _web_auth_path(config, "kimi_web_auth_path", "kimi_consumer.json")
             yield from stream_kimi_web(auth_file, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "gemini-web":
-            auth_file = _gemini_web_auth_path(config)
+            auth_file = _web_auth_path(config, "gemini_web_auth_path", "gemini_web.json")
             yield from stream_gemini_web(auth_file, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "deepseek_web":
-            auth_file = _deepseek_web_auth_path(config)
+            auth_file = _web_auth_path(config, "deepseek_web_auth_path", "deepseek_web.json")
             yield from stream_deepseek_web(auth_file, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "qwen_web":
-            auth_file = _qwen_web_auth_path(config)
+            auth_file = _web_auth_path(config, "qwen_web_auth_path", "qwen_web.json")
             yield from stream_qwen_web(auth_file, model_name, system, messages, tool_schemas, config)
+        elif prov["type"] == "xai-oauth":
+            # Official Grok Build TUI session (`grok login` → ~/.grok/auth.json) or XAI_API_KEY.
+            # No separate harvest file is used (old Playwright harvest for Grok was removed).
+            yield from stream_xai_oauth(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "gcloud":
             yield from stream_gcloud(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "litellm":
@@ -4474,6 +5129,38 @@ def stream(
                 if not base_url.endswith("/openai/v1"):
                     base_url = base_url + "/openai/v1"
                 base_url = base_url + "/"
+            elif provider_name == "modelstudio":
+                # Alibaba Cloud Model Studio (Singapore). Allow overriding the
+                # workspace without editing the registry: a full base_url wins,
+                # otherwise just the workspace ID is spliced into the template.
+                base_url = (config.get("modelstudio_base_url")
+                            or _os.environ.get("MODELSTUDIO_BASE_URL", "")).rstrip("/")
+                if not base_url:
+                    ws = (config.get("modelstudio_workspace_id")
+                          or _os.environ.get("MODELSTUDIO_WORKSPACE_ID", "")).strip()
+                    if ws:
+                        base_url = f"https://{ws}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+                    else:
+                        base_url = prov.get("base_url", "")
+                # Model Studio shares Alibaba's DashScope key if a dedicated one
+                # isn't set.
+                if not api_key:
+                    api_key = _os.environ.get("DASHSCOPE_API_KEY", "") or config.get("dashscope_api_key", "")
+            elif provider_name == "amd":
+                # AMD Developer Cloud: a vLLM/TGI server you launched on an AMD
+                # GPU. The instance IP changes each session, so read it from
+                # env/config rather than hardcoding.
+                base_url = (config.get("amd_base_url")
+                            or _os.environ.get("AMD_BASE_URL", "")).rstrip("/")
+                if not base_url:
+                    raise ValueError(
+                        "amd provider requires your AMD Dev Cloud endpoint. "
+                        "Set AMD_BASE_URL env var or run: "
+                        "/config amd_base_url=http://<instance-ip>:8000/v1"
+                    )
+                # vLLM accepts any key; send a placeholder if none configured.
+                if not api_key:
+                    api_key = "amd-dev-cloud"
             else:
                 base_url = prov.get("base_url", "https://api.openai.com/v1")
             yield from stream_openai_compat(
