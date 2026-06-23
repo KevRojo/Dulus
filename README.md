@@ -171,30 +171,6 @@ docker compose up -d
 docker compose exec dulus dulus
 ```
 
-Image: [`ghcr.io/kevrojo/dulus`](https://ghcr.io/kevrojo/dulus) · Memory persists in the `dulus-memory` volume.
-
-### Option C — Manual pip / source
-
-<img alt="image" src="https://github.com/user-attachments/assets/a5a447c6-2cce-42a5-87f8-7c3bc8367987" />
-
------
-
-<img alt="image" src="https://github.com/user-attachments/assets/72526ae1-b69f-4529-adc7-eef1cd3876c8" />
-
------
-
-<img alt="image" src="https://github.com/user-attachments/assets/986ae7b5-5400-48aa-80eb-cdfd7dbb706e" />
-
------
-
-ROUND TABLE (DULUS UNIQUE FEATURE)
-
-<img alt="image" src="https://github.com/user-attachments/assets/9e8f17ed-6ca2-4ae0-b8c3-146ae5fef491" />
-
-Dulus is the first one meeting multiple models at the same time working for the same objective and sharing their ideas.
-
-
-
 ### One-liner
 
 ```bash
