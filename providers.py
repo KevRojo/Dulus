@@ -1219,6 +1219,202 @@ def _is_token_expired(auth_data: dict) -> bool:
         return False
 
 
+# ── Anthropic / Claude OAuth (Claude Pro/Max subscription login — NO API key) ──
+# Mirrors the Grok OAuth flow above, for Anthropic's subscription auth. The user
+# logs in at claude.ai (the browser part), the authorization code is shown on the
+# console.anthropic.com callback page as  CODE#STATE , pasted back into the
+# terminal, and exchanged for an OAuth access/refresh token. claude-* models then
+# run on the user's Claude subscription via `Authorization: Bearer` + the oauth
+# beta header — never an API key. This is the replacement for the cookie webbridge.
+ANTHROPIC_OAUTH_CLIENT_ID     = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+ANTHROPIC_OAUTH_AUTHORIZE_URL = "https://claude.ai/oauth/authorize"
+ANTHROPIC_OAUTH_TOKEN_URL     = "https://console.anthropic.com/v1/oauth/token"
+ANTHROPIC_OAUTH_REDIRECT_URI  = "https://console.anthropic.com/oauth/code/callback"
+ANTHROPIC_OAUTH_SCOPE         = "org:create_api_key user:profile user:inference"
+ANTHROPIC_OAUTH_BETA          = "oauth-2025-04-20"
+# OAuth subscription tokens are only authorized for the Claude Code client, so the
+# FIRST system block must carry this exact identity or the API returns 403.
+ANTHROPIC_OAUTH_IDENTITY      = "You are Claude Code, Anthropic's official CLI for Claude."
+
+
+def _anthropic_oauth_store_path():
+    import os, pathlib
+    home = pathlib.Path(os.environ.get("DULUS_HOME") or (pathlib.Path.home() / ".dulus"))
+    home.mkdir(parents=True, exist_ok=True)
+    return home / "anthropic_oauth.json"
+
+
+def _anthropic_oauth_load_store() -> dict:
+    import json
+    p = _anthropic_oauth_store_path()
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _anthropic_oauth_save_store(data: dict) -> None:
+    import json
+    try:
+        _anthropic_oauth_store_path().write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _anthropic_oauth_refresh(refresh_token: str) -> dict | None:
+    """Exchange a refresh_token for a fresh access_token. Returns the new store dict
+    or None. Body is JSON (Anthropic's token endpoint expects JSON, unlike xAI)."""
+    import time
+    import requests as _req
+    try:
+        r = _req.post(ANTHROPIC_OAUTH_TOKEN_URL, json={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": ANTHROPIC_OAUTH_CLIENT_ID,
+        }, headers={"Content-Type": "application/json"}, timeout=30)
+        if r.status_code != 200:
+            return None
+        tok = r.json()
+    except Exception:
+        return None
+    store = {
+        "access_token": tok.get("access_token", ""),
+        # Anthropic rotates refresh tokens; keep the new one if present.
+        "refresh_token": tok.get("refresh_token") or refresh_token,
+        "token_type": tok.get("token_type", "Bearer"),
+        "scope": tok.get("scope", ANTHROPIC_OAUTH_SCOPE),
+        "obtained_at": time.time(),
+        "expires_at": time.time() + int(tok.get("expires_in", 3600)) - 60,
+    }
+    _anthropic_oauth_save_store(store)
+    return store
+
+
+def _anthropic_oauth_login(config: dict, notify=print, get_code=None) -> str | None:
+    """Native Authorization-Code + PKCE login for Claude Pro/Max. Opens the browser
+    to claude.ai, the user approves and copies the code shown on the callback page,
+    pastes it back here; we exchange it for OAuth tokens. Returns the access token on
+    success, None on failure. NO API key is involved anywhere in this flow."""
+    import secrets, time, webbrowser
+    from urllib.parse import urlencode, urlparse, parse_qs
+    import requests as _req
+
+    verifier, challenge = _xai_pkce_pair()  # generic PKCE S256 helper (reused)
+    state = secrets.token_urlsafe(24)
+
+    auth_url = ANTHROPIC_OAUTH_AUTHORIZE_URL + "?" + urlencode({
+        "code": "true",
+        "client_id": ANTHROPIC_OAUTH_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": ANTHROPIC_OAUTH_REDIRECT_URI,
+        "scope": ANTHROPIC_OAUTH_SCOPE,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+        "state": state,
+    })
+
+    notify("[claude] Opening your browser to log in to your Claude account…")
+    notify(f"[claude] If it doesn't open, paste this URL manually:\n{auth_url}")
+    try:
+        webbrowser.open(auth_url)
+    except Exception:
+        pass
+
+    # The callback page shows a code like  CODE#STATE  — the user pastes it back.
+    raw = ""
+    try:
+        if get_code is not None:
+            raw = (get_code() or "").strip()
+        else:
+            raw = input("[claude] Paste the code from the browser here: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        notify("[claude] Login cancelled.")
+        return None
+
+    if not raw:
+        notify("[claude] No code provided.")
+        return None
+
+    # Accept a bare 'CODE#STATE', a bare CODE, or the full redirected callback URL.
+    code = raw
+    st = state
+    if "code=" in raw:
+        qs = parse_qs(urlparse(raw).query)
+        code = (qs.get("code") or [raw])[0]
+        st = (qs.get("state") or [state])[0]
+    if "#" in code:
+        code, _, st = code.partition("#")
+
+    try:
+        r = _req.post(ANTHROPIC_OAUTH_TOKEN_URL, json={
+            "grant_type": "authorization_code",
+            "client_id": ANTHROPIC_OAUTH_CLIENT_ID,
+            "code": code,
+            "state": st,
+            "redirect_uri": ANTHROPIC_OAUTH_REDIRECT_URI,
+            "code_verifier": verifier,
+        }, headers={"Content-Type": "application/json"}, timeout=30)
+    except Exception as e:
+        notify(f"[claude] Token exchange failed: {e}")
+        return None
+
+    if r.status_code != 200:
+        notify(f"[claude] Token exchange HTTP {r.status_code}: {(r.text or '')[:300]}")
+        return None
+
+    tok = r.json()
+    store = {
+        "access_token": tok.get("access_token", ""),
+        "refresh_token": tok.get("refresh_token", ""),
+        "token_type": tok.get("token_type", "Bearer"),
+        "scope": tok.get("scope", ANTHROPIC_OAUTH_SCOPE),
+        "obtained_at": time.time(),
+        "expires_at": time.time() + int(tok.get("expires_in", 3600)) - 60,
+    }
+    if not store["access_token"]:
+        notify("[claude] No access_token in token response.")
+        return None
+    _anthropic_oauth_save_store(store)
+    return store["access_token"]
+
+
+def _anthropic_oauth_get_token(config: dict) -> str:
+    """Return a valid Claude OAuth access token (from /login claude), refreshing on
+    expiry. Returns "" when no OAuth session exists — callers then fall back to the
+    ANTHROPIC_API_KEY path."""
+    store = _anthropic_oauth_load_store()
+    if not store.get("access_token"):
+        return ""
+    if not _is_token_expired(store):
+        return store["access_token"]
+    if store.get("refresh_token"):
+        refreshed = _anthropic_oauth_refresh(store["refresh_token"])
+        if refreshed and refreshed.get("access_token"):
+            return refreshed["access_token"]
+    return ""  # expired and refresh failed — caller should prompt /login claude
+
+
+def _anthropic_oauth_system_blocks(system, cc_marker: dict | None = None):
+    """Ensure the Claude Code identity is the FIRST system block (mandatory for OAuth
+    subscription tokens, else the API 403s). Returns a list of content blocks, keeping
+    the user's real system prompt as a cached second block."""
+    cc_marker = cc_marker or {"type": "ephemeral"}
+    identity = {"type": "text", "text": ANTHROPIC_OAUTH_IDENTITY}
+    if isinstance(system, str):
+        rest = ([{"type": "text", "text": system,
+                  "cache_control": cc_marker}] if system else [])
+        return [identity] + rest
+    if isinstance(system, list):
+        if (system and isinstance(system[0], dict)
+                and str(system[0].get("text", "")).startswith("You are Claude Code")):
+            return system  # identity already present
+        return [identity] + system
+    return [identity]
+
+
 def stream_xai_oauth(
     model: str,
     system: str,
@@ -3374,6 +3570,15 @@ def tools_to_openai(tool_schemas: list) -> list:
 def messages_to_anthropic(messages: list) -> list:
     """Convert neutral messages → Anthropic API format."""
     result = []
+    # Thinking blocks are only REQUIRED on the last assistant turn (tool-use
+    # replay). Older ones are ignored server-side but still travel in the
+    # payload — with a 16K thinking budget that bloats every request. Replay
+    # thinking ONLY for the final assistant message.
+    _last_assistant_idx = -1
+    for _j in range(len(messages) - 1, -1, -1):
+        if messages[_j].get("role") == "assistant":
+            _last_assistant_idx = _j
+            break
     i = 0
     while i < len(messages):
         m = messages[i]
@@ -3386,8 +3591,16 @@ def messages_to_anthropic(messages: list) -> list:
         elif role == "assistant":
             blocks = []
             thinking = m.get("thinking", "")
-            if thinking:
-                blocks.append({"type": "thinking", "thinking": thinking})
+            thinking_sig = m.get("thinking_signature", "")
+            # A thinking block can only be replayed WITH its signature — the API
+            # rejects one missing the field. So include it only when we have the
+            # signature; otherwise drop the thinking block (safe: it's optional).
+            if thinking and thinking_sig and i == _last_assistant_idx:
+                blocks.append({
+                    "type": "thinking",
+                    "thinking": thinking,
+                    "signature": thinking_sig,
+                })
             
             text = m.get("content", "")
             if text:
@@ -3531,12 +3744,15 @@ class ThinkingChunk:
 class AssistantTurn:
     """Completed assistant turn with text + tool_calls + thinking."""
     def __init__(self, text, tool_calls, in_tokens, out_tokens, thinking="", error=False,
-                 cache_creation_tokens=0, cache_read_tokens=0):
+                 cache_creation_tokens=0, cache_read_tokens=0, thinking_signature=""):
         self.text        = text
         self.tool_calls  = tool_calls   # list of {id, name, input}
         self.in_tokens   = in_tokens
         self.out_tokens  = out_tokens
         self.thinking    = thinking
+        # Anthropic extended-thinking signature (empty for other providers). Must
+        # be replayed verbatim alongside the thinking text or the API 400s.
+        self.thinking_signature = thinking_signature
         self.error       = error
         # Anthropic explicit caching + OpenAI prompt-cached tokens.
         # 0 when the provider doesn't report it.
@@ -3656,14 +3872,50 @@ def stream_anthropic(
     cap is the API limit; 3 is the practical sweet spot for an agent loop.
     """
     import anthropic as _ant
-    client = _ant.Anthropic(api_key=api_key)
 
-    # 1) System prompt as a single text block with cache_control.
-    if isinstance(system, str) and system:
+    # Cache TTL: default "ephemeral" = 5-minute TTL. With a large tool registry
+    # + system prompt the cached prefix can be 30-60K tokens; any pause > 5 min
+    # between turns expires it and the FULL prefix is re-written at 1.25x base
+    # input price. `/config cache_ttl=1h` switches to the 1-hour TTL (2x write
+    # cost once, but survives think-pauses) — much cheaper for interactive
+    # sessions on Opus/Sonnet. Requires the extended-cache-ttl beta header.
+    _cache_ttl = str(config.get("cache_ttl", "")).strip().lower()
+    _use_1h = _cache_ttl in ("1h", "1hr", "1hour", "3600", "3600s")
+    if _use_1h:
+        _cc_marker = {"type": "ephemeral", "ttl": "1h"}
+    else:
+        _cc_marker = {"type": "ephemeral"}
+    _extra_betas = ["extended-cache-ttl-2025-04-11"] if _use_1h else []
+
+    # Prefer the Dulus-native Claude subscription OAuth token (from /login claude)
+    # over an API key — this is the "no API key, no cookie webbridge" path. Passing
+    # auth_token (an explicit credential) makes the SDK skip ANTHROPIC_API_KEY env
+    # resolution, so it sends ONLY `Authorization: Bearer` (no x-api-key).
+    _oauth_tok = _anthropic_oauth_get_token(config)
+    _is_oauth = bool(_oauth_tok)
+    if _is_oauth:
+        _betas = ",".join([ANTHROPIC_OAUTH_BETA] + _extra_betas)
+        client = _ant.Anthropic(
+            auth_token=_oauth_tok,
+            default_headers={"anthropic-beta": _betas},
+        )
+    elif _extra_betas:
+        client = _ant.Anthropic(
+            api_key=api_key,
+            default_headers={"anthropic-beta": ",".join(_extra_betas)},
+        )
+    else:
+        client = _ant.Anthropic(api_key=api_key)
+
+    # 1) System prompt as a single text block with cache_control. Under OAuth the
+    #    Claude Code identity must be the first system block (else the API 403s).
+    if _is_oauth:
+        system_blocks = _anthropic_oauth_system_blocks(system, _cc_marker)
+    elif isinstance(system, str) and system:
         system_blocks = [{
             "type": "text",
             "text": system,
-            "cache_control": {"type": "ephemeral"},
+            "cache_control": _cc_marker,
         }]
     else:
         system_blocks = system  # already structured, leave as-is
@@ -3678,7 +3930,7 @@ def stream_anthropic(
     cached_tools = [t for t in cached_tools if t]
     if cached_tools:
         last_tool = dict(cached_tools[-1])
-        last_tool["cache_control"] = {"type": "ephemeral"}
+        last_tool["cache_control"] = _cc_marker
         cached_tools[-1] = last_tool
 
     # 3) Latest user message: marker on the last content block. Caches the
@@ -3693,13 +3945,17 @@ def stream_anthropic(
             m["content"] = [{
                 "type": "text",
                 "text": c,
-                "cache_control": {"type": "ephemeral"},
+                "cache_control": _cc_marker,
             }]
         elif isinstance(c, list) and c:
             last = c[-1]
-            if isinstance(last, dict):
-                # Don't double-mark if caller already set it.
-                last.setdefault("cache_control", {"type": "ephemeral"})
+            if isinstance(last, dict) and "cache_control" not in last:
+                # Copy-before-mark: mutating the shared block in-place would
+                # persist the marker into state.messages, accumulating extra
+                # breakpoints turn after turn (>4 markers → API 400).
+                c = list(c)
+                c[-1] = {**last, "cache_control": _cc_marker}
+                m["content"] = c
         break
 
     kwargs = {
@@ -3724,6 +3980,7 @@ def stream_anthropic(
     tool_calls = []
     text       = ""
     thinking   = ""
+    thinking_signature = ""
 
     try:
         with client.messages.stream(**kwargs) as stream:
@@ -3738,6 +3995,11 @@ def stream_anthropic(
                     elif dtype == "thinking_delta":
                         thinking += delta.thinking
                         yield ThinkingChunk(delta.thinking)
+                    elif dtype == "signature_delta":
+                        # Signature for the current thinking block. It is bound to
+                        # the thinking text and is REQUIRED verbatim on replay when
+                        # extended thinking is combined with tool use — capture it.
+                        thinking_signature += getattr(delta, "signature", "") or ""
 
             final = stream.get_final_message()
             for block in final.content:
@@ -3747,6 +4009,11 @@ def stream_anthropic(
                         "name":  block.name,
                         "input": block.input,
                     })
+                elif block.type == "thinking":
+                    # The final message carries the authoritative signature — prefer it.
+                    _sig = getattr(block, "signature", "") or ""
+                    if _sig:
+                        thinking_signature = _sig
 
             _cc = getattr(final.usage, "cache_creation_input_tokens", 0) or 0
             _cr = getattr(final.usage, "cache_read_input_tokens", 0) or 0
@@ -3755,6 +4022,7 @@ def stream_anthropic(
                 final.usage.input_tokens,
                 final.usage.output_tokens,
                 thinking=thinking,
+                thinking_signature=thinking_signature,
                 cache_creation_tokens=_cc,
                 cache_read_tokens=_cr,
             )
@@ -3763,7 +4031,8 @@ def stream_anthropic(
         # bail cleanly — do NOT route through friendly_api_error, which sees
         # cleanup-side httpx noise ("401", "authentication") and mislabels
         # the cancel as a "wrong API key" error.
-        yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking, error=False)
+        yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking,
+                            thinking_signature=thinking_signature, error=False)
         return
     except Exception as _e:
         # Filter out cancellation/cleanup exceptions that masquerade as auth
@@ -3771,7 +4040,8 @@ def stream_anthropic(
         # during stream teardown after a Ctrl+C are NOT auth failures.
         _etype = type(_e).__name__
         if _etype in ("CancelledError", "ReadError", "RemoteProtocolError", "CloseError"):
-            yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking, error=False)
+            yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking,
+                                thinking_signature=thinking_signature, error=False)
             return
         msg = friendly_api_error(_e)
         yield TextChunk(msg)

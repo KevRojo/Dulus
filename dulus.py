@@ -8093,6 +8093,119 @@ def cmd_compact(args: str, state, config) -> bool:
     return True
 
 
+def cmd_login(args: str, _state, config) -> bool:
+    """Login for Grok models (official Grok Build TUI only).
+
+    This command no longer supports the old Playwright browser harvest for Grok.
+    To use grok-* models:
+
+    1. Install the official Grok CLI if you don't have it.
+    2. Run `grok login` (or launch it from here if the binary is in PATH).
+    3. Dulus will automatically detect ~/.grok/auth.json and use the real session.
+
+    /login grok will try to launch the official `grok login` if the binary is available
+    in your PATH. Otherwise it will guide you to run it manually.
+    """
+    sub = (args or "").strip().lower()
+
+    # ── Claude / Anthropic subscription OAuth (no API key, no cookie webbridge) ──
+    # Mirrors the Grok flow: opens claude.ai in the browser, you approve and paste
+    # back the code, Dulus exchanges it for an OAuth token. claude-* models then run
+    # on your Claude subscription automatically.
+    if sub.split(" ")[0] in ("claude", "anthropic", "cc", "claude-code"):
+        from providers import (
+            _anthropic_oauth_login, _anthropic_oauth_load_store, _is_token_expired,
+        )
+        force = "force" in (args or "").lower()
+        if not force:
+            store = _anthropic_oauth_load_store()
+            if store.get("access_token") and not _is_token_expired(store):
+                print(clr("✅ Claude OAuth session already active (Claude subscription).", "green"))
+                print(clr("claude-* models use your Claude login automatically. Use `/login claude force` to re-login.", "green"))
+                return True
+        print(clr("Starting native Claude login (OAuth 2.0 + PKCE via claude.ai)…", "cyan"))
+        print(clr("A browser will open — approve, then copy the code shown and paste it back here.", "cyan"))
+        try:
+            token = _anthropic_oauth_login(config, notify=lambda m: print(clr(m, "cyan")))
+        except Exception as e:
+            token = None
+            print(clr(f"Native login error: {e}", "red"))
+        if token:
+            print(clr("✅ Logged in. claude-* models now run on your Claude subscription (no API key).", "green"))
+            return True
+        print(clr("Could not authenticate Claude. Re-run `/login claude` (or `/login claude force` for a fresh attempt).", "yellow"))
+        return True
+
+    if sub in ("grok", "xai", "x", "grok-oauth", ""):
+        from providers import (
+            _load_grok_build_session_token, _xai_oauth_login,
+            _xai_oauth_load_store, _is_token_expired,
+        )
+
+        force = sub == "x" or "force" in (args or "").lower()
+
+        # 1. Already have an official Grok Build TUI session → nothing to do.
+        if not force:
+            try:
+                if _load_grok_build_session_token():
+                    print(clr("✅ Grok Build TUI session detected (~/.grok/auth.json).", "green"))
+                    print(clr("grok-* models will use your official `grok` login automatically.", "green"))
+                    return True
+            except Exception:
+                pass
+
+            # 2. Already have a valid Dulus-native OAuth token.
+            store = _xai_oauth_load_store()
+            if store.get("access_token") and not _is_token_expired(store):
+                print(clr("✅ Grok OAuth session already active (Dulus-native login).", "green"))
+                print(clr("grok-* models are ready. Use `/login x` to force a fresh login.", "green"))
+                return True
+
+        # 3. Native OAuth 2.0 + PKCE login — opens the browser, no `grok` binary needed.
+        print(clr("Starting native Grok login (OAuth 2.0 + PKCE via auth.x.ai)…", "cyan"))
+        try:
+            token = _xai_oauth_login(config, notify=lambda m: print(clr(m, "cyan")))
+        except Exception as e:
+            token = None
+            print(clr(f"Native login error: {e}", "red"))
+
+        if token:
+            return True
+
+        # 4. Fallbacks: official `grok` binary, then manual instructions.
+        print(clr("Native login didn't complete. Trying the official `grok` CLI…", "yellow"))
+        import shutil, subprocess
+        grok_bin = shutil.which("grok")
+        if grok_bin:
+            print(clr("Launching `grok login` — complete it in the browser/terminal that opens…", "cyan"))
+            try:
+                subprocess.run([grok_bin, "login"], check=False)
+            except Exception as e:
+                print(clr(f"Could not launch grok login: {e}", "red"))
+            try:
+                if _load_grok_build_session_token():
+                    print(clr("✅ Grok Build TUI session detected (~/.grok/auth.json).", "green"))
+                    return True
+            except Exception:
+                pass
+
+        print(clr("Could not authenticate Grok. Options:", "yellow"))
+        print(clr("  • Re-run `/login grok` (native OAuth — recommended)", "yellow"))
+        print(clr("  • Or run `grok login` in your terminal (official CLI)", "yellow"))
+        print(clr("  • Or set XAI_API_KEY as a direct fallback", "yellow"))
+        return True
+
+    print(clr("Usage: /login claude   (Claude Pro/Max subscription OAuth — no API key)", "yellow"))
+    print(clr("       /login grok     (use `/login x` to force a fresh Grok login)", "yellow"))
+    return True
+
+
+def cmd_login_claude(args: str, _state, config) -> bool:
+    """Alias for `/login claude` so `/login-claude` and `/claude-login` route to the
+    Claude OAuth flow (forwarding any extra args like `force`)."""
+    return cmd_login(("claude " + (args or "")).strip(), _state, config)
+
+
 def cmd_profile(args: str, state, config) -> bool:
     """Manage agent Profiles — named bundles of skills/plugins/persona/config.
 
@@ -9476,6 +9589,12 @@ COMMANDS = {
     "cwd":         cmd_cwd,
     "skills":      cmd_skills,
     "skill":       cmd_skill,
+    "login":            cmd_login,
+    "login-claude":     cmd_login_claude,
+    "claude-login":     cmd_login_claude,
+    "login-grok":       cmd_login,
+    "grok-login":       cmd_login,
+    "xai-login":        cmd_login,
     "profile":     cmd_profile,
     "profiles":    cmd_profile,
     "memory":      cmd_memory,
