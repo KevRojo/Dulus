@@ -2,6 +2,9 @@ include pyproject.toml
 recursive-include docs *
 recursive-include data *
 recursive-include sandbox/dist *
+recursive-include gui/dulus_orchestrator/dist *
+exclude gui/dulus_orchestrator/dist/runtime-state.js
+exclude gui/dulus_orchestrator/dist/desktop-pet.html
 recursive-include webbridge *
 global-exclude __pycache__/*
 global-exclude *.pyc

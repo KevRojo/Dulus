@@ -108,6 +108,44 @@ CONFIG: dict | None = None
 _LOCK = threading.Lock()
 _PENDING_PERMISSIONS: dict[str, tuple[PermissionRequest, threading.Event]] = {}
 
+# ── AskUserQuestion bridge (mirrors the permission flow) ───────────────────
+# tools._ask_user_question() blocks a background thread waiting for someone
+# to drain tools._pending_questions. In the terminal the REPL does that; in
+# the webchat we poll it with a watcher thread, surface the question as an
+# SSE event, and answer it via POST /question.
+_PENDING_QUESTIONS: dict[str, dict] = {}
+
+
+def _start_question_watcher(q: "queue.Queue", stop_evt: threading.Event) -> threading.Thread:
+    """Poll tools._pending_questions and forward AskUserQuestion prompts to the
+    SSE stream as {"type": "question", ...} events (same pattern as permissions)."""
+    def watcher():
+        import tools as _t
+        while not stop_evt.is_set():
+            grabbed: list[dict] = []
+            try:
+                with _t._ask_lock:
+                    if _t._pending_questions:
+                        grabbed = list(_t._pending_questions)
+                        _t._pending_questions.clear()
+            except Exception:
+                pass
+            for entry in grabbed:
+                qid = str(uuid.uuid4())
+                with _LOCK:
+                    _PENDING_QUESTIONS[qid] = entry
+                q.put({
+                    "type": "question",
+                    "id": qid,
+                    "question": entry.get("question", ""),
+                    "options": entry.get("options") or [],
+                    "allow_freetext": bool(entry.get("allow_freetext", True)),
+                })
+            stop_evt.wait(0.25)
+    t = threading.Thread(target=watcher, daemon=True)
+    t.start()
+    return t
+
 # Session context deferment
 _PENDING_HISTORY: list[dict] = []
 _PENDING_SESSION_ID: str | None = None
@@ -3563,6 +3601,23 @@ restoreRt();
         evt.set()
         return jsonify(ok=True)
 
+    @app.route("/question", methods=["POST"])
+    def question() -> Response:
+        """Answer a pending AskUserQuestion (mirrors the /permission flow)."""
+        body = request.get_json(silent=True) or {}
+        qid = body.get("id")
+        answer = (body.get("answer") or "").strip()
+        with _LOCK:
+            entry = _PENDING_QUESTIONS.pop(qid, None)
+        if entry is None:
+            return jsonify(error="not found"), 404
+        try:
+            entry["result"].append(answer or "(no answer)")
+            entry["event"].set()
+        except Exception as e:
+            return jsonify(error=str(e)), 500
+        return jsonify(ok=True)
+
     @app.route("/chat", methods=["POST"])
     def chat() -> Response:
         body = request.get_json(silent=True) or {}
@@ -3594,6 +3649,7 @@ restoreRt();
         def generate():
             q: queue.Queue = queue.Queue(maxsize=512)
             exc_holder = [None]
+            stop_watcher = threading.Event()
 
             def producer():
                 try:
@@ -3611,10 +3667,13 @@ restoreRt();
                 except Exception as e:
                     exc_holder[0] = e
                 finally:
+                    stop_watcher.set()
                     q.put(None)
 
             t = threading.Thread(target=producer, daemon=True)
             t.start()
+            # Surface AskUserQuestion prompts to the UI (same UX as permissions)
+            _start_question_watcher(q, stop_watcher)
 
             yield 'data: {"type":"start"}\n\n'
 

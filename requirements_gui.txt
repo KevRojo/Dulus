@@ -1,5 +1,9 @@
-# Dependencias para la GUI profesional de Dulus
-# Instalar con: pip install -r requirements_gui.txt
+# Dulus GUI dependencies
+# Install with: pip install -r requirements_gui.txt
 
+# Modern web GUI (dulus --gui) — pywebview shell around the React build
+pywebview>=5.0
+
+# Classic desktop GUI (dulus --gui-classic)
 customtkinter>=5.2.2
 Pillow>=10.0.0

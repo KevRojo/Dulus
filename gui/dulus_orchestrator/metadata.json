@@ -1,0 +1,7 @@
+{
+  "name": "Dulus AI Orchestrator",
+  "description": "Premium Autonomous AI Agent Orchestrator featuring Sub-agents, MCP, Brainstorming, Round Table, and Real-time Voice.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

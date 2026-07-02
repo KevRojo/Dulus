@@ -26,6 +26,12 @@ sha3_wasm_bg.*.wasm
 sandbox/node_modules/
 sandbox/vite.log
 
+# Web GUI (React) — node_modules ignored; dist/ IS tracked (like sandbox/dist)
+# so pip installs ship a ready-to-run GUI without needing Node.
+gui/dulus_orchestrator/node_modules/
+gui/dulus_orchestrator/dist/desktop-pet.html
+gui/dulus_orchestrator/dist/runtime-state.js
+
 # Log / output files from local testing
 err.txt
 out.txt

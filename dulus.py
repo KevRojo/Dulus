@@ -11918,7 +11918,9 @@ def main():
     parser.add_argument("-c", "--cmd", dest="exec_cmd", nargs='+',
                         help="Execute a Dulus command and exit (e.g., --cmd \"plugin reload\")")
     parser.add_argument("--gui", action="store_true",
-                        help="Launch the desktop GUI instead of the terminal REPL")
+                        help="Launch the desktop GUI (modern web UI) instead of the terminal REPL")
+    parser.add_argument("--gui-classic", action="store_true",
+                        help="Launch the classic customtkinter desktop GUI")
     parser.add_argument("--daemon", action="store_true",
                         help="Daemon mode — keep Dulus alive in the background for Telegram/webhook bridges")
 
@@ -12140,6 +12142,7 @@ def main():
     if (initial
         and not args.daemon
         and not args.gui
+        and not getattr(args, "gui_classic", False)
         and not args.exec_cmd
         and not args.run_tool
         and not args.job_id
@@ -12158,6 +12161,21 @@ def main():
 
     # ── Launch desktop GUI ──
     if args.gui:
+        # Modern web GUI (pywebview + React build). Falls back to the classic
+        # customtkinter GUI when the web build isn't available.
+        try:
+            from dulus_gui_web import launch_gui as launch_web_gui
+            launch_web_gui(config=config, initial_prompt=initial)
+            return
+        except (ImportError, FileNotFoundError) as exc:
+            info(f"Web GUI unavailable ({exc}); falling back to classic GUI.")
+        try:
+            from dulus_gui import launch_gui
+            launch_gui(config=config, initial_prompt=initial)
+        except ImportError as exc:
+            err(f"GUI dependencies missing: {exc}. Run: pip install customtkinter")
+        return
+    if getattr(args, "gui_classic", False):
         try:
             from dulus_gui import launch_gui
             launch_gui(config=config, initial_prompt=initial)
