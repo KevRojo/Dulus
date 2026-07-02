@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Bot, Cpu, Terminal, Users, Lightbulb, Mic, Image as ImageIcon, Settings, Layers, MessageSquare, RefreshCw, Search } from 'lucide-react';
 import { ViewMode, WebchatSession } from '../types.ts';
 import { cn } from '../utils.ts';
+// Imported (not a raw string path) so Vite bundles/inlines it — a hardcoded
+// "./assets/mark.png" 404s in the single-file build (dist/assets is empty).
+import markLogo from '../assets/mark.png';
 
 interface SidebarProps {
   currentView: ViewMode;
@@ -79,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, webchatUrl, activ
         <div className="relative flex-shrink-0 w-9 h-9 flex items-center justify-center">
           <div className="absolute -inset-1 bg-dulus-accent blur-md opacity-30 rounded-full"></div>
           <img 
-            src="./assets/mark.png"
+            src={markLogo}
             alt="Dulus"
             className="relative z-10 w-full h-full object-cover rounded-xl border border-dulus-accent/50 shadow-[0_0_18px_rgba(251,191,36,0.28)]"
           />
