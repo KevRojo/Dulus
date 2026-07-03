@@ -12177,6 +12177,7 @@ def main():
         and not args.run_tool
         and not args.job_id
         and not args.job_path
+        and not os.environ.get("DULUS_NO_IPC")
     ):
         try:
             if _try_ipc_dispatch(initial):

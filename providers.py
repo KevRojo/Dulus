@@ -3626,7 +3626,26 @@ def messages_to_anthropic(messages: list) -> list:
         role = m["role"]
 
         if role == "user":
-            result.append({"role": "user", "content": m["content"]})
+            imgs = m.get("images")
+            if imgs:
+                # Anthropic multipart vision: image blocks FIRST, then text
+                # (per Anthropic docs recommendation). Without this branch,
+                # /image attachments were silently dropped for claude-* models
+                # while Ollama/OpenAI paths attached them fine.
+                blocks = []
+                for img_b64 in imgs:
+                    blocks.append({
+                        "type": "image",
+                        "source": {
+                            "type":       "base64",
+                            "media_type": "image/png",
+                            "data":       img_b64,
+                        },
+                    })
+                blocks.append({"type": "text", "text": m["content"]})
+                result.append({"role": "user", "content": blocks})
+            else:
+                result.append({"role": "user", "content": m["content"]})
             i += 1
 
         elif role == "assistant":
