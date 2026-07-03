@@ -68,6 +68,8 @@ SET /sticky_input ON since the first run for the best experience!
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
+- **📡 dulus.work — announced.** Kevin finally revealed the final piece of the Dulus vision — the one he'd been keeping secret (even from Dulus itself 😂). Every agent ships updates. Nobody ships THIS. Already in motion. Stay tuned. 🦅 → [dulus.work](https://dulus.work)
+
 - **Dulus Agent — Telegram communities.** Dulus evolved from a CLI tool into a live AI agent inside Telegram groups. The first fully autonomous AI moderating and conversing in real communities — not a bot, not a filter, a real agent. Groups pay in $DULUS to activate him. We host Dulus for them — that's the business model. The CLI stays free forever. This is the paid layer. 🦅🇩🇴
 
 - **v0.2.93 — IA WITHOUT AN API KEY, FIRST-RUN.** 🦅 The welcome wizard now offers, by default, to open Gemini in a browser and capture its **guest session** — no Google login, no API key, no credit card. From `pip install` to working IA in 30 seconds. Same flow works for Claude.ai / Kimi.com / Qwen / DeepSeek if you have those accounts. This was Dulus's ace under the sleeve. Now it's the front door.
@@ -100,6 +102,87 @@ dulus get the prices of NVDA, TSLA, SP500:
 Be creative!!! 
 
 Dulus adapt any python repository <3
+
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
+
+## Quick Start
+
+**Windows — no Python needed (1-click):**
+
+Download [`Dulus-Free-3.3.3-x64.msi`](https://github.com/KevRojo/Dulus/releases/download/v3.3.3/Dulus-Free-3.3.3-x64.msi) → double-click and fly. Embedded Python, every library, and the desktop GUI bundled. No pip, no terminal, no admin. ~85 MB.
+
+**Everyone else — one command:**
+
+```bash
+pip install dulus
+dulus
+```
+
+First run opens a welcome wizard that can get you **working IA without an API key** — it captures a Gemini guest session from your browser (no login, no card). Or set any key you already have. Zero to flight in 30 seconds.
+
+> 💡 Set `/sticky_input ON` on first run for the best experience.
+
+## Models
+
+Speak every dialect — switch mid-session with `/model`:
+
+| Kind | Providers |
+|---|---|
+| **Cloud** | Anthropic · OpenAI · Gemini · DeepSeek · Kimi · Qwen · Zhipu · MiniMax |
+| **Free tier** | **14 frontier models via NVIDIA NIM** — 40 RPM each, $0. Key at [build.nvidia.com](https://build.nvidia.com) |
+| **Gateway** | 100+ backends via LiteLLM — OpenRouter, Groq, Together, Bedrock, Vertex, xAI, Mistral... |
+| **Web chats** | Use the chats you **already pay for**: Claude.ai, Gemini, Kimi.com, Qwen, DeepSeek — parsed as providers |
+| **Local** | Ollama · LM Studio · any OpenAI-compatible endpoint. Runs offline, completely. |
+
+## Features
+
+The full tour lives on [the website](https://dulus.ai/) — highlights:
+
+- **27 built-in tools** — Read/Write/Edit, Bash, Glob/Grep, WebFetch/WebSearch, NotebookEdit, GetDiagnostics, Memory, Tasks, Agents, Skills...
+- **Sub-agents** — typed agents (coder, reviewer, researcher, tester), each in its own git worktree, talking via message passing
+- **Persistent memory + checkpoints** — never lose context. Ever. Open `~/.dulus/memory/` as an Obsidian vault
+- **Dulus OS** — not a CLI, a workstation for the agent (sandbox desktop in your browser)
+- **Voice** — offline Whisper STT, no API key, no cloud. Wake words included
+- **Brainstorm Mode** — multi-persona AI debate. Council of ghosts
+- **SSJ Developer Mode** — ten chained workflow shortcuts behind one keystroke: refactor → review → test → commit → ship
+- **Telegram bridge** — slash commands, vision, and voice from your phone
+- **Local OCR** — `/ocr`, `/img` with verbatim text extraction, zero vision tokens
+- **Plan mode, webchat UI, desktop GUI, task manager...** — [see the site](https://dulus.ai/)
+
+## Permissions
+
+Three modes, switchable any time with `/permissions [mode]`:
+
+| Mode | Behavior |
+|---|---|
+| `auto` (default) | Safe tools run free; risky actions (writes, shell) ask first |
+| `manual` | Everything asks |
+| `accept-all` | Never asks — YOLO. Also via `dulus --accept-all` |
+
+Answering `a` at any prompt upgrades the session to accept-all.
+
+## MCP
+
+Drop a `.mcp.json` in your project — every server registers instantly as `mcp__server__tool`. stdio, SSE, and HTTP transports.
+
+```
+/mcp                        # list servers and their tools
+/mcp add <name> <cmd>       # add a stdio server
+/mcp reload                 # reconnect all
+```
+
+## Plugins
+
+The **Auto-Adapter** onboards *any* Python repo as native tools — zero manifest, hot-reload, no restart:
+
+```
+/plugin install yfinance@https://github.com/ranaroussi/yfinance
+/plugin reload
+```
+
+Then just ask: *"dulus get the prices of NVDA, TSLA, SP500"*. Be creative — 800+ ready-made skills via Composio too.
+
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
 ## 🔒 Privacy & anonymous telemetry (opt-in)
 
