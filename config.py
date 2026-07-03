@@ -130,7 +130,31 @@ def load_config() -> dict:
         try:
             cfg.update(json.loads(CONFIG_FILE.read_text(encoding="utf-8")))
         except Exception:
-            pass
+            # Config is corrupt (truncated write, crash mid-save, etc).
+            # NEVER silently reset the user's config: try the .bak backup
+            # first, and if that also fails, preserve the corrupt file for
+            # manual recovery instead of letting the next save_config()
+            # clobber it with bare defaults.
+            recovered = False
+            backup = CONFIG_FILE.with_suffix(".json.bak")
+            if backup.exists():
+                try:
+                    cfg.update(json.loads(backup.read_text(encoding="utf-8")))
+                    recovered = True
+                    print(f"[dulus] WARNING: config.json was corrupt - recovered from {backup.name}")
+                except Exception:
+                    pass
+            try:
+                import time as _time
+                quarantine = CONFIG_FILE.with_name(
+                    f"config.corrupt-{int(_time.time())}.json")
+                CONFIG_FILE.replace(quarantine)
+                print(f"[dulus] Corrupt config preserved at: {quarantine}")
+            except Exception:
+                pass
+            if not recovered:
+                print("[dulus] WARNING: config.json was corrupt and no backup was found - "
+                      "starting with defaults. Your old config was preserved (see above).")
     # Decrypt secured keys
     cfg = _unsecure_keys(cfg)
     # Backward-compat: legacy single api_key → anthropic_api_key
@@ -168,7 +192,23 @@ def save_config(cfg: dict):
     data = {k: v for k, v in cfg.items() if not k.startswith("_")}
     # Encrypt API keys before saving
     data = _secure_keys(dict(data))
-    CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    payload = json.dumps(data, indent=2)
+    # Atomic write: dump to a temp file in the same dir, then replace.
+    # A crash mid-write can no longer truncate/corrupt config.json.
+    tmp = CONFIG_FILE.with_suffix(".json.tmp")
+    tmp.write_text(payload, encoding="utf-8")
+    # Keep a rolling backup of the last-known-good config so load_config()
+    # can auto-recover if the main file ever goes bad.
+    if CONFIG_FILE.exists():
+        try:
+            backup = CONFIG_FILE.with_suffix(".json.bak")
+            # Only back up if current file is valid JSON (don't overwrite a
+            # good backup with a corrupt file).
+            json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            backup.write_text(CONFIG_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+        except Exception:
+            pass
+    tmp.replace(CONFIG_FILE)
 
 
 def current_provider(cfg: dict) -> str:
