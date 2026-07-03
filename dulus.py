@@ -52,6 +52,7 @@ Slash commands in REPL:
   /autojob    Toggle auto-job printer (auto-print job results)
   /auto_show  Toggle auto-show for visual tools (ASCII art, etc.)
   /ultra_search Toggle ULTRA_SEARCH mode
+  /sage [req]  Sage mode: decompose+quality-check+plan the prompt before executing (alias: /sabio; no arg = arm for next prompt)
   /permissions [mode]  Set permission mode
   /afk       Toggle AFK mode (auto-dismiss questions, auto-approve tools)
   /yolo      Toggle YOLO mode (auto-approve ALL actions without prompts)
@@ -897,6 +898,7 @@ _HELP_PAGES = [
         ("/autojob",                "Auto-print job results (toggle)"),
         ("/auto_show",              "Auto-render visual tools (toggle)"),
         ("/ultra_search",           "Aggressive multi-query search"),
+        ("/sage [req]",             "Sage mode: study+plan prompt before executing (/sabio)"),
         ("/permissions [mode]",     "Set permission mode"),
         ("/afk",                    "AFK mode (auto-approve tools)"),
         ("/yolo",                   "YOLO mode (auto-approve ALL)"),
@@ -8080,6 +8082,78 @@ def cmd_plan(args: str, state, config) -> bool:
     return ("__plan__", arg)
 
 
+# ── Sage mode (/sage · /sabio) ──────────────────────────────────────────────
+# Inspired by intake-classifier patterns: before executing, the AI studies the
+# request like a senior architect doing ticket intake — breaks it into atomic
+# issues, runs a quality gate (ambiguity/scope/actionability), asks blocking
+# clarification questions, THEN plans and executes.
+
+_SAGE_WRAPPER_PREFIX = """[SAGE MODE — structured intake & planning. Study the request below BEFORE acting.]
+
+Phase 1 — INTAKE (breakdown):
+Decompose the request into its atomic sub-requests. For each one state: a one-line summary, category (code / research / infra / content / ops / other), priority (low|med|high|critical), and what "done" looks like (verifiable).
+
+Phase 2 — QUALITY GATE:
+Evaluate the request itself: is it ambiguous? imprecise? does it mix multiple unrelated problems? is it actionable as stated? in scope for this environment?
+- If missing info BLOCKS correct execution → ask the user via AskUserQuestion (batch ALL questions into ONE call with options).
+- Otherwise, state your working assumptions explicitly in one short list and continue.
+
+Phase 3 — PLAN:
+Produce a concrete ordered plan: steps, the tools you will use per step, risks, and how you will verify each step actually worked. For multi-step work, register the plan with TaskCreate so progress is trackable.
+
+Phase 4 — EXECUTE:
+Execute the plan step by step, verifying as you go. If reality diverges from the plan, say so honestly and adapt. Never report "done" without having verified.
+
+Show Phases 1-3 to the user briefly (compact, no theater) before executing.
+
+USER REQUEST:
+"""
+
+
+def _sage_wrap(prompt: str) -> str:
+    """Wrap a raw user prompt in the sage intake+planning contract."""
+    return _SAGE_WRAPPER_PREFIX + prompt
+
+
+def cmd_sage(args: str, state, config):
+    """Sage mode — the AI studies, decomposes and plans your prompt before executing.
+
+    /sage               — arm sage mode for your NEXT prompt
+    /sage <request>     — run intake + planning + execution on <request> right now
+    /sage off           — disarm
+    /sage status        — show whether sage mode is armed
+    """
+    arg = args.strip()
+    low = arg.lower()
+
+    if low in ("off", "cancel", "no"):
+        if config.pop("_sage_armed", None):
+            info("Sage mode disarmed.")
+        else:
+            info("Sage mode was not armed.")
+        return True
+
+    if low == "status":
+        if config.get("_sage_armed"):
+            info("Sage mode: ARMED — next prompt will be studied + planned first.")
+        else:
+            info("Sage mode: inactive.")
+        return True
+
+    if not arg:
+        config["_sage_armed"] = True
+        ok("Sage mode armed 🧙 — your NEXT prompt will be decomposed, quality-checked and planned before execution.")
+        info("Cancel with /sage off")
+        return True
+
+    # /sage <request> — run it right now
+    return ("__sage__", arg)
+
+
+# /sabio is the Spanish alias for /sage
+cmd_sabio = cmd_sage
+
+
 def cmd_compact(args: str, state, config) -> bool:
     """Manually compact conversation history.
 
@@ -9640,6 +9714,8 @@ COMMANDS = {
     "checkpoint":  cmd_checkpoint,
     "rewind":      cmd_rewind,
     "plan":        cmd_plan,
+    "sage":        cmd_sage,
+    "sabio":       cmd_sabio,
     "compact":     cmd_compact,
     "init":        cmd_init,
     "export":      cmd_export,
@@ -9679,7 +9755,7 @@ def handle_slash(line: str, state, config) -> Union[bool, tuple]:
     if handler:
         result = handler(args, state, config)
         # cmd_voice/cmd_image/cmd_brainstorm/cmd_plan return sentinels to ask the REPL to run_query
-        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__plugin_main_agent__", "__roundtable__", "__roundtable_stop__"):
+        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__", "__roundtable__", "__roundtable_stop__"):
             return result
         return True
 
@@ -9761,6 +9837,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "checkpoint":  ("List / restore checkpoints",          ["clear"]),
     "rewind":      ("Rewind to checkpoint (alias)",        ["clear"]),
     "plan":        ("Enter/exit plan mode",                ["done", "status"]),
+    "sage":        ("Sage mode — study+plan the prompt before executing", ["off", "status"]),
+    "sabio":       ("Modo sabio — estudia+planifica el prompt antes de ejecutar (alias)", ["off", "status"]),
     "compact":     ("Compact conversation history",         []),
     "init":        ("Initialize DULUS.md template",        []),
     "export":      ("Export conversation to file",          []),
@@ -11653,6 +11731,17 @@ def repl(config: dict, initial_prompt: str = None):
                     print(clr("\n  (interrupted)", "yellow"))
                 break
 
+            # Sage sentinel: ("__sage__", request) — intake + plan + execute
+            if result[0] == "__sage__":
+                _, sage_req = result
+                print(clr("  🧙 Sage mode — studying the request before acting…", "dim"))
+                try:
+                    run_query(_sage_wrap(sage_req))
+                except KeyboardInterrupt:
+                    _track_ctrl_c()
+                    print(clr("\n  (interrupted)", "yellow"))
+                break
+
             # Plugin main-agent handoff sentinel:
             # ("__plugin_main_agent__", plugin_name, plugin_source)
             # Triggered by `/plugin install name@url --main-agent` — the main agent
@@ -11881,6 +11970,11 @@ def repl(config: dict, initial_prompt: str = None):
             continue
 
         try:
+            # Sage mode armed via /sage (no args): wrap THIS prompt in the
+            # intake+planning contract, then disarm (one-shot).
+            if config.pop("_sage_armed", None):
+                print(clr("  🧙 Sage mode — studying the request before acting…", "dim"))
+                user_input = _sage_wrap(user_input)
             run_query(user_input)
             
             # Auto-save config after each turn for web providers to persist session IDs
