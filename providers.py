@@ -3568,7 +3568,48 @@ def tools_to_openai(tool_schemas: list) -> list:
 #   {"role": "tool", "tool_call_id": "...", "name": "...", "content": "..."}
 
 def messages_to_anthropic(messages: list) -> list:
-    """Convert neutral messages → Anthropic API format."""
+    """Convert neutral messages → Anthropic API format.
+
+    Also sanitizes orphan tool_calls — if an assistant message has tool_calls
+    but the matching tool responses are missing (e.g. user interrupted mid-call),
+    the tool_calls are stripped. Anthropic requires every tool_use block to have
+    a corresponding tool_result block in the IMMEDIATELY following message, or
+    it 400s the whole request.
+    """
+    # ── Sanitize orphan tool_calls (position-aware) ───────────────────────
+    # Anthropic is stricter than OpenAI: each tool_use must be answered by a
+    # tool_result in the IMMEDIATELY next message. A tool result that exists
+    # later in history (e.g. a user message got interleaved) doesn't count.
+    sanitized = []
+    for idx, m in enumerate(messages):
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            # Collect ids answered by the consecutive tool messages right after
+            answered_here = set()
+            j = idx + 1
+            while j < len(messages) and messages[j].get("role") == "tool":
+                answered_here.add(messages[j].get("tool_call_id"))
+                j += 1
+            valid_tcs = [tc for tc in m["tool_calls"] if tc.get("id") in answered_here]
+            if valid_tcs:
+                sanitized.append({**m, "tool_calls": valid_tcs})
+            else:
+                # All tool_calls are orphans — strip them, keep text content only
+                sanitized.append({k: v for k, v in m.items() if k != "tool_calls"}
+                                 | {"content": m.get("content") or "(interrupted)"})
+        elif m.get("role") == "tool":
+            # Drop tool results whose call was stripped (orphan results also 400)
+            k = idx - 1
+            while k >= 0 and messages[k].get("role") == "tool":
+                k -= 1
+            owner = messages[k] if k >= 0 else {}
+            owner_ids = {tc.get("id") for tc in (owner.get("tool_calls") or [])} if owner.get("role") == "assistant" else set()
+            if m.get("tool_call_id") in owner_ids:
+                sanitized.append(m)
+            # else: orphan tool_result — skip it
+        else:
+            sanitized.append(m)
+    messages = sanitized
+
     result = []
     # Thinking blocks are only REQUIRED on the last assistant turn (tool-use
     # replay). Older ones are ignored server-side but still travel in the
