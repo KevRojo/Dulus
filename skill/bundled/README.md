@@ -27,6 +27,22 @@ see [LICENSE-obsidian-skills](LICENSE-obsidian-skills).
 > memories, callouts render. Open `~/.dulus/memory/` as an Obsidian
 > vault to see the visualisation.
 
+### [NousResearch/hermes-agent — unbroker](https://github.com/NousResearch/hermes-agent/tree/main/optional-skills/security/unbroker)
+Data-broker removal skill by [SHL0MS](https://github.com/SHL0MS). MIT licensed
+(engine); broker dataset adapted from
+[BADBOOL](https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List) by
+Yael Grauer (CC BY-NC-SA 4.0).
+
+| Skill | What it does |
+| --- | --- |
+| `unbroker` | Find and remove a consenting person's exposed PII from data brokers / people-search sites (CCPA/GDPR opt-outs, ledger, re-scans). Consent-gated, US-first. |
+
+Seasoned for Dulus: `HERMES_HOME` → `DULUS_HOME` (default `~/.dulus`), Hermes
+tool names mapped to Dulus natives (`web_extract`→`WebFetch`,
+`browser_*`→`WebBridge*`, `delegate_task`→`Agent`, `cronjob`→`Reminder`).
+The deterministic engine (`scripts/pdd.py`, stdlib-only) is unmodified.
+Try it: *"Use the unbroker skill to remove my data from data brokers."*
+
 ## How to shadow a bundled skill
 
 Drop a file with the SAME `name:` in the frontmatter:
