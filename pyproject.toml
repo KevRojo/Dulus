@@ -98,6 +98,7 @@ py-modules = [
     "claude_code_watcher",
     "clipboard_utils",
     "cloudsave",
+    "analytics",
     "common",
     "compaction",
     "config",

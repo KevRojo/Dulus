@@ -1348,9 +1348,18 @@ def cmd_config(args: str, _state, config) -> bool:
         # Type coercion
         if val.lower() in ("true", "false"):
             val = val.lower() == "true"
+        elif key == "telemetry":
+            # Accept friendly aliases: /config telemetry=off|on
+            val = val.lower() in ("on", "1", "yes", "y", "enabled")
         elif val.isdigit():
             val = int(val)
         config[key] = val
+        if key == "telemetry":
+            try:
+                import analytics as _telemetry
+                _telemetry.init_telemetry(config)
+            except Exception:
+                pass
         # Immediate env-bridge for keys that submodules read from os.environ
         if key == "azure_speech_key" and val:
             os.environ["AZURE_SPEECH_KEY"] = val
@@ -11951,6 +11960,27 @@ def main():
         print(f"(welcome wizard skipped: {_e})")
 
     config = load_config()
+
+    # ── Anonymous telemetry (opt-in, one-time consent prompt) ───────────
+    # Asks ONCE on an interactive boot when the user has never answered.
+    # Nothing is ever sent unless the user says yes. See analytics.py for
+    # the full privacy contract (no prompts/paths/PII — event names only).
+    try:
+        import analytics as _telemetry
+        if (
+            "telemetry" not in config
+            and sys.stdin.isatty()
+            and not args.print_mode
+            and not args.exec_cmd
+            and not args.run_tool
+            and not args.daemon
+        ):
+            config = _telemetry.ask_consent(config)
+            save_config(config)
+        _telemetry.init_telemetry(config, version=VERSION)
+        _telemetry.track_session_start(config)
+    except Exception:
+        pass  # telemetry must never break startup
 
     # ── Pre-warm Whisper + ElevenLabs in background ──────────────────────
     # When wake-word is on, the user expects instant wake response. Loading

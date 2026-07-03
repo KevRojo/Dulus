@@ -100,3 +100,25 @@ dulus get the prices of NVDA, TSLA, SP500:
 Be creative!!! 
 
 Dulus adapt any python repository <3
+
+## 🔒 Privacy & anonymous telemetry (opt-in)
+
+On first launch Dulus asks **once** if you'd like to share anonymous usage
+statistics. **Nothing is sent unless you say yes.**
+
+| Collected (if you opt in) | NEVER collected |
+|---|---|
+| Event names (`session_start`, `tool_used`, `model_selected`) | Prompts or responses |
+| Dulus version, OS name, Python version | File contents or paths |
+| Provider/model names (e.g. `gemini`) | API keys or tokens |
+| A random anonymous ID generated on your machine | Emails, usernames, IPs (geo disabled) |
+
+Data goes to [Mixpanel](https://mixpanel.com) (event analytics). The full
+implementation is ~140 lines of readable code in [`analytics.py`](analytics.py) —
+audit it yourself.
+
+**Opt out anytime:**
+```
+/config telemetry=off        # inside Dulus
+DULUS_TELEMETRY=0            # environment variable
+```
