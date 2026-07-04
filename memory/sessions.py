@@ -62,39 +62,71 @@ def search_session_history(query: str, max_results: int = 5) -> list[dict]:
                 except Exception:
                     continue
 
-    # 3. Perform search
+    # 3. Perform search — NEWEST sessions first, token-based matching
+    import re
+    q_tokens = [t for t in re.split(r"\W+", query) if len(t) > 2]
+    if not q_tokens:
+        q_tokens = [query] if query else []
+    if not q_tokens:
+        return []
+    # Require a majority of tokens (at least half, min 1) so multi-word
+    # queries still hit even if one word is missing from the message.
+    min_hits = max(1, (len(q_tokens) + 1) // 2)
+
+    # Search most recent sessions first (this is where answers usually live)
+    all_sessions.sort(key=lambda s: str(s.get("saved_at", "")), reverse=True)
+
     results = []
     for sess in all_sessions:
         session_id = sess.get("session_id", "unknown")
         saved_at   = sess.get("saved_at", "unknown")
         messages   = sess.get("messages", [])
-        
+
         session_hits = []
+        best_score = 0
         for msg in messages:
             content = msg.get("content", "")
             if not isinstance(content, str):
                 continue
-                
-            if query in content.lower():
-                # Extract snippet
-                start = max(0, content.lower().find(query) - 60)
+
+            low = content.lower()
+            matched = [t for t in q_tokens if t in low]
+            # Accept: full literal phrase OR majority of query tokens
+            if query in low or len(matched) >= min_hits:
+                anchor = query if query in low else matched[0]
+                # Extract snippet around the first matched token
+                start = max(0, low.find(anchor) - 60)
                 end   = min(len(content), start + 200)
                 snippet = content[start:end].replace("\n", " ")
                 if start > 0: snippet = "..." + snippet
                 if end < len(content): snippet += "..."
-                
+
+                score = len(q_tokens) + 1 if query in low else len(matched)
+                best_score = max(best_score, score)
                 session_hits.append({
                     "role": msg.get("role"),
-                    "snippet": snippet
+                    "snippet": snippet,
+                    "_score": score,
                 })
-        
+
         if session_hits:
+            # Best-matching hits first within the session
+            session_hits.sort(key=lambda h: h["_score"], reverse=True)
+            for h in session_hits:
+                h.pop("_score", None)
             results.append({
                 "session_id": session_id,
                 "saved_at": saved_at,
-                "hits": session_hits[:3] # limit hits per session to avoid bloat
+                "hits": session_hits[:3],  # limit hits per session to avoid bloat
+                "_score": best_score,
             })
+            # Early exit: sessions are newest-first, once we have enough
+            # strong matches there is no need to scan ancient history.
+            if len(results) >= max_results * 3:
+                break
 
-    # Sort sessions by recency (newest hit first)
-    results.sort(key=lambda x: x["saved_at"], reverse=True)
+    # Rank: match quality first, then recency (both already newest-first)
+    results.sort(key=lambda x: (x["_score"], str(x["saved_at"])), reverse=True)
+    for r in results:
+        r.pop("_score", None)
     return results[:max_results]

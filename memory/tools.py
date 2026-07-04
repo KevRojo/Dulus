@@ -123,17 +123,24 @@ def _memory_search(params: dict, config: dict) -> str:
     query = params["query"]
     use_ai = params.get("use_ai", False)
     
-    if config.get("ULTRA_SEARCH") in (1, "1", True, "true"):
+    ultra = config.get("ULTRA_SEARCH") in (1, "1", True, "true")
+    if ultra:
         params["include_sessions"] = True
-        max_results = max(params.get("max_results", 5), 100)
+        # Sessions get the big budget; memories stay capped so session
+        # matches don't get buried/truncated under 100 memory entries.
+        max_results = max(params.get("max_results", 5), 10)
+        session_max = 20
     else:
         max_results = params.get("max_results", 5)
+        session_max = max_results
 
     results = find_relevant_memories(
         query, max_results=max_results * 3, use_ai=use_ai, config=config
     )
 
-    if not results:
+    if not results and not params.get("include_sessions"):
+        # Only early-return when sessions won't be searched; otherwise a
+        # zero-memory result would skip session history entirely (old bug).
         return f"No memories found matching '{query}'."
 
     # Re-rank by confidence × recency score
@@ -172,15 +179,22 @@ def _memory_search(params: dict, config: dict) -> str:
     should_search_sessions = params.get("include_sessions")
 
     if should_search_sessions:
-        sess_results = search_session_history(query, max_results=max_results)
+        sess_results = search_session_history(query, max_results=session_max)
         if sess_results:
-            lines.append("\n" + "─" * 40)
-            lines.append(f"Historical Session Matches ({len(sess_results)} sessions):")
+            sess_lines = ["─" * 40,
+                          f"Historical Session Matches ({len(sess_results)} sessions, newest first):"]
             for sr in sess_results:
-                lines.append(f"\nSession {sr['session_id']} ({sr['saved_at']})")
+                sess_lines.append(f"\nSession {sr['session_id']} ({sr['saved_at']})")
                 for h in sr["hits"]:
                     role_lbl = "User" if h["role"] == "user" else "Dulus"
-                    lines.append(f"  [{role_lbl}] {h['snippet']}")
+                    sess_lines.append(f"  [{role_lbl}] {h['snippet']}")
+            if ultra:
+                # ULTRA mode: sessions are the primary target — put them FIRST
+                # so they never get truncated away under memory entries.
+                lines = [lines[0], ""] + sess_lines + ["", "─" * 40, "Memory entries:"] + lines[1:]
+            else:
+                lines.append("")
+                lines.extend(sess_lines)
 
     # ── Part 3: Offloaded Jobs Search ────────────────────────────────────
     try:
