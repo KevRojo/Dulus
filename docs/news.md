@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- July 3, 2026: **🌍 dulus.work — THE HUB, revealed.** The secret is out: dulus.work is a **global hub where every Dulus instance on the planet shares what it learns**. Your Dulus finds a fix, refines a skill, adapts a plugin locally → publishes it to the hub → every other Dulus in the world pulls it down. Not an update server — an **organism**: every installation is a node, every user effectively becomes a contributor. *The fix a Dulus in Tokyo finds at 3AM, the one in Santo Domingo has by sunrise.* Traditional agents scale linearly (N devs improving 1 product); Dulus scales with its network (every user is a dev). The building blocks have been quietly shipping for months — the SelfImprove engine, the Auto-Adapter, the skills format, cloudsave — and dulus.work is where they converge. Domain is live, execution underway. 🦅🇩🇴 → [dulus.work](https://dulus.work)
+
 
 - July 3, 2026 (**v3.6.1**): **🛡️ Your config.json can never be silently reset again.** A crash mid-save could truncate `~/.dulus/config.json`; on the next start Dulus silently swallowed the parse error, dropped you into the first-run welcome wizard, and the first auto-save clobbered your real config with bare defaults (classic symptom: a config containing only `voice_lang`). Fixed with a triple safety net: **atomic writes** (temp file + rename — a mid-write crash physically can't corrupt the file anymore), a **rolling `config.json.bak`** of the last-known-good config, **auto-recovery** from that backup when the main file goes bad, and **quarantine** (`config.corrupt-<timestamp>.json`) so the broken original is always preserved for manual rescue instead of vanishing. If you ever lost your config to the welcome screen: this was it, and it's dead now.
 

@@ -68,7 +68,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
-- **📡 dulus.work — announced.** Kevin finally revealed the final piece of the Dulus vision — the one he'd been keeping secret (even from Dulus itself 😂). Every agent ships updates. Nobody ships THIS. Already in motion. Stay tuned. 🦅 → [dulus.work](https://dulus.work)
+- **🌍 dulus.work — THE HUB. The secret is out.** This is what Kevin had been hiding (even from Dulus itself 😂): **a global hub where every Dulus instance on the planet shares what it learns.** Your Dulus finds a fix, polishes a skill, adapts a plugin → it can publish it to the hub → every other Dulus in the world can pull it down. Not an update server — an **organism**. Every installation is a node. *The fix a Dulus in Tokyo finds at 3AM, the one in Santo Domingo has by sunrise.* Other agents have N devs improving one product (linear). Dulus makes every user a dev (exponential). The pieces have been quietly shipping for months — SelfImprove engine, Auto-Adapter, the skills format, cloudsave — and now they converge. Domain is live, execution underway. 🦅🇩🇴 → [dulus.work](https://dulus.work)
 
 - **Dulus Agent — Telegram communities.** Dulus evolved from a CLI tool into a live AI agent inside Telegram groups. The first fully autonomous AI moderating and conversing in real communities — not a bot, not a filter, a real agent. Groups pay in $DULUS to activate him. We host Dulus for them — that's the business model. The CLI stays free forever. This is the paid layer. 🦅🇩🇴
 
