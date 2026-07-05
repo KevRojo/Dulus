@@ -205,3 +205,27 @@ audit it yourself.
 /config telemetry=off        # inside Dulus
 DULUS_TELEMETRY=0            # environment variable
 ```
+
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
+
+## 💛 Sponsors & Startup Programs
+
+Dulus is proudly supported by these startup programs — powering our infrastructure, observability, and analytics:
+
+<p align="center">
+  <a href="https://www.datadoghq.com/partner/datadog-for-startups/"><img src="https://cdn.simpleicons.org/datadog" height="42" alt="Datadog" title="Datadog for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.cloudflare.com/forstartups/"><img src="https://cdn.simpleicons.org/cloudflare" height="42" alt="Cloudflare" title="Cloudflare for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://sentry.io/for/startups/"><img src="https://cdn.simpleicons.org/sentry" height="42" alt="Sentry" title="Sentry for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.anthropic.com/startups"><img src="https://cdn.simpleicons.org/anthropic" height="42" alt="Anthropic" title="Claude for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://aws.amazon.com/activate/"><img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg" height="42" alt="AWS" title="AWS Activate"></a>
+</p>
+<p align="center">
+  <a href="https://www.mongodb.com/startups"><img src="https://cdn.simpleicons.org/mongodb" height="38" alt="MongoDB" title="MongoDB for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://mixpanel.com/startups/"><img src="https://cdn.simpleicons.org/mixpanel" height="38" alt="Mixpanel" title="Mixpanel for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://amplitude.com/startups"><img src="https://www.google.com/s2/favicons?domain=amplitude.com&sz=128" height="38" alt="Amplitude" title="Amplitude Startup Scholarship"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.digitalocean.com/hatch"><img src="https://cdn.simpleicons.org/digitalocean" height="38" alt="DigitalOcean" title="DigitalOcean Hatch"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.notion.com/startups"><img src="https://cdn.simpleicons.org/notion" height="38" alt="Notion" title="Notion for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.zendesk.com/campaign/startups/"><img src="https://cdn.simpleicons.org/zendesk" height="38" alt="Zendesk" title="Zendesk for Startups"></a>
+</p>
+
+<p align="center"><i>Want to support Dulus? → <a href="https://github.com/sponsors/KevRojo">GitHub Sponsors</a> 🦅</i></p>
