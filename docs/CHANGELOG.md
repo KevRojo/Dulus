@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security policy
 - Brand guidelines
 
+## [3.6.2] - 2026-07-04
+
+### Fixed
+- Opt-in telemetry never sent events: `MP_TOKEN` defaulted to empty string so
+  `is_enabled()` was always False, even after user consent. The public
+  project's write-only ingestion token now ships as the default
+  (`DULUS_MP_TOKEN` env var still overrides).
+
+### Added
+- Named telemetry events (names/counts only — never content): `message_sent`,
+  `tool_used`, `command_used`, `model_selected`, wired into the REPL loop,
+  tool dispatch, slash commands and `/model`.
+- Memory: session history search improvements — token matching, newest-first
+  ordering, no truncation (from 786bd34).
+
 ## [3.2.0] - 2026-05-30
 
 ### Added
