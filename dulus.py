@@ -1001,6 +1001,11 @@ def cmd_model(args: str, _state, config) -> bool:
         ok(f"Model set to {m}  (provider: {pname})")
         from config import save_config
         save_config(config)
+        try:
+            import analytics as _telemetry
+            _telemetry.track_model_selected(m, pname)
+        except Exception:
+            pass
     return True
 
 def _generate_personas(topic: str, curr_model: str, config: dict, count: int = 5) -> dict | None:
@@ -9753,6 +9758,11 @@ def handle_slash(line: str, state, config) -> Union[bool, tuple]:
     args = parts[1] if len(parts) > 1 else ""
     handler = COMMANDS.get(cmd)
     if handler:
+        try:
+            import analytics as _telemetry
+            _telemetry.track_command_used(cmd)
+        except Exception:
+            pass
         result = handler(args, state, config)
         # cmd_voice/cmd_image/cmd_brainstorm/cmd_plan return sentinels to ask the REPL to run_query
         if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__", "__roundtable__", "__roundtable_stop__"):
@@ -10624,6 +10634,12 @@ def repl(config: dict, initial_prompt: str = None):
                 _duplicate_suppressed = False
 
                 try:
+                    if not is_background:
+                        try:
+                            import analytics as _telemetry
+                            _telemetry.track_message_sent(str(config.get("model", "")))
+                        except Exception:
+                            pass
                     for event in run(user_input, state, config, system_prompt):
                         # Stop spinner only when visible output arrives
                         if spinner_shown:
@@ -10688,6 +10704,11 @@ def repl(config: dict, initial_prompt: str = None):
                             if event.name == "AskUserQuestion":
                                 _stop_tool_spinner()
                             print_tool_start(event.name, event.inputs, verbose)
+                            try:
+                                import analytics as _telemetry
+                                _telemetry.track_tool_used(event.name)
+                            except Exception:
+                                pass
 
                         elif isinstance(event, PermissionRequest):
                             _stop_tool_spinner()

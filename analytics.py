@@ -41,7 +41,7 @@ import uuid
 # NOTE: Mixpanel ingestion tokens are write-only and designed to ship in
 # client code (every website using Mixpanel exposes theirs). It cannot be
 # used to read any data. Override with DULUS_MP_TOKEN.
-MP_TOKEN = os.environ.get("DULUS_MP_TOKEN", "")
+MP_TOKEN = os.environ.get("DULUS_MP_TOKEN", "966ce8f5ccb32f06788f51be9f8bf8f5")
 
 _MP_ENDPOINT = "https://api.mixpanel.com/track"
 
@@ -142,3 +142,23 @@ def track_session_start(config: dict) -> None:
         "provider": str(config.get("provider", "")),
         "model": str(config.get("model", "")),
     })
+
+
+def track_message_sent(model: str = "") -> None:
+    """One event per user prompt sent to the LLM (no content — count only)."""
+    track("message_sent", {"model": model})
+
+
+def track_tool_used(tool_name: str) -> None:
+    """One event per tool invocation (tool NAME only — never inputs)."""
+    track("tool_used", {"tool": tool_name})
+
+
+def track_command_used(command: str) -> None:
+    """One event per slash command (command NAME only — never args)."""
+    track("command_used", {"command": command})
+
+
+def track_model_selected(model: str, provider: str = "") -> None:
+    """Fired when the user switches models via /model."""
+    track("model_selected", {"model": model, "provider": provider})
