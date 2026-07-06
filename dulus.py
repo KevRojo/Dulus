@@ -10234,14 +10234,17 @@ def repl(config: dict, initial_prompt: str = None):
         _DULUS_LOGO.append("     " + clr("New: /lang — speak any language or role. Type /news", "cyan", "dim"))
         _DULUS_LOGO.append("                                                                 ")
 
-        # Spinning galaxy animation
+        # Spinning galaxy animation — trimmed from 8 frames (0.96s of pure
+        # sleep) to 3 (0.24s). Startup-latency fix 2026-07-06: the boot
+        # animation was the single largest self-inflicted stall on the
+        # cold-start path. Keep the flair, cut the wait.
         _GALAXY_FRAMES = ["◜", "◝", "◞", "◟"]
         try:
-            for i in range(8):
+            for i in range(3):
                 frame = _GALAXY_FRAMES[i % 4]
                 sys.stdout.write(f"\r  {clr(frame, 'cyan', 'bold')} Initializing Dulus...")
                 sys.stdout.flush()
-                time.sleep(0.12)
+                time.sleep(0.08)
             sys.stdout.write(f"\r{' ' * 40}\r")
             sys.stdout.flush()
         except Exception:
@@ -10404,7 +10407,27 @@ def repl(config: dict, initial_prompt: str = None):
         )
         config["_ipc_thread"] = ti
         ti.start()
-    
+
+    # ── Pre-warm MemPalace while the user is still typing ─────────────────
+    # (startup-latency fix, 2026-07-06) The per-turn memory injection in
+    # run_query() imports mempalace.searcher (~1.1s — chromadb + embedding
+    # stack) and pays a cold first search (~0.7s) INSIDE the first turn,
+    # adding ~1.7s between submit and request dispatch. Warm both in a
+    # daemon thread at boot: by the time the user finishes typing their
+    # first real prompt, sys.modules and the search index are hot and the
+    # same code path costs ~60ms.
+    if config.get("mem_palace", True):
+        def _prewarm_mempalace():
+            try:
+                from mempalace.searcher import search_memories as _pw_search
+                from mempalace.config import MempalaceConfig as _PWCfg
+                _pw_search("warmup", _PWCfg().palace_path, n_results=1)
+            except Exception:
+                pass  # best-effort; run_query has its own fallback
+        threading.Thread(
+            target=_prewarm_mempalace, daemon=True, name="dulus-prewarm-mempalace"
+        ).start()
+
     def run_query(user_input: str, is_background: bool = False):
         nonlocal verbose
 

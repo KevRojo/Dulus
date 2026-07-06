@@ -27,7 +27,8 @@ CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Token estimation ──────────────────────────────────────────────────────
 
-def estimate_tokens(messages: list, model: str = "", config: dict | None = None) -> int:
+def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
+                    fast: bool = False) -> int:
     """Estimate token count.
     
     For Kimi/Moonshot models, uses the native Kimi API token estimation endpoint
@@ -37,11 +38,13 @@ def estimate_tokens(messages: list, model: str = "", config: dict | None = None)
         messages: list of message dicts with "content" field (str or list of dicts)
         model: model string (optional, e.g., "kimi-k2.5")
         config: agent config dict (optional, for accessing API keys)
+        fast: if True, NEVER hit the network — char-based estimation only.
+              Use this from hot paths (per-turn pre-checks, UI, tight loops).
     Returns:
         approximate token count, int
     """
     # Try Kimi native API estimation if this is a Kimi/Moonshot model
-    if model and (providers.detect_provider(model) in ("kimi", "moonshot")):
+    if not fast and model and (providers.detect_provider(model) in ("kimi", "moonshot")):
         api_key = ""
         if config:
             api_key = providers.get_api_key("kimi", config) or providers.get_api_key("moonshot", config)
@@ -472,6 +475,16 @@ def maybe_compact(state, config: dict) -> bool:
     model = config.get("model", "")
     limit = get_context_limit(model)
     threshold = limit * 0.7
+
+    # Fast pre-check (startup-latency fix, 2026-07-06): the precise path can
+    # hit the Kimi token-estimation ENDPOINT — a blocking network round-trip
+    # that sits directly on the submit→dispatch critical path of EVERY turn,
+    # including the very first one where the conversation is obviously tiny.
+    # The char-based estimate deliberately overcounts (~10% buffer), so if
+    # even IT says we're under half the threshold, no network call can
+    # change the verdict. Skip straight to dispatch.
+    if estimate_tokens(state.messages, model=model, config=config, fast=True) <= threshold * 0.5:
+        return False
 
     if estimate_tokens(state.messages, model=model, config=config) <= threshold:
         return False
