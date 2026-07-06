@@ -2450,6 +2450,10 @@ except Exception as _plugin_err:
 # task/tools.py registers all four tools into the central registry on import.
 import task.tools as _task_tools  # noqa: F401
 
+# ── fs-compass tools (SmartTree + ResolvePath) ─────────────────────────────────
+# dulus_tools/fs_compass.py registers both tools on import.
+import dulus_tools.fs_compass as _fs_compass  # noqa: F401
+
 # ── WebBridge tools (browser automation via Playwright) ────────────────────────
 # webbridge/tools.py registers WebBridgeNavigate, WebBridgeClick, etc.
 try:
