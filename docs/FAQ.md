@@ -139,6 +139,15 @@ The token is the fuel layer for the Dulus business layer. The open-source REPL s
 
 ## Troubleshooting
 
+### "No matching distribution found for dulus"
+
+Your system Python is older than 3.11. pip hides incompatible packages and prints that useless error instead of saying "need Python 3.11+".
+
+```bash
+# Zero-friction fix — installer bootstraps Python for you
+curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
+```
+
 ### "No module named 'tkinter'"
 
 ```bash
@@ -223,6 +232,15 @@ Usa un modelo que soporte function calling: `qwen2.5-coder`, `llama3.3`, `mistra
 ```bash
 rm -rf ~/.dulus
 # Luego corre `dulus` de nuevo para el wizard de bienvenida
+```
+
+### "No matching distribution found for dulus" en Ubuntu
+
+Tu Python del sistema es mas viejo que 3.11. pip esconde el paquete y tira ese error basura.
+
+```bash
+# Arreglo zero friction — el installer te sube Python solo
+curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
 ```
 
 ---

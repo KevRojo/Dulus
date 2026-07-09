@@ -1,6 +1,6 @@
 # ▲ DULUS
 >
-> `pip install dulus` → press Enter → working IA in 30 seconds. Try it.
+> `curl -fsSL …/install.sh | bash` → press Enter → working IA in 30 seconds. Try it.
 
 SET /sticky_input ON since the first run for the best experience!
 
@@ -111,11 +111,25 @@ Dulus adapt any python repository <3
 
 Download [`Dulus-Free-3.3.3-x64.msi`](https://github.com/KevRojo/Dulus/releases/download/v3.3.3/Dulus-Free-3.3.3-x64.msi) → double-click and fly. Embedded Python, every library, and the desktop GUI bundled. No pip, no terminal, no admin. ~85 MB.
 
-**Everyone else — one command:**
+**Linux / macOS / WSL — one command (handles Python for you):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
+```
+
+The installer finds or **bootstraps Python 3.11+** (apt / deadsnakes / brew / uv), installs Dulus, and puts `dulus` on your PATH. Works on stock Ubuntu 20.04/22.04 where plain `pip install dulus` dies with `No matching distribution found` (pip hides packages that need a newer Python — Dulus needs ≥3.11).
+
+**Already on Python 3.11+?** Then this is enough:
 
 ```bash
 pip install dulus
 dulus
+```
+
+**Windows (PowerShell, if you prefer the terminal over the MSI):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex
 ```
 
 First run opens a welcome wizard that can get you **working IA without an API key** — it captures a Gemini guest session from your browser (no login, no card). Or set any key you already have. Zero to flight in 30 seconds.
@@ -225,8 +239,7 @@ Dulus is proudly supported by these startup programs — powering our infrastruc
   <a href="https://amplitude.com/startups"><img src="https://www.google.com/s2/favicons?domain=amplitude.com&sz=128" height="38" alt="Amplitude" title="Amplitude Startup Scholarship"></a>&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.digitalocean.com/hatch"><img src="https://cdn.simpleicons.org/digitalocean" height="38" alt="DigitalOcean" title="DigitalOcean Hatch"></a>&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.notion.com/startups"><img src="https://cdn.simpleicons.org/notion" height="38" alt="Notion" title="Notion for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.zendesk.com/campaign/startups/"><img src="https://cdn.simpleicons.org/zendesk" height="38" alt="Zendesk" title="Zendesk for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.atlascloud.ai/"><img src="https://www.google.com/s2/favicons?domain=atlascloud.ai&sz=128" height="38" alt="Atlas Cloud" title="Atlas Cloud for AI Startups"></a>
+  <a href="https://www.zendesk.com/campaign/startups/"><img src="https://cdn.simpleicons.org/zendesk" height="38" alt="Zendesk" title="Zendesk for Startups"></a>
 </p>
 
 <p align="center"><i>Want to support Dulus? → <a href="https://github.com/sponsors/KevRojo">GitHub Sponsors</a> 🦅</i></p>
