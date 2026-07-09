@@ -166,34 +166,142 @@ else
     printf "  %sPkg mgr:%s ${YELLOW}none detected${RESET} — system deps will need manual install\n" "${BOLD}" "${RESET}"
 fi
 
-# Python
-PY_BIN=""
-PY_VER=""
-for candidate in python3.13 python3.12 python3.11 python3 python; do
-    if command -v "$candidate" >/dev/null 2>&1; then
-        v=$("$candidate" -c 'import sys; print("%d.%d"%sys.version_info[:2])' 2>/dev/null || echo "0.0")
-        major=${v%%.*}
-        minor=${v##*.}
-        if [ "$major" -ge 3 ] && [ "$minor" -ge 11 ]; then
-            PY_BIN="$candidate"
-            PY_VER="$v"
-            break
+# Python — zero friction: find 3.11+ OR bootstrap it ourselves.
+# `pip install dulus` alone dies with "No matching distribution found" on
+# Ubuntu 20.04/22.04 stock Python (3.8/3.10) because requires-python>=3.11.
+# That's pip lying by omission. We never leave the user there.
+find_python311() {
+    # Sets PY_BIN + PY_VER if a usable interpreter is on PATH. Returns 0/1.
+    PY_BIN=""; PY_VER=""
+    local candidate v major minor
+    for candidate in python3.13 python3.12 python3.11 python3 python; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            v=$("$candidate" -c 'import sys; print("%d.%d"%sys.version_info[:2])' 2>/dev/null || echo "0.0")
+            major=${v%%.*}
+            minor=${v##*.}
+            if [ "$major" -ge 3 ] && [ "$minor" -ge 11 ]; then
+                PY_BIN="$candidate"
+                PY_VER="$v"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+bootstrap_python311() {
+    # Try every zero-friction path to get a Python ≥3.11 onto the machine.
+    # Order: system package manager → deadsnakes (old Ubuntu) → uv-managed
+    # Python (no root needed). Never ask the user to "go install Python".
+    say "No Python 3.11+ on PATH — bootstrapping one for you (zero friction)…"
+
+    # 1) Distro packages (root). Prefer 3.12, fall back to 3.11.
+    if [ -n "$PKG" ] && [ "$NO_DEPS" -eq 0 ]; then
+        case "$PKG" in
+            apt)
+                # Refresh indexes once so we see deadsnakes / backports.
+                if [ -n "$PKG_UPDATE" ]; then
+                    run "$PKG_UPDATE" || true
+                fi
+                # Try native packages first (Ubuntu 22.04+ / Debian 12+).
+                if run "$PKG_INSTALL python3.12 python3.12-venv python3.12-dev" 2>/dev/null \
+                    || run "$PKG_INSTALL python3.11 python3.11-venv python3.11-dev" 2>/dev/null; then
+                    find_python311 && return 0
+                fi
+                # Old Ubuntu (20.04 ships 3.8 only) → deadsnakes PPA.
+                if command -v add-apt-repository >/dev/null 2>&1 || [ -x /usr/bin/add-apt-repository ]; then
+                    warn "Distro Python is too old — adding deadsnakes PPA for 3.12…"
+                    run "sudo apt-get install -y software-properties-common" || true
+                    run "sudo add-apt-repository -y ppa:deadsnakes/ppa" || true
+                    run "sudo apt-get update" || true
+                    if run "sudo apt-get install -y python3.12 python3.12-venv python3.12-dev" 2>/dev/null \
+                        || run "sudo apt-get install -y python3.11 python3.11-venv python3.11-dev" 2>/dev/null; then
+                        find_python311 && return 0
+                    fi
+                fi
+                ;;
+            brew)
+                if run "brew install python@3.12" 2>/dev/null || run "brew install python@3.11" 2>/dev/null; then
+                    # Homebrew puts keg-only Pythons off PATH; force the cellar bin.
+                    for hb in \
+                        "$(brew --prefix python@3.12 2>/dev/null)/bin/python3.12" \
+                        "$(brew --prefix python@3.11 2>/dev/null)/bin/python3.11" \
+                        /opt/homebrew/bin/python3.12 /usr/local/bin/python3.12 \
+                        /opt/homebrew/bin/python3.11 /usr/local/bin/python3.11; do
+                        if [ -x "$hb" ]; then
+                            PY_BIN="$hb"
+                            PY_VER=$("$hb" -c 'import sys; print("%d.%d"%sys.version_info[:2])' 2>/dev/null || echo "3.12")
+                            return 0
+                        fi
+                    done
+                    find_python311 && return 0
+                fi
+                ;;
+            dnf)
+                if run "$PKG_INSTALL python3.12 python3.12-devel" 2>/dev/null \
+                    || run "$PKG_INSTALL python3.11 python3.11-devel" 2>/dev/null; then
+                    find_python311 && return 0
+                fi
+                ;;
+            pacman)
+                if run "$PKG_INSTALL python" 2>/dev/null; then
+                    find_python311 && return 0
+                fi
+                ;;
+            zypper)
+                if run "$PKG_INSTALL python312 python312-devel" 2>/dev/null \
+                    || run "$PKG_INSTALL python311 python311-devel" 2>/dev/null; then
+                    find_python311 && return 0
+                fi
+                ;;
+            pkg)
+                # Termux — `python` is usually already 3.11+.
+                if run "$PKG_INSTALL python" 2>/dev/null; then
+                    find_python311 && return 0
+                fi
+                ;;
+        esac
+    fi
+
+    # 2) uv-managed Python — no root, works on almost everything with curl.
+    #    uv downloads a standalone CPython into ~/.local/share/uv/python and
+    #    puts a shim we can call. Perfect for containers / no-sudo laptops.
+    say "Falling back to uv-managed CPython 3.12 (no root required)…"
+    if ! command -v uv >/dev/null 2>&1; then
+        # Official Astral installer — puts uv in ~/.local/bin or ~/.cargo/bin.
+        if command -v curl >/dev/null 2>&1; then
+            run "curl -LsSf https://astral.sh/uv/install.sh | sh" || true
+        elif command -v wget >/dev/null 2>&1; then
+            run "wget -qO- https://astral.sh/uv/install.sh | sh" || true
+        fi
+        # Make sure this shell can see the just-installed uv.
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    fi
+    if command -v uv >/dev/null 2>&1; then
+        run "uv python install 3.12" || run "uv python install 3.11" || true
+        # Resolve the path uv just installed.
+        UV_PY=$(uv python find 3.12 2>/dev/null || uv python find 3.11 2>/dev/null || true)
+        if [ -n "$UV_PY" ] && [ -x "$UV_PY" ]; then
+            # Reject pure managed installs only if we'd then pip --user into a
+            # Scripts dir nobody has on PATH. On Linux/macOS uv's python is fine
+            # for `python -m pip install --user` because the user-site lands in
+            # ~/.local which we already PATH-warn about below.
+            PY_BIN="$UV_PY"
+            PY_VER=$("$UV_PY" -c 'import sys; print("%d.%d"%sys.version_info[:2])' 2>/dev/null || echo "3.12")
+            ok "Bootstrapped Python $PY_VER via uv → $PY_BIN"
+            return 0
         fi
     fi
-done
 
-if [ -z "$PY_BIN" ]; then
-    err "No Python 3.11+ found on PATH."
-    case "$PKG" in
-        apt)    say "  Install with: sudo apt install python3.11 python3.11-venv python3.11-dev" ;;
-        brew)   say "  Install with: brew install python@3.12" ;;
-        pkg)    say "  Install with: pkg install python" ;;
-        dnf)    say "  Install with: sudo dnf install python3.12 python3.12-devel" ;;
-        pacman) say "  Install with: sudo pacman -S python" ;;
-    esac
+    return 1
+}
+
+PY_BIN=""
+PY_VER=""
+if ! find_python311; then
     # Bonus diagnostic — Python might actually BE installed but missing from
     # PATH. That's the #1 fresh-WSL / fresh-Windows pain point. Try the
-    # well-known interpreter locations and tell the user where it lives.
+    # well-known interpreter locations before we bootstrap a new one.
     HINT=""
     for guess in /usr/local/bin/python3 /opt/python*/bin/python3 \
                  "$HOME/.pyenv/shims/python3" \
@@ -204,18 +312,36 @@ if [ -z "$PY_BIN" ]; then
                  "/c/Program Files/Python312/python.exe" \
                  "/c/Program Files/Python311/python.exe" ; do
         if [ -x "$guess" ]; then
-            HINT="$guess"
-            break
+            v=$("$guess" -c 'import sys; print("%d.%d"%sys.version_info[:2])' 2>/dev/null || echo "0.0")
+            major=${v%%.*}; minor=${v##*.}
+            if [ "$major" -ge 3 ] && [ "$minor" -ge 11 ]; then
+                HINT="$guess"
+                break
+            fi
         fi
     done
     if [ -n "$HINT" ]; then
         echo
-        warn "Found a Python at: $HINT"
-        warn "It's installed but not on PATH. Add this line to ~/.bashrc / ~/.zshrc:"
+        warn "Found a usable Python at: $HINT (not on PATH)"
+        # Use it directly this run — don't force the user to edit shell rc.
+        PY_BIN="$HINT"
+        PY_VER=$("$HINT" -c 'import sys; print("%d.%d"%sys.version_info[:2])' 2>/dev/null || echo "3.11")
+        warn "Using it for this install. To keep it permanent, add to ~/.bashrc:"
         echo "    export PATH=\"$(dirname "$HINT"):\$PATH\""
-        echo "Then open a new shell and re-run me."
+    elif ! bootstrap_python311; then
+        err "Could not find or install Python 3.11+ automatically."
+        err "Dulus needs Python ≥3.11 (stock Ubuntu 20.04/22.04 is too old — that's why plain"
+        err "\`pip install dulus\` prints 'No matching distribution found')."
+        case "$PKG" in
+            apt)    say "  Manual: sudo apt install python3.12 python3.12-venv python3.12-dev" ;;
+            brew)   say "  Manual: brew install python@3.12" ;;
+            pkg)    say "  Manual: pkg install python" ;;
+            dnf)    say "  Manual: sudo dnf install python3.12 python3.12-devel" ;;
+            pacman) say "  Manual: sudo pacman -S python" ;;
+            *)      say "  Manual: https://www.python.org/downloads/" ;;
+        esac
+        exit 1
     fi
-    exit 1
 fi
 printf "  %sPython:%s %s (%s)\n" "${BOLD}" "${RESET}" "$PY_BIN" "$PY_VER"
 

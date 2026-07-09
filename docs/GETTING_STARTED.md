@@ -16,7 +16,45 @@
 
 ## Installation
 
-### Option A: pip (Fastest)
+### Option A: One-liner Installer (Recommended — zero friction)
+
+**Linux / macOS / WSL / Termux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
+```
+
+The installer finds **or bootstraps** Python ≥3.11 (apt / deadsnakes / brew / uv), installs Dulus, and puts `dulus` on your PATH. This is the path that works on stock Ubuntu 20.04/22.04 where plain `pip install dulus` dies with `No matching distribution found` (pip hides packages that need a newer Python).
+
+Profiles:
+
+- **`full`** — Everything: voice (Whisper + PortAudio), browser tools (Playwright), MemPalace, tmux, WSL audio bridge (~1.5 GB)
+- **`standard`** — REPL + webchat + tmux daemon + Telegram bridge (~300 MB)
+- **`basic`** — Bare `pip install dulus` for servers / minimal sandboxes (~150 MB)
+- **`custom`** — Toggle each feature one by one
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex
+```
+
+(Or skip Python entirely with the MSI — see README.)
+
+Power-user flags:
+
+```bash
+# Preview without changing anything
+curl -fsSL .../install.sh | bash -s -- --dry-run
+
+# Non-interactive install (CI / scripts)
+curl -fsSL .../install.sh | bash -s -- --profile=full --pipx
+
+# Latest pre-release
+curl -fsSL .../install.sh | bash -s -- --pre
+```
+
+### Option B: pip (only if you already have Python 3.11+)
 
 ```bash
 pip install dulus
@@ -31,39 +69,7 @@ pip install "dulus[webbridge]"  # + Playwright browser automation
 pip install "dulus[full]"       # Everything
 ```
 
-### Option B: One-liner Installer (Recommended)
-
-**Linux / macOS / WSL / Termux:**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
-```
-
-The installer detects your OS, package manager, and Python version, then offers profiles:
-
-- **`full`** — Everything: voice (Whisper + PortAudio), browser tools (Playwright), MemPalace, tmux, WSL audio bridge (~1.5 GB)
-- **`standard`** — REPL + webchat + tmux daemon + Telegram bridge (~300 MB)
-- **`basic`** — Bare `pip install dulus` for servers / minimal sandboxes (~150 MB)
-- **`custom`** — Toggle each feature one by one
-
-**Windows (PowerShell):**
-
-```powershell
-irm https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex
-```
-
-Power-user flags:
-
-```bash
-# Preview without changing anything
-curl -fsSL .../install.sh | bash -s -- --dry-run
-
-# Non-interactive install (CI / scripts)
-curl -fsSL .../install.sh | bash -s -- --profile=full --pipx
-
-# Latest pre-release
-curl -fsSL .../install.sh | bash -s -- --pre
-```
+> If pip says `No matching distribution found for dulus`, your Python is &lt; 3.11. Use Option A — the installer upgrades Python for you.
 
 ### Option C: Docker (Zero Local Python)
 
@@ -329,6 +335,16 @@ These are encrypted with XOR + base64 before saving to disk.
 ---
 
 ## Troubleshooting
+
+### "No matching distribution found for dulus"
+
+Your Python is older than 3.11 (common on stock Ubuntu 20.04/22.04). pip hides packages that require a newer interpreter and prints that useless error instead of telling you the truth.
+
+**Fix (zero friction):** use the one-liner — it bootstraps Python 3.11+ for you:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
+```
 
 ### "No module named 'tkinter'"
 

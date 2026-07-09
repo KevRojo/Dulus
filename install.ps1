@@ -147,19 +147,8 @@ foreach ($cand in @('py','python3.13','python3.12','python3.11','python')) {
 }
 
 if (-not $pyBin) {
-    Err "No Python 3.11+ found on PATH."
-    if ($pkgMgr -eq 'winget') {
-        Say "  Install with: winget install -e --id Python.Python.3.13"
-    } elseif ($pkgMgr -eq 'scoop') {
-        Say "  Install with: scoop install python"
-    } elseif ($pkgMgr -eq 'choco') {
-        Say "  Install with: choco install -y python313"
-    } else {
-        Say "  Download from https://www.python.org/downloads/"
-    }
     # #1 fresh-Windows pain point: Python IS installed, just not in PATH.
-    # Probe the well-known install locations and tell the user where it
-    # actually lives + how to add it.
+    # Probe well-known locations and USE it this run (zero friction).
     $guesses = @(
         "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe",
         "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
@@ -173,18 +162,89 @@ if (-not $pyBin) {
     $hint = $guesses | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($hint) {
         Write-Host ""
-        Warn "Found a Python at: $hint"
-        Warn "It's installed but not on PATH. Add the directory to your PATH:"
-        Write-Host ""
-        Write-Host "  PowerShell (permanent, per-user):" -ForegroundColor Cyan
-        Write-Host "    [Environment]::SetEnvironmentVariable('Path', `$env:Path + ';$(Split-Path $hint)', 'User')" -ForegroundColor White
-        Write-Host ""
-        Write-Host "  Or temporarily for this shell:" -ForegroundColor Cyan
-        Write-Host "    `$env:Path += ';$(Split-Path $hint)'" -ForegroundColor White
-        Write-Host ""
-        Write-Host "Then open a NEW PowerShell window and re-run me."
+        Warn "Found a usable Python at: $hint (not on PATH) — using it for this install."
+        $pyBin = $hint
+        try {
+            $pyVer = (& $hint -c $probeScript 2>$null | Out-String).Trim()
+        } catch { $pyVer = '3.x' }
+        # Make this shell + future user shells see it.
+        $hintDir = Split-Path $hint
+        $env:Path = "$hintDir;$env:Path"
+        try {
+            $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+            if ($userPath -notlike "*$hintDir*") {
+                [Environment]::SetEnvironmentVariable('Path', "$userPath;$hintDir", 'User')
+                OK "Added $hintDir to your user PATH permanently."
+            }
+        } catch {
+            Warn "Could not persist PATH — open a new shell after install if 'dulus' is missing."
+        }
+    } else {
+        # Zero friction: bootstrap Python ourselves instead of dumping a manual
+        # install command and exiting. winget/scoop/choco → official installer.
+        Say "No Python 3.11+ found — bootstrapping one for you (zero friction)..."
+        $bootstrapped = $false
+        if (-not $NoDeps -and $pkgMgr) {
+            switch ($pkgMgr) {
+                'winget' {
+                    Invoke-Step "winget install -e --id Python.Python.3.12 --accept-source-agreements --accept-package-agreements --silent"
+                    $bootstrapped = $true
+                }
+                'scoop' {
+                    Invoke-Step "scoop install python"
+                    $bootstrapped = $true
+                }
+                'choco' {
+                    Invoke-Step "choco install -y python312"
+                    $bootstrapped = $true
+                }
+            }
+        }
+        if ($bootstrapped -and -not $DryRun) {
+            # Refresh PATH from Machine+User so the new python is visible.
+            $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
+                        [System.Environment]::GetEnvironmentVariable('Path','User')
+            foreach ($cand in @('py','python3.12','python3.11','python')) {
+                if (Get-Command $cand -ErrorAction SilentlyContinue) {
+                    try {
+                        if ($cand -eq 'py') { $v = & $cand -3 -c $probeScript 2>$null }
+                        else { $v = & $cand -c $probeScript 2>$null }
+                        if ($v -and $v -match '^(\d+)\.(\d+)') {
+                            if ([int]$Matches[1] -eq 3 -and [int]$Matches[2] -ge 11) {
+                                $pyBin = $cand
+                                $pyVer = ($v | Out-String).Trim()
+                                break
+                            }
+                        }
+                    } catch { }
+                }
+            }
+            # Also re-probe well-known paths (winget sometimes doesn't refresh PATH).
+            if (-not $pyBin) {
+                $hint2 = $guesses | Where-Object { Test-Path $_ } | Select-Object -First 1
+                if ($hint2) {
+                    $pyBin = $hint2
+                    $pyVer = (& $hint2 -c $probeScript 2>$null | Out-String).Trim()
+                    $env:Path = "$(Split-Path $hint2);$env:Path"
+                }
+            }
+        }
+        if (-not $pyBin) {
+            Err "Could not find or install Python 3.11+ automatically."
+            Err "Dulus needs Python >=3.11. That's why plain 'pip install dulus' can print"
+            Err "'No matching distribution found' on older Pythons."
+            if ($pkgMgr -eq 'winget') {
+                Say "  Manual: winget install -e --id Python.Python.3.12"
+            } elseif ($pkgMgr -eq 'scoop') {
+                Say "  Manual: scoop install python"
+            } elseif ($pkgMgr -eq 'choco') {
+                Say "  Manual: choco install -y python312"
+            } else {
+                Say "  Manual: https://www.python.org/downloads/  (check 'Add to PATH')"
+            }
+            exit 1
+        }
     }
-    exit 1
 }
 Write-Host "  Python:    " -NoNewline; Write-Host "$pyBin ($pyVer)" -ForegroundColor White
 
