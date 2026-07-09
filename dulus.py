@@ -273,6 +273,20 @@ except ImportError:
     _RICH = False
     console = None
 
+# ── Corporate TLS interception fix (Cloudflare Zero Trust/WARP, Zscaler, …) ──
+# Behind a TLS-inspecting proxy every HTTPS connection is re-signed by the
+# company's CA. The OS trusts it, but Python's certifi bundle does NOT →
+# requests/urllib3/sentry-sdk all die with CERTIFICATE_VERIFY_FAILED while the
+# browser works fine. truststore makes Python use the OS trust store instead.
+# Zero effect on machines without an interceptor. Opt out: DULUS_NO_TRUSTSTORE=1.
+try:
+    import os as _ts_os
+    if not _ts_os.getenv("DULUS_NO_TRUSTSTORE"):
+        import truststore as _truststore
+        _truststore.inject_into_ssl()
+except Exception:
+    pass  # truststore not installed or injection failed — proceed with certifi
+
 # ── Sentry error tracking (optional — graceful degradation if not installed) ─
 # Off-switch for demos/privacy: set DULUS_NO_SENTRY=1 (or SENTRY_DSN="") to skip.
 try:

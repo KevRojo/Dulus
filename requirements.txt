@@ -44,6 +44,7 @@ Pillow>=10.0.0
 
 # ── Error tracking ────────────────────────────────────────────────────────
 sentry-sdk>=2.0.0
+truststore>=0.9  # OS trust store fix for corporate TLS interception (Zero Trust/Zscaler)
 
 # ── OCR (local image text extraction) ────────────────────────────────────
 pytesseract>=0.3.10
