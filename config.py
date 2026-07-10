@@ -21,7 +21,17 @@ DEFAULTS = {
     "verbose":          False,
     "thinking":         False,
     "git_status":       False,
-    "thinking_budget":  50000,
+    # 0 = auto: scale budget with /thinking level (low=2048, med=6000,
+    # high=16000, on=8192). A non-zero value here overrides ALL levels —
+    # the old default of 50000 silently let every thinking turn burn up
+    # to 50K output tokens regardless of level.
+    "thinking_budget":  0,
+    # Anthropic prompt-cache TTL. "1h" = cache survives think-pauses between
+    # turns (the default 5-min ephemeral cache dies if you pause >5 min,
+    # forcing a full prefix re-write at 1.25x price every time). 1h costs 2x
+    # once on write, then ~0.1x on every hit — massively cheaper for
+    # interactive sessions.
+    "cache_ttl":        "1h",
     "custom_base_url":  "",       # for "custom" provider
     "max_tool_output":  2500,
     "max_agent_depth":  3,
