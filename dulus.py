@@ -71,6 +71,11 @@ Slash commands in REPL:
   /skill use <name> Inject skill into next message  /skill remove <name>  Uninstall
   /agents           Show sub-agent tasks
   /mcp              List MCP servers and their tools
+  /mcp list [query] Browse the catalog of 2000+ MCP servers
+  /mcp search <q>   Search every source for matching servers
+  /mcp install <n>  Install a server by name (auto-connects)
+  /mcp installed    Show installed servers + live status
+  /mcp runtimes     Show available runtimes (node/python/docker)
   /mcp reload       Reconnect all MCP servers
   /mcp add <n> <cmd> [args]  Add a stdio MCP server
   /mcp remove <n>   Remove an MCP server from config
@@ -838,6 +843,7 @@ _HELP_PAGES = [
         ("/cwd [path]",  "Show or change working directory"),
         ("/copy [file]", "Copy last response (or file) to clipboard"),
         ("/shell [cmd|on|off]", "Shell mode toggle or one-shot command"),
+        ("/update [now|on|off]", "Self-update Dulus from PyPI (auto-check at startup)"),
         ("/exit /quit",  "Exit Dulus"),
     ]),
     ("Session", [
@@ -877,7 +883,10 @@ _HELP_PAGES = [
         ("/plugin recommend [ctx]", "Recommend plugins for a context"),
         ("/agents",                 "Show sub-agent tasks"),
         ("/mcp",                    "List MCP servers and tools"),
-        ("/mcp reload | add | remove","Manage MCP servers"),
+        ("/mcp list | search <q>",  "Browse/search 2000+ MCP servers"),
+        ("/mcp install <name>",     "Install a server by name (auto-connects)"),
+        ("/mcp installed | runtimes","Show installed servers / available runtimes"),
+        ("/mcp reload | add | remove","Manage MCP servers manually"),
         ("/tasks",                  "List/create/update tasks"),
     ]),
     ("Voice · Wake", [
@@ -9952,7 +9961,9 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "profiles":    ("Manage agent Profiles (alias)",      ["list", "show", "create", "switch", "delete", "inherit"]),
     "memory":      ("Manage persistent memories",          ["list", "load", "permanent", "unbind", "consolidate", "delete", "purge", "purge-soul"]),
     "agents":      ("Show background agents",             []),
-    "mcp":         ("Manage MCP servers",                 ["reload", "add", "remove"]),
+    "mcp":         ("Browse & install MCP servers",       ["list", "search", "install",
+                                                           "installed", "runtimes", "reload",
+                                                           "add", "remove"]),
     "plugin":      ("Manage plugins",                     ["install", "uninstall", "enable",
                                                            "disable", "disable-all", "update",
                                                            "recommend", "info"]),
@@ -10002,6 +10013,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "exit":        ("Exit dulus",              []),
     "quit":        ("Exit (alias for /exit)",             []),
     "resume":      ("Resume last session",                []),
+    "update":      ("Self-update Dulus from PyPI",        ["now", "check", "status", "on", "off"]),
     "news":        ("Show latest project news",           []),
     "claude_chats": ("List Claude.ai conversations",       ["all"]),
     "gemini_chats": ("Manage Gemini Web conversations",    ["new"]),
