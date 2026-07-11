@@ -730,50 +730,54 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
                     return True
                 return provider.lower() == name.lower()
 
-            # 1. pyttsx3 — local, offline, instant (robotic SAPI5 voice)
-            if _should_try("pyttsx3") and _say_pyttsx3(text):
-                return
-            if _stop_event.is_set():
-                return
+            # Premium voices with a configured key go FIRST in auto mode —
+            # otherwise pyttsx3 (robotic SAPI5) always "succeeds" and the
+            # good voices never get a chance to speak.
 
-            # 2. edge-tts — Microsoft Edge voices (fast & free, needs internet)
-            if _should_try("edge") and _say_edge_tts(text, lang=lang):
-                return
-            if _stop_event.is_set():
-                return
-
-            # 3. gTTS — cloud Spanish
-            if _should_try("gtts") and _say_gtts(text, lang=lang):
-                return
-            if _stop_event.is_set():
-                return
-
-            # 4. ElevenLabs (premium voice cloning, needs API key)
-            if _should_try("elevenlabs") and _say_elevenlabs(text, voice=voice):
-                return
-            if _stop_event.is_set():
-                return
-
-            # 5. Deepgram Aura-2 (natural, rápido, $200 credit — needs API key)
+            # 1. Deepgram Aura-2 (natural, fast, $200 free credit — needs API key)
             if _should_try("deepgram") and _say_deepgram(text, voice=voice, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 6. OpenAI (high quality, needs key)
+            # 2. ElevenLabs (premium voice cloning, needs API key)
+            if _should_try("elevenlabs") and _say_elevenlabs(text, voice=voice):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 3. edge-tts — Microsoft Edge voices (fast & free, needs internet)
+            if _should_try("edge") and _say_edge_tts(text, lang=lang):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 4. gTTS — cloud Spanish
+            if _should_try("gtts") and _say_gtts(text, lang=lang):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 5. OpenAI (high quality, needs key)
             if _should_try("openai") and _say_openai(text, voice=(voice or "alloy"), speed=speed):
                 return
             if _stop_event.is_set():
                 return
 
-            # 5. Azure Speech Services
+            # 6. Azure Speech Services
             if _should_try("azure") and _say_azure(text, voice=voice, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 6. NVIDIA Riva (Magpie-Multilingual, cloud)
+            # 7. NVIDIA Riva (Magpie-Multilingual, cloud)
             if _should_try("riva") and _say_nvidia_riva(text, lang=lang):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 8. pyttsx3 — local, offline, LAST RESORT (robotic SAPI5 voice)
+            if _should_try("pyttsx3") and _say_pyttsx3(text):
                 return
 
             # Final fallback — we intentionally do NOT print the spoken text
@@ -785,6 +789,9 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
 
 def check_tts_availability() -> tuple[bool, str | None]:
     """Return (available, reason_if_not)."""
+    if _deepgram_tts_available():
+        return True, "Deepgram Aura-2 (cloud, natural voices)"
+
     try:
         import pyttsx3
         return True, "pyttsx3 (local, offline)"
