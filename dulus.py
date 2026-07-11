@@ -82,6 +82,10 @@ Slash commands in REPL:
   /plugin enable/disable name  Toggle plugin
   /plugin update name        Update a plugin
   /plugin recommend [ctx]    Recommend plugins for context
+  /update           Check PyPI and update Dulus if a newer version exists
+  /update now       Force update to the latest release
+  /update on|off    Toggle the automatic update check at startup (default: on)
+  /update status    Show installed version, latest, and auto-check setting
   /tasks            List all tasks
   /tasks create <subject>    Quick-create a task
   /tasks start/done/cancel <id>  Update task status
@@ -8486,6 +8490,89 @@ def cmd_profile(args: str, state, config) -> bool:
     return True
 
 
+def cmd_update(args: str, state, config) -> bool:
+    """Self-update Dulus from PyPI — keep every node on the latest release.
+
+    /update            — check PyPI and update now if a newer version exists
+    /update now        — force an update to the latest release
+    /update check      — just check, don't install
+    /update on         — enable the automatic startup check (default)
+    /update off        — disable the automatic startup check
+    /update status     — show current version, latest, and the auto-check setting
+    """
+    try:
+        import updater
+    except Exception as e:
+        err(f"Updater unavailable: {e}")
+        return True
+
+    sub = (args or "").strip().lower()
+
+    # Toggle the automatic startup check
+    if sub in ("on", "enable"):
+        config["auto_update"] = True
+        try:
+            from config import save_config
+            save_config(config)
+        except Exception:
+            pass
+        ok("Automatic update check enabled — Dulus will check PyPI at startup.")
+        return True
+    if sub in ("off", "disable"):
+        config["auto_update"] = False
+        try:
+            from config import save_config
+            save_config(config)
+        except Exception:
+            pass
+        info("Automatic update check disabled. Run /update anytime to check manually.")
+        return True
+
+    if sub == "status":
+        current = updater.get_installed_version()
+        latest = updater.get_latest_version() or "(unreachable)"
+        auto = config.get("auto_update", True)
+        info(f"Installed: {current}")
+        info(f"Latest on PyPI: {latest}")
+        info(f"Auto-check at startup: {'ON' if auto else 'OFF'}")
+        return True
+
+    if sub == "check":
+        available, current, latest = updater.is_update_available()
+        if not latest:
+            info(f"Couldn't reach PyPI. Installed: {current}")
+        elif available:
+            ok(f"Update available: {current} -> {latest}.  Run /update now")
+        else:
+            ok(f"You're on the latest Dulus ({current}). 🦅")
+        return True
+
+    # Default (no arg) and "now" → check + install if newer
+    available, current, latest = updater.is_update_available()
+    if sub != "now":
+        if not latest:
+            info(f"Couldn't reach PyPI. Installed: {current}")
+            return True
+        if not available:
+            ok(f"You're already on the latest Dulus ({current}). 🦅")
+            return True
+        info(f"Updating {current} -> {latest} ...")
+
+    # Perform the upgrade (force for "now", or when an update is available)
+    target = latest if latest else None
+    if sub == "now" and not available and latest and current == latest:
+        ok(f"Already on {current}. Nothing to do.")
+        return True
+    print("  ⏳ Running pip install --upgrade dulus ...")
+    success, message = updater.perform_update(target if available else None)
+    if success:
+        ok(message)
+        info("Restart Dulus to run the new version.")
+    else:
+        err(message)
+    return True
+
+
 def cmd_news(args: str, state, config) -> bool:
     """Show the latest news from docs/news.md."""
     news_file = Path(__file__).parent / "docs" / "news.md"
@@ -9784,6 +9871,9 @@ COMMANDS = {
     "exit":        cmd_exit,
     "quit":        cmd_exit,
     "resume":      cmd_resume,
+    "update":      cmd_update,
+    "upgrade":     cmd_update,
+    "selfupdate":  cmd_update,
     "news":        cmd_news,
     "batch":       cmd_batch,
     "claude_batch": cmd_claude_batch,
@@ -10351,6 +10441,34 @@ def repl(config: dict, initial_prompt: str = None):
                 _save_cfg(config)
             except Exception:
                 pass
+
+        # ── Auto-update check (on by default; /update off to disable) ─────────
+        # Keep every Dulus in the world on the latest release: the organism
+        # heals fastest when fixes propagate instantly. This is intentionally
+        # quiet & fast — cached PyPI check (6h TTL), short timeout, never blocks
+        # or crashes the boot. Set auto_update=False (or /update off) to skip.
+        if config.get("auto_update", True):
+            try:
+                import updater as _updater
+                _avail, _cur, _latest = _updater.is_update_available()
+                if _avail:
+                    print()
+                    info(f"  🆕 A new Dulus is available: {_cur} → {_latest}")
+                    if config.get("auto_update_install", True):
+                        # Kevin's call: force the update at startup so we keep
+                        # the whole fleet in sync. Set auto_update_install=False
+                        # to only notify instead of installing.
+                        print("  ⏳ Updating automatically...")
+                        _ok, _msg = _updater.perform_update(_latest)
+                        if _ok:
+                            ok(f"  {_msg}  Restart to run {_latest}.")
+                        else:
+                            info(f"  Auto-update skipped: {_msg}")
+                            info("  Run /update now to try manually.")
+                    else:
+                        info("  Run /update now to upgrade.")
+            except Exception:
+                pass  # never let the update check break the boot
 
         # First-run /harvest — wizard sets `pending_first_run_harvest` to
         # the provider name the user picked (claude / kimi / gemini / qwen /
