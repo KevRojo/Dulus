@@ -2447,6 +2447,25 @@ def cmd_lang(args: str, state, config) -> bool:
     except Exception:
         pass
     resolved = _resolve_reply_language(config)
+    # Inject an immediate, high-recency override into the live conversation so
+    # the switch takes effect THIS turn and beats the already-loaded soul /
+    # gold memories (which assert a fixed voice). Without this, /lang only
+    # "won" on the next system-prompt rebuild and the soul kept pinning the
+    # old language — which is exactly why it looked broken.
+    try:
+        if state is not None and hasattr(state, "messages"):
+            state.messages.append({
+                "role": "user",
+                "content": (
+                    f"[SYSTEM DIRECTIVE — LANGUAGE OVERRIDE] From now on, reply to me "
+                    f"exclusively in {resolved}. This takes priority over any language "
+                    f"stated in your soul, identity essence, or golden memories. Keep "
+                    f"your personality and tone intact, but switch the OUTPUT LANGUAGE "
+                    f"to {resolved} starting with your very next message, every turn."
+                ),
+            })
+    except Exception:
+        pass
     ok(f"Reply language → {resolved}")
     if resolved == arg and arg.lower() not in _LANG_NAMES:
         info("(Free-form descriptor — passed verbatim to the model)")

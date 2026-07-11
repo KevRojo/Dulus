@@ -356,5 +356,26 @@ def build_system_prompt(config: dict | None = None) -> str:
     if project_mem:
         prompt += project_mem
 
+    # ── Reply-language HARD OVERRIDE ──────────────────────────────────────────
+    # The soul (soul.md) and gold memories are injected as conversation messages
+    # and often assert a fixed voice ("I speak Dominican Spanish"). Those pin the
+    # language and quietly beat the single line at the top of the prompt, so
+    # /lang appeared to "not work". We re-assert the chosen language HERE, at the
+    # very end of the system prompt (highest authority / most recent), but only
+    # when the user has explicitly set config["lang"] to something other than the
+    # Dominican-Spanish default — otherwise the soul stays in charge.
+    if config:
+        raw_lang = (config.get("lang", "") or "").strip()
+        if raw_lang:
+            resolved = _resolve_reply_language(config)
+            if resolved and resolved != "Dominican Spanish":
+                prompt += (
+                    f"\n\n# ⚠ LANGUAGE OVERRIDE (set via /lang — HIGHEST PRIORITY): "
+                    f"Reply to {user_name} in {resolved}. This OVERRIDES any language "
+                    f"stated in your soul, identity essence, or golden memories. "
+                    f"Keep your personality and tone, but the OUTPUT LANGUAGE must be "
+                    f"{resolved}, no exceptions, every single turn."
+                )
+
     return prompt
 
