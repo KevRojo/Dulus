@@ -239,7 +239,8 @@ Dulus is proudly supported by these startup programs — powering our infrastruc
   <a href="https://amplitude.com/startups"><img src="https://www.google.com/s2/favicons?domain=amplitude.com&sz=128" height="38" alt="Amplitude" title="Amplitude Startup Scholarship"></a>&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.digitalocean.com/hatch"><img src="https://cdn.simpleicons.org/digitalocean" height="38" alt="DigitalOcean" title="DigitalOcean Hatch"></a>&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.notion.com/startups"><img src="https://cdn.simpleicons.org/notion" height="38" alt="Notion" title="Notion for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.zendesk.com/campaign/startups/"><img src="https://cdn.simpleicons.org/zendesk" height="38" alt="Zendesk" title="Zendesk for Startups"></a>
+  <a href="https://www.zendesk.com/campaign/startups/"><img src="https://cdn.simpleicons.org/zendesk" height="38" alt="Zendesk" title="Zendesk for Startups"></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://deepgram.com/startups"><img src="https://www.google.com/s2/favicons?domain=deepgram.com&sz=128" height="38" alt="Deepgram" title="Deepgram Startup Program — powering Dulus's voice"></a>
 </p>
 
 <p align="center"><i>Want to support Dulus? → <a href="https://github.com/sponsors/KevRojo">GitHub Sponsors</a> 🦅</i></p>
