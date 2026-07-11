@@ -2743,7 +2743,7 @@ def cmd_harvest(_args: str, _state, config) -> bool:
     except ImportError:
         import os
         info("Installing playwright...")
-        os.system("pip install playwright")
+        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 
@@ -2888,7 +2888,7 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
         from playwright.sync_api import sync_playwright
     except ImportError:
         info("Installing playwright...")
-        os.system("pip install playwright")
+        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 
@@ -2999,7 +2999,7 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
         from playwright.sync_api import sync_playwright
     except ImportError:
         info("Installing playwright...")
-        os.system("pip install playwright")
+        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 
@@ -3169,7 +3169,7 @@ def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
         from playwright.sync_api import sync_playwright
     except ImportError:
         info("Installing playwright...")
-        os.system("pip install playwright")
+        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 
@@ -3317,7 +3317,7 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
         from playwright.sync_api import sync_playwright
     except ImportError:
         info("Installing playwright...")
-        os.system("pip install playwright")
+        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
         os.system("playwright install chromium")
         from playwright.sync_api import sync_playwright
 

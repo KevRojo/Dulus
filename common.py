@@ -1,5 +1,6 @@
 import sys
 import json
+from pathlib import Path
 
 # ── Import slash completer helpers ──
 try:
@@ -130,6 +131,26 @@ def info(msg: str):   print(clr(msg, "cyan"))
 def ok(msg: str):     print(clr(msg, "green"))
 def warn(msg: str):   print(clr(f"Warning: {msg}", "yellow"))
 def err(msg: str):    print(clr(f"Error: {msg}", "red"), file=sys.stderr)
+
+def pip_install_cmd(*packages: str) -> list[str]:
+    """Build a pip-install command that works on externally-managed Pythons.
+
+    Debian 12+ / Ubuntu 23.04+ mark the system Python as externally managed
+    (PEP 668): any bare `pip install` dies with `externally-managed-environment`
+    unless `--break-system-packages` is passed. That flag only exists on
+    pip >= 23, so we add it exactly when the marker file is present (which
+    implies a modern pip) instead of always.
+    """
+    import sysconfig
+    cmd = [sys.executable, "-m", "pip", "install"]
+    try:
+        marker = Path(sysconfig.get_path("stdlib")) / "EXTERNALLY-MANAGED"
+        if marker.exists():
+            cmd.append("--break-system-packages")
+    except Exception:
+        pass
+    return cmd + list(packages)
+
 
 def stream_thinking(chunk: str, verbose: bool):
     if verbose:
