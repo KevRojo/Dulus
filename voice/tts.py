@@ -33,16 +33,45 @@ _stop_event = threading.Event()
 _say_lock = threading.Lock()
 
 def _watch_for_cancel() -> None:
-    """Background thread: set _stop_event if user presses 'c'."""
+    """Background thread: set _stop_event if user presses 'c'.
+
+    Two detection paths, because one alone is unreliable:
+      1. msvcrt.kbhit() — only sees keys when the raw console owns stdin.
+         When prompt_toolkit (the fancy REPL input) is active, IT consumes
+         the keystroke first and msvcrt never sees the 'c' — which is why
+         cancel "sometimes didn't work" and you had to wait out the audio.
+      2. GetAsyncKeyState(VK 'C') — reads the PHYSICAL key state straight
+         from the OS, regardless of who owns stdin. Edge-detected (up→down)
+         so a held key doesn't retrigger.
+    Also sleeps 30ms per iteration — the old loop busy-spun at 100% CPU.
+    """
     try:
         import msvcrt
+        try:
+            import ctypes
+            _user32 = ctypes.windll.user32
+        except Exception:
+            _user32 = None
+        VK_C = 0x43
+        was_down = bool(_user32 and (_user32.GetAsyncKeyState(VK_C) & 0x8000))
         while not _stop_event.is_set():
+            # Path 1: classic console read (works when no prompt is active).
             if msvcrt.kbhit():
                 ch = msvcrt.getwch()
                 if ch.lower() == 'c':
                     _stop_event.set()
                     print("\n  ⏹  TTS stopped.", flush=True)
                     return
+            # Path 2: physical key state — catches the press even when
+            # prompt_toolkit swallowed the stdin byte.
+            if _user32 is not None:
+                is_down = bool(_user32.GetAsyncKeyState(VK_C) & 0x8000)
+                if is_down and not was_down:
+                    _stop_event.set()
+                    print("\n  ⏹  TTS stopped.", flush=True)
+                    return
+                was_down = is_down
+            time.sleep(0.03)
     except Exception:
         pass
 
