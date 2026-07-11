@@ -565,7 +565,7 @@ def _setup_litellm(config: dict, default_model: str) -> None:
             spinner = BirdSpinner("Installing LiteLLM...")
             spinner.start()
             r = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-U", "litellm"],
+                __import__("common").pip_install_cmd("-U", "litellm"),
                 capture_output=True,
                 text=True,
             )

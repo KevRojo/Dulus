@@ -253,7 +253,8 @@ def _install_dependencies(deps: list[str], cwd: Path | None = None) -> tuple[boo
         else:
             final_args.append(d)
 
-    cmd = [sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages"] + final_args
+    from common import pip_install_cmd
+    cmd = pip_install_cmd("--quiet", *final_args)
     from common import info
     info(f"    Running: {' '.join(cmd)}")
 
