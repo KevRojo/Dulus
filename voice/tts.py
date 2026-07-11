@@ -622,6 +622,82 @@ def _say_elevenlabs(text: str, voice: Optional[str] = None) -> bool:
                     time.sleep(0.2)
 
 
+# ── Deepgram Aura-2 TTS ───────────────────────────────────────────────────
+
+_DEEPGRAM_TTS_VOICES = {
+    "es": "aura-2-celeste-es",   # español latino, cálida
+    "en": "aura-2-thalia-en",    # inglés, clara y natural
+}
+
+
+def _deepgram_tts_available() -> bool:
+    """True iff a Deepgram API key is configured (env first, config second)."""
+    if os.environ.get("DEEPGRAM_API_KEY"):
+        return True
+    try:
+        from config import load_config
+        return bool(load_config().get("deepgram_api_key", ""))
+    except Exception:
+        return False
+
+
+def _say_deepgram(text: str, voice: Optional[str] = None, lang: str = "es") -> bool:
+    """Synthesize via Deepgram Aura-2 and play the MP3. No SDK needed.
+
+    Voice resolution: explicit arg > env var (per-lang, then global) >
+    config > language default. Returns True on successful playback.
+    """
+    if not _deepgram_tts_available():
+        return False
+    key = os.environ.get("DEEPGRAM_API_KEY", "")
+    if not key:
+        try:
+            from config import load_config
+            key = load_config().get("deepgram_api_key", "")
+        except Exception:
+            pass
+    if not key:
+        return False
+
+    lang2 = (lang or "es")[:2].lower()
+    model = (voice
+             or os.environ.get(f"DULUS_DEEPGRAM_TTS_VOICE_{lang2.upper()}", "")
+             or os.environ.get("DULUS_DEEPGRAM_TTS_VOICE", "")
+             or _DEEPGRAM_TTS_VOICES.get(lang2, _DEEPGRAM_TTS_VOICES["en"]))
+
+    tmp_path: Optional[str] = None
+    try:
+        import json as _json
+        import urllib.parse
+        import urllib.request
+
+        url = f"https://api.deepgram.com/v1/speak?{urllib.parse.urlencode({'model': model})}"
+        req = urllib.request.Request(
+            url, data=_json.dumps({"text": text[:2000]}).encode(),
+            headers={"Authorization": f"Token {key}",
+                     "Content-Type": "application/json"},
+            method="POST")
+        audio = urllib.request.urlopen(req, timeout=30).read()
+        if not audio:
+            return False
+        fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
+        with os.fdopen(fd, "wb") as f:
+            f.write(audio)
+        _play_audio_file(tmp_path)
+        return True
+    except Exception as e:
+        print(f"  [Deepgram TTS] Error: {e}")
+        return False
+    finally:
+        if tmp_path:
+            for _ in range(5):
+                try:
+                    os.unlink(tmp_path)
+                    break
+                except Exception:
+                    time.sleep(0.2)
+
+
 # ── Public Entry Point ────────────────────────────────────────────────────
 
 def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = "es", provider: Optional[str] = None) -> None:
@@ -629,7 +705,8 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
 
     Args:
         provider: Explicit backend to use. "auto" or None tries in priority order.
-                  Supported: "pyttsx3", "edge", "gtts", "openai", "azure", "riva".
+                  Supported: "pyttsx3", "edge", "gtts", "elevenlabs", "deepgram",
+                  "openai", "azure", "riva".
     """
     text = _clean_for_tts(text)
     if not text.strip():
@@ -677,7 +754,13 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
             if _stop_event.is_set():
                 return
 
-            # 5. OpenAI (high quality, needs key)
+            # 5. Deepgram Aura-2 (natural, rápido, $200 credit — needs API key)
+            if _should_try("deepgram") and _say_deepgram(text, voice=voice, lang=lang):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 6. OpenAI (high quality, needs key)
             if _should_try("openai") and _say_openai(text, voice=(voice or "alloy"), speed=speed):
                 return
             if _stop_event.is_set():

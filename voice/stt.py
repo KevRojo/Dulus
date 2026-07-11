@@ -1,24 +1,28 @@
 """Speech-to-text (STT) backends.
 
 Backend priority (tried in order):
-  1. NVIDIA Riva    — cloud, whisper-large-v3 via gRPC, needs NVIDIA_API_KEY.
-                       pip install nvidia-riva-client
+  1. Deepgram nova-3 — cloud, ~300ms, keyterm boosting, needs DEEPGRAM_API_KEY.
+                       No SDK required (plain HTTPS). Opt-out: DULUS_WAKE_FORCE_LOCAL.
   2. faster-whisper — local, offline, fast, best for coding vocab.
                        pip install faster-whisper
-  3. openai-whisper — local, offline, original OpenAI Whisper library.
+  3. NVIDIA Riva    — cloud, whisper-large-v3 via gRPC, needs NVIDIA_API_KEY.
+                       pip install nvidia-riva-client
+  4. openai-whisper — local, offline, original OpenAI Whisper library.
                        pip install openai-whisper
-  4. OpenAI Whisper API — cloud, needs OPENAI_API_KEY.
+  5. OpenAI Whisper API — cloud, needs OPENAI_API_KEY.
                           pip install openai  (already in requirements)
 
 All backends receive raw PCM (int16, 16 kHz, mono) and return a text string.
 Keyterms are passed as initial_prompt to local Whisper backends so that
 coding-domain vocabulary (grep, MCP, TypeScript, …) is recognised correctly.
+Deepgram nova-3 receives them as native `keyterm` boosting params.
 Riva does not accept initial_prompt; keyterms are ignored on that path.
 """
 
 from __future__ import annotations
 
 import io
+import json
 import os
 import struct
 import tempfile
@@ -362,6 +366,68 @@ def _transcribe_openai_api(
     return transcript.text.strip()
 
 
+# ── Deepgram (nova-3, cloud) ──────────────────────────────────────────────
+
+def _deepgram_available() -> bool:
+    """True iff a Deepgram API key is configured (env first, config second)."""
+    if os.environ.get("DEEPGRAM_API_KEY"):
+        return True
+    try:
+        from config import load_config
+        return bool(load_config().get("deepgram_api_key", ""))
+    except Exception:
+        return False
+
+
+def _deepgram_key() -> str:
+    key = os.environ.get("DEEPGRAM_API_KEY", "")
+    if not key:
+        try:
+            from config import load_config
+            key = load_config().get("deepgram_api_key", "")
+        except Exception:
+            pass
+    return key
+
+
+def _transcribe_deepgram(
+    pcm_bytes: bytes,
+    keyterms: Optional[List[str]],
+    language: Optional[str],
+) -> str:
+    """Transcribe via Deepgram nova-3 (cloud, ~300ms, 30+ languages).
+
+    Sends WAV over plain HTTPS (no SDK needed). Keyterm boosting is passed
+    via the `keyterms` query param (nova-3 feature). Raises on HTTP errors
+    so the caller can fall back to local Whisper.
+    """
+    import urllib.parse
+    import urllib.request
+
+    wav = _pcm_to_wav(pcm_bytes)
+    model = os.environ.get("DULUS_DEEPGRAM_STT_MODEL", "nova-3")
+    params: list[tuple[str, str]] = [("model", model), ("smart_format", "true")]
+    if language and language != "auto":
+        params.append(("language", language))
+    else:
+        params.append(("detect_language", "true"))
+    for term in (keyterms or [])[:50]:
+        params.append(("keyterm", term))
+
+    url = f"https://api.deepgram.com/v1/listen?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(
+        url, data=wav,
+        headers={"Authorization": f"Token {_deepgram_key()}",
+                 "Content-Type": "audio/wav"},
+        method="POST")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = json.loads(r.read())
+    try:
+        return data["results"]["channels"][0]["alternatives"][0]["transcript"].strip()
+    except (KeyError, IndexError):
+        return ""
+
+
 # ── Keyterms → prompt ─────────────────────────────────────────────────────
 
 def _keyterms_to_prompt(keyterms: List[str]) -> str:
@@ -399,7 +465,16 @@ def transcribe(
     terms = keyterms or []
     lang = None if language == "auto" else language
 
-    # faster-whisper (local) — FIRST. Riva (cloud) was previously the
+    # Deepgram nova-3 (cloud) — FIRST when key exists. ~300ms round-trip,
+    # native keyterm boosting, better accuracy than local Whisper small.
+    # DULUS_WAKE_FORCE_LOCAL skips it (same escape hatch as Riva).
+    if _deepgram_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
+        try:
+            return _transcribe_deepgram(pcm_bytes, terms, lang)
+        except Exception as e:
+            print(f"  [STT] Deepgram failed, falling back: {e}")
+
+    # faster-whisper (local). Riva (cloud) was previously the
     # default whenever NVIDIA_API_KEY existed, which meant every wake-word
     # audio chunk hit the NVIDIA gRPC endpoint and starved concurrent TLS
     # calls (e.g. /say cold-starts to elevenlabs.io). Local Whisper is
