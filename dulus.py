@@ -5213,6 +5213,14 @@ def cmd_skill(args: str, state, config) -> bool:
 def cmd_mcp(args: str, _state, config) -> bool:
     """Show MCP server status, or manage servers.
 
+    Marketplace (0-friction discovery of 2000+ servers):
+    /mcp list [query]  — browse the catalog (official registry + awesome list)
+    /mcp search <q>    — search every source for matching servers
+    /mcp install <name>— install by name (auto-connects, no manual config)
+    /mcp installed     — show installed servers and their live status
+    /mcp runtimes      — show which runtimes (node/python/docker) are available
+
+    Manual management:
     /mcp               — list all configured servers and their tools
     /mcp reload        — reconnect all servers and refresh tools
     /mcp reload <name> — reconnect a single server
@@ -5226,6 +5234,33 @@ def cmd_mcp(args: str, _state, config) -> bool:
 
     parts = args.split() if args.strip() else []
     subcmd = parts[0].lower() if parts else ""
+
+    # ── Marketplace subcommands (0-friction discovery + install) ──────────────
+    # Wired to dulus_mcp.commands.handle_mcp_command so users can browse a
+    # catalog of 2000+ servers and install by name without knowing the raw
+    # command. Falls through to the classic manager for reload/add/remove.
+    _MARKETPLACE_SUBCMDS = {"list", "ls", "install", "search", "find", "s",
+                            "installed", "runtimes", "browse", "catalog"}
+    if subcmd in _MARKETPLACE_SUBCMDS:
+        try:
+            from dulus_mcp.commands import handle_mcp_command
+            _mkt_args = list(parts)
+            if subcmd in ("browse", "catalog"):
+                _mkt_args[0] = "list"
+            _out = handle_mcp_command(_mkt_args)
+            print(_out)
+            # After a successful install, hot-reload so the new MCP tools go
+            # live in this same session (no restart needed).
+            if subcmd == "install" and _out.strip().startswith("\u2705"):
+                try:
+                    reload_mcp()
+                    ok("MCP tools reloaded — new server is live.")
+                except Exception:
+                    pass
+            return True
+        except Exception as _mkt_e:
+            err(f"MCP marketplace error: {_mkt_e}")
+            return True
 
     if subcmd == "reload":
         target = parts[1] if len(parts) > 1 else ""

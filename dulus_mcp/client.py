@@ -36,13 +36,26 @@ class StdioTransport:
 
     def start(self) -> None:
         env = {**os.environ, **(self._config.env or {})}
-        cmd = [self._config.command] + list(self._config.args or [])
+        # ── Windows launcher resolution ──────────────────────────────────
+        # On Windows, node tooling ships as .cmd shims (npx.cmd, npm.cmd) and
+        # Python's subprocess won't find a bare "npx" without the extension.
+        # shutil.which() resolves the real executable (respecting PATHEXT), so
+        # "npx"/"uvx"/"uv" all launch correctly. Falls back to the raw name.
+        import shutil as _shutil
+        _launcher = self._config.command
+        _resolved = _shutil.which(_launcher)
+        if _resolved:
+            _launcher = _resolved
+        cmd = [_launcher] + list(self._config.args or [])
+        # On Windows, .cmd/.bat shims must run through the shell layer.
+        _use_shell = os.name == "nt" and str(_launcher).lower().endswith((".cmd", ".bat"))
         self._process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
+            shell=_use_shell,
         )
         self._running = True
         self._reader = threading.Thread(target=self._read_loop, daemon=True)

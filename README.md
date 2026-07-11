@@ -68,6 +68,8 @@ SET /sticky_input ON since the first run for the best experience!
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
+- **🔌 MCP Marketplace — 2000+ servers, zero friction.** MCP was always powerful but nobody used it — too much friction: find a server, dig up its launch command, hand-edit JSON, hope it connects. Now: `/mcp search <anything>` browses **2000+ servers** (official [modelcontextprotocol.io](https://registry.modelcontextprotocol.io) registry + the awesome-mcp list, cached & offline-safe), and `/mcp install <name>` installs *and auto-connects* in one shot — tools go live in the same session. Plus a Windows fix so node servers (`npx`) actually launch. From "never touched MCP" to "connected in 5 seconds." 🦅
+
 - **🌍 dulus.work — THE HUB. The secret is out.** This is what Kevin had been hiding (even from Dulus itself 😂): **a global hub where every Dulus instance on the planet shares what it learns.** Your Dulus finds a fix, polishes a skill, adapts a plugin → it can publish it to the hub → every other Dulus in the world can pull it down. Not an update server — an **organism**. Every installation is a node. *The fix a Dulus in Tokyo finds at 3AM, the one in Santo Domingo has by sunrise.* Other agents have N devs improving one product (linear). Dulus makes every user a dev (exponential). The pieces have been quietly shipping for months — SelfImprove engine, Auto-Adapter, the skills format, cloudsave — and now they converge. Domain is live, execution underway. 🦅🇩🇴 → [dulus.work](https://dulus.work)
 
 - **Dulus Agent — Telegram communities.** Dulus evolved from a CLI tool into a live AI agent inside Telegram groups. The first fully autonomous AI moderating and conversing in real communities — not a bot, not a filter, a real agent. Groups pay in $DULUS to activate him. We host Dulus for them — that's the business model. The CLI stays free forever. This is the paid layer. 🦅🇩🇴
@@ -179,9 +181,17 @@ Answering `a` at any prompt upgrades the session to accept-all.
 
 Drop a `.mcp.json` in your project — every server registers instantly as `mcp__server__tool`. stdio, SSE, and HTTP transports.
 
+**New: a built-in MCP marketplace.** Browse **2000+ servers** (the official [modelcontextprotocol.io](https://registry.modelcontextprotocol.io) registry + the awesome-mcp list) and install any of them by name — no hunting for the launch command, no hand-editing JSON. Zero friction.
+
 ```
-/mcp                        # list servers and their tools
-/mcp add <name> <cmd>       # add a stdio server
+/mcp list [query]           # browse the 2000+ server catalog
+/mcp search <query>         # search every source at once
+/mcp install <name>         # install by name — auto-connects, tools go live
+/mcp installed              # what's installed + live status
+/mcp runtimes               # which runtimes you have (node/python/docker)
+
+/mcp                        # list configured servers and their tools
+/mcp add <name> <cmd>       # add a stdio server manually
 /mcp reload                 # reconnect all
 ```
 
