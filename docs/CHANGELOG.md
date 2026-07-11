@@ -15,6 +15,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security policy
 - Brand guidelines
 
+## [3.9.5] - 2026-07-11
+
+### Fixed
+- TTS `c` cancel key not working while the REPL prompt was active:
+  `msvcrt.kbhit()` only sees keystrokes when the raw console owns stdin, so
+  prompt_toolkit swallowed the `c` before the watcher saw it. Added a second
+  detection path via `GetAsyncKeyState` (physical key state, edge-detected)
+  that fires regardless of who owns stdin, plus a 30ms sleep so the watcher
+  no longer busy-spins a CPU core during playback.
+
+## [3.9.4] - 2026-07-11
+
+### Fixed
+- Catastrophic config reset: `save_config()` wrote the caller's dict verbatim,
+  so a thin dict (e.g. only `lang` + `user_name` at early startup) silently
+  wiped every other key — API keys, voice config, everything. Now it merges
+  DEFAULTS + on-disk config first (with `.bak` fallback if the on-disk copy
+  is corrupt), then applies runtime changes on top.
+
+## [3.9.3] - 2026-07-11
+
+### Fixed
+- `/lang` was silently overpowered by `soul.md` / gold memories that assert a
+  voice ("I speak Dominican Spanish"). The chosen language is now re-asserted
+  at the end of the system prompt (highest-authority position) and `/lang`
+  injects an immediate directive into the live conversation so the switch
+  takes effect the same turn. Defaults untouched — no `/lang` set means the
+  soul keeps control.
+
+## [3.9.2] - 2026-07-11
+
+### Added
+- `/update` self-update command: quiet cached (6h TTL) non-blocking PyPI check
+  on startup, in-place upgrade, `now|check|status|on|off` subcommands.
+
+## [3.9.0] - 2026-07-11
+
+### Added
+- MCP Marketplace: `/mcp list|search|install` over a live catalog of 2000+
+  servers from registry.modelcontextprotocol.io + awesome-mcp, deduped,
+  6h-TTL cached, offline-safe. One-shot install: resolve command, write
+  config, connect, verify tools, hot-reload into the live session.
+
+### Fixed
+- Windows launcher for node-based MCP servers (`npx` ships as `npx.cmd`).
+
 ## [3.6.2] - 2026-07-04
 
 ### Fixed
