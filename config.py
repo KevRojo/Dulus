@@ -198,8 +198,34 @@ def load_config() -> dict:
 
 def save_config(cfg: dict):
     CONFIG_DIR.mkdir(exist_ok=True)
-    # Strip internal runtime keys (e.g. _run_query_callback) before saving
-    data = {k: v for k, v in cfg.items() if not k.startswith("_")}
+    # Build a complete config from defaults + whatever is already on disk, THEN
+    # apply the runtime changes on top. This prevents catastrophic resets: if a
+    # caller passes a thin `cfg` (e.g. only {"lang", "user_name"} at early
+    # startup or from a command that rebuilt a minimal dict), we must NOT drop
+    # every other key the user had. Previously we wrote `cfg` verbatim, so a
+    # thin dict wiped the entire config down to those few keys — exactly the
+    # "config shrank to lang+user_name" bug. Mirror the private repo's logic.
+    data = dict(DEFAULTS)
+    if CONFIG_FILE.exists():
+        try:
+            existing = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(existing, dict):
+                data.update(existing)
+        except Exception:
+            # Corrupt on-disk config: fall back to the last-known-good backup so
+            # we still don't lose the user's keys on this save.
+            try:
+                backup = CONFIG_FILE.with_suffix(".json.bak")
+                if backup.exists():
+                    bdata = json.loads(backup.read_text(encoding="utf-8"))
+                    if isinstance(bdata, dict):
+                        data.update(bdata)
+            except Exception:
+                pass
+    # Strip internal runtime keys (e.g. _run_query_callback), then apply the
+    # caller's runtime changes on top of the merged base.
+    runtime = {k: v for k, v in cfg.items() if not k.startswith("_")}
+    data.update(runtime)
     # Encrypt API keys before saving
     data = _secure_keys(dict(data))
     payload = json.dumps(data, indent=2)
