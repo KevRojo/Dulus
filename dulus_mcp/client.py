@@ -36,6 +36,17 @@ class StdioTransport:
 
     def start(self) -> None:
         env = {**os.environ, **(self._config.env or {})}
+        # ── Guard: empty/blank command ────────────────────────────────────
+        # A corrupted or half-filled-out .mcp.json entry (e.g. {"command": ""})
+        # used to reach subprocess.Popen([""], ...) directly. On Windows that
+        # raises a bare OSError [WinError 87] "The parameter is incorrect" with
+        # zero context — impossible to debug from the GUI toast. Fail fast with
+        # a message that names the actual broken server instead.
+        if not (self._config.command or "").strip():
+            raise RuntimeError(
+                f"MCP server '{self._config.name}' has no command configured "
+                f"(empty 'command' field in mcp.json). Fix or remove this entry."
+            )
         # ── Windows launcher resolution ──────────────────────────────────
         # On Windows, node tooling ships as .cmd shims (npx.cmd, npm.cmd) and
         # Python's subprocess won't find a bare "npx" without the extension.
@@ -46,6 +57,14 @@ class StdioTransport:
         _resolved = _shutil.which(_launcher)
         if _resolved:
             _launcher = _resolved
+        elif os.name == "nt" and not _launcher.lower().endswith((".exe", ".cmd", ".bat")):
+            # Launcher wasn't found on PATH at all (typo, uninstalled runtime,
+            # etc). Raise a clean, actionable error instead of letting Popen
+            # attempt to launch a bare/garbled name and blow up with WinError87.
+            raise RuntimeError(
+                f"MCP server '{self._config.name}': launcher '{_launcher}' not found on PATH. "
+                f"Install it or fix the 'command' field in mcp.json."
+            )
         cmd = [_launcher] + list(self._config.args or [])
         # On Windows, .cmd/.bat shims must run through the shell layer.
         _use_shell = os.name == "nt" and str(_launcher).lower().endswith((".cmd", ".bat"))
