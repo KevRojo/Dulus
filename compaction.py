@@ -78,6 +78,27 @@ def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
                 for v in tc.values():
                     if isinstance(v, str):
                         total_chars += len(v)
+        # ── Images / videos (2026-07-13 fix) ──────────────────────────────
+        # agent.py attaches /image and /video payloads as sibling keys
+        # user_msg["images"] / user_msg["videos"] (base64 strings), NOT
+        # inside "content". This loop used to never look at them, so a
+        # single video attachment (often 200-800k+ base64 chars) was
+        # completely invisible to the token estimate. Result: compaction
+        # thought the conversation was small and never fired auto-compact,
+        # while the model actually receiving that payload (e.g. Kimi's
+        # multimodal video support) silently ballooned past its real
+        # context window and degraded. Count them like any other content.
+        for key in ("images", "videos"):
+            items = m.get(key)
+            if not items:
+                continue
+            for item in items:
+                if isinstance(item, str):
+                    total_chars += len(item)
+                elif isinstance(item, dict):
+                    data = item.get("data", "")
+                    if isinstance(data, str):
+                        total_chars += len(data)
     content_tokens = int(total_chars / 2.8)
     framing_tokens = msg_count * 4      # role + delimiters overhead per msg
     return int((content_tokens + framing_tokens) * 1.1)
