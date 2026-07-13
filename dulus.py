@@ -121,6 +121,7 @@ Slash commands in REPL:
   /roundtable       Start a multi-model roundtable discussion
   /fork             Fork session at a given turn
   /undo             Undo last turn
+  /workspace [cmd]  Manage Dulus workspaces (switch/list/default)
   /add-dir [path]   Manage additional workspace directories
   /import <file>    Import conversation from file or session
   /harvest          Harvest Claude.ai cookies (alias: /harvest-claude)
@@ -854,6 +855,7 @@ _HELP_PAGES = [
         ("/cost",         "Show API cost this session"),
         ("/fork",         "Fork session at a given turn"),
         ("/undo",         "Undo last turn"),
+        ("/workspace [cmd]", "Manage Dulus workspaces (switch/list/default)"),
         ("/import <file>","Import conversation from file/session"),
         ("/add-dir [path]","Manage additional workspace directories"),
         ("/batch",        "Manage Kimi Batch tasks"),
@@ -4011,6 +4013,167 @@ def cmd_cwd(args: str, _state, config) -> bool:
         except Exception as e:
             err(str(e))
     return True
+
+
+# ── Workspace manager ───────────────────────────────────────────────────────
+
+_WORKSPACES_DIR: Path = Path.home() / ".dulus" / "workspaces"
+_DEFAULT_WORKSPACE: str = "workspace1"
+
+
+def _workspace_path(name: str) -> Path:
+    return _WORKSPACES_DIR / name
+
+
+def _ensure_workspace(name: str) -> Path:
+    """Create workspace dir if missing and return its path."""
+    ws = _workspace_path(name)
+    ws.mkdir(parents=True, exist_ok=True)
+    return ws
+
+
+def _list_workspaces() -> list[str]:
+    if not _WORKSPACES_DIR.exists():
+        return []
+    return sorted(p.name for p in _WORKSPACES_DIR.iterdir() if p.is_dir())
+
+
+def _current_workspace_name() -> str | None:
+    """Return the workspace name if cwd is inside ~/.dulus/workspaces/."""
+    try:
+        cwd = Path.cwd().resolve()
+        root = _WORKSPACES_DIR.resolve()
+        if root in cwd.parents or cwd == root:
+            rel = cwd.relative_to(root)
+            first = rel.parts[0] if rel.parts else None
+            if first and _workspace_path(first).is_dir():
+                return first
+    except Exception:
+        pass
+    return None
+
+
+def _activate_workspace(name: str, config: dict) -> bool:
+    """Change cwd into workspace, create it if missing, and persist as last used."""
+    from config import save_config
+    ws = _ensure_workspace(name)
+    try:
+        os.chdir(ws)
+        config["workspace_last"] = name
+        save_config(config)
+        # Directory changed — git info is stale
+        if _git_prompt is not None:
+            _git_prompt.reset_git_cache()
+        return True
+    except Exception as e:
+        err(f"No pude cambiar al workspace '{name}': {e}")
+        return False
+
+
+def _apply_workspace(config: dict) -> None:
+    """At boot, move cwd into the last-used workspace (or workspace1)."""
+    last = config.get("workspace_last") or _DEFAULT_WORKSPACE
+    ws = _workspace_path(last)
+    if not ws.exists():
+        _ensure_workspace(last)
+    try:
+        os.chdir(ws)
+        if config.get("verbose", False):
+            info(f"Workspace activo: {last}")
+    except Exception as e:
+        warn(f"No pude entrar al workspace '{last}': {e}")
+
+
+def cmd_workspace(args: str, _state, config) -> bool:
+    """Manage Dulus workspaces under ~/.dulus/workspaces.
+
+    /workspace                — show current workspace + cwd
+    /workspace current        — same as above
+    /workspace list           — list workspaces
+    /workspace switch <name>  — change to workspace (creates if missing)
+    /workspace default [name] — show or set the startup workspace
+    /workspace create <name>  — create a workspace without switching
+    /workspace delete <name>  — delete a workspace (must be empty)
+    """
+    from config import save_config
+    parts = args.strip().split(None, 1)
+    subcmd = parts[0].lower() if parts else "current"
+    rest = parts[1].strip() if len(parts) > 1 else ""
+
+    if subcmd in ("current", "cwd", ""):
+        current = _current_workspace_name()
+        if current:
+            info(f"Workspace: {current}")
+        else:
+            info("No estás dentro de un workspace de Dulus.")
+        info(f"Working directory: {os.getcwd()}")
+        return True
+
+    if subcmd == "list":
+        workspaces = _list_workspaces()
+        current = _current_workspace_name()
+        if not workspaces:
+            info("No hay workspaces todavía. Usa /workspace create <nombre>.")
+            return True
+        info(f"Workspaces en {_WORKSPACES_DIR}:")
+        for w in workspaces:
+            mark = "  → " if w == current else "    "
+            print(f"{mark}{w}")
+        return True
+
+    if subcmd == "switch":
+        if not rest:
+            err("Uso: /workspace switch <nombre>")
+            return True
+        name = rest.split()[0]
+        if _activate_workspace(name, config):
+            ok(f"Workspace cambiado a: {name}")
+        return True
+
+    if subcmd == "default":
+        if not rest:
+            current_default = config.get("workspace_last") or _DEFAULT_WORKSPACE
+            info(f"Workspace por defecto: {current_default}")
+            return True
+        name = rest.split()[0]
+        _ensure_workspace(name)
+        config["workspace_last"] = name
+        save_config(config)
+        ok(f"Workspace por defecto ahora: {name}")
+        return True
+
+    if subcmd == "create":
+        if not rest:
+            err("Uso: /workspace create <nombre>")
+            return True
+        name = rest.split()[0]
+        _ensure_workspace(name)
+        ok(f"Workspace creado: {name}")
+        return True
+
+    if subcmd == "delete":
+        if not rest:
+            err("Uso: /workspace delete <nombre>")
+            return True
+        name = rest.split()[0]
+        target = _workspace_path(name)
+        if not target.exists():
+            err(f"Workspace '{name}' no existe.")
+            return True
+        current = _current_workspace_name()
+        if name == current:
+            err("No puedes borrar el workspace en el que estás. Cambia primero con /workspace switch.")
+            return True
+        try:
+            target.rmdir()
+            ok(f"Workspace borrado: {name}")
+        except OSError as e:
+            err(f"No se pudo borrar '{name}': {e}. Asegúrate de que esté vacío.")
+        return True
+
+    err(f"Subcomando desconocido: /workspace {subcmd}")
+    return True
+
 
 def _build_session_data(state, session_id: str | None = None) -> dict:
     """Serialize current conversation state to a JSON-serializable dict."""
@@ -9935,6 +10098,7 @@ COMMANDS = {
     "export":      cmd_export,
     "fork":        cmd_fork,
     "undo":        cmd_undo,
+    "workspace":   cmd_workspace,
     "add-dir":     cmd_add_dir,
     "import":      cmd_import,
     "copy":        cmd_copy,
@@ -10068,6 +10232,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "export":      ("Export conversation to file",          []),
     "fork":        ("Fork session at a turn",               []),
     "undo":        ("Undo last turn",                       []),
+    "workspace":   ("Manage Dulus workspaces",              ["current", "list", "switch", "default", "create", "delete"]),
     "add-dir":     ("Manage additional workspace dirs",     ["list", "remove"]),
     "import":      ("Import from file or session",          []),
     "copy":        ("Copy last response or file to clipboard", ["file"]),
@@ -10517,6 +10682,13 @@ def repl(config: dict, initial_prompt: str = None):
                 _save_cfg(config)
             except Exception:
                 pass
+
+        # ── Workspace: start in the last-used workspace (or workspace1) ──────────
+        try:
+            _apply_workspace(config)
+        except Exception as _e:
+            if config.get("verbose", False):
+                warn(f"Workspace init skipped: {_e}")
 
         # ── Auto-update check (on by default; /update off to disable) ─────────
         # Keep every Dulus in the world on the latest release: the organism
