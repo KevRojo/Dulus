@@ -699,7 +699,45 @@ case "$INSTALLER" in
             USER_FLAG=""
             ok "Detected active venv: $VIRTUAL_ENV — installing into it instead of --user"
         fi
-        run "$PY_BIN -m pip install --upgrade $PRE_FLAG $BREAK $USER_FLAG '$EXTRAS_SPEC'"
+
+        # First attempt: normal upgrade. If Debian/Ubuntu installed a dependency
+        # as a distutils project (e.g. python3-requests), pip fails with
+        # "Cannot uninstall X. It is a distutils installed project...". We retry
+        # with --ignore-installed so Dulus lands in user-site without touching
+        # the system package. This makes headless VMs / fresh Debian installs
+        # work without apt surgery.
+        pip_cmd="$PY_BIN -m pip install --upgrade $PRE_FLAG $BREAK $USER_FLAG '$EXTRAS_SPEC'"
+        printf "%s$%s %s\n" "${DIM}" "${RESET}" "$pip_cmd"
+        if [ "$DRY_RUN" -eq 0 ]; then
+            set +e
+            pip_out=$(eval "$pip_cmd" 2>&1)
+            pip_rc=$?
+            set -e
+        else
+            pip_rc=0
+            pip_out=""
+        fi
+
+        if [ "$pip_rc" -ne 0 ]; then
+            if echo "$pip_out" | grep -qiE "distutils installed project|cannot uninstall"; then
+                warn "System Python has conflicting Debian-managed packages. Retrying with --ignore-installed..."
+                pip_cmd="$PY_BIN -m pip install --upgrade $PRE_FLAG $BREAK $USER_FLAG --ignore-installed '$EXTRAS_SPEC'"
+                printf "%s$%s %s\n" "${DIM}" "${RESET}" "$pip_cmd"
+                if [ "$DRY_RUN" -eq 0 ]; then
+                    set +e
+                    pip_out2=$(eval "$pip_cmd" 2>&1)
+                    pip_rc=$?
+                    set -e
+                    pip_out="$pip_out\n$pip_out2"
+                fi
+            fi
+        fi
+
+        if [ "$pip_rc" -ne 0 ]; then
+            err "pip install failed:"
+            echo -e "$pip_out" >&2
+            exit 1
+        fi
         ;;
 esac
 

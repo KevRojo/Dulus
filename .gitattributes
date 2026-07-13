@@ -23,3 +23,6 @@ docs/*.html linguist-documentation=true
 
 # Auto-normalize line endings so Windows<->Linux git diffs stay clean.
 * text=auto
+
+# Shell scripts must always be LF so `curl | bash` works without "bad interpreter" errors.
+*.sh text eol=lf
