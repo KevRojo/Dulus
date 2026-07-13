@@ -162,6 +162,8 @@ def run(
             tool_schemas=get_tool_schemas(),
             config=config,
         )):
+            if cancel_check and cancel_check():
+                return
             if isinstance(event, (TextChunk, ThinkingChunk)):
                 yield event
             elif isinstance(event, AssistantTurn):
@@ -217,6 +219,8 @@ def run(
 
         # ── Execute tools ────────────────────────────────────────────────
         for tc in assistant_turn.tool_calls:
+            if cancel_check and cancel_check():
+                return
             yield ToolStart(tc["name"], tc["input"])
 
             # ── Governance gate (capabilities + pre_tool hook) ───────────────

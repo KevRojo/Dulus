@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "3.9.5"
+version = "3.10.0"
 description = "Use IA as an agent without an API key. $0. Harvest your browser session for Gemini (guest, no login), Claude.ai, Claude Code, Kimi.com, Qwen, DeepSeek — drive them like an API, no per-token billing. Plus LiteLLM (100+ paid providers), local models via Ollama, /lang in 34 languages, Mesa Redonda, voice, OCR, MemPalace, embedded sandbox OS."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -151,6 +151,7 @@ include = [
     "ui*",
     "voice*",
     "webbridge*",
+    "webchat_ui*",
     # sandbox/dist/ ships in the wheel so webchat serves /sandbox/ directly
     # (back to the 0.2.81 layout — no tarball, no extract-on-first-run).
     # GitHub Linguist won't double-count: .gitattributes marks sandbox/**

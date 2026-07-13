@@ -37,7 +37,26 @@ def _resolve_dashboard_dir() -> Path:
     # 3. Fallback — will 404 gracefully
     return src
 
+def _resolve_webchat_ui_dir() -> Path:
+    """Find webchat_ui whether running from source or installed package."""
+    # 1. Try source layout (development)
+    src = Path(__file__).parent / "webchat_ui"
+    if src.exists() and (src / "index.html").exists():
+        return src
+    # 2. Try installed package (wheel layout mirrors source)
+    try:
+        import webchat_ui as _wui_pkg
+        pkg = Path(_wui_pkg.__file__).parent
+        if pkg.exists() and (pkg / "index.html").exists():
+            return pkg
+    except Exception:
+        pass
+    # 3. Fallback — caller should check existence
+    return src
+
+
 DASHBOARD_DIR = _resolve_dashboard_dir()
+WEBCHAT_UI_DIR = _resolve_webchat_ui_dir()
 
 from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
 
@@ -114,6 +133,12 @@ _PENDING_PERMISSIONS: dict[str, tuple[PermissionRequest, threading.Event]] = {}
 # the webchat we poll it with a watcher thread, surface the question as an
 # SSE event, and answer it via POST /question.
 _PENDING_QUESTIONS: dict[str, dict] = {}
+
+# Per-request cancellation tokens for the main WebChat. This mirrors the
+# Roundtable's per-agent stop events while keeping concurrent browser turns
+# isolated by run_id.
+_WEBCHAT_STOP_EVENTS: dict[str, threading.Event] = {}
+_WEBCHAT_STOP_EVENTS_LOCK = threading.Lock()
 
 
 def _start_question_watcher(q: "queue.Queue", stop_evt: threading.Event) -> threading.Thread:
@@ -335,7 +360,7 @@ def _run_slash_command(cmd_line: str) -> tuple[str, str | None]:
     return (captured, assistant_reply)
 
 
-def _run_agent_mirror(user_message: str) -> Generator:
+def _run_agent_mirror(user_message: str, cancel_check=None) -> Generator:
     """Run the agent loop with shared state/config, yielding all events."""
     _ensure_plugin_tools()
     if STATE is None or CONFIG is None:
@@ -375,7 +400,7 @@ def _run_agent_mirror(user_message: str) -> Generator:
     _turn_tools = []
     _is_verbose = cfg.get("verbose", False)
 
-    for event in agent_run(user_input, state, cfg, system_prompt):
+    for event in agent_run(user_input, state, cfg, system_prompt, cancel_check=cancel_check):
         if not _is_verbose and isinstance(event, (ToolStart, ToolEnd)):
             _turn_tools.append(event)
             # If start, we might want to yield a minimal 'working' sign
@@ -3412,6 +3437,9 @@ restoreRt();
 
     @app.route("/")
     def home() -> Response:
+        if WEBCHAT_UI_DIR.exists() and (WEBCHAT_UI_DIR / "index.html").exists():
+            return send_from_directory(WEBCHAT_UI_DIR, "index.html")
+        # Fallback to the legacy embedded chat page if webchat_ui is missing.
         return Response(CHAT_PAGE, mimetype="text/html")
 
     @app.route("/roundtable")
@@ -3618,10 +3646,40 @@ restoreRt();
             return jsonify(error=str(e)), 500
         return jsonify(ok=True)
 
+    @app.route("/chat/stop", methods=["POST"])
+    def chat_stop() -> Response:
+        body = request.get_json(silent=True) or {}
+        run_id = (body.get("run_id") or "").strip()
+        if not run_id:
+            return jsonify(ok=False, error="missing run_id"), 400
+        with _WEBCHAT_STOP_EVENTS_LOCK:
+            stop_evt = _WEBCHAT_STOP_EVENTS.get(run_id)
+        if stop_evt is None:
+            return jsonify(ok=False, error="chat run not active"), 404
+        stop_evt.set()
+
+        # Release any interaction currently blocking the agent turn. The
+        # WebChat is single-user today, so pending prompts belong to the active
+        # run and can be safely declined when Stop is pressed.
+        with _LOCK:
+            for pid, (permission, evt) in list(_PENDING_PERMISSIONS.items()):
+                permission.granted = False
+                evt.set()
+                _PENDING_PERMISSIONS.pop(pid, None)
+            for qid, entry in list(_PENDING_QUESTIONS.items()):
+                try:
+                    entry["result"].append("(stopped by user)")
+                    entry["event"].set()
+                except Exception:
+                    pass
+                _PENDING_QUESTIONS.pop(qid, None)
+        return jsonify(ok=True, run_id=run_id)
+
     @app.route("/chat", methods=["POST"])
     def chat() -> Response:
         body = request.get_json(silent=True) or {}
         msg = (body.get("message") or "").strip()
+        run_id = (body.get("run_id") or str(uuid.uuid4())).strip()
         if not msg:
             return jsonify(error="empty message"), 400
 
@@ -3650,24 +3708,42 @@ restoreRt();
             q: queue.Queue = queue.Queue(maxsize=512)
             exc_holder = [None]
             stop_watcher = threading.Event()
+            stop_evt = threading.Event()
+            with _WEBCHAT_STOP_EVENTS_LOCK:
+                previous = _WEBCHAT_STOP_EVENTS.get(run_id)
+                if previous is not None:
+                    previous.set()
+                _WEBCHAT_STOP_EVENTS[run_id] = stop_evt
 
             def producer():
                 try:
-                    for ev in _run_agent_mirror(msg):
+                    for ev in _run_agent_mirror(msg, cancel_check=stop_evt.is_set):
+                        if stop_evt.is_set():
+                            break
                         result = _event_to_dict(ev)
                         if result is None:
                             continue
                         if isinstance(result, tuple):
                             payload, evt = result
                             q.put(payload)
-                            evt.wait(timeout=300)
+                            while not evt.wait(timeout=0.1):
+                                if stop_evt.is_set():
+                                    evt.set()
+                                    break
                             _PENDING_PERMISSIONS.pop(payload.get("id"), None)
+                            if stop_evt.is_set():
+                                break
                             continue
                         q.put(result)
                 except Exception as e:
                     exc_holder[0] = e
                 finally:
                     stop_watcher.set()
+                    if stop_evt.is_set():
+                        q.put({"type": "stopped"})
+                    with _WEBCHAT_STOP_EVENTS_LOCK:
+                        if _WEBCHAT_STOP_EVENTS.get(run_id) is stop_evt:
+                            _WEBCHAT_STOP_EVENTS.pop(run_id, None)
                     q.put(None)
 
             t = threading.Thread(target=producer, daemon=True)
@@ -4330,6 +4406,22 @@ restoreRt();
             elif filepath.endswith(".svg"): ctype = "image/svg+xml"
             return Response(target.read_bytes(), mimetype=ctype)
         return "Not found", 404
+
+    # ── New WebChat UI static assets ──
+    # Registered last so it only acts as a fallback for files that live in
+    # webchat_ui (style.css, app.js, etc.) without shadowing API routes.
+    @app.route("/<path:filename>")
+    def webchat_ui_static(filename):
+        if not WEBCHAT_UI_DIR.exists():
+            return Response(status=404)
+        target = (WEBCHAT_UI_DIR / filename).resolve()
+        try:
+            target.relative_to(WEBCHAT_UI_DIR.resolve())
+        except ValueError:
+            return Response(status=403)
+        if target.exists() and target.is_file():
+            return send_from_directory(WEBCHAT_UI_DIR, filename)
+        return Response(status=404)
 
     return app
 

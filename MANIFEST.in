@@ -6,5 +6,6 @@ recursive-include gui/dulus_orchestrator/dist *
 exclude gui/dulus_orchestrator/dist/runtime-state.js
 exclude gui/dulus_orchestrator/dist/desktop-pet.html
 recursive-include webbridge *
+recursive-include webchat_ui *.html *.css *.js
 global-exclude __pycache__/*
 global-exclude *.pyc

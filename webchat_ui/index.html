@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Dulus WebChat — AI agent interface">
+<meta name="theme-color" content="#0a0a0b">
+<link rel="icon" type="image/png" href="/dulus-bird.png">
+<link rel="apple-touch-icon" href="/dulus-bird.png">
+<title>Dulus WebChat</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Archivo+Black&display=swap" rel="stylesheet">
+
+<!-- Highlight.js — syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<!-- Marked.js — markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<!-- Our styles -->
+<link rel="stylesheet" href="style.css">
+
+<!-- Mixpanel Analytics -->
+<script>
+(function(f,b){if(!b.__SV){var e,g,i,h;window.mixpanel=b;b._i=[];b.init=function(e,f,c){function g(a,d){var b=d.split(".");2==b.length&&(a=a[b[0]],d=b[1]);a[d]=function(){a.push([d].concat(Array.prototype.slice.call(arguments,0)))}}var a=b;"undefined"!==typeof c?a=b[c]=[]:c="mixpanel";a.people=a.people||[];a.toString=function(a){var d="mixpanel";"mixpanel"!==c&&(d+="."+c);a||(d+=" (stub)");return d};a.people.toString=function(){return a.toString(1)+".people (stub)"};i="disable time_event track track_pageview track_links track_forms track_with_groups add_group set_group remove_group register register_once alias unregister identify name_tag set_config reset opt_in_tracking opt_out_tracking has_opted_in_tracking has_opted_out_tracking clear_opt_in_out_tracking start_batch_senders people.set people.set_once people.unset people.increment people.append people.union people.track_charge people.clear_charges people.delete_user people.remove".split(" ");for(h=0;h<i.length;h++)g(a,i[h]);var j="set set_once union unset remove delete".split(" ");a.get_group=function(){function b(c){d[c]=function(){call2_args=arguments;call2=[c].concat(Array.prototype.slice.call(call2_args,0));a.push([e].concat(call2))}}for(var d={},e=["get_group"].concat(Array.prototype.slice.call(arguments,0)),c=0;c<j.length;c++)b(j[c]);return d};b._i.push([e,f,c])};b.__SV=1.2;e=f.createElement("script");e.type="text/javascript";e.async=!0;e.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?MIXPANEL_CUSTOM_LIB_URL:"file:"===f.location.protocol&&"//cdn4.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn4.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn4.mxpnl.com/libs/mixpanel-2-latest.min.js";g=f.getElementsByTagName("script")[0];g.parentNode.insertBefore(e,g)}})(document,window.mixpanel||[]);
+
+mixpanel.init("966ce8f5ccb32f06788f51be9f8bf8f5", {
+  debug: false,
+  track_pageview: false,
+  persistence: "localStorage",
+});
+
+// Page view
+mixpanel.track("page_viewed", {
+  page: "webchat",
+  url: window.location.href,
+  referrer: document.referrer,
+  source: "frontend",
+});
+
+// Global helper
+window.mpTrack = function(eventName, props) {
+  try { mixpanel.track(eventName, Object.assign({ source: "frontend" }, props || {})); } catch(e) {}
+};
+</script>
+<style id="dynamic-theme"></style>
+
+<!-- Screen reader only utility -->
+<style>
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- Skip navigation (WCAG 2.4.1) -->
+<a class="skip-link" href="#inp">Skip to message input</a>
+
+<!-- Ambient grid background -->
+<div class="grid-bg" aria-hidden="true"></div>
+
+<!-- Mobile sidebar overlay -->
+<div id="sidebarOverlay" aria-hidden="true"></div>
+
+<!-- File drop overlay -->
+<div id="dropOverlay" role="dialog" aria-label="Drop files to attach" aria-hidden="true">
+  <div class="drop-msg">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <p>Drop files to attach</p>
+  </div>
+</div>
+
+<!-- App shell -->
+<div id="app">
+
+  <!-- ========== SIDEBAR ========== -->
+  <nav id="sidebar" aria-label="Chat history">
+
+    <!-- Collapsed micro-sidebar -->
+    <div class="sidebar-collapsed" aria-hidden="true">
+      <button class="logo-btn" onclick="toggleSidebar()" title="Expand sidebar" aria-label="Expand sidebar"></button>
+      <button class="sidebar-icon-btn" onclick="newChat()" title="New chat" aria-label="New chat">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <button class="sidebar-icon-btn" onclick="refreshSessions()" title="Refresh" aria-label="Refresh sessions">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+      <div class="spacer" aria-hidden="true"></div>
+      <button class="sidebar-icon-btn" onclick="toggleSidebar()" title="Expand sidebar" aria-label="Expand sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M6 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
+    <!-- Expanded sidebar -->
+    <div class="sidebar-expanded">
+      <div class="sidebar-header">
+        <div class="sidebar-logo" aria-hidden="true"></div>
+        <span class="sidebar-wordmark">DULUS</span>
+        <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar" aria-label="Collapse sidebar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg>
+        </button>
+      </div>
+
+      <div class="sidebar-search" role="search">
+        <svg class="sidebar-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="searchInput" placeholder="Search chats…" oninput="filterSessions()" aria-label="Search chat history">
+      </div>
+
+      <div id="sessionList" role="list" aria-label="Chat sessions"></div>
+
+      <div class="sidebar-bottom">
+        <button onclick="newChat()" aria-label="New chat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>New</span>
+        </button>
+        <button onclick="refreshSessions()" aria-label="Refresh sessions">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button onclick="openExportModal()" aria-label="Export chat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Export</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ========== MAIN ========== -->
+  <main id="main" role="main">
+
+    <!-- ===== HEADER ===== -->
+    <header role="banner">
+      <div class="header-left">
+        <button id="sidebarToggle" onclick="toggleSidebar()" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="header-title">
+          <span class="header-wordmark" aria-label="Dulus WebChat">DULUS WEBCHAT</span>
+          <span class="header-model-badge" id="modelBadge" aria-label="Current model">Ready</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="status-indicator" role="status" aria-live="polite">
+          <div class="status-dot" id="statusDot" aria-hidden="true"></div>
+          <span id="statusText">Ready</span>
+        </div>
+
+        <div class="persona-select-wrap">
+          <select id="personaSelect" aria-label="Select persona">
+            <option value="">Persona</option>
+          </select>
+          <svg class="persona-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+
+        <div class="theme-select-wrap">
+          <select id="themeSelect" aria-label="Select color theme">
+            <option value="">Theme</option>
+          </select>
+          <svg class="theme-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+
+        <button id="themeToggle" aria-label="Toggle theme" title="Toggle theme"></button>
+
+        <a href="/roundtable" class="header-btn" aria-label="Mesa Redonda">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          <span>Roundtable</span>
+        </a>
+
+        <a href="/dashboard" class="header-btn" aria-label="Task Manager">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Tasks</span>
+        </a>
+
+        <button class="header-btn" onclick="toggleCmdPalette ? toggleCmdPalette() : null" aria-label="Command palette (Ctrl+K)" title="Ctrl+K">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+          <span>K</span>
+        </button>
+
+        <button class="header-btn" onclick="clearChat()" aria-label="Clear chat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Clear</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== CHAT LOG ===== -->
+    <section id="log" role="log" aria-live="polite" aria-label="Chat messages">
+
+      <!-- Empty state -->
+      <div id="emptyState" role="region" aria-label="Welcome">
+        <div class="empty-bird" aria-hidden="true"></div>
+        <h1 class="empty-title">What are we building?</h1>
+        <p class="empty-sub">Your AI agent is armed and ready. Ask me to code, debug, research, explain, ship — anything.</p>
+        <div class="empty-prompts" role="list" aria-label="Quick start prompts">
+          <button class="empty-prompt-chip" onclick="sendPrompt('Help me debug this error:')" role="listitem">Debug an error</button>
+          <button class="empty-prompt-chip" onclick="sendPrompt('Write a Python function that')" role="listitem">Write code</button>
+          <button class="empty-prompt-chip" onclick="sendPrompt('Explain how')" role="listitem">Explain a concept</button>
+          <button class="empty-prompt-chip" onclick="sendPrompt('Review this code:\n```\n')" role="listitem">Code review</button>
+          <button class="empty-prompt-chip" onclick="sendPrompt('What are the best practices for')" role="listitem">Best practices</button>
+          <button class="empty-prompt-chip" onclick="sendPrompt('Generate a')" role="listitem">Generate something</button>
+        </div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div id="typingIndicator" role="status" aria-label="Dulus is thinking">
+        <div class="typing-dots" aria-hidden="true">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+        <span class="typing-label">Thinking…</span>
+      </div>
+
+    </section>
+
+    <!-- ===== INPUT AREA ===== -->
+    <div id="inputArea" role="region" aria-label="Message input">
+      <!-- File preview row -->
+      <div id="filePreview" aria-label="Attached files" role="list"></div>
+
+      <div class="input-row">
+        <div class="input-wrapper">
+          <textarea
+            id="inp"
+            placeholder="Message Dulus… (Enter to send, Shift+Enter for new line)"
+            rows="1"
+            aria-label="Message input"
+            aria-multiline="true"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="true"
+          ></textarea>
+          <button id="attachBtn" title="Attach file" aria-label="Attach file">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <input type="file" id="fileInput" multiple aria-hidden="true" tabindex="-1">
+        </div>
+
+        <button id="voiceBtn" title="Voice input (Ctrl+M)" aria-label="Start voice input">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+
+        <button id="sendBtn" aria-label="Send message">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <span>Send</span>
+        </button>
+
+        <button id="stopBtn" type="button" aria-label="Stop generation" title="Stop generation" hidden disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
+          <span>Stop</span>
+        </button>
+      </div>
+
+      <div class="input-hints" aria-hidden="true">
+        <span class="input-hint-key"><span class="kbd">Enter</span> send · <span class="kbd">Shift+Enter</span> newline</span>
+        <span class="input-hint-key"><span class="kbd">Ctrl+K</span> commands</span>
+        <div class="input-hints-right">
+          <span id="charCount"></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ========== CONTEXT MENU ========== -->
+<div id="ctxMenu" role="menu" aria-label="Session options">
+  <button class="ctx-item" onclick="ctxRename()" role="menuitem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+    Rename
+  </button>
+  <div class="ctx-separator" role="separator"></div>
+  <button class="ctx-item danger" onclick="ctxDelete()" role="menuitem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    Delete
+  </button>
+</div>
+
+<!-- ========== TOAST CONTAINER ========== -->
+<div id="toastContainer" aria-live="assertive" aria-atomic="true" role="status"></div>
+
+<!-- ========== COMMAND PALETTE ========== -->
+<div id="cmdPalette" role="dialog" aria-modal="true" aria-label="Command palette">
+  <div class="cmd-palette-box">
+    <div class="cmd-search-wrap">
+      <svg class="cmd-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="cmdSearch" placeholder="Search commands…" oninput="onCmdSearch(this.value)" autocomplete="off" aria-label="Search commands" role="combobox" aria-expanded="true" aria-controls="cmdList">
+      <span class="cmd-esc" aria-label="Press Escape to close">Esc</span>
+    </div>
+    <div id="cmdList" role="listbox" aria-label="Commands"></div>
+  </div>
+</div>
+
+<!-- ========== EXPORT MODAL ========== -->
+<div id="exportModal" role="dialog" aria-modal="true" aria-label="Export conversation" onclick="if(event.target===this)closeExportModal()">
+  <div class="export-box">
+    <h2 class="export-title">Export Chat</h2>
+    <div class="export-options" role="list">
+      <button class="export-btn" onclick="exportAsMarkdown()" role="listitem" aria-label="Export as Markdown">
+        <svg class="export-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Download as Markdown (.md)
+      </button>
+      <button class="export-btn" onclick="exportAsJSON()" role="listitem" aria-label="Export as JSON">
+        <svg class="export-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Download as JSON (.json)
+      </button>
+      <button class="export-btn" onclick="exportAsPDF()" role="listitem" aria-label="Print or save as PDF">
+        <svg class="export-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print / Save as PDF
+      </button>
+    </div>
+    <button class="export-close" onclick="closeExportModal()" aria-label="Cancel export">Cancel</button>
+  </div>
+</div>
+
+<!-- App JS (after DOM) -->
+<script src="app.js"></script>
+<script>
+// Expose palette toggle globally (defined after app.js load)
+function toggleCmdPalette() {
+  if (typeof window.openCmdPalette === 'function') {
+    document.getElementById('cmdPalette').classList.contains('open')
+      ? window.closeCmdPalette()
+      : window.openCmdPalette();
+  }
+}
+// Proxy functions for global access
+window.openCmdPalette  = () => { const p = document.getElementById('cmdPalette'); if(p) p.classList.add('open'); document.getElementById('cmdSearch')?.focus(); renderCmdList?.(''); };
+window.closeCmdPalette = () => { const p = document.getElementById('cmdPalette'); if(p) p.classList.remove('open'); };
+window.toggleCmdPalette = toggleCmdPalette;
+</script>
+</body>
+</html>
