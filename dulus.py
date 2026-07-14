@@ -3018,10 +3018,9 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
 def cmd_harvest_gemini(_args: str, _state, config) -> bool:
     """Harvest fresh session data from gemini.google.com using Playwright.
 
-    Runs Chrome headless by default (set DULUS_GEMINI_HEADLESS=0 to show
-    the window). It navigates to gemini.google.com, auto-types and sends the
-    word "DULUS" in the chat, then intercepts the internal API request to
-    capture headers/cookies for the gemini-web provider.
+    Opens a visible Chrome window with the user's Gemini profile. The user must
+    be logged in and send the word "DULUS" in the chat; Dulus intercepts the
+    internal API request to capture headers/cookies for the gemini-web provider.
 
     Data is saved to ~/.dulus/gemini_web.json for use by gemini-web.
     """
@@ -3043,18 +3042,12 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
     pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "gemini-interceptor")
     os.makedirs(pw_profile, exist_ok=True)
 
-    # Headless por defecto para que funcione en VMs/servidores sin display.
-    # Si Google detecta headless y bloquea, el usuario puede forzar ventana visible.
-    headless = os.getenv("DULUS_GEMINI_HEADLESS", "1").lower() not in ("0", "false", "no", "off")
-    if not headless:
-        info("DULUS_GEMINI_HEADLESS=0 — using visible Chrome window.")
-    
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch_persistent_context(
                 user_data_dir=pw_profile,
                 channel="chrome",
-                headless=headless,
+                headless=False,
                 ignore_default_args=["--enable-automation"],
                 args=[
                     "--no-sandbox",
@@ -3096,47 +3089,10 @@ def cmd_harvest_gemini(_args: str, _state, config) -> bool:
             except Exception:
                 pass
 
-            # Auto-send "DULUS" so headless servers / VMs don't need a human in the browser.
-            info("Sending 'DULUS' to Gemini chat (headless auto-send)...")
-            auto_send_ok = False
-            try:
-                page.wait_for_timeout(2500)  # deja que cargue el UI
-                input_selectors = [
-                    'textarea[placeholder*="Ask Gemini"]',
-                    'textarea[placeholder*="ask"]',
-                    'textarea[aria-label*="Chat"]',
-                    'textarea[aria-label*="Message"]',
-                    'div[contenteditable="true"][aria-label*="Chat"]',
-                    'div[contenteditable="true"]',
-                    '[data-test-id="chat-input"]',
-                    'textarea',
-                ]
-                chat_input = None
-                for sel in input_selectors:
-                    try:
-                        chat_input = page.wait_for_selector(sel, timeout=4000, state="visible")
-                        if chat_input and chat_input.is_visible():
-                            break
-                    except Exception:
-                        chat_input = None
-                if chat_input:
-                    chat_input.fill("DULUS")
-                    page.wait_for_timeout(500)
-                    chat_input.press("Enter")
-                    page.wait_for_timeout(1500)
-                    auto_send_ok = True
-                else:
-                    warn("No se encontró el input del chat de Gemini.")
-            except Exception as e:
-                warn(f"Auto-send falló: {e}")
-
-            if not auto_send_ok and not headless:
-                warn("🚨  ACTION REQUIRED:")
-                warn("  1. Make sure you are logged in to Google.")
-                warn('  2. Type and SEND the exact word  DULUS  in the Gemini chat.')
-
-            if not auto_send_ok and headless:
-                warn("Waiting for any existing interception (timeout 3 min)...")
+            info("🚨  ACTION REQUIRED:")
+            info("  1. Make sure you are logged in to Google in the opened Chrome window.")
+            info("  2. Type and SEND the exact word  DULUS  in the Gemini chat.")
+            info("  Waiting for interception (timeout 3 min)...")
 
             timeout_limit = 180
             start_t = time.time()
