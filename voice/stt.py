@@ -25,6 +25,8 @@ import io
 import json
 import os
 import struct
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import List, Optional
@@ -171,6 +173,26 @@ def _pcm_to_wav(pcm_bytes: bytes) -> bytes:
     return header + pcm_bytes
 
 
+# ── Auto-install faster-whisper (mirrors TTS edge-tts behaviour) ────────────
+
+def _ensure_faster_whisper() -> bool:
+    """Make sure faster-whisper is installed; try to install it if missing."""
+    try:
+        import faster_whisper  # noqa: F401
+        return True
+    except ImportError:
+        pass
+    try:
+        print("  [STT] faster-whisper not found, installing...", flush=True)
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "faster-whisper"])
+        print("  [STT] faster-whisper installed.", flush=True)
+        import faster_whisper  # noqa: F401
+        return True
+    except Exception as e:
+        print(f"  [STT] Could not install faster-whisper: {e}", flush=True)
+        return False
+
+
 # ── Availability ──────────────────────────────────────────────────────────
 
 def check_stt_availability() -> tuple[bool, str | None]:
@@ -189,11 +211,12 @@ def check_stt_availability() -> tuple[bool, str | None]:
         pass
     if os.environ.get("OPENAI_API_KEY"):
         return True, None
+    if _ensure_faster_whisper():
+        return True, None
 
     return False, (
         "No STT backend available.\n"
         "Install one of:\n"
-        "  pip install nvidia-riva-client  (cloud, whisper-large-v3 — set NVIDIA_API_KEY)\n"
         "  pip install faster-whisper      (local, recommended)\n"
         "  pip install openai-whisper      (local, original)\n"
         "  Set OPENAI_API_KEY to use the OpenAI Whisper cloud API"
@@ -210,7 +233,8 @@ def get_stt_backend_name() -> str:
         import faster_whisper  # noqa: F401
         return f"faster-whisper ({DEFAULT_MODEL_SIZE}, local)"
     except ImportError:
-        pass
+        if _ensure_faster_whisper():
+            return f"faster-whisper ({DEFAULT_MODEL_SIZE}, local)"
     try:
         import whisper  # noqa: F401
         return f"openai-whisper ({DEFAULT_MODEL_SIZE}, local)"
@@ -474,16 +498,13 @@ def transcribe(
         except Exception as e:
             print(f"  [STT] Deepgram failed, falling back: {e}")
 
-    # faster-whisper (local). Riva (cloud) was previously the
-    # default whenever NVIDIA_API_KEY existed, which meant every wake-word
-    # audio chunk hit the NVIDIA gRPC endpoint and starved concurrent TLS
-    # calls (e.g. /say cold-starts to elevenlabs.io). Local Whisper is
-    # ~instant after warm-up and zero-network.
+    # faster-whisper (local).
     try:
         import faster_whisper  # noqa: F401
         return _transcribe_faster_whisper(pcm_bytes, terms, lang)
     except ImportError:
-        pass
+        if _ensure_faster_whisper():
+            return _transcribe_faster_whisper(pcm_bytes, terms, lang)
 
     # NVIDIA Riva (whisper-large-v3, cloud) — opt-in fallback when no local
     # Whisper is installed. Skip if DULUS_WAKE_FORCE_LOCAL is set.
@@ -506,8 +527,7 @@ def transcribe(
 
     raise RuntimeError(
         "No STT backend available.\n"
-        "Install nvidia-riva-client (set NVIDIA_API_KEY), faster-whisper,\n"
-        "or set OPENAI_API_KEY to use the OpenAI Whisper cloud API."
+        "Install faster-whisper or openai-whisper, or set OPENAI_API_KEY."
     )
 
 
