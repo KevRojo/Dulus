@@ -179,7 +179,6 @@ def load_config() -> dict:
     _ENV_BRIDGE = {
         "nvidia-web_api_key": "NVIDIA_API_KEY",
         "openai_api_key":     "OPENAI_API_KEY",
-        "gemini_api_key":     "GEMINI_API_KEY",
         "deepseek_api_key":   "DEEPSEEK_API_KEY",
         "kimi_api_key":       "MOONSHOT_API_KEY",
         "kimi_code_api_key":  "KIMI_CODE_API_KEY",
