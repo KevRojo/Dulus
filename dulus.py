@@ -5085,6 +5085,7 @@ def cmd_skill(args: str, state, config) -> bool:
         list_awesome_remote, list_composio_toolkits,
         install_awesome_remote,
         list_dulus_remote, install_dulus_remote,
+        search_skillssh, install_skillssh,
     )
     from pathlib import Path as _Path
 
@@ -5122,11 +5123,12 @@ def cmd_skill(args: str, state, config) -> bool:
             print(f"  4) {clr('local', 'yellow')}     — Anthropic + awesome marketplaces on disk (~/.claude/...)")
             print(f"  5) {clr('installed', 'yellow')} — skills already in ~/.dulus/skills/")
             print(f"  6) {clr('all', 'yellow')}       — combine dulus + awesome + composio + local")
+            print(f"  7) {clr('skillssh', 'yellow')}  — skills.sh open directory (100K+ skills, needs a search term)")
             try:
                 choice = input(clr("  > ", "cyan")).strip().lower()
             except (EOFError, KeyboardInterrupt):
                 return True
-            mapping = {"1": "dulus", "2": "awesome", "3": "composio", "4": "local", "5": "installed", "6": "all"}
+            mapping = {"1": "dulus", "2": "awesome", "3": "composio", "4": "local", "5": "installed", "6": "all", "7": "skillssh"}
             rest = mapping.get(choice, choice)
 
         if rest.startswith("dulus"):
@@ -5233,6 +5235,23 @@ def cmd_skill(args: str, state, config) -> bool:
             else:
                 for r in results:
                     print(f"  {clr(r['slug'], 'cyan'):30s}  {r.get('description','')[:60]}")
+            return True
+
+        if rest.startswith("skillssh"):
+            q = rest[8:].strip()
+            if not q:
+                info("skills.sh has no browse endpoint — give me a search term: /skill list skillssh <query>")
+                return True
+            info(f"Searching skills.sh for '{q}'...")
+            results = search_skillssh(q, limit=25)
+            if not results:
+                err("No skills found on skills.sh (network or empty result).")
+                return True
+            lines = [
+                f"  {clr(s['id'], 'cyan'):60s}  {s.get('description', '')[:70]}"
+                for s in results
+            ]
+            _pager(f"skills.sh results ({len(results)}) — /skill get <id> to install — n=next q=quit", lines)
             return True
 
         if rest.startswith("installed"):
@@ -5342,6 +5361,8 @@ def cmd_skill(args: str, state, config) -> bool:
         if rest.startswith("clawhub:"):
             slug = rest[8:]
             success, msg = install_clawhub(slug)
+        elif rest.startswith("skillssh/"):
+            success, msg = install_skillssh(rest)
         elif rest.startswith("dulus/"):
             success, msg = install_dulus_remote(rest)
         elif rest.startswith("awesome/"):

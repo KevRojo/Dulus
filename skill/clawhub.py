@@ -731,6 +731,206 @@ def install_clawhub(slug: str) -> tuple[bool, str]:
     return False, f"ClawHub API endpoint not yet mapped. Try: /skill get local/{slug}"
 
 
+# ── SKILLS.SH (skills.sh — the open agent skills directory) ────────────────
+# skills.sh indexes 100K+ agent skills across GitHub repos. Search hits its
+# public JSON API; install downloads the skill folder straight from the source
+# repo via raw.githubusercontent.com — no npx, no clone. Fallback catalog:
+# skillsdirectory.com public registry.
+
+_SKILLSSH_API = "https://skills.sh/api/search"
+_SKILLSSH_FALLBACK_API = "https://skillsdirectory.com/api/registry"
+_SKILLSSH_TIMEOUT = 15
+
+
+def _skillssh_gh_headers() -> dict:
+    """GitHub API headers — uses GITHUB_TOKEN/GH_TOKEN if present for rate limits."""
+    import os as _os
+    headers = {"User-Agent": "dulus-skill-manager"}
+    token = _os.environ.get("GITHUB_TOKEN") or _os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def search_skillssh(query: Optional[str], limit: int = 10) -> list[dict]:
+    """Search skills.sh for skills matching query.
+
+    Returns entries shaped like the other providers:
+      {id: "skillssh/<owner>/<repo>/<skill>", skill, name, description, source}
+    An empty query returns [] (skills.sh has no browse endpoint; use a term).
+    """
+    if not query or not str(query).strip():
+        return []
+
+    url = f"{_SKILLSSH_API}?q={urllib.parse.quote(str(query).strip())}"
+    data = None
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "dulus-skill-manager"})
+        with urllib.request.urlopen(req, timeout=_SKILLSSH_TIMEOUT) as resp:
+            data = json.loads(resp.read())
+    except Exception:
+        data = None
+
+    skills: list[dict] = []
+    if data and isinstance(data.get("skills"), list):
+        for it in data["skills"][: max(limit, 1)]:
+            sid = it.get("id", "")            # "owner/repo/skillId"
+            repo = it.get("source", "")       # "owner/repo"
+            name = it.get("skillId") or it.get("name", "")
+            installs = it.get("installs", 0)
+            if not sid or not name:
+                continue
+            skills.append({
+                "id": f"skillssh/{sid}",
+                "skill": name,
+                "name": name,
+                "description": f"{installs:,} installs · {repo} (skills.sh)",
+                "installs": installs,
+                "repo": repo,
+                "source": "skillssh",
+            })
+        return skills
+
+    # Fallback: skillsdirectory.com public registry (no auth, ~97K skills)
+    try:
+        q = urllib.parse.quote(str(query).strip())
+        req = urllib.request.Request(
+            f"{_SKILLSSH_FALLBACK_API}?search={q}",
+            headers={"User-Agent": "dulus-skill-manager"},
+        )
+        with urllib.request.urlopen(req, timeout=_SKILLSSH_TIMEOUT) as resp:
+            reg = json.loads(resp.read())
+        entries = reg if isinstance(reg, list) else reg.get("skills", reg.get("data", []))
+        for it in entries[: max(limit, 1)]:
+            repo = it.get("repository", "") or it.get("repo", "")
+            name = it.get("slug") or it.get("name", "")
+            if not repo or not name:
+                continue
+            skills.append({
+                "id": f"skillssh/{repo}/{name}",
+                "skill": name,
+                "name": name,
+                "description": (it.get("description") or "")[:160],
+                "repo": repo,
+                "source": "skillssh",
+            })
+    except Exception:
+        pass
+    return skills
+
+
+def _skillssh_default_branch(owner_repo: str) -> str:
+    """Resolve a repo's default branch (main/master/…)."""
+    try:
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/{owner_repo}", headers=_skillssh_gh_headers()
+        )
+        with urllib.request.urlopen(req, timeout=_SKILLSSH_TIMEOUT) as resp:
+            return json.loads(resp.read()).get("default_branch", "main")
+    except Exception:
+        return "main"
+
+
+def install_skillssh(slug: str) -> tuple[bool, str]:
+    """Install a skills.sh skill into ~/.dulus/skills/.
+
+    Accepts:  skillssh/<owner>/<repo>/<skill>  ·  <owner>/<repo>/<skill>
+              <owner>/<repo>   (repo whose root SKILL.md IS the skill)
+    Downloads the whole skill folder (SKILL.md + assets/scripts/references)
+    from the source repo and rewrites frontmatter for Dulus.
+    """
+    parts = slug.replace("skillssh/", "", 1).strip("/").split("/")
+    if len(parts) < 2:
+        return False, (
+            f"Invalid skills.sh slug: '{slug}'. "
+            f"Expected <owner>/<repo>/<skill> or <owner>/<repo>."
+        )
+    owner_repo = f"{parts[0]}/{parts[1]}"
+    skill_name = parts[-1] if len(parts) >= 3 else parts[1]
+
+    branch = _skillssh_default_branch(owner_repo)
+
+    # One tree call to locate the skill dir (mirrors the skills-CLI discovery:
+    # skills/<name>/, .claude/skills/<name>/, catalog layouts, or root SKILL.md).
+    tree_url = f"https://api.github.com/repos/{owner_repo}/git/trees/{branch}?recursive=1"
+    try:
+        req = urllib.request.Request(tree_url, headers=_skillssh_gh_headers())
+        with urllib.request.urlopen(req, timeout=_SKILLSSH_TIMEOUT) as resp:
+            tree = json.loads(resp.read())
+    except Exception as e:
+        return False, f"Could not read repo tree for '{owner_repo}': {e}"
+
+    blobs = [
+        it.get("path", "")
+        for it in tree.get("tree", [])
+        if it.get("type") == "blob"
+    ]
+
+    # Candidate SKILL.md paths whose parent dir matches the skill name.
+    want = skill_name.lower()
+    candidates = [
+        p for p in blobs
+        if p.endswith("/SKILL.md") and p.split("/")[-2].lower() == want
+    ]
+    rel_dir = ""
+    if candidates:
+        rel_dir = "/".join(sorted(candidates, key=lambda p: p.count("/"))[0].split("/")[:-1])
+    elif "SKILL.md" in blobs and len(parts) == 2:
+        rel_dir = ""  # root-level skill: the repo itself is the skill
+    else:
+        near = sorted({p.split("/")[-2] for p in blobs if p.endswith("/SKILL.md")})[:8]
+        return False, (
+            f"No SKILL.md found for '{skill_name}' in {owner_repo}. "
+            f"Skills in that repo: {', '.join(near) if near else '(none)'}"
+        )
+
+    dest_dir = DULUS_SKILLS_DIR / skill_name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    prefix = rel_dir + "/" if rel_dir else ""
+    targets = (
+        [p for p in blobs if p.startswith(prefix)] if rel_dir
+        else ["SKILL.md"]
+    )
+
+    raw_base = f"https://raw.githubusercontent.com/{owner_repo}/{branch}"
+    downloaded: list[str] = []
+    for p in targets:
+        rel = p[len(prefix):] if prefix and p.startswith(prefix) else p.split("/")[-1]
+        dst = dest_dir / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with urllib.request.urlopen(f"{raw_base}/{p}", timeout=_SKILLSSH_TIMEOUT) as r:
+                dst.write_bytes(r.read())
+            downloaded.append(rel)
+        except Exception:
+            pass  # skip files we can't fetch
+
+    skill_md = dest_dir / "SKILL.md"
+    if not skill_md.exists():
+        return False, f"Could not download SKILL.md for '{skill_name}' from {owner_repo}."
+
+    # Rewrite frontmatter for Dulus (keep original description if present)
+    raw = skill_md.read_text(encoding="utf-8")
+    orig = _parse_frontmatter(raw)
+    body = _strip_frontmatter(raw)
+    frontmatter = (
+        f"---\n"
+        f"name: {skill_name}\n"
+        f"description: {orig.get('description', f'Skill from skills.sh ({owner_repo})')}\n"
+        f"source: skillssh\n"
+        f"repo: {owner_repo}\n"
+        f"triggers: [/{skill_name}]\n"
+        f"---\n\n"
+    )
+    skill_md.write_text(frontmatter + body, encoding="utf-8")
+
+    return True, (
+        f"Installed '{skill_name}' from skills.sh ({owner_repo}@{branch}) -> {dest_dir}  "
+        f"({len(downloaded)} files: {', '.join(downloaded[:5])}{'...' if len(downloaded) > 5 else ''})"
+    )
+
+
 # ── Installed skills ───────────────────────────────────────────────────────
 
 def list_installed(query: Optional[str] = None) -> list[dict]:
