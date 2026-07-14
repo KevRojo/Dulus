@@ -435,9 +435,15 @@ EOF
 if [ -n "$PROFILE" ]; then
     ok "Profile preselected: $PROFILE"
 elif [ ! -t 0 ]; then
-    warn "Non-interactive shell (curl|bash) — defaulting to ${BOLD}full${RESET}.\n"
-    warn "Pass --profile=standard|basic to override on next run."
-    PROFILE="full"
+    if [ "$IS_TERMUX" -eq 1 ]; then
+        warn "Non-interactive shell on Termux — defaulting to ${BOLD}standard${RESET}.\n"
+        warn "Pass --profile=full|basic|custom to override on next run."
+        PROFILE="standard"
+    else
+        warn "Non-interactive shell (curl|bash) — defaulting to ${BOLD}full${RESET}.\n"
+        warn "Pass --profile=standard|basic to override on next run."
+        PROFILE="full"
+    fi
 else
     printf "%sPick 1-4 [default: 1]> %s" "${BOLD}" "${RESET}"
     read -r choice
@@ -480,6 +486,16 @@ case "$PROFILE" in
         ask "Semantic memory (MemPalace)?" Y && WANT_MEMPALACE=1
         ;;
 esac
+
+# Termux/Android cannot run desktop GUI or Chromium-based browser automation,
+# and voice is best-effort. Force those off regardless of profile choice.
+if [ "$IS_TERMUX" -eq 1 ]; then
+    [ "$WANT_GUI" -eq 1 ] && warn "Termux: desktop GUI (tkinter) is not available — disabling."
+    [ "$WANT_WEBBRIDGE" -eq 1 ] && warn "Termux: Playwright/Chromium browser automation is not available — disabling."
+    WANT_GUI=0
+    WANT_WEBBRIDGE=0
+fi
+
 ok "Profile: ${BOLD}$PROFILE${RESET}"
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -530,12 +546,18 @@ if [ "$NO_DEPS" -eq 0 ] && [ -n "$PKG" ]; then
         [ "$WANT_TMUX"  -eq 1 ] && { pkg_missing tmux      && NEEDED_PKGS+=("tmux"); }
         ;;
     pkg)
-        # Termux. Voice support is iffy on Android — best-effort.
+        # Termux. Voice/GUI/WebBridge are not practical on Android; build tools
+        # are needed because many Python deps (chromadb, tokenizers, etc.) ship
+        # wheels that don't cover Android and must compile from source.
         [ "$WANT_TMUX"  -eq 1 ] && { pkg_missing tmux && NEEDED_PKGS+=("tmux"); }
-        if [ "$WANT_VOICE" -eq 1 ]; then
+        if [ "$WANT_VOICE" -eq 1 ] || [ "$WANT_MEMPALACE" -eq 1 ]; then
             pkg_missing python-numpy && NEEDED_PKGS+=("python-numpy")
             pkg_missing ffmpeg       && NEEDED_PKGS+=("ffmpeg")
         fi
+        # Build toolchain for Python packages with native extensions
+        for p in clang make pkg-config cmake rust libffi openssl python; do
+            pkg_missing "$p" && NEEDED_PKGS+=("$p")
+        done
         ;;
     dnf)
         if [ "$WANT_VOICE" -eq 1 ]; then
@@ -576,7 +598,11 @@ if [ "${#NEEDED_PKGS[@]}" -gt 0 ]; then
         printf "  • %s\n" "$p"
     done
     echo
-    printf "  ${BOLD}1)${RESET} Auto-install now (sudo password prompt)\n"
+    if [ "$IS_TERMUX" -eq 1 ]; then
+        printf "  ${BOLD}1)${RESET} Auto-install now (pkg)\n"
+    else
+        printf "  ${BOLD}1)${RESET} Auto-install now (sudo password prompt)\n"
+    fi
     printf "  ${BOLD}2)${RESET} Show me the command, I'll run it manually\n"
     printf "  ${BOLD}3)${RESET} Skip — proceed with pip install only\n"
 
@@ -741,8 +767,9 @@ case "$INSTALLER" in
         ;;
 esac
 
-# Playwright browser binaries — only if webbridge was requested
-if [ "$WANT_WEBBRIDGE" -eq 1 ] && [ "$DRY_RUN" -eq 0 ]; then
+# Playwright browser binaries — only if webbridge was requested and not on Termux
+# (Playwright's Chromium bootstrap requires root and is unsupported on Android).
+if [ "$WANT_WEBBRIDGE" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ "$IS_TERMUX" -eq 0 ]; then
     if command -v playwright >/dev/null 2>&1; then
         run "playwright install chromium --with-deps || playwright install chromium"
     fi
