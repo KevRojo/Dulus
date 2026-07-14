@@ -1,16 +1,14 @@
 """Text-to-speech (TTS) backends.
 
 Backend priority (tried in order):
-  1. pyttsx3        — local, offline, robotic system voices (Windows SAPI5).
-                       pip install pyttsx3
-  2. edge-tts       — Microsoft Edge voices, fast, free, cloud.
-                       pip install edge-tts
-  3. gTTS           — cloud, free, needs internet.
-                       pip install gTTS
-  4. OpenAI TTS     — cloud, high quality, needs OPENAI_API_KEY.
-  5. Azure          — cloud, Microsoft Azure Speech Services.
-  6. NVIDIA Riva    — cloud, Magpie-Multilingual via NVCF gRPC.
-                       pip install nvidia-riva-client + NVIDIA_API_KEY
+  1. Deepgram Aura-2 — natural, fast, needs DEEPGRAM_API_KEY.
+  2. pyttsx3        — local, offline, robotic system voices (Windows SAPI5).
+  3. edge-tts       — Microsoft Edge voices, fast, free, cloud; auto-installed if missing.
+  4. ElevenLabs     — premium voice cloning, needs API key.
+  5. gTTS           — cloud, free, needs internet.
+  6. OpenAI TTS     — cloud, high quality, needs OPENAI_API_KEY.
+  7. Azure          — cloud, Microsoft Azure Speech Services.
+  8. NVIDIA Riva    — cloud, Magpie-Multilingual via NVCF gRPC.
 """
 
 from __future__ import annotations
@@ -19,6 +17,7 @@ import os
 import re
 import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -496,7 +495,28 @@ _EDGE_TTS_VOICES: dict[str, str] = {
 }
 
 
+def _ensure_edge_tts() -> bool:
+    """Make sure edge-tts is installed; try to install it if missing."""
+    try:
+        import edge_tts  # noqa: F401
+        return True
+    except ImportError:
+        pass
+    try:
+        print("  [TTS] edge-tts not found, installing...", flush=True)
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "edge-tts"])
+        print("  [TTS] edge-tts installed.", flush=True)
+        # Verify the install worked
+        import edge_tts  # noqa: F401
+        return True
+    except Exception as e:
+        print(f"  [TTS] Could not install edge-tts: {e}", flush=True)
+        return False
+
+
 def _say_edge_tts(text: str, lang: str = "es") -> bool:
+    if not _ensure_edge_tts():
+        return False
     tmp_path = None
     try:
         import edge_tts
@@ -514,8 +534,6 @@ def _say_edge_tts(text: str, lang: str = "es") -> bool:
         asyncio.run(_save())
         _play_audio_file(tmp_path)
         return True
-    except ImportError:
-        return False
     except Exception as e:
         print(f"  [edge-tts] Error: {e}")
         return False
@@ -734,7 +752,7 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
 
     Args:
         provider: Explicit backend to use. "auto" or None tries in priority order.
-                  Supported: "pyttsx3", "edge", "gtts", "elevenlabs", "deepgram",
+                  Supported: "deepgram", "pyttsx3", "edge", "elevenlabs", "gtts",
                   "openai", "azure", "riva".
     """
     text = _clean_for_tts(text)
@@ -759,54 +777,57 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
                     return True
                 return provider.lower() == name.lower()
 
-            # Premium voices with a configured key go FIRST in auto mode —
-            # otherwise pyttsx3 (robotic SAPI5) always "succeeds" and the
-            # good voices never get a chance to speak.
+            # Backend priority in auto mode:
+            #   1. Deepgram Aura-2 if a key is configured (premium voice).
+            #   2. pyttsx3 — local, offline, works without config.
+            #   3. edge-tts — free Microsoft voices; auto-installed if missing.
+            #   4. ElevenLabs, gTTS, OpenAI, Azure, Riva — as configured.
 
-            # 1. Deepgram Aura-2 (natural, fast, $200 free credit — needs API key)
+            # 1. Deepgram Aura-2 (natural, fast — needs API key)
             if _should_try("deepgram") and _say_deepgram(text, voice=voice, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 2. ElevenLabs (premium voice cloning, needs API key)
-            if _should_try("elevenlabs") and _say_elevenlabs(text, voice=voice):
+            # 2. pyttsx3 — local, offline, works without any API key
+            if _should_try("pyttsx3") and _say_pyttsx3(text):
                 return
             if _stop_event.is_set():
                 return
 
-            # 3. edge-tts — Microsoft Edge voices (fast & free, needs internet)
+            # 3. edge-tts — Microsoft Edge voices (fast & free, needs internet).
+            #                Installed on-demand if it isn't present yet.
             if _should_try("edge") and _say_edge_tts(text, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 4. gTTS — cloud Spanish
+            # 4. ElevenLabs (premium voice cloning, needs API key)
+            if _should_try("elevenlabs") and _say_elevenlabs(text, voice=voice):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 5. gTTS — cloud Spanish
             if _should_try("gtts") and _say_gtts(text, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 5. OpenAI (high quality, needs key)
+            # 6. OpenAI (high quality, needs key)
             if _should_try("openai") and _say_openai(text, voice=(voice or "alloy"), speed=speed):
                 return
             if _stop_event.is_set():
                 return
 
-            # 6. Azure Speech Services
+            # 7. Azure Speech Services
             if _should_try("azure") and _say_azure(text, voice=voice, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 7. NVIDIA Riva (Magpie-Multilingual, cloud)
+            # 8. NVIDIA Riva (Magpie-Multilingual, cloud)
             if _should_try("riva") and _say_nvidia_riva(text, lang=lang):
-                return
-            if _stop_event.is_set():
-                return
-
-            # 8. pyttsx3 — local, offline, LAST RESORT (robotic SAPI5 voice)
-            if _should_try("pyttsx3") and _say_pyttsx3(text):
                 return
 
             # Final fallback — we intentionally do NOT print the spoken text
@@ -833,14 +854,14 @@ def check_tts_availability() -> tuple[bool, str | None]:
     except ImportError:
         pass
 
+    if _elevenlabs_available():
+        return True, "ElevenLabs TTS (cloud, voice cloning)"
+
     try:
         import gtts
         return True, "gTTS (cloud)"
     except ImportError:
         pass
-
-    if _elevenlabs_available():
-        return True, "ElevenLabs TTS (cloud, voice cloning)"
 
     if os.environ.get("OPENAI_API_KEY"):
         return True, "OpenAI TTS (cloud)"
