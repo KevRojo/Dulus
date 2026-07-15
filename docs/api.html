@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Dulus Analytics SDK v2 -->
+<script src="https://cdn.amplitude.com/libs/analytics-browser-2.11.1-min.js.gz"></script>
+<script src="/assets/js/dulus-analytics-config.js"></script>
+<script src="/assets/js/dulus-analytics.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dulus API Docs</title>
@@ -2385,7 +2389,8 @@ capturing stdout. Mirrors the Telegram bridge behavior
 Returns (output_text, assistant_reply_or_None).
 `assistant_reply` is set when the slash triggered a model query
 (cmd_type == "query") so the call</div></div><div class="item"><span class="item-name">def _run_agent_mirror</span><span class="item-sig">(user_message: str)</span><div class="item-doc">Run the agent loop with shared state/config, yielding all events.</div></div><div class="item"><span class="item-name">def _event_to_dict</span><span class="item-sig">(event)</span></div><div class="item"><span class="item-name">def _sanitize_for_api</span><span class="item-sig">(text: str)</span><div class="item-doc">Aggressive sanitize: remove control chars (except 
-        ), surrogates, and normalize.</div></div><div class="item"><span class="item-name">def _build_roundtable_prompt</span><span class="item-sig">(agent: RoundtableAgent, user_msg: str, history: list[dict])</span><div class="item-doc">Build a lean prompt with ONLY the last text message per member.
+
+        ), surrogates, and normalize.</div></div><div class="item"><span class="item-name">def _build_roundtable_prompt</span><span class="item-sig">(agent: RoundtableAgent, user_msg: str, history: list[dict])</span><div class="item-doc">Build a lean prompt with ONLY the last text message per member.
 history items: {"agent": str, "text": str}</div></div><div class="item"><span class="item-name">def _run_agent_for_roundtable</span><span class="item-sig">(agent: RoundtableAgent, user_msg: str, history: list[dict], q: queue.Queue)</span></div><div class="item"><span class="item-name">def create_app</span><span class="item-sig">()</span></div><div class="item"><span class="item-name">def start</span><span class="item-sig">(state: AgentState, config: dict, port: int = 5000, open_browser: bool = False)</span></div><div class="item"><span class="item-name">def stop</span><span class="item-sig">()</span></div><div class="item"><span class="item-name">def is_running</span><span class="item-sig">()</span></div><div class="section-title">Imports</div><div class="imports"><span class="import-tag">__future__</span><span class="import-tag">agent</span><span class="import-tag">backend.agents_bridge</span><span class="import-tag">backend.context</span><span class="import-tag">backend.marketplace</span><span class="import-tag">backend.personas</span><span class="import-tag">backend.plugins</span><span class="import-tag">common</span><span class="import-tag">context</span><span class="import-tag">dulus_mcp.tools</span><span class="import-tag">flask</span><span class="import-tag">gui.session_utils</span><span class="import-tag">json</span><span class="import-tag">memory.tools</span><span class="import-tag">multi_agent.tools</span><span class="import-tag">pathlib</span><span class="import-tag">queue</span><span class="import-tag">skill.tools</span><span class="import-tag">sys</span><span class="import-tag">task</span><span class="import-tag">task.tools</span><span class="import-tag">threading</span><span class="import-tag">time</span><span class="import-tag">tools</span><span class="import-tag">typing</span><span class="import-tag">uuid</span><span class="import-tag">webbrowser</span></div></div></div><div class="module"><div class="module-header"><span class="chevron">▶</span><span class="path">welcome.py</span><span class="loc">290 LOC</span></div><div class="module-body"><div class="docstring">First-run welcome wizard for Dulus.
 
 Kept intentionally small per scope:

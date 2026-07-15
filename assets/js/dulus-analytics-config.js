@@ -1,19 +1,14 @@
-/* DULUS.AI — loader del analytics SDK v2
-   Copiar este archivo a: DEPLOY PRODUCTION DULUS AI FINAL/assets/js/dulus-analytics.js
-   Inyectar en el <head> de cada HTML:
-     <script async src="https://cdn.amplitude.com/libs/analytics-browser-2.11.1-min.js.gz"></script>
-     <script src="assets/js/dulus-analytics.js"></script>
-*/
+/* DULUS.WORK — loader del analytics SDK v2 */
 (function () {
   window.DULUS_ANALYTICS_CONFIG = {
-    site: 'dulus.ai',
-    amplitudeKey: '2511c9e1fc597b8bc6b81f193cc615a2',
-    mixpanelToken: '9c61bb3514113d743783ca9ee9922be0',
-    posthogKey: 'REEMPLAZAR_CON_POSTHOG_KEY',   // <-- KevRojo: poner aquí
-    datadogRumAppId: 'REEMPLAZAR_CON_DD_APP_ID',   // <-- KevRojo: poner aquí
-    datadogRumClientToken: 'REEMPLAZAR_CON_DD_CLIENT_TOKEN', // <-- KevRojo: poner aquí
-    sentryDsn: 'REEMPLAZAR_CON_SENTRY_DSN',        // <-- KevRojo: poner aquí
+    site: 'dulus.work',
+    amplitudeKey: '3bb6ca005d22c0c7c26e573d0228628d',
+    mixpanelToken: '43f2e80bf549c2f5d47918db37f88da1',
+    posthogKey: 'phc_yqAJ42vbj8YFkdpxZicsS4asdbWFTPy6orR8uRNewfYD',
+    posthogHost: 'https://us.i.posthog.com',
+    datadogRumAppId: 'REEMPLAZAR_CON_DD_APP_ID',
+    datadogRumClientToken: 'REEMPLAZAR_CON_DD_CLIENT_TOKEN',
+    sentryDsn: 'https://2141eed637e06b8e5fa535a2586495b8@o4511465548808192.ingest.us.sentry.io/4511465560932352',
     debug: false
   };
 })();
-// El SDK unificado se carga después de este config.
