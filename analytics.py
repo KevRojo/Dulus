@@ -15,7 +15,8 @@ What is NEVER collected:
   - Usernames, emails, hostnames, IPs (Mixpanel geo is disabled via $ip=0)
   - API keys or tokens
 
-Where it goes: Mixpanel (https://mixpanel.com) — event analytics only.
+Where it goes: Mixpanel (https://mixpanel.com) and Amplitude
+(https://amplitude.com) — event analytics only, same anonymous payload.
 
 Opt out at any time (any of these):
   - Answer "n" at the first-run prompt
@@ -44,6 +45,12 @@ import uuid
 MP_TOKEN = os.environ.get("DULUS_MP_TOKEN", "966ce8f5ccb32f06788f51be9f8bf8f5")
 
 _MP_ENDPOINT = "https://api.mixpanel.com/track"
+
+# Amplitude fan-out (same opt-in gate, same anonymous ID, same privacy rules).
+# Ingestion keys are write-only by design — they cannot read any data.
+AMP_KEY = os.environ.get("DULUS_AMP_KEY", "dbdb0e42b0fc29bfdb4061612c3c8a7e")
+
+_AMP_ENDPOINT = "https://api2.amplitude.com/2/httpapi"
 
 # Populated by init_telemetry(); None = not initialised / disabled.
 _distinct_id: str | None = None
@@ -133,7 +140,36 @@ def track(event: str, properties: dict | None = None) -> None:
         except Exception:
             pass  # telemetry must never break Dulus
 
+    def _send_amplitude() -> None:
+        if not AMP_KEY:
+            return
+        try:
+            from urllib.request import Request, urlopen
+
+            body = json.dumps({
+                "api_key": AMP_KEY,
+                "events": [{
+                    "device_id": _distinct_id,  # same anonymous UUID, never PII
+                    "event_type": event,
+                    "event_properties": {
+                        "dulus_version": _dulus_version,
+                        "os": platform.system(),
+                        "python": f"{sys.version_info.major}.{sys.version_info.minor}",
+                        **(properties or {}),
+                    },
+                    "platform": platform.system(),
+                }],
+            }).encode()
+            req = Request(
+                _AMP_ENDPOINT, data=body,
+                headers={"Content-Type": "application/json"}, method="POST",
+            )
+            urlopen(req, timeout=4).read()
+        except Exception:
+            pass  # telemetry must never break Dulus
+
     threading.Thread(target=_send, daemon=True, name="telemetry").start()
+    threading.Thread(target=_send_amplitude, daemon=True, name="telemetry-amp").start()
 
 
 def track_session_start(config: dict) -> None:
