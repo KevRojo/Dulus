@@ -53,6 +53,11 @@ from .types import (  # noqa: F401
 )
 from .consolidator import consolidate_session, mine_files, snapshot_memory_files, new_memory_files  # noqa: F401
 from .palace import ensure_memory_palace  # noqa: F401
+from .mempalace_bridge import (  # noqa: F401
+    schedule_mempalace_mine,
+    wait_pending_mines,
+    user_memory_dir,
+)
 
 __all__ = [
     # store
@@ -88,6 +93,12 @@ __all__ = [
     # consolidator
     "consolidate_session",
     "mine_files",
+    "snapshot_memory_files",
+    "new_memory_files",
     # palace
     "ensure_memory_palace",
+    # mempalace package bridge (toggle name in Dulus config: mem_palace)
+    "schedule_mempalace_mine",
+    "wait_pending_mines",
+    "user_memory_dir",
 ]

@@ -4284,6 +4284,7 @@ def cmd_exit(_args: str, _state, config) -> bool:
                     consolidate_session, mine_files,
                     snapshot_memory_files, new_memory_files,
                 )
+                from memory.mempalace_bridge import schedule_mempalace_mine
                 # Snapshot existing memory .md files BEFORE consolidating,
                 # so we can detect exactly which ones consolidate just created.
                 snap = snapshot_memory_files()
@@ -4293,17 +4294,26 @@ def cmd_exit(_args: str, _state, config) -> bool:
                     ok(f"Consolidated {len(saved)} memories: {', '.join(saved)}")
                 else:
                     info("No new insights to consolidate.")
-                # If MemPalace is ON, mine the .md files just created in
-                # the memory dir (works without git).
+                # AI file-miner (creates more local .md) when Dulus toggle mem_palace is ON.
+                # Note: this is NOT the mempalace package itself — that is scheduled below.
                 if config.get("mem_palace", True):
                     fresh = new_memory_files(snap)
                     if fresh:
-                        info(f"MemPalace ON → mining {len(fresh)} fresh memory file(s)…")
+                        info(f"mem_palace ON → AI-mining {len(fresh)} fresh memory file(s)…")
                         mined = mine_files(fresh, config)
                         if mined:
-                            ok(f"Mined {len(mined)} extra memories: {', '.join(mined)}")
+                            ok(f"AI-mined {len(mined)} extra memories: {', '.join(mined)}")
                         else:
                             info("No additional insights mined.")
+                    # Always schedule real mempalace package mine so new .md files
+                    # land in the vector palace (Windows-safe detached process).
+                    info("Scheduling mempalace mine for user memory dir…")
+                    schedule_mempalace_mine(
+                        config,
+                        wait=True,
+                        wait_timeout_s=25.0,
+                        reason="cmd_exit:consolidate",
+                    )
                 # When the user opts into consolidation, they're telling us this
                 # session matters — persist it explicitly regardless of the
                 # MIN_AUTO_SAVE_TURNS gate that save_latest enforces later.
@@ -4336,6 +4346,12 @@ def cmd_exit(_args: str, _state, config) -> bool:
             config["cloudsave_last_gist_id"] = gist_id
             save_config(config)
             ok(f"Session synced → https://gist.github.com/{gist_id}")
+    # Let any in-flight mempalace mines finish (or detach cleanly) before hard exit.
+    try:
+        from memory.mempalace_bridge import wait_pending_mines
+        wait_pending_mines(timeout_s=8.0)
+    except Exception:
+        pass
     os._exit(0)
 
 def cmd_memory(args: str, _state, config) -> bool:
@@ -4424,10 +4440,21 @@ def cmd_memory(args: str, _state, config) -> bool:
     # /memory consolidate  — trigger a structured self-reflection turn
     if subcmd == "consolidate":
         from memory import consolidate_session
+        from memory.mempalace_bridge import schedule_mempalace_mine
         info("Consolidating session insights…")
         saved = consolidate_session(_state.messages, config)
         if saved:
             ok(f"Consolidated {len(saved)} new memories: {', '.join(saved)}")
+            # consolidate_session already schedules mempalace mine; nudge once more
+            # with a short wait so the user sees it land if package is present.
+            if config.get("mem_palace", True):
+                info("Indexing into mempalace…")
+                schedule_mempalace_mine(
+                    config,
+                    wait=True,
+                    wait_timeout_s=20.0,
+                    reason="cmd_memory:consolidate",
+                )
         else:
             info("Found no new critical insights to consolidate at this time.")
         return True

@@ -15,6 +15,7 @@ overview of available memories.
 from __future__ import annotations
 
 import difflib
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,7 +23,13 @@ from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 
-USER_MEMORY_DIR = Path.home() / ".dulus" / "memory"
+def _user_memory_dir() -> Path:
+    """Resolve user memory dir via DULUS_HOME (not hard-coded ~/.dulus only)."""
+    return Path(os.environ.get("DULUS_HOME") or (Path.home() / ".dulus")).expanduser() / "memory"
+
+
+# Backward-compatible name. Prefer get_memory_dir("user") for live resolution.
+USER_MEMORY_DIR = _user_memory_dir()
 INDEX_FILENAME = "MEMORY.md"
 
 # Maximum lines/bytes for the index file 
@@ -39,12 +46,13 @@ def get_memory_dir(scope: str = "user") -> Path:
     """Return the memory directory for the given scope.
 
     Args:
-        scope: "user" (global ~/.dulus/memory) or
-               "project" (.dulus/memory relative to cwd)
+        scope: "user" (global DULUS_HOME/memory) or
+               "project" (.dulus-context/memory relative to cwd)
     """
     if scope == "project":
         return get_project_memory_dir()
-    return USER_MEMORY_DIR
+    # Re-resolve so DULUS_HOME env overrides always win
+    return _user_memory_dir()
 
 
 # ── Data model ─────────────────────────────────────────────────────────────

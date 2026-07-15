@@ -164,6 +164,17 @@ def consolidate_session(messages: list, config: dict) -> list[str]:
             save_memory(entry, scope="user")
             saved.append(entry.name)
 
+        # Index new .md files into mempalace (package). Dulus toggle: mem_palace.
+        if saved:
+            try:
+                from .mempalace_bridge import schedule_mempalace_mine
+                schedule_mempalace_mine(
+                    config,
+                    reason=f"consolidate_session:{len(saved)}",
+                )
+            except Exception:
+                pass
+
         return saved
 
     except Exception:
@@ -280,6 +291,17 @@ def mine_files(file_paths: list[str], config: dict, max_files: int = 15, max_byt
             save_memory(entry, scope="user")
             saved.append(entry.name)
 
+        # Index any newly-written .md into mempalace (package).
+        if saved:
+            try:
+                from .mempalace_bridge import schedule_mempalace_mine
+                schedule_mempalace_mine(
+                    config,
+                    reason=f"mine_files:{len(saved)}",
+                )
+            except Exception:
+                pass
+
         return saved
     except Exception:
         return []
@@ -290,8 +312,8 @@ def snapshot_memory_files() -> set[str]:
     memory directory. Use before consolidate_session, then call
     new_memory_files(snapshot) after to get only what was just created."""
     try:
-        from .store import USER_MEMORY_DIR
-        d = USER_MEMORY_DIR
+        from .store import get_memory_dir
+        d = get_memory_dir("user")
         if not d.exists():
             return set()
         return {str(p.resolve()) for p in d.glob("*.md") if p.name != "MEMORY.md"}
@@ -302,8 +324,8 @@ def snapshot_memory_files() -> set[str]:
 def new_memory_files(snapshot: set[str]) -> list[str]:
     """Return .md files in the user memory directory that weren't in `snapshot`."""
     try:
-        from .store import USER_MEMORY_DIR
-        d = USER_MEMORY_DIR
+        from .store import get_memory_dir
+        d = get_memory_dir("user")
         if not d.exists():
             return []
         current = {str(p.resolve()): p for p in d.glob("*.md") if p.name != "MEMORY.md"}

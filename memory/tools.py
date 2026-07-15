@@ -11,45 +11,7 @@ from .store import MemoryEntry, save_memory, delete_memory, load_index, check_co
 from .context import find_relevant_memories
 from .scan import scan_all_memories, format_memory_manifest
 from .sessions import search_session_history
-
-
-# ── MemPalace auto-init helper ─────────────────────────────────────────────
-
-def _mempalace_env() -> dict:
-    """Return environment dict with UTF-8 overrides for Windows safety."""
-    import os as _os
-    return {**_os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
-
-
-def _is_mempalace_initialized() -> bool:
-    """Check whether MemPalace has been init'd (config dir exists)."""
-    try:
-        from pathlib import Path as _Path
-        return (_Path.home() / ".mempalace" / "config.json").exists()
-    except Exception:
-        return False
-
-
-def _ensure_mempalace_initialized(mem_dir: "Path") -> None:
-    """Run ``mempalace init`` if the global palace has never been set up.
-
-    This is a no-op for existing installations so it is safe to call on every
-    startup / save.
-    """
-    if _is_mempalace_initialized():
-        return
-    try:
-        import subprocess as _sp, sys as _sys
-        _sp.run(
-            [_sys.executable, "-X", "utf8", "-m", "mempalace", "init",
-             str(mem_dir), "--yes", "--no-llm"],
-            stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
-            env=_mempalace_env(),
-            creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0),
-            check=False,
-        )
-    except Exception:
-        pass  # best-effort; don't crash the UI on init failure
+from .mempalace_bridge import schedule_mempalace_mine
 
 
 # ── Tool implementations ───────────────────────────────────────────────────
@@ -72,23 +34,10 @@ def _memory_save(params: dict, config: dict) -> str:
     conflict = check_conflict(entry, scope=scope)
     save_memory(entry, scope=scope)
 
-    # ── Auto-mine into MemPalace (fire-and-forget) ──
-    # mempalace skips already-filed files, so only the new MD gets indexed.
-    if config.get("mem_palace", True) and scope == "user":
-        try:
-            import subprocess as _sp, sys as _sys
-            from pathlib import Path as _Path
-            _mem_dir = _Path.home() / ".dulus" / "memory"
-            _ensure_mempalace_initialized(_mem_dir)
-            _sp.Popen(
-                [_sys.executable, "-X", "utf8", "-m", "mempalace", "mine",
-                 str(_mem_dir), "--wing", "memory", "--agent", "dulus"],
-                stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
-                env=_mempalace_env(),
-                creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0),
-            )
-        except Exception:
-            pass  # never block save on mining failure
+    # ── Auto-mine into mempalace (package) if Dulus toggle mem_palace is ON ──
+    # mempalace skips already-filed files; bridge is Windows-safe + logged.
+    if scope == "user":
+        schedule_mempalace_mine(config, reason=f"MemorySave:{entry.name}")
 
     scope_label = "project" if scope == "project" else "user"
     hall_label = f"/{entry.hall}" if entry.hall else ""

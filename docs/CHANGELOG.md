@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.9] - 2026-07-15
+
+### Fixed
+- MemPalace auto-mine reliability on Windows and session exit: centralized
+  `memory/mempalace_bridge.py` so MemorySave, consolidate, and `/exit`
+  all schedule the real `mempalace mine` (package), not only local AI file mining.
+- Windows child process was dying silently (`CREATE_NO_WINDOW` alone kept the
+  mine in the parent console job). Detach with `DETACHED_PROCESS` +
+  `CREATE_NEW_PROCESS_GROUP`; log to `$DULUS_HOME/logs/mempalace_mine.log`.
+- Wait briefly for in-flight mines before `os._exit` so indexes are not dropped.
+- User memory paths respect `DULUS_HOME` instead of hard-coding `~/.dulus`.
+
 ### Added
 - Multi-language README documentation (EN, ES, FR, ZH, JA, KO, PT, RU, AR)
 - Comprehensive architecture documentation
