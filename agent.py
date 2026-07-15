@@ -65,6 +65,7 @@ class AgentState:
     total_cache_read_tokens: int = 0
     total_cache_creation_tokens: int = 0
     turn_count: int = 0
+    _short_mem_counter: int = 0  # +1 per tool turn; nudges short_memory at 10
 
 
 @dataclass
@@ -89,6 +90,18 @@ class TurnDone:
 class PermissionRequest:
     description: str
     granted: bool = False
+
+
+def _load_short_memory() -> str:
+    """Load the current gold short_memory.md for the periodic nudge."""
+    try:
+        from config import dulus_home
+        path = dulus_home() / "memory" / "short_memory.md"
+        if path.exists():
+            return path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    return "(empty)"
 
 
 # ── Agent loop ─────────────────────────────────────────────────────────────
@@ -154,10 +167,35 @@ def run(
                 _m["content"] = sanitize_text(_c)
             _safe_messages.append(_m)
 
+        # ── Short-memory nudge (every 10 tool turns) ──────────────────────
+        # Visible check: after 10 tool turns we surface the current gold
+        # short_memory.md to the user, ask if anything should be added, and
+        # let the model update it via MemorySave if needed. The nudge resets
+        # only after being shown, so it won't spam.
+        _effective_system = system_prompt
+        try:
+            if getattr(state, "_short_mem_counter", 0) >= 10:
+                state._short_mem_counter = 0
+                _short_mem_text = _load_short_memory()
+                _effective_system = system_prompt + (
+                    "\n\n[SYSTEM: Short Memory Check — visible to user]\n\n"
+                    "You have reached 10 tool turns. The current gold short_memory.md "
+                    "is shown below. Read it, then do ONE of the following:\n"
+                    "1. If recent conversation contains a new important fact, decision, "
+                    "path, correction, or changed project state, call MemorySave with "
+                    "name='short_memory' to update the file. Then briefly tell the user "
+                    "what you added/updated.\n"
+                    "2. If nothing new is worth saving, briefly say: "
+                    "'Short memory check: nothing new to save.' and continue normally.\n\n"
+                    "Current short_memory.md:\n---\n" + _short_mem_text + "\n---"
+                )
+        except Exception:
+            pass
+
         # Stream from provider — wrapped so Ctrl+C always fires
         for event in _interruptible_stream(stream(
             model=config["model"],
-            system=system_prompt,
+            system=_effective_system,
             messages=_safe_messages,
             tool_schemas=get_tool_schemas(),
             config=config,
@@ -198,6 +236,10 @@ def run(
             cache_read_tokens=c_read,
             cache_creation_tokens=c_create,
         )
+
+        # +1 per tool turn (this is where tokens surface). Drives the
+        # short-memory nudge above: at 10 it fires and resets.
+        state._short_mem_counter = getattr(state, "_short_mem_counter", 0) + 1
 
         # Charge the token budget. On warn → notify; on first hard breach →
         # fire on_breach and stop the loop gracefully (protects the wallet).
