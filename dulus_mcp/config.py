@@ -81,6 +81,36 @@ def save_user_mcp_config(servers: Dict[str, dict]) -> None:
             pass
     existing["mcpServers"] = servers
     USER_MCP_CONFIG.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    _restrict_file_permissions(USER_MCP_CONFIG)
+    _warn_if_contains_secrets(servers)
+
+
+def _restrict_file_permissions(path: Path) -> None:
+    """Best-effort restrict read access to owner only."""
+    try:
+        import os as _os
+        _os.chmod(path, 0o600)
+    except Exception:
+        pass
+
+
+def _warn_if_contains_secrets(servers: Dict[str, dict]) -> None:
+    """Warn if saved config contains plaintext tokens/keys."""
+    try:
+        from common import warn as _warn
+    except Exception:
+        return
+    for name, cfg in servers.items():
+        env = cfg.get("env", {})
+        headers = cfg.get("headers", {})
+        for key in list(env.keys()) + list(headers.keys()):
+            lower = key.lower()
+            if any(x in lower for x in ("token", "secret", "password", "api_key", "apikey", "key")):
+                _warn(
+                    f"MCP config '{name}' contains plaintext secret '{key}' in {USER_MCP_CONFIG}. "
+                    "Keep this file private and do not commit it to version control."
+                )
+                break
 
 
 def add_server_to_user_config(name: str, raw: dict) -> None:
@@ -96,6 +126,8 @@ def add_server_to_user_config(name: str, raw: dict) -> None:
     existing["mcpServers"] = mcp_servers
     USER_MCP_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     USER_MCP_CONFIG.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    _restrict_file_permissions(USER_MCP_CONFIG)
+    _warn_if_contains_secrets({name: raw})
 
 
 def remove_server_from_user_config(name: str) -> bool:
