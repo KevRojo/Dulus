@@ -110,7 +110,6 @@ py-modules = [
     "display_blocks",
     "dulus",
     "dulus_gui",
-    "dulus_gui_web",
     "file_filter",
     "governance",
     "input",
@@ -174,18 +173,11 @@ exclude = [
     "sandbox.src*",
     "sandbox.node_modules*",
     "sandbox.public*",
-    # Web GUI: ship only the compiled dist/, not sources or node_modules.
-    "gui.dulus_orchestrator.node_modules*",
-    "gui.dulus_orchestrator.components*",
-    "gui.dulus_orchestrator.services*",
-    "gui.dulus_orchestrator.public*",
-    "gui.dulus_orchestrator.assets*",
 ]
 
 [tool.setuptools.package-data]
 "*" = ["*.html", "*.css", "*.js", "*.jsx", "*.ts", "*.tsx", "*.svg", "*.json", "*.md", "*.png", "*.jpg", "*.jpeg", "*.txt", "*.py"]
 "sandbox" = ["dist/**/*", "dist/**/.*"]
-"gui.dulus_orchestrator" = ["dist/**/*"]
 # Bundled Agent Skills shipped with Dulus (kepano's obsidian-skills suite,
 # etc.). Each lives at `skill/bundled/<name>/SKILL.md` with optional
 # `references/*.md` files the skill body links to.

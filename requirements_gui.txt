@@ -1,9 +1,12 @@
 # Dulus GUI dependencies
 # Install with: pip install -r requirements_gui.txt
 
-# Modern web GUI (dulus --gui) — pywebview shell around the React build
+# pywebview — used by the classic GUI's embedded Sandbox button
+# (gui/main_window.py renders the Sandbox OS inside the same window via
+# pywebview + Win32 SetParent). Optional: falls back to "open in browser"
+# when pywebview isn't installed.
 pywebview>=5.0
 
-# Classic desktop GUI (dulus --gui-classic)
+# Classic desktop GUI (dulus --gui / --gui-classic)
 customtkinter>=5.2.2
 Pillow>=10.0.0
