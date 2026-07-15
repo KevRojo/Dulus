@@ -119,24 +119,72 @@ def _slugify(name: str) -> str:
 def parse_frontmatter(text: str) -> tuple[dict, str]:
     """Parse ---\\nkey: value\\n---\\nbody format.
 
+    Stacked leading frontmatter blocks (double-FM corruption) are peeled
+    until a real body remains. First block wins for each meta key so a
+    later ``description: test`` seed cannot clobber the live description.
+
     Returns:
         (meta_dict, body_str)
     """
     if not text.startswith("---"):
         return {}, text
+    meta: dict = {}
+    rest = text
+    peeled = 0
+    while rest.startswith("---"):
+        parts = rest.split("---", 2)
+        if len(parts) < 3:
+            break
+        block = parts[1]
+        # Refuse to treat markdown thematic breaks / non-kv blobs as FM
+        lines = [ln for ln in block.strip().splitlines() if ln.strip()]
+        if not lines or not any(":" in ln for ln in lines[:8]):
+            break
+        for line in block.strip().splitlines():
+            if ":" in line:
+                key, _, val = line.partition(":")
+                k = key.strip()
+                if k and k not in meta:
+                    meta[k] = val.strip()
+        rest = parts[2].lstrip("\n")
+        peeled += 1
+        # Safety: never spin forever on pathological input
+        if peeled > 8:
+            break
+    return meta, rest.strip()
+
+
+def has_stacked_frontmatter(text: str) -> bool:
+    """True if *text* has more than one leading ``---`` frontmatter block."""
+    if not text.startswith("---"):
+        return False
     parts = text.split("---", 2)
     if len(parts) < 3:
-        return {}, text
-    meta: dict = {}
-    for line in parts[1].strip().splitlines():
-        if ":" in line:
-            key, _, val = line.partition(":")
-            meta[key.strip()] = val.strip()
-    return meta, parts[2].strip()
+        return False
+    return parts[2].lstrip("\n").startswith("---")
+
+
+def strip_embedded_frontmatter(content: str) -> str:
+    """If *content* is a full md document (starts with ``---``), return body only.
+
+    Prevents ``_format_entry_md`` from stacking a second frontmatter when a
+    caller (MemorySave, seed paste, agent rewrite) passes a whole file as
+    ``content``. Safe no-op for normal markdown bodies.
+    """
+    if not content:
+        return content
+    # Preserve pure body; only peel when it looks like a full document
+    candidate = content.lstrip("\n")
+    if not candidate.startswith("---"):
+        return content
+    _, body = parse_frontmatter(candidate)
+    return body
 
 
 def _format_entry_md(entry: MemoryEntry) -> str:
     """Render a MemoryEntry as a markdown file with YAML frontmatter."""
+    # Belt-and-suspenders: never let content re-introduce a leading FM block
+    body = strip_embedded_frontmatter(entry.content or "")
     lines = [
         "---",
         f"name: {entry.name}",
@@ -157,7 +205,7 @@ def _format_entry_md(entry: MemoryEntry) -> str:
     if entry.gold:
         lines.append("gold: true")
     lines.append("---")
-    lines.append(entry.content)
+    lines.append(body)
     return "\n".join(lines) + "\n"
 
 
@@ -172,6 +220,9 @@ def save_memory(entry: MemoryEntry, scope: str = "user") -> None:
     ``gold=True`` and ``scope="user"`` so startup auto-load / 10-turn nudge
     never silently break if a caller forgets the flag.
 
+    Embedded frontmatter in ``entry.content`` is stripped before write so a
+    full-file paste cannot produce stacked ``---`` blocks on disk.
+
     Args:
         entry: MemoryEntry to persist
         scope: "user" or "project"
@@ -180,6 +231,7 @@ def save_memory(entry: MemoryEntry, scope: str = "user") -> None:
         entry.gold = True
         entry.name = "short_memory"  # canonical filename short_memory.md
         scope = "user"
+    entry.content = strip_embedded_frontmatter(entry.content or "")
     mem_dir = get_memory_dir(scope)
     mem_dir.mkdir(parents=True, exist_ok=True)
     slug = _slugify(entry.name)

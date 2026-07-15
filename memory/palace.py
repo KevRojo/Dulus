@@ -11,7 +11,14 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from .store import MemoryEntry, USER_MEMORY_DIR, parse_frontmatter, save_memory
+from .store import (
+    MemoryEntry,
+    USER_MEMORY_DIR,
+    has_stacked_frontmatter,
+    parse_frontmatter,
+    save_memory,
+    strip_embedded_frontmatter,
+)
 
 # Repo-shipped template. Falls back to inline seed if missing.
 _SEED_FILE = Path(__file__).resolve().parent / "seeds" / "short_memory.md"
@@ -161,15 +168,28 @@ def ensure_short_memory(*, force_gold: bool = True) -> bool:
             meta, body = parse_frontmatter(text)
         except Exception:
             meta, body = {}, ""
+            text = ""
 
         is_gold = str(meta.get("gold", "")).lower() in {"true", "1", "yes"}
         # Also re-seal if name drifted or frontmatter is missing entirely
         name_ok = str(meta.get("name", "")).strip().lower() in {"short_memory", ""}
-        if is_gold and body.strip() and name_ok and text.startswith("---"):
+        # Double-FM / body-embedded FM must re-seal even when gold flag is fine
+        stacked = bool(text) and has_stacked_frontmatter(text)
+        body_has_fm = bool(body) and body.lstrip("\n").startswith("---")
+        if (
+            is_gold
+            and body.strip()
+            and name_ok
+            and text.startswith("---")
+            and not stacked
+            and not body_has_fm
+        ):
             return False  # already correct
 
         # Preserve body if any; otherwise seed. Always write gold:true.
-        content = body.strip() if body.strip() else seed_body
+        # strip_embedded_frontmatter is belt-and-suspenders for stacked cases.
+        raw = body.strip() if body.strip() else seed_body
+        content = strip_embedded_frontmatter(raw) or seed_body
         entry = MemoryEntry(
             name="short_memory",
             description=meta.get("description") or desc,
