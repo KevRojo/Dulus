@@ -16,6 +16,54 @@ from .types import (
 
 # ── Stdio transport ───────────────────────────────────────────────────────────
 
+# Env vars that are safe to forward to an untrusted MCP stdio server.
+# We do NOT forward the full os.environ because the server could read Dulus's
+# own API keys, tokens, and other secrets. Only pass what is needed for the
+# launcher/runtime to work (PATH, user profile, temp dirs) plus the env block
+# explicitly configured for this server.
+_ALLOWED_ENV_VARS = {
+    # Launcher/runtime basics
+    "PATH", "PATHEXT", "PATHEXT",
+    # Windows profile/temp
+    "USERPROFILE", "HOME", "HOMEDRIVE", "HOMEPATH",
+    "TEMP", "TMP", "TMPDIR",
+    "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE",
+    "APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "COMMONPROGRAMFILES",
+    "COMMONPROGRAMFILES(X86)", "PROGRAMFILES", "PROGRAMFILES(X86)",
+    "USERNAME", "COMPUTERNAME", "USERDOMAIN", "USERDOMAIN_ROAMINGPROFILE",
+    # Locale/terminal
+    "LANG", "LC_ALL", "LC_CTYPE", "LC_MESSAGES", "TERM",
+    # Node tooling
+    "NODE_PATH", "NPM_CONFIG_PREFIX", "NPM_CONFIG_CACHE", "NPM_CONFIG_TMP",
+    # Python runtime (so uv/uvx can find Python if needed)
+    "PYTHONPATH", "PYTHONHOME", "PY_PYTHON",
+    # Docker/cli basics
+    "DOCKER_HOST", "DOCKER_CONFIG",
+}
+
+
+def _minimal_subprocess_env() -> dict:
+    """Return a scrubbed environment dict safe to pass to MCP stdio servers."""
+    return {k: v for k, v in os.environ.items() if k.upper() in _ALLOWED_ENV_VARS}
+
+
+# Tokens / secrets that may appear in MCP stderr or error messages.
+_SENSITIVE_PATTERNS = ("token", "secret", "password", "api_key", "apikey",
+                     "authorization", "bearer", "private_key", "credentials")
+
+
+def _sanitize_for_display(text: str) -> str:
+    """Redact lines that look like they contain secrets."""
+    lines: list[str] = []
+    for line in text.splitlines():
+        lower = line.lower()
+        if any(p in lower for p in _SENSITIVE_PATTERNS):
+            lines.append("[REDACTED: potential secret]")
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 class StdioTransport:
     """Bidirectional JSON-RPC over a subprocess's stdin/stdout.
 
@@ -35,7 +83,7 @@ class StdioTransport:
         self._stderr_lines: List[str] = []
 
     def start(self) -> None:
-        env = {**os.environ, **(self._config.env or {})}
+        env = {**_minimal_subprocess_env(), **(self._config.env or {})}
         # ── Guard: empty/blank command ────────────────────────────────────
         # A corrupted or half-filled-out .mcp.json entry (e.g. {"command": ""})
         # used to reach subprocess.Popen([""], ...) directly. On Windows that
@@ -158,7 +206,7 @@ class StdioTransport:
 
     @property
     def stderr_output(self) -> str:
-        return "\n".join(self._stderr_lines[-20:])
+        return _sanitize_for_display("\n".join(self._stderr_lines[-20:]))
 
 
 # ── HTTP / SSE transport ──────────────────────────────────────────────────────

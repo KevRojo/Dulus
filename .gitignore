@@ -32,6 +32,10 @@ gui/dulus_orchestrator/node_modules/
 gui/dulus_orchestrator/dist/desktop-pet.html
 gui/dulus_orchestrator/dist/runtime-state.js
 
+# Local MCP configs (may contain secrets/tokens)
+.mcp.json
+mcp.json
+
 # Log / output files from local testing
 err.txt
 out.txt
