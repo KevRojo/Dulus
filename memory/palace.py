@@ -1,9 +1,20 @@
-"""Memory Palace: Day 1 initialization of essential long-term memory buckets."""
+"""Memory Palace: Day-1 buckets + always-on gold short_memory seed.
+
+On a fresh clone / new machine:
+  - ``ensure_memory_palace()`` creates core identity buckets if missing
+  - ``ensure_short_memory()`` ALWAYS guarantees ``short_memory.md`` exists
+    with ``gold: true`` so startup auto-load and the 10-turn nudge work
+    with zero friction.
+"""
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from .store import MemoryEntry, save_memory, USER_MEMORY_DIR
+
+from .store import MemoryEntry, USER_MEMORY_DIR, parse_frontmatter, save_memory
+
+# Repo-shipped template. Falls back to inline seed if missing.
+_SEED_FILE = Path(__file__).resolve().parent / "seeds" / "short_memory.md"
 
 DEFAULT_BUCKETS = [
     {
@@ -86,42 +97,151 @@ DEFAULT_BUCKETS = [
     }
 ]
 
-def ensure_memory_palace() -> bool:
-    """Check if the user memory directory is empty/new and initialize default buckets.
-    
+def _short_memory_seed_body() -> tuple[str, str]:
+    """Return (description, body) for short_memory from repo seed or inline."""
+    desc = (
+        "Gold short memory — live scratchpad reloaded every 10 tool turns and at startup"
+    )
+    if _SEED_FILE.exists():
+        try:
+            text = _SEED_FILE.read_text(encoding="utf-8", errors="replace")
+            meta, body = parse_frontmatter(text)
+            if meta.get("description"):
+                desc = meta["description"]
+            if body.strip():
+                return desc, body
+        except Exception:
+            pass
+    body = (
+        "# Short Memory (gold)\n\n"
+        "Updated: (seed) · Fill this on first real session.\n\n"
+        "## Hard rules\n"
+        "- Prefer local verification before any commit/push when the user asks.\n"
+        "- Speak in the user's language/style.\n"
+        "- Never push private product trees or secrets to public repos.\n\n"
+        "## Live paths (edit per machine)\n"
+        "| What | Path |\n"
+        "|---|---|\n"
+        "| CLI/REPL | `dulus` / `dulus.py` |\n"
+        "| Desktop GUI host | `dulus --gui` → pywebview |\n"
+        "| Runtime home | `~/.dulus/` (`DULUS_HOME`) |\n"
+        "| This file | `~/.dulus/memory/short_memory.md` |\n\n"
+        "## Working notes\n"
+        "- Keep this short and live: decisions, paths, corrections, active task.\n"
+        "- Prune stale lines. Gold = auto-loaded at every startup.\n"
+    )
+    return desc, body
+
+
+def ensure_short_memory(*, force_gold: bool = True) -> bool:
+    """Guarantee ``~/.dulus/memory/short_memory.md`` exists and is gold.
+
+    Safe on every startup / load:
+      * Missing file → create from repo seed / inline template with ``gold: true``
+      * Exists but not gold (or gold flag missing/false) → re-seal gold, preserve body
+      * Exists and gold → no-op
+
+    Never overwrites non-empty body content. ``short_memory`` cannot lose gold.
+
     Returns:
-        True if initialization was performed, False otherwise.
+        True if the file was created or upgraded.
     """
     USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # We check if there are any .md files other than MEMORY.md
-    existing_files = list(USER_MEMORY_DIR.glob("*.md"))
-    content_files = [f for f in existing_files if f.name != "MEMORY.md"]
-    
-    if len(content_files) > 1:
-        # Palace already exists (Soul + at least one other) or migrated
-        return False
-    
-    initialized_count = 0
+    path = USER_MEMORY_DIR / "short_memory.md"
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    for bucket in DEFAULT_BUCKETS:
-        # Check if this specific bucket already exists to avoid overwriting a custom Soul
-        slug = bucket["name"].lower().replace(" ", "_")
-        if (USER_MEMORY_DIR / f"{slug}.md").exists():
-            continue
-            
+    desc, seed_body = _short_memory_seed_body()
+
+    # force_gold is the only supported mode for short_memory — callers cannot
+    # opt out of the gold seal without breaking startup auto-load.
+    force_gold = True
+
+    if path.exists():
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            meta, body = parse_frontmatter(text)
+        except Exception:
+            meta, body = {}, ""
+
+        is_gold = str(meta.get("gold", "")).lower() in {"true", "1", "yes"}
+        # Also re-seal if name drifted or frontmatter is missing entirely
+        name_ok = str(meta.get("name", "")).strip().lower() in {"short_memory", ""}
+        if is_gold and body.strip() and name_ok and text.startswith("---"):
+            return False  # already correct
+
+        # Preserve body if any; otherwise seed. Always write gold:true.
+        content = body.strip() if body.strip() else seed_body
         entry = MemoryEntry(
-            name=bucket["name"],
-            description=bucket["description"],
-            type=bucket["type"],
-            hall=bucket["hall"],
-            content=bucket["content"],
-            created=today,
+            name="short_memory",
+            description=meta.get("description") or desc,
+            type=meta.get("type") or "project",
+            hall=meta.get("hall") or "facts",
+            content=content,
+            created=meta.get("created") or today,
             scope="user",
-            source="palace_init"
+            source=meta.get("source") or "palace_init",
+            gold=True,
         )
         save_memory(entry, scope="user")
-        initialized_count += 1
-        
-    return initialized_count > 0
+        return True
+
+    # Fresh create
+    entry = MemoryEntry(
+        name="short_memory",
+        description=desc,
+        type="project",
+        hall="facts",
+        content=seed_body,
+        created=today,
+        scope="user",
+        source="palace_init",
+        gold=True,
+    )
+    save_memory(entry, scope="user")
+    return True
+
+
+def ensure_memory_palace() -> bool:
+    """Initialize missing core buckets + always ensure gold short_memory.
+
+    Bucket seeding still only runs on a nearly-empty memory house (Day-1).
+    ``short_memory`` is mandatory gold and is ensured on every call.
+
+    Returns:
+        True if anything was created/upgraded.
+    """
+    USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    changed = False
+
+    # We check if there are any .md files other than MEMORY.md / short_memory.md
+    existing_files = list(USER_MEMORY_DIR.glob("*.md"))
+    content_files = [
+        f for f in existing_files
+        if f.name not in { "MEMORY.md", "short_memory.md" }
+    ]
+
+    if len(content_files) <= 1:
+        today = datetime.now().strftime("%Y-%m-%d")
+        for bucket in DEFAULT_BUCKETS:
+            # Check if this specific bucket already exists to avoid overwriting a custom Soul
+            slug = bucket["name"].lower().replace(" ", "_")
+            if (USER_MEMORY_DIR / f"{slug}.md").exists():
+                continue
+
+            entry = MemoryEntry(
+                name=bucket["name"],
+                description=bucket["description"],
+                type=bucket["type"],
+                hall=bucket["hall"],
+                content=bucket["content"],
+                created=today,
+                scope="user",
+                source="palace_init",
+            )
+            save_memory(entry, scope="user")
+            changed = True
+
+    # short_memory is mandatory gold — always
+    if ensure_short_memory(force_gold=True):
+        changed = True
+
+    return changed

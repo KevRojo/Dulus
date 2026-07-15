@@ -26,6 +26,7 @@ from .store import (  # noqa: F401
     search_memory,
     get_index_content,
     parse_frontmatter,
+    is_short_memory_name,
     USER_MEMORY_DIR,
     INDEX_FILENAME,
     MAX_INDEX_LINES,
@@ -52,7 +53,7 @@ from .types import (  # noqa: F401
     WHAT_NOT_TO_SAVE,
 )
 from .consolidator import consolidate_session, mine_files, snapshot_memory_files, new_memory_files  # noqa: F401
-from .palace import ensure_memory_palace  # noqa: F401
+from .palace import ensure_memory_palace, ensure_short_memory  # noqa: F401
 from .mempalace_bridge import (  # noqa: F401
     schedule_mempalace_mine,
     wait_pending_mines,
@@ -69,6 +70,7 @@ __all__ = [
     "search_memory",
     "get_index_content",
     "parse_frontmatter",
+    "is_short_memory_name",
     "USER_MEMORY_DIR",
     "INDEX_FILENAME",
     "MAX_INDEX_LINES",
@@ -97,6 +99,8 @@ __all__ = [
     "new_memory_files",
     # palace
     "ensure_memory_palace",
+    "ensure_short_memory",
+    "is_short_memory_name",
     # mempalace package bridge (toggle name in Dulus config: mem_palace)
     "schedule_mempalace_mine",
     "wait_pending_mines",

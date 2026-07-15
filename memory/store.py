@@ -36,6 +36,19 @@ INDEX_FILENAME = "MEMORY.md"
 MAX_INDEX_LINES = 200
 MAX_INDEX_BYTES = 25_000
 
+# short_memory is permanent infrastructure (startup auto-load + 10-turn nudge).
+# Name variants that must ALWAYS stay gold:true under user scope.
+_SHORT_MEMORY_KEYS = frozenset({"short_memory", "short-memory", "shortmemory"})
+
+
+def is_short_memory_name(name: str | None) -> bool:
+    """True if *name* identifies the live gold short_memory scratchpad."""
+    if not name:
+        return False
+    # Keep this independent of _slugify so it can live near the top of the module.
+    key = re.sub(r"[^a-z0-9_]", "", str(name).strip().lower().replace(" ", "_"))
+    return key in _SHORT_MEMORY_KEYS or key == "short_memory"
+
 
 def get_project_memory_dir() -> Path:
     """Return the project-local memory directory (relative to cwd)."""
@@ -155,10 +168,18 @@ def save_memory(entry: MemoryEntry, scope: str = "user") -> None:
 
     If a memory with the same name (slug) already exists, it is overwritten.
 
+    ``short_memory`` is locked gold: any save under that name is forced to
+    ``gold=True`` and ``scope="user"`` so startup auto-load / 10-turn nudge
+    never silently break if a caller forgets the flag.
+
     Args:
         entry: MemoryEntry to persist
         scope: "user" or "project"
     """
+    if is_short_memory_name(entry.name):
+        entry.gold = True
+        entry.name = "short_memory"  # canonical filename short_memory.md
+        scope = "user"
     mem_dir = get_memory_dir(scope)
     mem_dir.mkdir(parents=True, exist_ok=True)
     slug = _slugify(entry.name)
@@ -172,8 +193,17 @@ def save_memory(entry: MemoryEntry, scope: str = "user") -> None:
 def delete_memory(name: str, scope: str = "user") -> None:
     """Remove the memory file matching name and rebuild the index.
 
-    No error if not found.
+    No error if not found. ``short_memory`` cannot be deleted — re-seals gold
+    instead so the live scratchpad never disappears.
     """
+    if is_short_memory_name(name):
+        try:
+            from .palace import ensure_short_memory
+            ensure_short_memory(force_gold=True)
+        except Exception:
+            # Fallback: if palace import fails, at least refuse the delete.
+            pass
+        return
     mem_dir = get_memory_dir(scope)
     slug = _slugify(name)
     fp = mem_dir / f"{slug}.md"

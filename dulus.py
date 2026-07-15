@@ -4532,7 +4532,21 @@ def cmd_memory(args: str, _state, config) -> bool:
             if target is None:
                 warn(f"Skipping '{tok}' (not found)")
                 continue
+            # short_memory is locked gold infrastructure — never unbind
+            try:
+                from memory.store import is_short_memory_name
+                locked = is_short_memory_name(target.name)
+            except Exception:
+                locked = str(getattr(target, "name", "")).lower().replace(" ", "_") in {
+                    "short_memory", "short-memory", "shortmemory",
+                }
+            if locked and getattr(target, "gold", False):
+                # Toggle would strip gold — refuse
+                warn(f"'{target.name}' is locked gold (short_memory) — cannot unbind")
+                continue
             target.gold = not getattr(target, "gold", False)
+            if locked:
+                target.gold = True  # force seal even if it was off
             save_memory(target, scope=target.scope)
             if target.gold:
                 ok(f"'{target.name}' is now PERMANENT 🏆")
@@ -4580,6 +4594,19 @@ def cmd_memory(args: str, _state, config) -> bool:
                 target = next((e for e in entries if e.name.lower() == tok.lower()), None)
             if target is None:
                 warn(f"Skipping '{tok}'")
+                continue
+            try:
+                from memory.store import is_short_memory_name as _is_sm
+                locked = _is_sm(target.name)
+            except Exception:
+                locked = str(getattr(target, "name", "")).lower().replace(" ", "_") in {
+                    "short_memory", "short-memory", "shortmemory",
+                }
+            if locked:
+                # Refuse unbind; re-seal gold via save path
+                target.gold = True
+                save_memory(target, scope="user")
+                warn(f"'{target.name}' is locked gold (short_memory) — unbind refused, gold re-sealed")
                 continue
             target.gold = False
             save_memory(target, scope=target.scope)

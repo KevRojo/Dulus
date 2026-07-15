@@ -93,10 +93,19 @@ class PermissionRequest:
 
 
 def _load_short_memory() -> str:
-    """Load the current gold short_memory.md for the periodic nudge."""
+    """Load the current gold short_memory.md for the periodic nudge.
+
+    Always re-seals ``gold: true`` via ``ensure_short_memory`` so a manual edit
+    or bad save that stripped the flag cannot leave the scratchpad ungilded.
+    """
     try:
         from config import dulus_home
         path = dulus_home() / "memory" / "short_memory.md"
+        try:
+            from memory import ensure_short_memory
+            ensure_short_memory(force_gold=True)
+        except Exception:
+            pass
         if path.exists():
             return path.read_text(encoding="utf-8", errors="replace")
     except Exception:

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.10] - 2026-07-15
+
+### Added
+- Gold `short_memory` infrastructure: on every startup, `ensure_memory_palace()`
+  guarantees `~/.dulus/memory/short_memory.md` exists with `gold: true`.
+- Repo-shipped seed template at `memory/seeds/short_memory.md` (generic; no
+  private project paths). Fresh machines stop showing `(empty)` on the 10-turn
+  short-memory nudge.
+
+### Fixed
+- `short_memory` is locked gold: `save_memory` always forces gold + user scope;
+  `delete_memory` / `MemoryDelete` refuse hard-delete and re-seal gold;
+  `/memory permanent` and `/memory unbind` cannot strip the flag.
+- Agent 10-turn short-memory load always re-seals gold before reading the file.
+
 ## [3.10.9] - 2026-07-15
 
 ### Fixed

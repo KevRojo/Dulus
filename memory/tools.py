@@ -18,9 +18,15 @@ from .mempalace_bridge import schedule_mempalace_mine
 
 def _memory_save(params: dict, config: dict) -> str:
     """Save or update a persistent memory entry, with conflict detection."""
+    from .store import is_short_memory_name
+
     scope = params.get("scope", "user")
+    name = params["name"]
+    # short_memory is always gold — startup auto-load + 10-turn nudge depend on it.
+    # save_memory() also enforces this; we set it here so the tool message is honest.
+    force_gold = is_short_memory_name(name)
     entry = MemoryEntry(
-        name=params["name"],
+        name="short_memory" if force_gold else name,
         description=params["description"],
         type=params["type"],
         content=params["content"],
@@ -29,7 +35,11 @@ def _memory_save(params: dict, config: dict) -> str:
         confidence=float(params.get("confidence", 1.0)),
         source=params.get("source", "user"),
         conflict_group=params.get("conflict_group", ""),
+        gold=True if force_gold else bool(params.get("gold", False)),
     )
+    # short_memory is a user-scoped live file under DULUS_HOME/memory/
+    if force_gold:
+        scope = "user"
 
     conflict = check_conflict(entry, scope=scope)
     save_memory(entry, scope=scope)
@@ -44,6 +54,8 @@ def _memory_save(params: dict, config: dict) -> str:
     msg = f"Memory saved: '{entry.name}' [{entry.type}{hall_label}/{scope_label}]"
     if entry.confidence < 1.0:
         msg += f" (confidence: {entry.confidence:.0%})"
+    if force_gold:
+        msg += " 🏆 gold (locked)"
     if conflict:
         msg += (
             f"\n⚠ Replaced conflicting memory"
@@ -57,8 +69,21 @@ def _memory_save(params: dict, config: dict) -> str:
 
 def _memory_delete(params: dict, config: dict) -> str:
     """Delete a persistent memory entry by name."""
+    from .store import is_short_memory_name
+
     name = params["name"]
     scope = params.get("scope", "user")
+    if is_short_memory_name(name):
+        # Refuse hard-delete; re-seal gold so the live scratchpad never dies.
+        try:
+            from .palace import ensure_short_memory
+            ensure_short_memory(force_gold=True)
+        except Exception:
+            pass
+        return (
+            f"Memory '{name}' is locked gold (short_memory). "
+            f"Delete refused — gold flag re-sealed under user scope."
+        )
     delete_memory(name, scope=scope)
     return f"Memory deleted: '{name}' (scope: {scope})"
 
