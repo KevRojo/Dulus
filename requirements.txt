@@ -7,6 +7,7 @@ prompt_toolkit>=3.0.0
 mempalace>=3.3.4
 Flask>=3.1.3
 sounddevice
+pyttsx3
 
 # ── Voice input (optional — install whichever STT backend you prefer) ──────
 # Recording backend (choose one):
@@ -27,7 +28,7 @@ sounddevice
 #   pip install azure-cognitiveservices-speech  # Azure Speech Services
 #   pip install nvidia-riva-client # NVIDIA Riva TTS
 #   pip install gTTS               # Google Text-to-Speech
-#   pip install pyttsx3            # offline system voices
+#   pyttsx3                        # offline system voices (installed by default)
 #   sudo apt install python3-tk    # Required for the GUI on Linux/WSL
 #
 # numpy is needed by the local Whisper backends and the arecord RMS detector:

@@ -1,9 +1,9 @@
 """Text-to-speech (TTS) backends.
 
-Backend priority (tried in order):
-  1. Deepgram Aura-2 — natural, fast, needs DEEPGRAM_API_KEY.
-  2. pyttsx3        — local, offline, robotic system voices (Windows SAPI5).
-  3. edge-tts       — Microsoft Edge voices, fast, free, cloud; auto-installed if missing.
+Backend priority in auto mode (local first if user has not selected a provider):
+  1. pyttsx3        — local, offline, system voices (no API key).
+  2. edge-tts       — Microsoft Edge voices, free cloud; auto-installed if missing.
+  3. Deepgram Aura-2 — natural, fast, needs DEEPGRAM_API_KEY.
   4. ElevenLabs     — premium voice cloning, needs API key.
   5. gTTS           — cloud, free, needs internet.
   6. OpenAI TTS     — cloud, high quality, needs OPENAI_API_KEY.
@@ -777,27 +777,27 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
                     return True
                 return provider.lower() == name.lower()
 
-            # Backend priority in auto mode:
-            #   1. Deepgram Aura-2 if a key is configured (premium voice).
-            #   2. pyttsx3 — local, offline, works without config.
-            #   3. edge-tts — free Microsoft voices; auto-installed if missing.
-            #   4. ElevenLabs, gTTS, OpenAI, Azure, Riva — as configured.
+            # Backend priority in auto mode (local first unless user picks one):
+            #   1. pyttsx3 — local, offline, no API key.
+            #   2. edge-tts — free Microsoft voices; auto-installed if missing.
+            #   3. Deepgram / ElevenLabs / gTTS / OpenAI / Azure / Riva — cloud.
+            # Gemini / Google native TTS is intentionally NOT in this chain.
 
-            # 1. Deepgram Aura-2 (natural, fast — needs API key)
-            if _should_try("deepgram") and _say_deepgram(text, voice=voice, lang=lang):
-                return
-            if _stop_event.is_set():
-                return
-
-            # 2. pyttsx3 — local, offline, works without any API key
+            # 1. pyttsx3 — local, offline, works without any API key
             if _should_try("pyttsx3") and _say_pyttsx3(text):
                 return
             if _stop_event.is_set():
                 return
 
-            # 3. edge-tts — Microsoft Edge voices (fast & free, needs internet).
+            # 2. edge-tts — Microsoft Edge voices (fast & free, needs internet).
             #                Installed on-demand if it isn't present yet.
             if _should_try("edge") and _say_edge_tts(text, lang=lang):
+                return
+            if _stop_event.is_set():
+                return
+
+            # 3. Deepgram Aura-2 — natural, ~fast, needs DEEPGRAM_API_KEY
+            if _should_try("deepgram") and _say_deepgram(text, voice=voice, lang=lang):
                 return
             if _stop_event.is_set():
                 return
@@ -814,19 +814,19 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
             if _stop_event.is_set():
                 return
 
-            # 6. OpenAI (high quality, needs key)
+            # 6. OpenAI TTS
             if _should_try("openai") and _say_openai(text, voice=(voice or "alloy"), speed=speed):
                 return
             if _stop_event.is_set():
                 return
 
-            # 7. Azure Speech Services
+            # 7. Azure
             if _should_try("azure") and _say_azure(text, voice=voice, lang=lang):
                 return
             if _stop_event.is_set():
                 return
 
-            # 8. NVIDIA Riva (Magpie-Multilingual, cloud)
+            # 8. NVIDIA Riva
             if _should_try("riva") and _say_nvidia_riva(text, lang=lang):
                 return
 
@@ -838,10 +838,7 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
 
 
 def check_tts_availability() -> tuple[bool, str | None]:
-    """Return (available, reason_if_not)."""
-    if _deepgram_tts_available():
-        return True, "Deepgram Aura-2 (cloud, natural voices)"
-
+    """Return (available, reason_if_not). Local backends first."""
     try:
         import pyttsx3
         return True, "pyttsx3 (local, offline)"
@@ -853,6 +850,9 @@ def check_tts_availability() -> tuple[bool, str | None]:
         return True, "edge-tts (Microsoft Edge voices, cloud)"
     except ImportError:
         pass
+
+    if _deepgram_tts_available():
+        return True, "Deepgram Aura-2 (cloud, natural voices)"
 
     if _elevenlabs_available():
         return True, "ElevenLabs TTS (cloud, voice cloning)"
@@ -873,3 +873,4 @@ def check_tts_availability() -> tuple[bool, str | None]:
         return True, "NVIDIA Riva Magpie-Multilingual (cloud)"
 
     return False, "No TTS backend installed. Try 'pip install pyttsx3', 'pip install edge-tts', 'pip install gTTS', 'pip install openai', 'pip install azure-cognitiveservices-speech', or 'pip install nvidia-riva-client'."
+

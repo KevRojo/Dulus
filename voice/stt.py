@@ -1,22 +1,16 @@
 """Speech-to-text (STT) backends.
 
-Backend priority (tried in order):
-  1. Deepgram nova-3 — cloud, ~300ms, keyterm boosting, needs DEEPGRAM_API_KEY.
-                       No SDK required (plain HTTPS). Opt-out: DULUS_WAKE_FORCE_LOCAL.
-  2. faster-whisper — local, offline, fast, best for coding vocab.
+Backend priority in auto mode (free / local first if user has not selected a provider):
+  1. faster-whisper — local, offline, fast, best for coding vocab.
                        pip install faster-whisper
-  3. NVIDIA Riva    — cloud, whisper-large-v3 via gRPC, needs NVIDIA_API_KEY.
-                       pip install nvidia-riva-client
-  4. openai-whisper — local, offline, original OpenAI Whisper library.
+  2. openai-whisper — local, offline, original OpenAI Whisper library.
                        pip install openai-whisper
+  3. Deepgram nova-3 — cloud, needs DEEPGRAM_API_KEY (only if not force_local).
+  4. NVIDIA Riva    — cloud, whisper-large-v3 via gRPC, needs NVIDIA_API_KEY.
   5. OpenAI Whisper API — cloud, needs OPENAI_API_KEY.
-                          pip install openai  (already in requirements)
 
-All backends receive raw PCM (int16, 16 kHz, mono) and return a text string.
-Keyterms are passed as initial_prompt to local Whisper backends so that
-coding-domain vocabulary (grep, MCP, TypeScript, …) is recognised correctly.
-Deepgram nova-3 receives them as native `keyterm` boosting params.
-Riva does not accept initial_prompt; keyterms are ignored on that path.
+If config stt_provider is set, that backend is tried first (when not force_local).
+stt_force_local=True (default on public) skips cloud in auto mode.
 """
 
 from __future__ import annotations
@@ -196,9 +190,7 @@ def _ensure_faster_whisper() -> bool:
 # ── Availability ──────────────────────────────────────────────────────────
 
 def check_stt_availability() -> tuple[bool, str | None]:
-    """Return (available, reason_if_not)."""
-    if _riva_available():
-        return True, None
+    """Return (available, reason_if_not). Prefer reporting local backends."""
     try:
         import faster_whisper  # noqa: F401
         return True, None
@@ -209,9 +201,13 @@ def check_stt_availability() -> tuple[bool, str | None]:
         return True, None
     except ImportError:
         pass
-    if os.environ.get("OPENAI_API_KEY"):
-        return True, None
     if _ensure_faster_whisper():
+        return True, None
+    if _deepgram_available():
+        return True, None
+    if _riva_available():
+        return True, None
+    if os.environ.get("OPENAI_API_KEY"):
         return True, None
 
     return False, (
@@ -219,16 +215,23 @@ def check_stt_availability() -> tuple[bool, str | None]:
         "Install one of:\n"
         "  pip install faster-whisper      (local, recommended)\n"
         "  pip install openai-whisper      (local, original)\n"
-        "  Set OPENAI_API_KEY to use the OpenAI Whisper cloud API"
+        "  Set OPENAI_API_KEY / DEEPGRAM_API_KEY to use cloud STT"
     )
-
 
 def get_stt_backend_name() -> str:
     """Return a human-readable name of the backend that will be used.
 
-    Must match the priority order in ``transcribe()`` — local Whisper
-    first, Riva only as a fallback when no local backend is installed.
+    Matches ``transcribe()`` — local Whisper first; cloud only when
+    stt_force_local is off / user explicitly picks a cloud provider.
     """
+    preferred = _preferred_stt()
+    force_local = bool(os.environ.get("DULUS_WAKE_FORCE_LOCAL") or _stt_force_local())
+
+    if preferred == "deepgram" and _deepgram_available() and not force_local:
+        return "Deepgram (nova-3, cloud)"
+    if preferred == "riva" and _riva_available() and not force_local:
+        return "NVIDIA Riva (whisper-large-v3, cloud)"
+
     try:
         import faster_whisper  # noqa: F401
         return f"faster-whisper ({DEFAULT_MODEL_SIZE}, local)"
@@ -240,14 +243,15 @@ def get_stt_backend_name() -> str:
         return f"openai-whisper ({DEFAULT_MODEL_SIZE}, local)"
     except ImportError:
         pass
-    if _riva_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
-        return "NVIDIA Riva (whisper-large-v3, cloud)"
-    if os.environ.get("OPENAI_API_KEY"):
-        return "OpenAI Whisper API"
+
+    if not force_local:
+        if _deepgram_available() and preferred in ("", "auto", "deepgram"):
+            return "Deepgram (nova-3, cloud)"
+        if _riva_available():
+            return "NVIDIA Riva (whisper-large-v3, cloud)"
+        if os.environ.get("OPENAI_API_KEY"):
+            return "OpenAI Whisper API"
     return "(none)"
-
-
-# ── faster-whisper ────────────────────────────────────────────────────────
 
 def _get_faster_whisper_model():
     global _faster_whisper_model
@@ -468,6 +472,24 @@ def _keyterms_to_prompt(keyterms: List[str]) -> str:
 
 # ── Public entry point ────────────────────────────────────────────────────
 
+
+def _stt_force_local() -> bool:
+    """Local-first default. True unless config explicitly sets stt_force_local=false."""
+    try:
+        from config import load_config
+        return bool(load_config().get("stt_force_local", True))
+    except Exception:
+        return True
+
+
+def _preferred_stt() -> str:
+    """User's chosen STT backend from config 'stt_provider' (empty = auto)."""
+    try:
+        from config import load_config
+        return (load_config().get("stt_provider", "") or "").strip().lower()
+    except Exception:
+        return ""
+
 def transcribe(
     pcm_bytes: bytes,
     keyterms: Optional[List[str]] = None,
@@ -488,17 +510,23 @@ def transcribe(
 
     terms = keyterms or []
     lang = None if language == "auto" else language
+    force_local = bool(os.environ.get("DULUS_WAKE_FORCE_LOCAL") or _stt_force_local())
+    preferred = _preferred_stt()
 
-    # Deepgram nova-3 (cloud) — FIRST when key exists. ~300ms round-trip,
-    # native keyterm boosting, better accuracy than local Whisper small.
-    # DULUS_WAKE_FORCE_LOCAL skips it (same escape hatch as Riva).
-    if _deepgram_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
+    # Explicit user selection wins (cloud only if not force_local).
+    if preferred == "deepgram" and _deepgram_available() and not force_local:
         try:
             return _transcribe_deepgram(pcm_bytes, terms, lang)
         except Exception as e:
             print(f"  [STT] Deepgram failed, falling back: {e}")
 
-    # faster-whisper (local).
+    if preferred == "riva" and _riva_available() and not force_local:
+        try:
+            return _transcribe_nvidia_riva(pcm_bytes, lang)
+        except Exception as e:
+            print(f"  [STT] Riva failed, falling back: {e}")
+
+    # Auto: LOCAL FIRST
     try:
         import faster_whisper  # noqa: F401
         return _transcribe_faster_whisper(pcm_bytes, terms, lang)
@@ -506,22 +534,31 @@ def transcribe(
         if _ensure_faster_whisper():
             return _transcribe_faster_whisper(pcm_bytes, terms, lang)
 
-    # NVIDIA Riva (whisper-large-v3, cloud) — opt-in fallback when no local
-    # Whisper is installed. Skip if DULUS_WAKE_FORCE_LOCAL is set.
-    if _riva_available() and not os.environ.get("DULUS_WAKE_FORCE_LOCAL"):
-        try:
-            return _transcribe_nvidia_riva(pcm_bytes, lang)
-        except Exception as e:
-            print(f"  [STT] Riva failed, falling back: {e}")
-
-    # openai-whisper (local, fallback)
     try:
         import whisper  # noqa: F401
         return _transcribe_openai_whisper(pcm_bytes, terms, lang)
     except ImportError:
         pass
 
-    # OpenAI Whisper API (cloud, last resort)
+    if force_local:
+        raise RuntimeError(
+            "No local STT backend available (stt_force_local is on).\n"
+            "Install faster-whisper or openai-whisper, or set stt_force_local=false / unset DULUS_WAKE_FORCE_LOCAL."
+        )
+
+    # Cloud fallbacks
+    if _deepgram_available() and preferred in ("", "auto", "deepgram"):
+        try:
+            return _transcribe_deepgram(pcm_bytes, terms, lang)
+        except Exception as e:
+            print(f"  [STT] Deepgram failed, falling back: {e}")
+
+    if _riva_available():
+        try:
+            return _transcribe_nvidia_riva(pcm_bytes, lang)
+        except Exception as e:
+            print(f"  [STT] Riva failed, falling back: {e}")
+
     if os.environ.get("OPENAI_API_KEY"):
         return _transcribe_openai_api(pcm_bytes, lang)
 
@@ -529,7 +566,6 @@ def transcribe(
         "No STT backend available.\n"
         "Install faster-whisper or openai-whisper, or set OPENAI_API_KEY."
     )
-
 
 def transcribe_audio_file(
     audio_bytes: bytes,

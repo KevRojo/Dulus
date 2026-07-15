@@ -57,6 +57,8 @@ DEFAULTS = {
     "brave_search_key": "",
     "brave_search_enabled": False,
     "tts_enabled":          False,
+    "stt_provider":         "auto",   # auto | deepgram | faster-whisper | openai-whisper | riva | openai-api
+    "stt_force_local":      True,     # auto mode: local STT first; skip cloud unless user picks one
     "tts_provider":         "auto",   # auto | azure | openai | gtts | pyttsx3 | riva | edge | elevenlabs
     "azure_speech_key":     "",
     "azure_speech_region":  "",
