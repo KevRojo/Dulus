@@ -10493,11 +10493,20 @@ def repl(config: dict, initial_prompt: str = None):
         # Only show banner if PRO/ENTERPRISE or if there is an error
         startup_status_msgs.append(clr(f"  🗝  {_lic_banner}", "yellow" if lic.error else "green", "bold"))
 
-    # ── Memory Palace Initialization ──────────────────────────────────────────
+    # ── Memory Palace + gold short_memory ─────────────────────────────────────
+    # Palace seeds missing identity buckets. ensure_short_memory ALWAYS runs so
+    # a fresh clone / new machine never boots without the gold scratchpad that
+    # agent.py reloads every 10 tool turns and startup injects via gold: true.
     try:
-        from memory import ensure_memory_palace
+        from memory import ensure_memory_palace, ensure_short_memory
         if ensure_memory_palace():
-            startup_status_msgs.append(clr("  🏛  Memory Palace initialized: 7 core buckets established.", "cyan", "bold"))
+            startup_status_msgs.append(
+                clr("  🏛  Memory Palace initialized / repaired (buckets + gold short_memory).", "cyan", "bold")
+            )
+        elif ensure_short_memory():
+            startup_status_msgs.append(
+                clr("  🏆 Gold short_memory ensured (created or promoted).", "yellow", "bold")
+            )
     except Exception:
         pass
 
