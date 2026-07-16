@@ -117,6 +117,54 @@ def _decrypt(value: str) -> str:
         return value
 
 
+# ── Public secret helpers ─────────────────────────────────────────────────
+# Any code that reads ~/.dulus/config.json directly (plugins, one-off scripts,
+# MCP servers) gets the raw "enc:..." ciphertext and fails when it tries to use
+# it as a real key. These helpers let callers decrypt safely without touching
+# the underscore-prefixed internals or even knowing that encryption exists.
+
+def decrypt_value(value: str) -> str:
+    """Return the plaintext of a possibly-encrypted config value.
+
+    Safe on any string: if it isn't encrypted (no 'enc:' prefix) it's returned
+    unchanged. Use this whenever you read a secret straight out of the raw
+    config file instead of via load_config().
+
+        raw = json.load(open(config_path))
+        token = decrypt_value(raw["some_api_key"])
+    """
+    if not isinstance(value, str):
+        return value
+    return _decrypt(value)
+
+
+def is_encrypted(value: str) -> bool:
+    """True if the value is an encrypted secret produced by this module."""
+    return isinstance(value, str) and value.startswith("enc:")
+
+
+def get_secret(key: str, cfg: dict | None = None, default: str = "") -> str:
+    """Fetch a secret from config by (possibly dotted) key, decrypted.
+
+    Looks the key up in `cfg` (or a fresh load_config() if omitted). Supports
+    nested access with dots, e.g. get_secret("make_mcp.api_token").
+
+        token  = get_secret("make_mcp.api_token")
+        openai = get_secret("openai_api_key")
+    """
+    if cfg is None:
+        cfg = load_config()
+    node = cfg
+    for part in key.split("."):
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        else:
+            return default
+    if isinstance(node, str):
+        return _decrypt(node) if node.startswith("enc:") else node
+    return default if node is None else node
+
+
 def _secure_keys(cfg: dict) -> dict:
     """Encrypt all *_api_key values before saving."""
     for k, v in list(cfg.items()):
