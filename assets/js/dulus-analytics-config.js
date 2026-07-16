@@ -3,7 +3,7 @@
   window.DULUS_ANALYTICS_CONFIG = {
     site: 'dulus.work',
     amplitudeKey: '3bb6ca005d22c0c7c26e573d0228628d',
-    mixpanelToken: '43f2e80bf549c2f5d47918db37f88da1',
+    mixpanelToken: '9c61bb3514113d743783ca9ee9922be0', // unified project: "dulus.ai Website" (4042257) — 278 real monthly tracked users, the canonical destination
     posthogKey: 'phc_yqAJ42vbj8YFkdpxZicsS4asdbWFTPy6orR8uRNewfYD',
     posthogHost: 'https://us.i.posthog.com',
     datadogRumAppId: 'REEMPLAZAR_CON_DD_APP_ID',
