@@ -26,7 +26,6 @@
   <a href="#caracteristicas"><b>Caracteristicas</b></a> ·
   <a href="#proveedores"><b>Proveedores</b></a> ·
   <a href="#arquitectura"><b>Arquitectura</b></a> ·
-  <a href="#token"><b>$DULUS</b></a> ·
   <a href="https://dulus.ai/"><b>Sitio Web</b></a>
 </p>
 
@@ -214,23 +213,6 @@ Agent(type="tester",   task="run e2e on auth")
 | `/lang [codigo]` | Cambiar idioma (34 codigos) |
 | `/cost` | Tokens y USD gastados |
 | `/help` | Todos los comandos |
-
----
-
-## $DULUS Token
-
-**Contrato:** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
-
-El token $DULUS es la capa de combustible del ecosistema Dulus. El REPL open-source sigue gratis para siempre — $DULUS es la llave a la capa de negocios.
-
-| Fase | Utilidad |
-|---|---|
-| **Ahora** | Propiedad comunitaria. Recompensas bloqueadas on-chain |
-| **Business v1** | Acceso temprano + descuentos para holders |
-| **Creditos** | Paga creditos API con $DULUS |
-| **Deployments** | Lanza instancias cloud pagando con $DULUS |
-| **Subscripciones** | Suscripcion mensual payable en $DULUS |
-| **Gobernanza** | Top holders votan prioridad de features |
 
 ---
 

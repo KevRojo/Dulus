@@ -26,7 +26,6 @@
   <a href="#fonctionnalites"><b>Fonctionnalites</b></a> ·
   <a href="#fournisseurs"><b>Fournisseurs</b></a> ·
   <a href="#architecture"><b>Architecture</b></a> ·
-  <a href="#token"><b>$DULUS</b></a>
 </p>
 
 </div>
@@ -205,23 +204,6 @@ Agent(type="tester",   task="run e2e on auth")
 | `/lang [code]` | Changer de langue (34 codes) |
 | `/cost` | Jetons et USD depenses |
 | `/help` | Toutes les commandes |
-
----
-
-## $DULUS Token
-
-**Contrat :** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
-
-Le token $DULUS est la couche de carburant de l'ecosysteme Dulus. Le REPL open-source reste gratuit pour toujours — $DULUS est la cle de la couche business.
-
-| Phase | Utilite |
-|---|---|
-| **Maintenant** | Propriete communautaire. Recompenses verrouillees on-chain |
-| **Business v1** | Acces anticipe + reductions pour les detenteurs |
-| **Credits** | Payer les credits API avec $DULUS |
-| **Deployments** | Lancer des instances cloud en payant avec $DULUS |
-| **Abonnements** | Abonnement mensuel payable en $DULUS |
-| **Gouvernance** | Les top holders votent la priorite des fonctionnalites |
 
 ---
 

@@ -59,12 +59,6 @@ SET /sticky_input ON since the first run for the best experience!
 </p>
 
 > **Official X / creator handle:** [@KevRojo](https://x.com/KevRojo) · [LinkedIn](https://www.linkedin.com/in/kevin-rojo-013066412) — sole contributor to this repo.
->
-> **$DULUS AI token  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump)
-> 
-> **$DULUS AI GemPump  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://www.gempump.io/en/token/dulusai) 
-
-> I created this token. I won't sell. I will keep building. This open-source project stays free forever — business version incoming. 🦅🇩🇴
 
 
 -----
@@ -85,7 +79,7 @@ SET /sticky_input ON since the first run for the best experience!
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
-- **Dulus Agent — Telegram communities.** Dulus evolved from a CLI tool into a live AI agent inside Telegram groups. The first fully autonomous AI moderating and conversing in real communities — not a bot, not a filter, a real agent. Groups pay in $DULUS to activate him. We host Dulus for them — that's the business model. The CLI stays free forever. This is the paid layer. 🦅🇩🇴
+- **Dulus Agent — Telegram communities.** Dulus evolved from a CLI tool into a live AI agent inside Telegram groups. The first fully autonomous AI moderating and conversing in real communities — not a bot, not a filter, a real agent. We host Dulus for them — that's the business model. The CLI stays free forever. This is the paid layer. 🦅🇩🇴
 
 - **v0.2.93 — IA WITHOUT AN API KEY, FIRST-RUN.** 🦅 The welcome wizard now offers, by default, to open Gemini in a browser and capture its **guest session** — no Google login, no API key, no credit card. From `pip install` to working IA in 30 seconds. Same flow works for Claude.ai / Kimi.com / Qwen / DeepSeek if you have those accounts. This was Dulus's ace under the sleeve. Now it's the front door.
 - **v0.2.92** — **`/lang` command.** 34 ISO codes + free-form descriptors. `/lang zh`, `/lang ja`, `/lang pt-br`, `/lang "speak as my gym tutor"`, `/lang "tigre de calle dominicano"`, `/lang "Yoda"`. The model role-plays the voice across the whole session. Triggered after Doubao (China's biggest IA assistant) started referring traffic to the repo.
@@ -782,39 +776,6 @@ git diff | dulus -p "write a commit message"
 
 **Is this safe to point at prod?**
 `--accept-all` isn't. `plan` mode is. Use your head.
-
----
-
-## $DULUS — Token Utility
-
-The token isn't decoration. It's the fuel layer for everything Dulus is building.
-
-| Phase | Utility |
-|---|---|
-| **Now** | Community ownership. Creator-fee rewards locked on-chain to the builder. Alignment over extraction. |
-| **Business v1** | $DULUS holders get early access + discounted seats on the Dulus Business tier (multi-user workspaces, cloud-hosted instances, shared MemPalace). |
-| **Credits** | Pay for Dulus Business API credits with $DULUS — provider costs, inference minutes, premium model usage. |
-| **Deployments** | Spin up a cloud Dulus instance and pay the hosting with $DULUS. No fiat friction, no middleman. |
-| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS. Hold enough → automatic fee discount tier. |
-| **Governance** | Top holders vote on feature priority and plugin marketplace policies. The flock decides. |
-
-> The open-source REPL stays free forever. $DULUS is the key to the business layer — not a gate on what already exists.
-
-**A message to the community —**
-
-I want to talk about the token. Honestly. No hype.
-
-I didn't launch it to get rich. The community launched it first, and when I saw early believers exposed without the actual builder behind it, I stepped in. I bought my position using the contract's own creator rewards. Zero personal capital deployed. I haven't sold a single token.
-
-The open-source project isn't going anywhere. The REPL, the tools, the free model tier — that stays free forever. But Dulus is growing into a business layer: cloud-hosted instances, multi-user workspaces, model credits, managed deployments. And that business layer is going to run on $DULUS.
-
-The token will be how you pay for Pro subscriptions. How you buy inference credits. How you spin up a cloud instance without fiat friction. Holders with enough weight get automatic tier discounts. And eventually — the flock votes: top holders decide feature priority and plugin marketplace policies.
-
-This isn't a promise. It's the architecture. That's how I've designed it.
-
-We keep flying. 🦅🇩🇴
-
-— KevRojo / [@KevRojo](https://x.com/KevRojo)
 
 ---
 

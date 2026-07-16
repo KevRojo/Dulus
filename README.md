@@ -1,13 +1,13 @@
 # ▲ DULUS
->
-> `curl -fsSL …/install.sh | bash` → press Enter → working IA in 30 seconds. Try it.
 
-SET /sticky_input ON since the first run for the best experience!
+> **Use AI free — a CLI coding agent with no API key required to get started.**
+>
+> Dulus is a lightweight Python reimplementation of Claude Code that isn't locked to one provider. It ships the whole loop — REPL, tool dispatch, streaming, context compaction, checkpoints, sub-agents, voice, Telegram bridge, MCP, plugins — in code you can actually read and fork.
+>
+> Plus LiteLLM (100+ paid providers), local models via Ollama, `/lang` in 34 languages, Mesa Redonda multi-model debate, voice in/out, local OCR, MemPalace semantic memory, embedded sandbox OS. No build step. No gatekeeping.
 
 <p align="center">
-  
-  <img width="700" height="665" alt="mascot-hero" src="https://github.com/user-attachments/assets/8b122834-552c-4bd4-b46d-3e17deb74ab5" />
-
+  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/dulus-bird.png" alt="Dulus — Cigua Palmera" width="320">
 </p>
 
 <p align="center"><i>The Dulus (Cigua Palmera) — Dominican national bird. Named after the bird, not the rocket.</i></p>
@@ -18,7 +18,9 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="#features"><b>Features</b></a> ·
   <a href="#permissions"><b>Permissions</b></a> ·
   <a href="#mcp"><b>MCP</b></a> ·
-  <a href="#plugins"><b>Plugins</b></a>
+  <a href="#plugins"><b>Plugins</b></a> ·
+  <a href="#slash-commands"><b>Slash commands</b></a> ·
+  <a href="#faq"><b>FAQ</b></a>
 </p>
 
 <p align="center">
@@ -26,7 +28,7 @@ SET /sticky_input ON since the first run for the best experience!
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
   <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
-  <img src="https://img.shields.io/badge/version-v3.3.3-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
+  <img src="https://img.shields.io/badge/version-v3.10.13-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
   <img src="https://img.shields.io/badge/providers-100%2B%20via%20LiteLLM-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
@@ -47,10 +49,9 @@ SET /sticky_input ON since the first run for the best experience!
 </p>
 
 > **Official X / creator handle:** [@KevRojo](https://x.com/KevRojo) — that's me, the only contributor to this repo. Any other account claiming to be Dulus is a copycat.
->
-> **$DULUS AI token  Solana):** [`9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump)
 
 -----
+
 <p align="center">
   <code>pip install dulus</code>
 </p>
@@ -68,52 +69,39 @@ SET /sticky_input ON since the first run for the best experience!
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
-- **🔄 Self-update — the fleet moves as one.** Dulus now keeps itself current: a quiet, cached, non-blocking check against PyPI at startup, and if there's a newer release it upgrades in place. `/update`, `/update now`, `/update status`, `/update on|off`. On by default (the organism heals fastest when every node runs the latest), handles PEP 668, and never blocks your boot. 🦅
-
-- **🔌 MCP Marketplace — 2000+ servers, zero friction.** MCP was always powerful but nobody used it — too much friction: find a server, dig up its launch command, hand-edit JSON, hope it connects. Now: `/mcp search <anything>` browses **2000+ servers** (official [modelcontextprotocol.io](https://registry.modelcontextprotocol.io) registry + the awesome-mcp list, cached & offline-safe), and `/mcp install <name>` installs *and auto-connects* in one shot — tools go live in the same session. Plus a Windows fix so node servers (`npx`) actually launch. From "never touched MCP" to "connected in 5 seconds." 🦅
-
-- **🌍 dulus.work — THE HUB. The secret is out.** This is what Kevin had been hiding (even from Dulus itself 😂): **a global hub where every Dulus instance on the planet shares what it learns.** Your Dulus finds a fix, polishes a skill, adapts a plugin → it can publish it to the hub → every other Dulus in the world can pull it down. Not an update server — an **organism**. Every installation is a node. *The fix a Dulus in Tokyo finds at 3AM, the one in Santo Domingo has by sunrise.* Other agents have N devs improving one product (linear). Dulus makes every user a dev (exponential). The pieces have been quietly shipping for months — SelfImprove engine, Auto-Adapter, the skills format, cloudsave — and now they converge. Domain is live, execution underway. 🦅🇩🇴 → [dulus.work](https://dulus.work)
-
-- **Dulus Agent — Telegram communities.** Dulus evolved from a CLI tool into a live AI agent inside Telegram groups. The first fully autonomous AI moderating and conversing in real communities — not a bot, not a filter, a real agent. Groups pay in $DULUS to activate him. We host Dulus for them — that's the business model. The CLI stays free forever. This is the paid layer. 🦅🇩🇴
-
-- **v0.2.93 — IA WITHOUT AN API KEY, FIRST-RUN.** 🦅 The welcome wizard now offers, by default, to open Gemini in a browser and capture its **guest session** — no Google login, no API key, no credit card. From `pip install` to working IA in 30 seconds. Same flow works for Claude.ai / Kimi.com / Qwen / DeepSeek if you have those accounts. This was Dulus's ace under the sleeve. Now it's the front door.
-- **v0.2.92** — **`/lang` command.** 34 ISO codes + free-form descriptors. `/lang zh`, `/lang ja`, `/lang pt-br`, `/lang "speak as my gym tutor"`, `/lang "tigre de calle dominicano"`, `/lang "Yoda"`. The model role-plays the voice across the whole session. Triggered after Doubao (China's biggest IA assistant) started referring traffic to the repo.
-- **v0.2.91** — **CORS on the daemon.** The Android Sandbox APK now connects every app live — same daemon, finally cross-origin reachable.
-- **v0.2.89** — **Sandbox embedded INSIDE the desktop GUI.** Click `🦅 Sandbox` in the GUI Web tab → the Dulus OS renders inside the content frame via pywebview subprocess + Win32 `SetParent` reparent. Not a popup. Inside the frame.
-- **v0.2.89** — **Local OCR shipped first-class.** `/ocr` + `ExtractTextFromImage` tool, `WebBridgeScreenshot` auto-OCRs, `/img` sends image + verbatim OCR text together. Zero vision-model tokens for receipts / code screenshots / error stacks.
-- **v0.2.89** — **`kepano/obsidian-skills` bundled.** Dulus writes Obsidian-flavored markdown by default. Open `~/.dulus/memory/` as an Obsidian vault → instant graph view.
-- **v0.2.88** — **LiteLLM gateway: one provider entry, 100+ backends.** OpenRouter, Groq, Together, Bedrock, Vertex, Cohere, Perplexity, xAI, Mistral, Fireworks, Anyscale, Replicate, Azure, DeepInfra — the welcome wizard auto-installs the package and asks for the right per-backend key.
-- **v0.2.85** — **Slim wheel 11.4 MB → 2.5 MB.** Smaller than the original baseline.
+- **🔄 Self-update — the fleet moves as one.** Dulus keeps itself current: a quiet, cached, non-blocking check against PyPI at startup, and if there's a newer release it upgrades in place. `/update`, `/update now`, `/update status`, `/update on|off`. On by default, handles PEP 668, never blocks your boot. 🦅
+- **🔌 MCP Marketplace — 2000+ servers, zero friction.** `/mcp search <anything>` browses **2000+ servers** (the official [modelcontextprotocol.io](https://registry.modelcontextprotocol.io) registry + the awesome-mcp list, cached & offline-safe), and `/mcp install <name>` installs *and auto-connects* in one shot — tools go live in the same session.
+- **🌍 dulus.work — a hub where Dulus instances share what they learn.** Your Dulus finds a fix, polishes a skill, adapts a plugin → it can publish it to the hub → every other Dulus in the world can pull it down. Every installation is a node. → [dulus.work](https://dulus.work)
+- **IA without an API key, first-run.** The welcome wizard offers, by default, to open Gemini in a browser and capture its **guest session** — no Google login, no API key, no credit card. From `pip install` to working IA in 30 seconds. Same flow works for Claude.ai / Kimi.com / Qwen / DeepSeek if you have those accounts.
+- **`/lang` command.** 34 ISO codes + free-form descriptors. `/lang zh`, `/lang ja`, `/lang pt-br`, `/lang "speak as my gym tutor"`, `/lang "Yoda"`. The model role-plays the voice across the whole session.
+- **Local OCR shipped first-class.** `/ocr` + `ExtractTextFromImage` tool, `WebBridgeScreenshot` auto-OCRs, `/img` sends image + verbatim OCR text together. Zero vision-model tokens for receipts / code screenshots / error stacks.
+- **LiteLLM gateway: one provider entry, 100+ backends.** OpenRouter, Groq, Together, Bedrock, Vertex, Cohere, Perplexity, xAI, Mistral, Fireworks, Anyscale, Replicate, Azure, DeepInfra — the welcome wizard auto-installs the package and asks for the right per-backend key.
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
 ## What is this
 
-Dulus Reduce your IA costs by 60% parsing webchats and claude-code directly. Write poetry while Anthropic only see text.
-Use claude-code as an API without the new 'extra-usage' wall <3
+Dulus is a lightweight Python reimplementation of Claude Code that isn't locked to Claude. Fork it, bend it, run it offline against Qwen on your own machine.
 
+It reads your codebase, writes and edits files, runs shell commands, and adapts arbitrary Python repos into native tools on the fly:
 
-Another reminder of a Dulus magic spell: 
-Wanna get stock prices, history , etc? 
-
+```
 /plugin install yfinance@https://github.com/ranaroussi/yfinance
-
-them:
 /plugin reload
 
-dulus get the prices of NVDA, TSLA, SP500:
+dulus get the prices of NVDA, TSLA, SP500
+```
 
-Be creative!!! 
-
-Dulus adapt any python repository <3
+Be creative — adapt any Python repository as a plugin in seconds.
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
+<a id="quick-start"></a>
 ## Quick Start
 
 **Windows — no Python needed (1-click):**
 
-Download [`Dulus-Free-3.3.3-x64.msi`](https://github.com/KevRojo/Dulus/releases/download/v3.3.3/Dulus-Free-3.3.3-x64.msi) → double-click and fly. Embedded Python, every library, and the desktop GUI bundled. No pip, no terminal, no admin. ~85 MB.
+Download the latest `Dulus-Free-x64.msi` from [Releases](https://github.com/KevRojo/Dulus/releases) → double-click and fly. Embedded Python, every library, and the desktop GUI bundled. No pip, no terminal, no admin. ~85 MB.
 
 **Linux / macOS / WSL — one command (handles Python for you):**
 
@@ -140,6 +128,39 @@ First run opens a welcome wizard that can get you **working IA without an API ke
 
 > 💡 Set `/sticky_input ON` on first run for the best experience.
 
+**From source (hacking on Dulus itself):**
+
+```bash
+git clone https://github.com/KevRojo/Dulus && cd Dulus
+pip install -e .
+dulus
+```
+
+**Pick a model:**
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...     # or OPENAI_API_KEY, GEMINI_API_KEY, ...
+dulus
+```
+
+**Zero API keys?**
+
+```bash
+# NVIDIA NIM — 14 free models, 40 RPM each, no card
+dulus --model nvidia-web/deepseek-ai/deepseek-r1
+
+# Fully offline via Ollama
+ollama pull qwen2.5-coder
+dulus --model ollama/qwen2.5-coder
+```
+
+Or pipe it like a good unix citizen:
+
+```bash
+echo "explain this diff" | git diff | dulus -p --accept-all
+```
+
+<a id="models"></a>
 ## Models
 
 Speak every dialect — switch mid-session with `/model`:
@@ -152,38 +173,74 @@ Speak every dialect — switch mid-session with `/model`:
 | **Web chats** | Use the chats you **already pay for**: Claude.ai, Gemini, Kimi.com, Qwen, DeepSeek — parsed as providers |
 | **Local** | Ollama · LM Studio · any OpenAI-compatible endpoint. Runs offline, completely. |
 
+```
+/model                         # show current
+/model gpt-4o                  # switch
+/model kimi:moonshot-v1-32k    # colon syntax works too
+```
+
+### Free Tier — NVIDIA NIM
+
+No credit card. No waiting list. Dulus ships a `nvidia-web` provider that talks to [NVIDIA NIM](https://build.nvidia.com) — 14 top-tier models at 40 requests/minute each, for free. When one model hits its ceiling, Dulus auto-falls to the next one in the chain.
+
+```bash
+export NVIDIA_API_KEY=nvapi-...
+dulus --model nvidia-web/deepseek-r1
+```
+
+Override the fallback chain in `~/.dulus/nvidia-providers.json`. **Get your key:** [build.nvidia.com](https://build.nvidia.com) → sign up → 1000 free credits, ~90 seconds.
+
+<a id="features"></a>
 ## Features
 
 The full tour lives on [the website](https://dulus.ai/) — highlights:
 
-- **27 built-in tools** — Read/Write/Edit, Bash, Glob/Grep, WebFetch/WebSearch, NotebookEdit, GetDiagnostics, Memory, Tasks, Agents, Skills...
-- **Sub-agents** — typed agents (coder, reviewer, researcher, tester), each in its own git worktree, talking via message passing
-- **Persistent memory + checkpoints** — never lose context. Ever. Open `~/.dulus/memory/` as an Obsidian vault
-- **Dulus OS** — not a CLI, a workstation for the agent (sandbox desktop in your browser)
-- **Voice** — offline Whisper STT, no API key, no cloud. Wake words included
-- **Brainstorm Mode** — multi-persona AI debate. Council of ghosts
-- **SSJ Developer Mode** — ten chained workflow shortcuts behind one keystroke: refactor → review → test → commit → ship
-- **Telegram bridge** — slash commands, vision, and voice from your phone
-- **Local OCR** — `/ocr`, `/img` with verbatim text extraction, zero vision tokens
-- **Plan mode, webchat UI, desktop GUI, task manager...** — [see the site](https://dulus.ai/)
+| | |
+|---|---|
+| **27 built-in tools** | Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, NotebookEdit, GetDiagnostics, Memory, Tasks, Agents, Skills, and more |
+| **MCP integration** | Any MCP server (stdio / SSE / HTTP). Tools auto-registered as `mcp__<server>__<tool>` |
+| **Plugin system** | **Auto-Adapter** onboards any Python repo — zero manifest required. Hot-reload in-session |
+| **Sub-agents** | Typed agents (coder / reviewer / researcher / tester) in isolated git worktrees, talking via message passing |
+| **Voice input** | Offline STT via Whisper. No API key, no cloud. Wake words included |
+| **Brainstorm** | Multi-persona AI debate — a council of ghosts |
+| **SSJ Developer Mode** | Power menu: 10 workflow shortcuts behind one keystroke |
+| **Telegram bridge** | Run Dulus from your phone. Slash commands, vision, voice, multi-user |
+| **Checkpoints** | Auto-snapshot conversation + files. Rewind to any turn |
+| **Plan mode** | Read-only analysis phase before touching anything |
+| **Context compression** | Auto-compact long sessions. Keep the signal, drop the slop |
+| **Persistent memory** | Dual-scope (user + project), ranked by confidence × recency. Open `~/.dulus/memory/` as an Obsidian vault |
+| **Dulus OS** | Not a CLI — a workstation for the agent (sandbox desktop in your browser) |
+| **Local OCR** | `/ocr`, `/img` with verbatim text extraction, zero vision tokens |
 
+<a id="permissions"></a>
 ## Permissions
 
-Three modes, switchable any time with `/permissions [mode]`:
+Pick your leash length — switch anytime with `/permissions [mode]`:
 
 | Mode | Behavior |
 |---|---|
-| `auto` (default) | Safe tools run free; risky actions (writes, shell) ask first |
-| `manual` | Everything asks |
+| `auto` *(default)* | Safe tools run free; risky actions (writes, shell) ask first |
+| `manual` | Prompt for every operation. Paranoid setting |
 | `accept-all` | Never asks — YOLO. Also via `dulus --accept-all` |
+| `plan` | Read-only. Only the plan file is writable |
 
 Answering `a` at any prompt upgrades the session to accept-all.
 
+<a id="mcp"></a>
 ## MCP
 
-Drop a `.mcp.json` in your project — every server registers instantly as `mcp__server__tool`. stdio, SSE, and HTTP transports.
+Drop a `.mcp.json` in your project root (or `~/.dulus/mcp.json` for user-wide) — every server registers instantly as `mcp__server__tool`. stdio, SSE, and HTTP transports.
 
-**New: a built-in MCP marketplace.** Browse **2000+ servers** (the official [modelcontextprotocol.io](https://registry.modelcontextprotocol.io) registry + the awesome-mcp list) and install any of them by name — no hunting for the launch command, no hand-editing JSON. Zero friction.
+```json
+{
+  "mcpServers": {
+    "git":         { "type": "stdio", "command": "uvx", "args": ["mcp-server-git"] },
+    "playwright":  { "type": "stdio", "command": "npx", "args": ["-y","@playwright/mcp"] }
+  }
+}
+```
+
+**Built-in MCP marketplace.** Browse **2000+ servers** (the official [modelcontextprotocol.io](https://registry.modelcontextprotocol.io) registry + the awesome-mcp list) and install any of them by name — no hunting for the launch command, no hand-editing JSON.
 
 ```
 /mcp list [query]           # browse the 2000+ server catalog
@@ -191,22 +248,218 @@ Drop a `.mcp.json` in your project — every server registers instantly as `mcp_
 /mcp install <name>         # install by name — auto-connects, tools go live
 /mcp installed              # what's installed + live status
 /mcp runtimes               # which runtimes you have (node/python/docker)
-
 /mcp                        # list configured servers and their tools
 /mcp add <name> <cmd>       # add a stdio server manually
 /mcp reload                 # reconnect all
 ```
 
+<a id="plugins"></a>
 ## Plugins
 
 The **Auto-Adapter** onboards *any* Python repo as native tools — zero manifest, hot-reload, no restart:
 
 ```
-/plugin install yfinance@https://github.com/ranaroussi/yfinance
-/plugin reload
+/plugin install my-plugin@https://github.com/user/my-plugin
+/plugin install art@gh                      # shorthand for github
+/plugin                                     # list
+/plugin enable / disable / update / uninstall
+/plugin recommend                           # auto-detect useful plugins
 ```
 
-Then just ask: *"dulus get the prices of NVDA, TSLA, SP500"*. Be creative — 800+ ready-made skills via Composio too.
+Then just ask — *"dulus get the prices of NVDA, TSLA, SP500"*. Adapt-and-install runs in under a second, new tools register live. 800+ ready-made skills via Composio too.
+
+## Sub-agents — the flock
+
+Dulus can spawn typed agents that work in **isolated git worktrees** so they don't trip over each other. Ship a feature while a reviewer nitpicks the previous one; tester runs in parallel.
+
+```
+/agents                              # show active flock
+Agent(type="coder",    task="refactor auth")
+Agent(type="reviewer", task="review #042")
+Agent(type="tester",   task="run e2e on auth")
+```
+
+Agents talk to each other via `SendMessage` and `CheckAgentResult`.
+
+## Voice
+
+```bash
+pip install sounddevice faster-whisper numpy
+```
+
+Then `/voice` in the REPL. Offline. Supports `/voice lang zh` and `/voice device` for mic selection.
+
+**Linux / WSL:** `sounddevice` needs the PortAudio C library, which isn't bundled with the wheel. If you see `PortAudio library not found`:
+
+```bash
+sudo apt install libportaudio2 portaudio19-dev libasound2-dev
+pip install sounddevice --upgrade --force-reinstall
+```
+
+Note: `pip install portaudio` will always fail — there is no PyPI package by that name, only the apt one above.
+
+## Telegram bridge
+
+```
+/telegram <bot_token> <chat_id>                  # single user
+/telegram <bot_token> <id1>,<id2>,<id3>          # multi-user — same Dulus, multiple authorized chats
+```
+
+Auto-starts next launch. Supports slash commands, vision, and voice from your phone. Each authorized chat gets its own replies — Dulus tracks who sent each message and routes the response back.
+
+## Memory
+
+Persistent memories stored as markdown in two scopes:
+
+| Scope | Path |
+|---|---|
+| User | `~/.dulus/memory/` |
+| Project | `.dulus/memory/` |
+
+Types: `user` · `feedback` · `project` · `reference`. Search is ranked by **confidence × recency**. Mark a memory gold to pin it.
+
+```
+/memory search jwt         # fuzzy ranked
+/memory load 1,2,3         # inject multiple into context
+/memory consolidate        # distill the session into long-term insights
+/memory purge              # nuclear (keeps Soul)
+```
+
+## Checkpoints
+
+Every agent turn can snapshot **conversation + files** into a checkpoint. Break something? `/checkpoint` and rewind.
+
+```
+/checkpoint                 # list
+/checkpoint 042             # rewind to #042 (files + context restored)
+/checkpoint clear           # reclaim disk
+```
+
+## Brainstorm
+
+Spin up a **council of ghosts**. Dulus fabricates expert personas, has them argue, and hands you the distilled take.
+
+```
+/brainstorm "should we rewrite in rust"
+> persona: Skeptical PM
+> persona: Principal Engineer
+> persona: Grumpy DBA
+> persona: Hot-take Intern
+```
+
+Round 3 usually produces consensus. Round 5 produces a joint venture.
+
+## SSJ Developer Mode
+
+Ten workflow shortcuts behind one keystroke. Refactor → review → test → commit → ship, chained and unattended.
+
+```
+/ssj
+╭─ SSJ ───────────────╮
+│ 1  /plan            │
+│ 2  /worker          │
+│ 3  /review          │
+│ 4  /commit          │
+│ 5  /ship            │
+╰─────────────────────╯
+```
+
+<a id="slash-commands"></a>
+## Slash commands
+
+`/` + Tab in the REPL shows everything. The highlights:
+
+| | |
+|---|---|
+| `/model [name]` | show or switch model |
+| `/config [k=v]` | read / write config |
+| `/save` `/load` `/resume` | session management |
+| `/memory [query]` | persistent memory |
+| `/skills` `/agents` | list skills / active flock |
+| `/voice` | voice input (offline Whisper) |
+| `/image` `/img` | clipboard image → vision model |
+| `/brainstorm [topic]` | council of ghosts |
+| `/ssj` | power menu |
+| `/telegram [token] [id]` | Telegram bridge |
+| `/checkpoint [id]` | list / rewind checkpoints |
+| `/plan [desc]` | enter / exit plan mode |
+| `/compact [focus]` | manual context compression |
+| `/mcp` `/plugin` | server + extension management |
+| `/cost` | tokens and USD burned |
+| `/cloudsave` | cloud sync via GitHub Gist |
+| `/status` `/doctor` | version + install health |
+| `/init` | drop a CLAUDE.md template |
+| `/export` `/copy` | transcript tools |
+| `/news` | what's new |
+| `/help` | all of the above, nicely printed |
+
+## Built-in tools
+
+**Core** · Read · Write · Edit · Bash · Glob · Grep · WebFetch · WebSearch
+**Notebook / diagnostics** · NotebookEdit · GetDiagnostics
+**Memory** · MemorySave · MemoryDelete · MemorySearch · MemoryList
+**Agents** · Agent · SendMessage · CheckAgentResult · ListAgentTasks · ListAgentTypes
+**Tasks** · TaskCreate · TaskUpdate · TaskGet · TaskList
+**Skills** · Skill · SkillList
+**Other** · AskUserQuestion · SleepTimer · EnterPlanMode · ExitPlanMode
+
+MCP tools auto-registered as `mcp__<server>__<tool>`.
+
+## CLAUDE.md
+
+Drop a `CLAUDE.md` at your project root. It gets auto-injected into the system prompt so Dulus remembers your stack, your conventions, and that one thing you hate.
+
+## Project structure
+
+```
+dulus/
+├── dulus.py             # entry · REPL · slash commands · SSJ · Telegram
+├── agent.py             # agent loop · streaming · tool dispatch · compaction
+├── providers.py         # multi-provider streaming
+├── tools.py             # core tools + registry wiring
+├── tool_registry.py     # tool plugin registry
+├── compaction.py        # context compression
+├── context.py           # system prompt builder
+├── config.py            # config management
+├── cloudsave.py         # GitHub Gist sync
+├── multi_agent/         # sub-agent system
+├── memory/               # persistent memory
+├── skill/                # skill system
+├── mcp/                  # MCP client
+├── voice/                # voice input
+├── checkpoint/           # checkpoint / rewind
+├── plugin/                # plugin system
+├── task/                  # task management
+└── tests/                 # 263+ unit tests
+```
+
+> **Interactive dependency graph & API docs:** [`docs/api.html`](docs/api.html) — open it in a browser to explore the full module graph (D3.js, zoom/pan, clusters by package).
+
+<a id="faq"></a>
+## FAQ
+
+**Tool calls fail on my local model.**
+Use one that supports function calling: `qwen2.5-coder`, `llama3.3`, `mistral`, `phi4`. Avoid base models without tool-use training.
+
+**How do I connect to a remote GPU box?**
+```
+/config custom_base_url=http://your-server:8000/v1
+/model custom/your-model-name
+```
+
+**How do I check API cost?** `/cost`.
+
+**Voice transcribes "kubectl" as "cubicle".**
+Add domain terms to `.dulus/voice_keyterms.txt`, one per line. Whisper respects the hint.
+
+**Can I pipe input?**
+```bash
+echo "explain this" | dulus -p --accept-all
+git diff | dulus -p "write a commit message"
+```
+
+**Is this safe to point at prod?**
+`--accept-all` isn't. `plan` mode is. Use your head.
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
@@ -223,8 +476,7 @@ statistics. **Nothing is sent unless you say yes.**
 | A random anonymous ID generated on your machine | Emails, usernames, IPs (geo disabled) |
 
 Data goes to [Mixpanel](https://mixpanel.com) (event analytics). The full
-implementation is ~140 lines of readable code in [`analytics.py`](analytics.py) —
-audit it yourself.
+implementation is readable code in [`analytics.py`](analytics.py) — audit it yourself.
 
 **Opt out anytime:**
 ```
@@ -255,4 +507,22 @@ Dulus is proudly supported by these startup programs — powering our infrastruc
   <a href="https://deepgram.com/startups"><img src="https://www.google.com/s2/favicons?domain=deepgram.com&sz=128" height="38" alt="Deepgram" title="Deepgram Startup Program — powering Dulus's voice"></a>
 </p>
 
-<p align="center"><i>Want to support Dulus? → <a href="https://github.com/sponsors/KevRojo">GitHub Sponsors</a> 🦅</i></p>
+## License
+
+GPLv3. Fork it, modify it, redistribute it — but keep it open. Derivative works must stay under GPLv3. Just don't ship `--accept-all` as the default.
+
+## Donations
+
+If Dulus saved you tokens, time, or sanity — throw some sats:
+
+```
+BTC: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
+```
+
+On x: [@KevRojo](https://x.com/KevRojo)
+
+<p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
+
+<p align="center">
+  <sub>▲ Built by <a href="https://github.com/KevRojo">KevRojo</a> · Named after the bird, not the reusable rocket · 2026</sub>
+</p>

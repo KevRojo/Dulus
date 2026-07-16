@@ -26,7 +26,6 @@
   <a href="#gineung"><b>기능</b></a> ·
   <a href="#peurobaideo"><b>제공자</b></a> ·
   <a href="#gujohyung"><b>아키텍처</b></a> ·
-  <a href="#token"><b>$DULUS</b></a>
 </p>
 
 </div>
@@ -205,23 +204,6 @@ Agent(type="tester",   task="run e2e on auth")
 | `/lang [코드]` | 언어 전환(34 코드) |
 | `/cost` | 소비 토큰과 USD |
 | `/help` | 모든 명령 |
-
----
-
-## $DULUS 토큰
-
-**컨트랙트:** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
-
-$DULUS 토큰은 Dulus 생태계의 연료층입니다. 오픈소스 REPL 은 영원히 묶음 —— $DULUS 는 비즈니스 계층의 열쇠입니다.
-
-| 단계 | 유틸리티 |
-|---|---|
-| **지금** | 커뮤니티 소유. 온체인 잠긴 보상 |
-| **Business v1** | 홀더 우선 접근 + 할인 |
-| **크레딧** | $DULUS 로 API 크레딧 지불 |
-| **배포** | $DULUS 로 지불하는 클라우드 인스턴스 |
-| **구독** | $DULUS 로 지불하는 월간 구독 |
-| **거버넌스** | 상위 홀더가 기능 우선순위 투표 |
 
 ---
 

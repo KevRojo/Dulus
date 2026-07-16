@@ -26,7 +26,6 @@
   <a href="#功能"><b>功能</b></a> ·
   <a href="#提供商"><b>提供商</b></a> ·
   <a href="#架构"><b>架构</b></a> ·
-  <a href="#代币"><b>$DULUS</b></a>
 </p>
 
 </div>
@@ -205,23 +204,6 @@ Agent(type="tester",   task="run e2e on auth")
 | `/lang [代码]` | 切换语言（34 个代码） |
 | `/cost` | 消耗的令牌和 USD |
 | `/help` | 所有命令 |
-
----
-
-## $DULUS 代币
-
-**合约：** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
-
-$DULUS 代币是 Dulus 生态系统的燃料层。开源 REPL 永远免费 —— $DULUS 是商业层的钥匙。
-
-| 阶段 | 效用 |
-|---|---|
-| **现在** | 社区所有权。链上锁定创作者奖励 |
-| **商业 v1** | 持有者抢先体验 + 折扣 |
-| **积分** | 用 $DULUS 支付 API 积分 |
-| **部署** | 启动云实例，用 $DULUS 支付 |
-| **订阅** | 用 $DULUS 支付月度订阅 |
-| **治理** | 顶级持有者投票决定功能优先级 |
 
 ---
 

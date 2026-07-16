@@ -26,7 +26,6 @@
   <a href="#kinou"><b>機能</b></a> ·
   <a href="#purobaida"><b>プロバイダ</b></a> ·
   <a href="#akitekucha"><b>アーキテクチャ</b></a> ·
-  <a href="#token"><b>$DULUS</b></a>
 </p>
 
 </div>
@@ -205,23 +204,6 @@ Agent(type="tester",   task="run e2e on auth")
 | `/lang [コード]` | 言語切り替え（34 コード） |
 | `/cost` | 消費トークンと USD |
 | `/help` | すべてのコマンド |
-
----
-
-## $DULUS トークン
-
-**コントラクト：** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
-
-$DULUS トークンは Dulus エコシステムの燃料層です。オープンソース REPL は永遠に無料 —— $DULUS はビジネス層への鍵です。
-
-| フェーズ | ユーティリティ |
-|---|---|
-| **今** | コミュニティ所有。オンチェーンでロックされた報酬 |
-| **Business v1** | ホルダー向け先行アクセス + 割引 |
-| **クレジット** | $DULUS で API クレジットを支払い |
-| **デプロイメント** | $DULUS で支払うクラウドインスタンス |
-| **サブスクリプション** | $DULUS で支払う月額サブスクリプション |
-| **ガバナンス** | トップホルダーが機能優先度を投票 |
 
 ---
 

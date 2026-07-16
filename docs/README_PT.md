@@ -26,7 +26,6 @@
   <a href="#recursos"><b>Recursos</b></a> ·
   <a href="#provedores"><b>Provedores</b></a> ·
   <a href="#arquitetura"><b>Arquitetura</b></a> ·
-  <a href="#token"><b>$DULUS</b></a>
 </p>
 
 </div>
@@ -205,23 +204,6 @@ Agent(type="tester",   task="run e2e on auth")
 | `/lang [codigo]` | Trocar idioma (34 codigos) |
 | `/cost` | Tokens e USD gastos |
 | `/help` | Todos os comandos |
-
----
-
-## $DULUS Token
-
-**Contrato:** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
-
-O token $DULUS e a camada de combustivel do ecossistema Dulus. O REPL open-source permanece gratuito para sempre —— $DULUS e a chave para a camada de negocios.
-
-| Fase | Utilidade |
-|---|---|
-| **Agora** | Propriedade comunitaria. Recompensas travadas on-chain |
-| **Business v1** | Acesso antecipado + descontos para detentores |
-| **Creditos** | Pague creditos API com $DULUS |
-| **Deployments** | Lance instancias cloud pagando com $DULUS |
-| **Assinaturas** | Assinatura mensal pagavel em $DULUS |
-| **Governanca** | Top holders votam prioridade de recursos |
 
 ---
 

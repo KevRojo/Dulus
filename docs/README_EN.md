@@ -26,7 +26,6 @@
   <a href="#features"><b>Features</b></a> ·
   <a href="#providers"><b>Providers</b></a> ·
   <a href="#architecture"><b>Architecture</b></a> ·
-  <a href="#token"><b>$DULUS</b></a> ·
   <a href="https://dulus.ai/"><b>Website</b></a>
 </p>
 
@@ -269,35 +268,6 @@ MCP tools auto-registered as `mcp__<server>__<tool>`.
 - **One person, one vision.** Built by KevRojo from Santo Domingo, Dominican Republic.
 - **263+ tests.** Real test coverage, not a badge.
 - **2.5 MB wheel.** Smaller than most frameworks' READMEs.
-
----
-
-## Community & Token
-
-### $DULUS AI Token (Solana)
-
-**Contract:** `9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump`
-
-The $DULUS token is the fuel layer for the Dulus ecosystem. The open-source REPL stays free forever — $DULUS is the key to the business layer.
-
-| Phase | Utility |
-|---|---|
-| **Now** | Community ownership. Creator-fee rewards locked on-chain |
-| **Business v1** | Early access + discounted seats for $DULUS holders |
-| **Credits** | Pay for Dulus Business API credits with $DULUS |
-| **Deployments** | Spin up cloud Dulus instances, pay with $DULUS |
-| **Subscriptions** | Monthly Dulus Pro subscription payable in $DULUS |
-| **Governance** | Top holders vote on feature priority and marketplace policies |
-
-> I am the top holder. I bought my position with my own funds. I am not selling. I will keep building. — KevRojo
-
-### Connect
-
-- **X / Twitter:** [@KevRojo](https://x.com/KevRojo) — Official creator account
-- **GitHub:** [github.com/KevRojo/Dulus](https://github.com/KevRojo/Dulus)
-- **Website:** [dulus.ai](https://dulus.ai/)
-- **PyPI:** [pypi.org/project/dulus](https://pypi.org/project/dulus)
-- **DexScreener:** [View $DULUS Chart](https://dexscreener.com/solana/9R8rrjXxcfQPmLTCLhmVpjr2uesjjkcgkinE6Lwdpump)
 
 ---
 
