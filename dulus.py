@@ -65,9 +65,9 @@ Slash commands in REPL:
   /memory purge-soul      Total wipe of EVERYTHING (Danger)
   /memory consolidate     Extract long-term insights from session via AI
   /skills           List active Dulus skills (loaded each turn)
-  /skill            Browse + manage Anthropic/ClawHub skills
-  /skill list       Show installed + all available Anthropic skills
-  /skill get <plugin/skill>  Install a skill (e.g. /skill get frontend-design/frontend-design)
+  /skill            Browse + manage Anthropic/ClawHub/skills.sh skills
+  /skill list       Show installed + browse skills (anthropic/awesome/composio/skillssh/local)
+  /skill get <plugin/skill>  Install a skill (e.g. /skill get skillssh/mattpocock/skills/tdd)
   /skill use <name> Inject skill into next message  /skill remove <name>  Uninstall
   /agents           Show sub-agent tasks
   /mcp              List MCP servers and their tools
@@ -874,7 +874,8 @@ _HELP_PAGES = [
     ("Skills · Plugins · Agents · MCP · Tasks", [
         ("/skills",                 "List active Dulus skills"),
         ("/skill list",             "Browse installed + available skills"),
-        ("/skill get <slug>",       "Install an Anthropic/ClawHub skill"),
+        ("/skill list skillssh",    "Browse the skills.sh open directory (100K+)"),
+        ("/skill get <slug>",       "Install an Anthropic/ClawHub/skills.sh skill"),
         ("/skill use <name>",       "Inject skill into next message"),
         ("/skill remove <name>",    "Uninstall a skill"),
         ("/plugin",                 "List installed plugins"),
@@ -5083,9 +5084,10 @@ def cmd_skill(args: str, state, config) -> bool:
     /skill                     — list installed skills + show help
     /skill list                — list installed skills
     /skill list local [q]      — browse/search Anthropic skills on disk
-    /skill list dump [path]    — dump ALL skills (awesome+composio+local+installed) to a txt file for grep
+    /skill list skillssh [q]   — browse/search skills.sh open directory (100K+ skills)
+    /skill list dump [path]    — dump ALL skills (dulus+awesome+composio+skillssh+local+installed) to a txt file for grep
     /skill list clawhub [q]    — search ClawHub (WIP)
-    /skill get <slug>          — install (e.g. /skill get frontend-design/frontend-design)
+    /skill get <slug>          — install (e.g. /skill get dulus/foo or skillssh/mattpocock/skills/tdd)
     /skill use <name>          — inject skill as context for this turn
     /skill remove <name>       — uninstall skill
     """
@@ -5108,6 +5110,7 @@ def cmd_skill(args: str, state, config) -> bool:
         print(clr("\n  Dulus Skill Manager", "cyan", "bold"))
         print(f"  {clr('Skills directory:', 'dim')} {str(_Path.home() / '.dulus/skills')}")
         print(f"  {clr('/skill list local [q]', 'yellow'):30s} Browse available marketplace skills")
+        print(f"  {clr('/skill list skillssh [q]', 'yellow'):30s} Browse skills.sh open directory")
         print(f"  {clr('/skill get <slug>', 'yellow'):30s} Install a skill by its slug")
         print(f"  {clr('/skill use <name>', 'yellow'):30s} Inject an installed skill into this turn")
         print(f"  {clr('/skill remove <name>', 'yellow'):30s} Uninstall a skill")
@@ -5132,7 +5135,7 @@ def cmd_skill(args: str, state, config) -> bool:
             print(f"  3) {clr('composio', 'yellow')}  — Composio Tool Router (1000+ apps via API)")
             print(f"  4) {clr('local', 'yellow')}     — Anthropic + awesome marketplaces on disk (~/.claude/...)")
             print(f"  5) {clr('installed', 'yellow')} — skills already in ~/.dulus/skills/")
-            print(f"  6) {clr('all', 'yellow')}       — combine dulus + awesome + composio + local")
+            print(f"  6) {clr('all', 'yellow')}       — combine dulus + awesome + composio + skillssh + local")
             print(f"  7) {clr('skillssh', 'yellow')}  — skills.sh open directory (100K+ skills, needs a search term)")
             try:
                 choice = input(clr("  > ", "cyan")).strip().lower()
@@ -5207,6 +5210,7 @@ def cmd_skill(args: str, state, config) -> bool:
                 + list_awesome_remote(query)
                 + list_composio_toolkits(query)
                 + list_local(query)
+                + search_skillssh(query, limit=50)
             )
             if not combined:
                 err("No skills found across any source.")
@@ -5248,20 +5252,18 @@ def cmd_skill(args: str, state, config) -> bool:
             return True
 
         if rest.startswith("skillssh"):
-            q = rest[8:].strip()
-            if not q:
-                info("skills.sh has no browse endpoint — give me a search term: /skill list skillssh <query>")
-                return True
-            info(f"Searching skills.sh for '{q}'...")
-            results = search_skillssh(q, limit=25)
-            if not results:
-                err("No skills found on skills.sh (network or empty result).")
+            q = rest[len("skillssh"):].strip().lstrip("/")
+            info("Fetching skills.sh open directory...")
+            skills = search_skillssh(q or "", limit=50)
+            if not skills:
+                info(f"No skills.sh matches for '{q}'." if q else "skills.sh returned no results.")
                 return True
             lines = [
-                f"  {clr(s['id'], 'cyan'):60s}  {s.get('description', '')[:70]}"
-                for s in results
+                f"  {clr(s['id'], 'cyan'):55s}  {s.get('description', '')[:80]}"
+                for s in skills
             ]
-            _pager(f"skills.sh results ({len(results)}) — /skill get <id> to install — n=next q=quit", lines)
+            header = f"skills.sh skills ({len(skills)})" + (f" matching '{q}'" if q else "")
+            _pager(f"{header} — n=next q=quit", lines)
             return True
 
         if rest.startswith("installed"):
@@ -5312,6 +5314,13 @@ def cmd_skill(args: str, state, config) -> bool:
                     lines.append(f"composio\t{s.get('id','')}\t{(s.get('description') or '').strip()}")
             except Exception as e:
                 lines.append(f"# composio fetch failed: {e}")
+
+            try:
+                ss = search_skillssh("code", limit=100) or []
+                for s in ss:
+                    lines.append(f"skillssh\t{s.get('id','')}\t{(s.get('description') or '').strip()}")
+            except Exception as e:
+                lines.append(f"# skillssh fetch failed: {e}")
 
             try:
                 lc = list_local() or []
@@ -5366,24 +5375,27 @@ def cmd_skill(args: str, state, config) -> bool:
     # ── /skill get ─────────────────────────────────────────────────────────
     if subcmd == "get":
         if not rest:
-            err("Usage: /skill get <plugin/skill>  or  /skill get clawhub:<slug>")
+            err("Usage: /skill get <plugin/skill>  or  /skill get clawhub:<slug>  or  /skill get skillssh/<owner>/<repo>/<skill>")
             return True
         if rest.startswith("clawhub:"):
             slug = rest[8:]
             success, msg = install_clawhub(slug)
-        elif rest.startswith("skillssh/"):
-            success, msg = install_skillssh(rest)
+        elif rest.startswith("skillssh/") or rest.startswith("skillssh "):
+            slug = rest.replace("skillssh ", "", 1).replace("skillssh/", "", 1).strip()
+            success, msg = install_skillssh(slug)
         elif rest.startswith("dulus/"):
             success, msg = install_dulus_remote(rest)
         elif rest.startswith("awesome/"):
             success, msg = install_awesome_remote(rest)
         else:
             success, msg = install_local(rest)
-            # Fallback chain: Dulus community repo first (it's ours), then awesome.
+            # Fallback chain: local → Dulus community → awesome → skillssh
             if not success:
                 success, msg = install_dulus_remote(rest)
             if not success:
                 success, msg = install_awesome_remote(rest)
+            if not success:
+                success, msg = install_skillssh(rest)
         (ok if success else err)(msg)
         return True
 
