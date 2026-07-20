@@ -59,8 +59,10 @@
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
 <p align="center">
-  <a href="https://dulus.ai/"><b>🌐 Visit the Dulus website →</b></a><br>
-  <sub>The site covers features, demos, and details not documented in this README.</sub>
+  <a href="https://dulus.ai/"><b>🌐 dulus.ai</b></a> — features, demos & the full tour&nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="https://dulus.online/"><b>🏢 dulus.online</b></a> — Synthetic Operations: deploy & govern AI fleets&nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="https://dulus.work/"><b>🌍 dulus.work</b></a> — the HUB<br>
+  <sub>Three fronts, one bird: the free CLI, the platform where fleets run, and the network that makes them all smarter.</sub>
 </p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
@@ -69,13 +71,13 @@
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
+- **🩹 First community bug report → fixed on PyPI the same day.** [@aognio](https://github.com/aognio) found Dulus through Hacker News and reported a crash when NVIDIA's free tier ran out of quota ([#18](https://github.com/KevRojo/Dulus/issues/18)). Root cause: quota errors arrive mid-stream, past the old error guard. Now provider failures can't kill the REPL — fallback chain first, friendly *"try /model"* worst case, history intact. Report a bug, get a release. 🦅
+- **🛰️ Error tracking that actually tracks.** Confession: a mis-configured Sentry init meant no crash report had ever left anyone's machine. Fixed with a silent atexit flush (no noisy exit banner), and quota/provider failures now report as handled events — visibility without crashes.
+- **🌐 Three domains, one organism.** [dulus.ai](https://dulus.ai) is the front door. [dulus.online](https://dulus.online) is *Synthetic Operations* — deploy one agent or an entire company: persistent workers with tools, memory, approvals and measurable ownership, coordinated by MOD (plan → execute → validate, every step with a receipt). [dulus.work](https://dulus.work) is the HUB where every instance shares what it learns.
 - **🔄 Self-update — the fleet moves as one.** Dulus keeps itself current: a quiet, cached, non-blocking check against PyPI at startup, and if there's a newer release it upgrades in place. `/update`, `/update now`, `/update status`, `/update on|off`. On by default, handles PEP 668, never blocks your boot. 🦅
 - **🔌 MCP Marketplace — 2000+ servers, zero friction.** `/mcp search <anything>` browses **2000+ servers** (the official [modelcontextprotocol.io](https://registry.modelcontextprotocol.io) registry + the awesome-mcp list, cached & offline-safe), and `/mcp install <name>` installs *and auto-connects* in one shot — tools go live in the same session.
-- **🌍 dulus.work — a hub where Dulus instances share what they learn.** Your Dulus finds a fix, polishes a skill, adapts a plugin → it can publish it to the hub → every other Dulus in the world can pull it down. Every installation is a node. → [dulus.work](https://dulus.work)
 - **IA without an API key, first-run.** The welcome wizard offers, by default, to open Gemini in a browser and capture its **guest session** — no Google login, no API key, no credit card. From `pip install` to working IA in 30 seconds. Same flow works for Claude.ai / Kimi.com / Qwen / DeepSeek if you have those accounts.
 - **`/lang` command.** 34 ISO codes + free-form descriptors. `/lang zh`, `/lang ja`, `/lang pt-br`, `/lang "speak as my gym tutor"`, `/lang "Yoda"`. The model role-plays the voice across the whole session.
-- **Local OCR shipped first-class.** `/ocr` + `ExtractTextFromImage` tool, `WebBridgeScreenshot` auto-OCRs, `/img` sends image + verbatim OCR text together. Zero vision-model tokens for receipts / code screenshots / error stacks.
-- **LiteLLM gateway: one provider entry, 100+ backends.** OpenRouter, Groq, Together, Bedrock, Vertex, Cohere, Perplexity, xAI, Mistral, Fireworks, Anyscale, Replicate, Azure, DeepInfra — the welcome wizard auto-installs the package and asks for the right per-backend key.
 
 <p align="center"><img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%"></p>
 
