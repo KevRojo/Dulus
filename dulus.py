@@ -310,10 +310,15 @@ try:
     import sentry_sdk as _sentry_sdk
     # Disable auto-integrations: some (rq, celery) try to use `fork`
     # which doesn't exist on Windows → ValueError on import. Add back only the
-    # safe essentials. NOTE: AtexitIntegration is intentionally NOT included — it
-    # prints the noisy "Sentry is attempting to send N pending events / Waiting up
-    # to 2 seconds" prompt on exit, which looks bad in a live demo. Crashes still
-    # reach Sentry via the Excepthook integration.
+    # safe essentials.
+    #
+    # AtexitIntegration IS required: the excepthook only ENQUEUES the crash
+    # event into a background worker — the flush on process exit is done by the
+    # atexit handler. Without it (plus shutdown_timeout=0) crash events were
+    # silently dropped and nothing ever reached Sentry. The default atexit
+    # callback prints the noisy "Sentry is attempting to send N pending events /
+    # Waiting up to 2 seconds" banner, so we pass a silent callback instead:
+    # events get flushed, demos stay clean.
     _sentry_integrations = []
     for _cls_name, _mod in [
         ("ExcepthookIntegration", "sentry_sdk.integrations.excepthook"),
@@ -325,6 +330,11 @@ try:
             _sentry_integrations.append(getattr(_il.import_module(_mod), _cls_name)())
         except Exception:
             pass
+    try:
+        from sentry_sdk.integrations.atexit import AtexitIntegration as _SentryAtexit
+        _sentry_integrations.append(_SentryAtexit(callback=lambda pending, timeout: None))
+    except Exception:
+        pass
     _sentry_sdk.init(
         dsn=_sentry_dsn,
         send_default_pii=True,
@@ -332,7 +342,7 @@ try:
         profiles_sample_rate=0.0,  # no profiling overhead
         default_integrations=False,
         integrations=_sentry_integrations,
-        shutdown_timeout=0,        # don't block process exit waiting on uploads
+        shutdown_timeout=2,        # give the transport a moment to flush crashes
     )
     _SENTRY = True
 except Exception:
@@ -363,7 +373,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.15"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.16"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -11339,6 +11349,16 @@ def repl(config: dict, initial_prompt: str = None):
                             pass
                     if _is_api_err:
                         from providers import friendly_api_error
+                        # Report to Sentry as a HANDLED event: since issue #18
+                        # these no longer crash the process, so the excepthook
+                        # integration never sees them — capture explicitly to
+                        # keep visibility on provider/quota failures in the wild.
+                        if _SENTRY:
+                            try:
+                                import sentry_sdk as _sdk
+                                _sdk.capture_exception(e)
+                            except Exception:
+                                pass
                         flush_response()
                         err(friendly_api_error(e))
                         info("  Tip: use /model to switch provider, or retry in a bit.")
