@@ -1,0 +1,7 @@
+# Commits to ignore in git blame. GitHub's blame view honors this file
+# natively; locally enable with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Line-ending normalization (CRLF -> LF) of dulus.py and pyproject.toml,
+# content-identical, bundled with the July 20 news update.
+d073f38bac80b9175408db3fc0b22524727f338b
