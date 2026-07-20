@@ -81,6 +81,12 @@ class _ProviderRetry:
     def is_retryable(cls, exc: Exception) -> bool:
         """Return True if the exception is worth retrying."""
         msg = str(exc).lower()
+        # Quota exhaustion (NVIDIA "ResourceExhausted", Gemini "quota exceeded")
+        # will not recover within a retry window — surface it immediately.
+        if "resourceexhausted" in msg or "resource_exhausted" in msg or "resource exhausted" in msg:
+            return False
+        if "quota" in msg or "request limit reached" in msg:
+            return False
         # Rate limit / server overload
         if "429" in msg or "rate limit" in msg or "too many requests" in msg:
             return True
@@ -3832,6 +3838,11 @@ def friendly_api_error(exc: Exception) -> str:
     # Auth / key problems
     if "authentication" in s or "invalid_api_key" in s or "401" in s or etype == "AuthenticationError":
         return "API key is missing or invalid. Run /config <provider>_api_key=... or set the env var."
+    # Quota / free-tier exhaustion (NVIDIA "ResourceExhausted", Gemini quota, …)
+    if ("resourceexhausted" in s or "resource_exhausted" in s or "resource exhausted" in s
+            or "quota" in s or "request limit reached" in s):
+        return ("Provider quota exhausted (free-tier or account limit reached). "
+                "Wait for the quota to reset, or switch provider/model with /model.")
     # Rate limit
     if "rate limit" in s or "rate_limit" in s or "429" in s or etype == "RateLimitError":
         return "Rate limit hit. Wait a bit and retry, or switch model with /model."
@@ -4720,7 +4731,53 @@ def stream_openai_compat(
             or 0
         )
 
-    for chunk in stream:
+    # Iterate manually: quota errors (e.g. NVIDIA free-tier "ResourceExhausted")
+    # surface on the first READ of the SSE stream, after create() has already
+    # returned — so the try/except around create() above never sees them.
+    # Catching them here converts the crash into a normal error turn (issue #18).
+    _stream_iter = iter(stream)
+    while True:
+        try:
+            chunk = next(_stream_iter)
+        except StopIteration:
+            break
+        except Exception as e:
+            _partial = bool(text or thinking or tool_buf)
+            # Transient mid-stream failures (connection reset, 5xx) keep the
+            # old behavior: propagate so _ProviderRetry can retry the request.
+            if _ProviderRetry.is_retryable(e):
+                raise
+            if _is_nvidia:
+                import sys
+                print(f"[nvidia-web RAW ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+                # Fall back only when nothing streamed yet — otherwise the
+                # rerun would duplicate the partial answer.
+                if not _partial and not config.get("_nvidia_fallback_active"):
+                    chain = _get_nvidia_fallback_chain(config)
+                    bare = model.split("/", 1)[-1] if "/" in model else model
+                    try:
+                        idx = chain.index(bare)
+                        remaining = chain[idx + 1:]
+                    except ValueError:
+                        remaining = chain
+                    for next_model in remaining:
+                        full = f"nvidia-web/{next_model}"
+                        yield TextChunk(f"\n⚡ NVIDIA quota/rate limit — switching to {next_model}...\n")
+                        fallback_config = {**config, "_nvidia_fallback_active": True}
+                        yield from stream_openai_compat(api_key, base_url, full, system, messages, tool_schemas, fallback_config)
+                        return
+            if _is_modelstudio and _ms_remaining and not _partial:
+                _nm = _ms_remaining[0]
+                yield TextChunk(f"\n⚡ Model Studio: '{model}' failed mid-stream ({type(e).__name__}) — switching to {_nm}…\n")
+                yield from stream_openai_compat(
+                    api_key, base_url, _nm, system, messages, tool_schemas,
+                    {**config, "_modelstudio_remaining": _ms_remaining[1:]},
+                )
+                return
+            msg = friendly_api_error(e)
+            yield TextChunk(("\n" if _partial else "") + msg)
+            yield AssistantTurn(msg, [], in_tok, out_tok, error=True)
+            return
         if not chunk.choices:
             # usage-only chunk (some providers send this last)
             if hasattr(chunk, "usage") and chunk.usage:

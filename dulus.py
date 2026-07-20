@@ -363,7 +363,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.14"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.15"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
@@ -11322,6 +11322,31 @@ def repl(config: dict, initial_prompt: str = None):
                                 return run_query(user_input, is_background)
                             # User cancelled picker — abort gracefully without crashing
                             return
+                    # Provider/API errors (quota exhausted, rate limit, network…)
+                    # must return to the REPL with a friendly hint, never kill
+                    # the process (issue #18: NVIDIA ResourceExhausted crash).
+                    _is_api_err = False
+                    try:
+                        import openai as _oai_mod
+                        _is_api_err = isinstance(e, _oai_mod.APIError)
+                    except Exception:
+                        pass
+                    if not _is_api_err:
+                        try:
+                            import anthropic as _ant_mod
+                            _is_api_err = isinstance(e, _ant_mod.APIError)
+                        except Exception:
+                            pass
+                    if _is_api_err:
+                        from providers import friendly_api_error
+                        flush_response()
+                        err(friendly_api_error(e))
+                        info("  Tip: use /model to switch provider, or retry in a bit.")
+                        # Roll back the dangling user message so history stays
+                        # consistent (same pattern as the KeyboardInterrupt path).
+                        if state.messages and state.messages[-1]["role"] == "user" and user_input == state.messages[-1].get("content"):
+                            state.messages.pop()
+                        return
                     raise e
 
                 _stop_tool_spinner()
