@@ -383,7 +383,7 @@ class DulusSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
         if self.on_settings:
             self.on_settings()
 
-    def _on_session_click(self, sid: str) -> None:
+    def _on_session_click(self, sid: str) -> None:  # type: ignore[no-redef]
         if self.on_session_select:
             self.on_session_select(sid)
 
@@ -433,14 +433,14 @@ class DulusSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
         ) if HAS_CTK else self.context_label.config(text=f"{used:,} / {limit:,}")
 
         if HAS_CTK:
-            self.context_bar.set(pct)
+            self.context_bar.set(pct)  # type: ignore[attr-defined]
             # Color coding: green -> yellow -> red
             if pct < 0.5:
-                self.context_bar.configure(progress_color=ACCENT_COLOR)
+                self.context_bar.configure(progress_color=ACCENT_COLOR)  # type: ignore[call-overload]
             elif pct < 0.8:
-                self.context_bar.configure(progress_color="#FFC107")
+                self.context_bar.configure(progress_color="#FFC107")  # type: ignore[call-overload]
             else:
-                self.context_bar.configure(progress_color="#F44336")
+                self.context_bar.configure(progress_color="#F44336")  # type: ignore[call-overload]
         else:
             self.context_bar["value"] = pct * 100
 
@@ -518,14 +518,14 @@ class DulusSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
         self._cmd_label.configure(text_color=t["text"])
         # Separators
         # Model combo
-        self.model_combo.configure(
+        self.model_combo.configure(  # type: ignore[call-overload]
             fg_color=t["card"], button_color=t["border"],
             button_hover_color=t["accent_hover"], text_color=t["text"],
             dropdown_text_color=t["text"], dropdown_fg_color=t["card"],
         )
         # Context bar
         self.context_label.configure(text_color=t["dim"])
-        self.context_bar.configure(fg_color=t["border"], progress_color=t["accent"])
+        self.context_bar.configure(fg_color=t["border"], progress_color=t["accent"])  # type: ignore[call-overload]
         # Quick cmd buttons
         for btn in self._quick_cmd_buttons:
             btn.configure(

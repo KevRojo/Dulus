@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import threading
 from pathlib import Path
+from typing import Callable
 
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -84,7 +85,7 @@ def list_input_devices() -> list[dict]:
 
 def _record_sounddevice(
     max_seconds: int = 30,
-    on_energy: "callable | None" = None,
+    on_energy: "Callable | None" = None,
     device_index: "int | None" = None,
     silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
@@ -142,7 +143,7 @@ def _record_sounddevice(
 
 def _record_arecord(
     max_seconds: int = 30,
-    on_energy: "callable | None" = None,
+    on_energy: "Callable | None" = None,
     silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
     """Record via arecord.  Silence detection done in Python on the piped PCM."""
@@ -168,7 +169,7 @@ def _record_arecord(
 
     try:
         while True:
-            raw = proc.stdout.read(chunk_bytes)
+            raw = proc.stdout.read(chunk_bytes)  # type: ignore[union-attr]
             if not raw:
                 break
             chunks.append(raw)
@@ -200,7 +201,7 @@ def _record_arecord(
 
 def _record_sox(
     max_seconds: int = 30,
-    on_energy: "callable | None" = None,
+    on_energy: "Callable | None" = None,
     silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
     """Record via SoX `rec` with built-in silence detection."""
@@ -239,7 +240,7 @@ def _record_sox(
 
 def record_until_silence(
     max_seconds: int = 30,
-    on_energy: "callable | None" = None,
+    on_energy: "Callable | None" = None,
     device_index: "int | None" = None,
     silence_secs: float = SILENCE_DURATION_SECS,
 ) -> bytes:
