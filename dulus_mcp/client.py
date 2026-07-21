@@ -73,7 +73,7 @@ class StdioTransport:
 
     def __init__(self, config: MCPServerConfig):
         self._config = config
-        self._process: Optional[subprocess.Popen] = None
+        self._process: Any = None  # subprocess.Popen; Any so .stdin/.stdout (Optional IO) check cleanly
         self._lock = threading.Lock()
         self._next_id = 1
         self._pending: Dict[int, dict] = {}   # id → {"event": Event, "result": ...}
@@ -369,7 +369,7 @@ class MCPClient:
     def __init__(self, config: MCPServerConfig):
         self.config = config
         self.state = MCPServerState.DISCONNECTED
-        self._transport: Optional[Any] = None
+        self._transport: Any = None
         self._server_info: dict = {}
         self._capabilities: dict = {}
         self._tools: List[MCPTool] = []

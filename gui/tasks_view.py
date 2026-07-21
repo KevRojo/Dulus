@@ -214,11 +214,11 @@ class TasksView(ctk.CTkFrame if HAS_CTK else ctk.Frame):
     def __init__(self, master, tasks_file: Path | str | None = None, **kwargs):
         super().__init__(master, fg_color=BG_COLOR, corner_radius=0, **kwargs)
         self.tasks_file = Path(tasks_file) if tasks_file else TASKS_PATH
-        self._columns: Dict[str, ctk.CTkScrollableFrame] = {}
-        self._count_labels: Dict[str, ctk.CTkLabel] = {}
-        self._column_headers: Dict[str, ctk.CTkFrame] = {}
-        self._column_containers: Dict[str, ctk.CTkFrame] = {}
-        self._column_title_labels: Dict[str, ctk.CTkLabel] = {}
+        self._columns: Dict[str, Any] = {}
+        self._count_labels: Dict[str, Any] = {}
+        self._column_headers: Dict[str, Any] = {}
+        self._column_containers: Dict[str, Any] = {}
+        self._column_title_labels: Dict[str, Any] = {}
         self._owner_filter: str = ""
         self._phase_filter: str = ""
         self._last_mtime: float = 0.0
@@ -285,7 +285,7 @@ class TasksView(ctk.CTkFrame if HAS_CTK else ctk.Frame):
         summary.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
         summary.grid_propagate(False)
 
-        self._agent_labels: Dict[str, ctk.CTkLabel] = {}
+        self._agent_labels: Dict[str, Any] = {}
         for agent, color in AGENT_COLORS.items():
             if not agent:
                 continue

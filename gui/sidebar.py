@@ -84,7 +84,7 @@ class DulusSidebar(ctk.CTkFrame if HAS_CTK else ctk.Frame):
 
         self._model_var = ctk.StringVar(value="")
         self._sessions: list[str] = []
-        self._session_buttons: dict[str, ctk.CTkButton] = {}
+        self._session_buttons: dict[str, Any] = {}
         self._quick_cmd_buttons: list = []
         self._tool_labels: list = []
 
