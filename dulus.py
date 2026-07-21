@@ -356,7 +356,7 @@ except Exception:
 # ── Optional bubblewrap for chat bubbles (NerdFont required) ──────────────
 try:
     from bubblewrap import Bubbles as _BubblesClass
-    _bubbles = _BubblesClass()
+    _bubbles: Any = _BubblesClass()
     # Probe: can stdout actually encode the NerdFont powerline characters?
     # On legacy Windows consoles (cp1252) these fail with UnicodeEncodeError.
     _nf_test_chars = "\ue0b6\ue0b4"  # rounded powerline glyphs used by bubblewrap
@@ -419,7 +419,7 @@ def _has_diff(text: str) -> bool:
 # Keep in sync with ui/render.py when making changes.
 
 _accumulated_text: list[str] = []   # buffer text during streaming
-_current_live: "Live | None" = None  # active Rich Live instance (one at a time)
+_current_live: Any = None  # active Rich Live instance (one at a time)
 _RICH_LIVE = True  # set to False (via config rich_live=false) to disable in-place Live streaming
 _SUPPRESS_CONSOLE = False  # When True, all console output is suppressed (for background mode)
 
@@ -524,7 +524,7 @@ def stream_text(chunk: str) -> None:
                 _r = _make_renderable(full)
                 if _use_bubbles():
                     _r = _wrap_in_bubble(_r, full)
-                _current_live.update(_r, refresh=True)
+                _current_live.update(_r, refresh=True)  # type: ignore[union-attr]
                 _last_live_update = now
                 _buffered_since_render = 0
         else:
@@ -609,7 +609,7 @@ def flush_response() -> None:
                 _r = _make_renderable(full)
                 if _use_bubbles():
                     _r = _wrap_in_bubble(_r, full)
-                _current_live.update(_r, refresh=True)
+                _current_live.update(_r, refresh=True)  # type: ignore[union-attr]
             _current_live.stop()
         except Exception:
             pass
@@ -807,7 +807,7 @@ def ask_permission_interactive(desc: str, config: dict) -> bool:
             # to the first configured chat_id if the active one is unknown.
             cid = config.get("_active_tg_chat_id") or (_tg_get_chat_ids(config) or [None])[0]
             if cid:
-                _tg_send(token, cid, "✅ Permission mode set to accept-all for this session.")
+                _tg_send(str(token), cid, "✅ Permission mode set to accept-all for this session.")
         else:
             ok("  Permission mode set to accept-all for this session.")
         return True
@@ -1418,9 +1418,9 @@ def cmd_config(args: str, _state, config) -> bool:
                 pass
         # Immediate env-bridge for keys that submodules read from os.environ
         if key == "azure_speech_key" and val:
-            os.environ["AZURE_SPEECH_KEY"] = val
+            os.environ["AZURE_SPEECH_KEY"] = str(val)
         if key == "azure_speech_region" and val:
-            os.environ["AZURE_SPEECH_REGION"] = val
+            os.environ["AZURE_SPEECH_REGION"] = str(val)
         save_config(config)
         shown = _redact_secret(val) if _is_secret_key(key) else val
         ok(f"Set {key} = {shown}")
@@ -1757,6 +1757,8 @@ def cmd_load(args: str, state, config) -> bool:
             _picked: list[Path] = []
             for _t in _wc_tokens:
                 _m = _wildcard_re.match(_t)
+                if _m is None:
+                    continue
                 _di, _si = int(_m.group(1)), int(_m.group(2))
                 if _di < 1 or _di > len(_days):
                     err(f"Day {_di} out of range (valid: 1-{len(_days)})")
@@ -1833,7 +1835,7 @@ def cmd_resume(args: str, state, config) -> bool:
     ok(f"Session loaded from {path} ({len(state.messages)} messages)")
     return True
 
-def cmd_history(_args: str, state, config) -> bool:
+def cmd_history(_args: str, state, config) -> bool:  # type: ignore[no-redef]
     if not state.messages:
         info("(empty conversation)")
         return True
@@ -2886,7 +2888,7 @@ def cmd_harvest(_args: str, _state, config) -> bool:
             import requests as _rq
             _s = _rq.Session()
             for c in cookies:
-                _s.cookies.set(c["name"], c["value"],
+                _s.cookies.set(c["name"], c["value"],  # type: ignore[typeddict-item]
                                domain=c.get("domain", "claude.ai"),
                                path=c.get("path", "/"))
             _s.headers["User-Agent"] = user_agent or "Mozilla/5.0"
@@ -3035,7 +3037,7 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
     return True
 
 
-def cmd_harvest_gemini(_args: str, _state, config) -> bool:
+def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
     """Harvest fresh session data from gemini.google.com using Playwright.
 
     Runs Chrome headless by default (set DULUS_GEMINI_HEADLESS=0 to show
@@ -3302,9 +3304,9 @@ def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
 
             page = browser.pages[0] if browser.pages else browser.new_page()
 
-            captured_token = [None]
-            captured_model = [None]
-            captured_session_id = [None]
+            captured_token: list[Any] = [None]
+            captured_model: list[Any] = [None]
+            captured_session_id: list[Any] = [None]
             captured_headers = [{}]
 
             def _handle_req(request):
@@ -3450,10 +3452,10 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
 
             page = browser.pages[0] if browser.pages else browser.new_page()
 
-            captured_token = [None]
-            captured_model = [None]
-            captured_chat_id = [None]
-            captured_parent_id = [None]
+            captured_token: list[Any] = [None]
+            captured_model: list[Any] = [None]
+            captured_chat_id: list[Any] = [None]
+            captured_parent_id: list[Any] = [None]
             captured_headers = [{}]
 
             def _handle_req(request):
@@ -3499,7 +3501,7 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
                 if not captured_token[0]:
                     for c in browser.cookies():
                         if c.get("name") == "token" and c.get("value"):
-                            captured_token[0] = c["value"]
+                            captured_token[0] = c.get("value") or ""
                             ok(f"JWT token captured! 🔑 ({captured_token[0][:20]}...)")
                             break
                 # We also need at least one POST to grab chat_id
@@ -5643,7 +5645,7 @@ def cmd_mcp(args: str, _state, config) -> bool:
         name = parts[1]
         command = parts[2]
         cmd_args = parts[3:]
-        raw = {"type": "stdio", "command": command}
+        raw: dict[str, Any] = {"type": "stdio", "command": command}
         if cmd_args:
             raw["args"] = cmd_args
         add_server_to_user_config(name, raw)
@@ -10008,9 +10010,9 @@ def cmd_webbridge(args: str, state, config) -> bool:
             mode = "text"
         try:
             if mode == "text":
-                content = bridge.get_text_sync()
+                content = str(bridge.get_text_sync() or "")
             else:
-                content = bridge.get_dom_sync()
+                content = str(bridge.get_dom_sync() or "")
             preview = content[:2000]
             ok(f"Extracted ({mode}) — {len(content)} chars")
             info(preview)
@@ -11020,7 +11022,7 @@ def repl(config: dict, initial_prompt: str | None = None):
             # Reset split-layout redirector state so residual buffered text
             # from a previous turn doesn't concatenate with this turn's output.
             if type(sys.stdout).__name__ == "_OutputRedirector":
-                sys.stdout.reset()
+                sys.stdout.reset()  # type: ignore[attr-defined]  # custom redirector, guarded above
 
             # Stale cleanup: _in_telegram_turn must not leak across turns.
             # Otherwise every subsequent turn behaves like a Telegram turn.
@@ -11993,8 +11995,8 @@ def repl(config: dict, initial_prompt: str | None = None):
             except Exception as e:
                 warn(f"Auto-save failed on exit: {e}")
             if _bpm_active:
-                sys.stdout.write("\x1b[?2004l")  # disable bracketed paste mode
-                sys.stdout.flush()
+                sys.stdout.write("\x1b[?2004l")  # type: ignore[union-attr]  # disable bracketed paste mode
+                sys.stdout.flush()  # type: ignore[union-attr]
             ok("Goodbye!")
             sys.exit(0)
 
@@ -12794,7 +12796,8 @@ def main():
         if isinstance(result, tuple):
             skill, skill_args = result
             from skill import execute_skill
-            skill_result = execute_skill(skill, skill_args, config)
+            from context import build_system_prompt
+            skill_result = execute_skill(skill, skill_args, state, config, build_system_prompt(config))
             if skill_result:
                 print(clr(f"  Result: {skill_result}", "green"))
         
