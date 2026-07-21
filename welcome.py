@@ -19,6 +19,7 @@ Usage:
 from __future__ import annotations
 
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -500,8 +501,11 @@ def run_welcome_wizard(config: dict) -> dict:
     else:
         _setup_standard_provider(config, provider, default_model, needs_key)
 
-    # Web-harvest feature pitch
-    _pitch_web_harvest(config)
+    # Free local AI (Ollama + Qwen). Replaces the old browser web-harvest pitch,
+    # which needed Playwright and spammed "playwright not found" when missing.
+    # The browser /harvest flow still exists on demand — it just isn't the
+    # default first-run path anymore.
+    _setup_local_ai(config)
 
     # MemPalace initialization
     spinner = BirdSpinner("Setting up your memory palace...")
@@ -642,6 +646,191 @@ def _setup_standard_provider(config: dict, provider: str, default_model: str, ne
             if key:
                 config[f"{provider}_api_key"] = key
                 print("  OK Key saved (encrypted in config.json)")
+
+
+# ── Local AI (Ollama) first-run setup ──────────────────────────────────────
+# Qwen2.5-Coder catalog for local Ollama (Dulus is a coding agent).
+# (model_tag, approx_download_size, min_ram_gb, human_label)
+_OLLAMA_MODELS = [
+    ("qwen2.5-coder:0.5b", "0.4 GB",  3,  "tiny — runs on almost anything"),
+    ("qwen2.5-coder:1.5b", "1.0 GB",  4,  "small — light laptops"),
+    ("qwen2.5-coder:3b",   "1.9 GB",  8,  "balanced — everyday coding"),
+    ("qwen2.5-coder:7b",   "4.7 GB",  16, "strong — the sweet spot"),
+    ("qwen2.5-coder:14b",  "9.0 GB",  32, "big — workstation / good GPU"),
+]
+
+
+def _detect_hardware() -> dict:
+    """Best-effort, dependency-free hardware probe for model sizing."""
+    info = {"ram_gb": 0.0, "cores": os.cpu_count() or 1, "gpu": "", "arch": platform.machine()}
+    ram = 0.0
+    try:
+        import psutil  # optional dependency
+        ram = psutil.virtual_memory().total / (1024 ** 3)
+    except Exception:
+        try:
+            if os.name == "nt":
+                import ctypes
+
+                class _MS(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ]
+
+                ms = _MS()
+                ms.dwLength = ctypes.sizeof(_MS)
+                ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(ms))  # type: ignore[attr-defined]
+                ram = ms.ullTotalPhys / (1024 ** 3)
+            else:
+                ram = (os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")) / (1024 ** 3)
+        except Exception:
+            ram = 0.0
+    info["ram_gb"] = round(ram, 1)
+    try:
+        if shutil.which("nvidia-smi"):
+            info["gpu"] = "nvidia"
+        elif platform.system() == "Darwin" and platform.machine() in ("arm64", "aarch64"):
+            info["gpu"] = "apple-silicon"  # unified memory — great for local LLMs
+    except Exception:
+        pass
+    return info
+
+
+def _recommend_model(hw: dict) -> tuple[str, str, str]:
+    """Pick the largest Qwen that fits RAM (with a GPU/unified-memory bump)."""
+    ram = hw.get("ram_gb") or 0.0
+    budget = ram + (8 if hw.get("gpu") else 0)  # GPU users can punch above raw RAM
+    tag, size, label = _OLLAMA_MODELS[0][0], _OLLAMA_MODELS[0][1], _OLLAMA_MODELS[0][3]
+    for m_tag, m_size, min_ram, m_label in _OLLAMA_MODELS:
+        if budget >= min_ram:
+            tag, size, label = m_tag, m_size, m_label
+    return tag, size, label
+
+
+def _ensure_ollama_installed() -> bool:
+    """True if the `ollama` CLI is available; offer to install it if not."""
+    if shutil.which("ollama"):
+        return True
+    print("\n  Ollama isn't installed yet (it's the free local-model runtime).")
+    system = platform.system()
+    if system == "Windows":
+        cmd, hint = ["winget", "install", "--id", "Ollama.Ollama", "-e"], "winget install Ollama.Ollama"
+    elif system == "Darwin":
+        if shutil.which("brew"):
+            cmd, hint = ["brew", "install", "ollama"], "brew install ollama"
+        else:
+            cmd, hint = None, "download from https://ollama.com/download"
+    else:  # Linux
+        cmd, hint = None, "curl -fsSL https://ollama.com/install.sh | sh"
+
+    ans = _prompt(f"  Install it now? ({hint}) [Y/n]", "y").strip().lower()
+    if ans not in ("y", "yes", "s", "si", ""):
+        print("  Skipped. Install Ollama anytime from https://ollama.com/download, then run `dulus setup`.")
+        return False
+    try:
+        if cmd and shutil.which(cmd[0]):
+            print("  Installing Ollama — this can take a minute…")
+            subprocess.run(cmd, check=False)
+        elif system == "Linux":
+            subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True, check=False)
+        else:
+            print("  Please install from https://ollama.com/download , then re-run `dulus setup`.")
+            return False
+    except Exception as e:
+        print(f"  Couldn't auto-install ({e}). Get it at https://ollama.com/download")
+        return False
+    if shutil.which("ollama"):
+        return True
+    print("  Ollama installed — reopen your terminal so it lands on PATH, then run `dulus setup`.")
+    return False
+
+
+def _ollama_pull(model: str) -> bool:
+    """Pull a model with live progress. True on success."""
+    try:
+        print(f"\n  Downloading {model} … (Ctrl+C to skip)")
+        return subprocess.run(["ollama", "pull", model], check=False).returncode == 0
+    except KeyboardInterrupt:
+        print(f"\n  Skipped. You can `ollama pull {model}` anytime.")
+        return False
+    except Exception as e:
+        print(f"  Pull failed: {e}")
+        return False
+
+
+def _ollama_say_hola(model: str) -> "str | None":
+    """Ask the model to say hi so the user sees it actually works."""
+    try:
+        r = subprocess.run(
+            ["ollama", "run", model, "Reply with one short, friendly line in Spanish that says hola."],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+        )
+        import re
+        out = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", r.stdout or "")  # strip ANSI codes
+        # Drop blank lines and any "Thinking…" status/reasoning noise (some models
+        # stream a chain-of-thought); the greeting is the last real line.
+        lines = [ln.strip() for ln in out.splitlines() if ln.strip()]
+        lines = [ln for ln in lines if not ln.lower().startswith("thinking")]
+        return lines[-1][:200] if lines else None
+    except Exception:
+        return None
+
+
+def _setup_local_ai(config: dict) -> None:
+    """First-run local-AI setup: Ollama + a right-sized Qwen model.
+
+    Replaces the old browser web-harvest pitch (which needed Playwright and
+    was noisy — 'playwright not found' — when it wasn't installed). Local
+    models are free, private, and work offline: no API key, no browser.
+    """
+    print()
+    print("-" * 60)
+    print("  ✨ Free local AI — private, offline, no API key, no browser.")
+    print("     Powered by Ollama + Qwen, right-sized to your machine.")
+    print("-" * 60)
+
+    hw = _detect_hardware()
+    ram_txt = f"{hw['ram_gb']:.0f} GB RAM" if hw.get("ram_gb") else "RAM: unknown"
+    gpu_txt = {"nvidia": " + NVIDIA GPU", "apple-silicon": " + Apple Silicon"}.get(hw.get("gpu", ""), "")
+    print(f"\n  Your machine: {ram_txt}, {hw['cores']} cores{gpu_txt}")
+
+    rec_tag, rec_size, rec_why = _recommend_model(hw)
+    print(f"  Recommended:  {rec_tag}  ({rec_size}) — {rec_why}\n")
+    print("  Local model options (Qwen2.5-Coder):")
+    for tag, size, _min, label in _OLLAMA_MODELS:
+        marker = "→" if tag == rec_tag else " "
+        print(f"    {marker} {tag:<22} {size:>8}   {label}")
+    print()
+
+    choice = _prompt(
+        f"Set up local AI now? Enter for the recommended {rec_tag}, "
+        f"type another tag, or 'no' to skip",
+        rec_tag,
+    ).strip()
+    if choice.lower() in ("no", "n", "skip", "later"):
+        print("  Skipped local AI. Set it up anytime with `dulus setup` or `/model`.")
+        print("  (Prefer a cloud key or the browser /harvest flow? Both still work.)")
+        return
+
+    model = choice or rec_tag
+    if not _ensure_ollama_installed():
+        return
+    if not _ollama_pull(model):
+        return
+
+    config["model"] = f"ollama/{model}"  # base_url defaults to localhost:11434 in the provider
+
+    print("\n  Testing it (asking it to say hi)…")
+    reply = _ollama_say_hola(model)
+    if reply:
+        print(f"  🗣️  {model}: {reply.splitlines()[0][:120]}")
+        print(f"\n  ✅ Local AI ready — Dulus is now using ollama/{model}, free and offline.")
+    else:
+        print(f"  Model pulled. The hello test returned nothing, but it should work via /model.")
 
 
 def _pitch_web_harvest(config: dict) -> None:
