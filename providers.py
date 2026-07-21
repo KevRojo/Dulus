@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import urllib.request
 import urllib.parse
+import urllib.error
 import requests
 import re
 import time
@@ -4058,7 +4059,7 @@ def stream_anthropic(
             for event in stream:
                 etype = getattr(event, "type", None)
                 if etype == "content_block_delta":
-                    delta = event.delta
+                    delta: Any = getattr(event, "delta", None)
                     dtype = getattr(delta, "type", None)
                     if dtype == "text_delta":
                         text += delta.text
@@ -5163,7 +5164,7 @@ def stream_ollama(
     config: dict,
 ) -> Generator:
     # pass_images=True: Ollama /api/chat accepts base64 images natively in the message
-    oai_messages = [{"role": "system", "content": system}] + messages_to_openai(messages, ollama_native_images=True)
+    oai_messages: list = [{"role": "system", "content": system}] + messages_to_openai(messages, ollama_native_images=True)
     
     # Ollama requires tool arguments as dict objects, not strings. OpenAI uses strings.
     for m in oai_messages:
@@ -5272,7 +5273,7 @@ def stream_ollama(
         resp_cm = None
         if _sh.which("ollama") and ("11434" in (base_url or "")):
             try:
-                _kw = {"stdout": _sp.DEVNULL, "stderr": _sp.DEVNULL}
+                _kw: dict[str, Any] = {"stdout": _sp.DEVNULL, "stderr": _sp.DEVNULL}
                 if _os.name == "nt":
                     _kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED | NEW_GROUP
                 else:

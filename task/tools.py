@@ -137,21 +137,21 @@ _TASK_LIST_SCHEMA = {
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
-def _task_create(subject: str, description: str, status: str = "pending", owner: str = "", active_form: str = "", metadata: dict = None) -> str:
+def _task_create(subject: str, description: str, status: str = "pending", owner: str = "", active_form: str = "", metadata: dict | None = None) -> str:
     task = create_task(subject, description, status=status, owner=owner, active_form=active_form, metadata=metadata)
     return f"Task #{task.id} created: {task.subject} (Owner: {task.owner}, Status: {task.status.value})"
 
 
 def _task_update(
     task_id: str,
-    subject: str = None,
-    description: str = None,
-    status: str = None,
-    active_form: str = None,
-    owner: str = None,
-    add_blocks: list = None,
-    add_blocked_by: list = None,
-    metadata: dict = None,
+    subject: str | None = None,
+    description: str | None = None,
+    status: str | None = None,
+    active_form: str | None = None,
+    owner: str | None = None,
+    add_blocks: list | None = None,
+    add_blocked_by: list | None = None,
+    metadata: dict | None = None,
 ) -> str:
     # Handle deletion
     if status == "deleted":

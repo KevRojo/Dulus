@@ -53,7 +53,7 @@ class BatchManager:
         self,
         prompts: List[str],
         model: str = "gpt-4o-mini",
-        system_prompt: str = None,
+        system_prompt: str | None = None,
         endpoint: str = "/v1/chat/completions",
     ) -> str:
         """Convert a list of prompts into JSONL content for the Batch API.
@@ -205,8 +205,8 @@ class AnthropicBatchManager:
     def prepare_requests(
         self,
         prompts: List[str],
-        model: str = None,
-        system_prompt: str = None,
+        model: str | None = None,
+        system_prompt: str | None = None,
         max_tokens: int = 1024,
     ) -> List[Dict[str, Any]]:
         """Build the requests array for batches.create()."""

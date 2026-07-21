@@ -177,6 +177,14 @@ class PersonalityConfig:
             if key in DEFAULTS:
                 setattr(self, key, value)
 
+    def __getattr__(self, name: str) -> Any:
+        # Instance attributes are populated dynamically from DEFAULTS in
+        # __init__ (via setattr), so they aren't statically visible. This hook
+        # is only reached for names not set on the instance — preserve normal
+        # semantics by raising, while letting the type checker treat dynamic
+        # config fields (formality, tone, companion_name, …) as valid.
+        raise AttributeError(name)
+
     # -- Properties for typed access --
 
     @property
