@@ -505,7 +505,7 @@ switch ($Installer) {
             exit 1
         }
         OK "Pip runner: $pipRunner"
-        Invoke-Step "$pipRunner install --upgrade $preFlag '$extrasSpec'"
+        Invoke-Step "$pipRunner install --upgrade --ignore-installed $preFlag '$extrasSpec'"
     }
 }
 
