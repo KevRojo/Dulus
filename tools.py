@@ -2,12 +2,11 @@
 import json
 import os
 import re
-import glob as _glob
 import difflib
 import subprocess
 import threading
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from tool_registry import ToolDef, register_tool
 from tool_registry import execute_tool as _registry_execute
@@ -1250,7 +1249,8 @@ def _bash(command: str, timeout: int = 30) -> str:
                           cwd=cwd, start_new_session=True)
 
     try:
-        proc = subprocess.Popen(args, **kwargs)
+        _popen_kwargs: dict[str, Any] = dict(kwargs)  # heterogeneous Popen opts
+        proc = subprocess.Popen(args, **_popen_kwargs)
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -1640,7 +1640,7 @@ def _websearch(query: str, config: dict | None = None, region: str | None = None
         
         # If challenged (202), fallback to Lite GET version
         if r.status_code == 202:
-            lite_url = f"https://duckduckgo.com/lite/?q={requests.utils.quote(query)}"
+            lite_url = f"https://duckduckgo.com/lite/?q={requests.utils.quote(query)}"  # type: ignore[attr-defined]
             if active_region:
                 lite_url += f"&kl={active_region}"
             r = requests.get(lite_url, headers=headers, timeout=30)
@@ -1659,7 +1659,7 @@ def _websearch(query: str, config: dict | None = None, region: str | None = None
                 continue
 
             if "uddg=" in href:
-                parsed = urlparse(href)
+                parsed = urlparse(str(href))
                 qs = parse_qs(parsed.query)
                 real_urls = qs.get("uddg", [])
                 if real_urls:
@@ -2664,6 +2664,8 @@ def _plugin_tools_list(params: dict, config: dict) -> str:
                         if not candidate.exists():
                             continue
                         spec = importlib.util.spec_from_file_location(unique_name, candidate)
+                        if spec is None or spec.loader is None:
+                            continue
                         mod = importlib.util.module_from_spec(spec)
                         sys.modules[unique_name] = mod
                         spec.loader.exec_module(mod)
@@ -2929,7 +2931,7 @@ try:
     # inside the wheel into ~/.dulus/plugins/ so they're available out of
     # the box. Idempotent — only copies what's not already installed.
     try:
-        from plugin.store import bootstrap_bundled_plugins
+        from plugin.store import bootstrap_bundled_plugins  # type: ignore[attr-defined]
         bootstrap_bundled_plugins()
     except Exception:
         pass

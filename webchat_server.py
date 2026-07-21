@@ -10,7 +10,7 @@ import uuid
 import webbrowser
 import sys
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 from backend.agents_bridge import build_agent_info_list
 from backend.context import build_context, build_smart_context, get_compact_context
@@ -59,6 +59,7 @@ DASHBOARD_DIR = _resolve_dashboard_dir()
 WEBCHAT_UI_DIR = _resolve_webchat_ui_dir()
 
 from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
+from flask.typing import ResponseReturnValue
 
 from agent import (
     run as agent_run,
@@ -188,7 +189,7 @@ class RoundtableAgent:
 
 
 ROUNDTABLE_AGENTS: list[RoundtableAgent] = []
-ROUNDTABLE_HISTORY: list[tuple[str, str]] = []  # (author_id, text) global log
+ROUNDTABLE_HISTORY: list[dict[str, str]] = []  # {"agent","text","type"} global log
 ROUNDTABLE_LOCK = threading.Lock()
 
 # Per-agent cancellation tokens for roundtable
@@ -433,7 +434,7 @@ def _run_agent_mirror(user_message: str, cancel_check=None) -> Generator:
         pass
 
 
-def _event_to_dict(event) -> dict | None:
+def _event_to_dict(event) -> "dict | tuple | None":
     if isinstance(event, TextChunk):
         return {"type": "text", "text": event.text}
     elif isinstance(event, ThinkingChunk):
@@ -3436,14 +3437,14 @@ restoreRt();
 </body></html>"""
 
     @app.route("/")
-    def home() -> Response:
+    def home() -> ResponseReturnValue:
         if WEBCHAT_UI_DIR.exists() and (WEBCHAT_UI_DIR / "index.html").exists():
             return send_from_directory(WEBCHAT_UI_DIR, "index.html")
         # Fallback to the legacy embedded chat page if webchat_ui is missing.
         return Response(CHAT_PAGE, mimetype="text/html")
 
     @app.route("/roundtable")
-    def roundtable_page() -> Response:
+    def roundtable_page() -> ResponseReturnValue:
         return Response(RT_PAGE, mimetype="text/html")
 
     # Favicon — the Dulus palmchat (cigua palmera) logo. Lives at repo root
@@ -3457,7 +3458,7 @@ restoreRt();
 
     @app.route("/favicon.ico")
     @app.route("/dulus-bird.png")
-    def dulus_bird() -> Response:
+    def dulus_bird() -> ResponseReturnValue:
         if _DULUS_BIRD.exists():
             return send_from_directory(_DULUS_BIRD.parent, _DULUS_BIRD.name,
                                        mimetype="image/png")
@@ -3470,11 +3471,11 @@ restoreRt();
 
     @app.route("/sandbox")
     @app.route("/sandbox/")
-    def sandbox_index() -> Response:
+    def sandbox_index() -> ResponseReturnValue:
         return send_from_directory(_ensure_sandbox(), "index.html")
 
     @app.route("/sandbox/<path:path>")
-    def sandbox_static(path) -> Response:
+    def sandbox_static(path) -> ResponseReturnValue:
         return send_from_directory(_ensure_sandbox(), path)
 
     # ── Sandbox Filesystem API ────────────────────────────────────────────────
@@ -3560,7 +3561,7 @@ restoreRt();
         # Run via agent mirror so it has full tool access
         def generate():
             q: queue.Queue = queue.Queue(maxsize=512)
-            exc_holder = [None]
+            exc_holder: list[Any] = [None]
             def producer():
                 try:
                     for ev in _run_agent_mirror(cmd):
@@ -3596,14 +3597,14 @@ restoreRt();
 
 
     @app.route("/state")
-    def state_endpoint() -> Response:
+    def state_endpoint() -> ResponseReturnValue:
         with _LOCK:
             hist = [dict(m) for m in (STATE.messages if STATE else [])]
             model = CONFIG.get("model", "?") if CONFIG else "?"
         return jsonify(model=model, history=hist)
 
     @app.route("/clear", methods=["POST"])
-    def clear() -> Response:
+    def clear() -> ResponseReturnValue:
         with _LOCK:
             if STATE:
                 STATE.messages.clear()
@@ -3612,13 +3613,13 @@ restoreRt();
         return jsonify(ok=True)
 
     @app.route("/shutdown", methods=["POST"])
-    def shutdown() -> Response:
+    def shutdown() -> ResponseReturnValue:
         return jsonify(ok=True)
 
     @app.route("/permission", methods=["POST"])
-    def permission() -> Response:
+    def permission() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
-        pid = body.get("id")
+        pid = str(body.get("id") or "")
         granted = body.get("granted", False)
         with _LOCK:
             item = _PENDING_PERMISSIONS.get(pid)
@@ -3630,10 +3631,10 @@ restoreRt();
         return jsonify(ok=True)
 
     @app.route("/question", methods=["POST"])
-    def question() -> Response:
+    def question() -> ResponseReturnValue:
         """Answer a pending AskUserQuestion (mirrors the /permission flow)."""
         body = request.get_json(silent=True) or {}
-        qid = body.get("id")
+        qid = str(body.get("id") or "")
         answer = (body.get("answer") or "").strip()
         with _LOCK:
             entry = _PENDING_QUESTIONS.pop(qid, None)
@@ -3647,7 +3648,7 @@ restoreRt();
         return jsonify(ok=True)
 
     @app.route("/chat/stop", methods=["POST"])
-    def chat_stop() -> Response:
+    def chat_stop() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
         run_id = (body.get("run_id") or "").strip()
         if not run_id:
@@ -3676,7 +3677,7 @@ restoreRt();
         return jsonify(ok=True, run_id=run_id)
 
     @app.route("/chat", methods=["POST"])
-    def chat() -> Response:
+    def chat() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
         msg = (body.get("message") or "").strip()
         run_id = (body.get("run_id") or str(uuid.uuid4())).strip()
@@ -3706,7 +3707,7 @@ restoreRt();
 
         def generate():
             q: queue.Queue = queue.Queue(maxsize=512)
-            exc_holder = [None]
+            exc_holder: list[Any] = [None]
             stop_watcher = threading.Event()
             stop_evt = threading.Event()
             with _WEBCHAT_STOP_EVENTS_LOCK:
@@ -3773,7 +3774,7 @@ restoreRt();
     # ── Roundtable endpoints ─────────────────────────────────────────────
 
     @app.route("/roundtable/start", methods=["POST"])
-    def roundtable_start() -> Response:
+    def roundtable_start() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
         models = body.get("models", [])
         if not (3 <= len(models) <= 5):
@@ -3789,7 +3790,7 @@ restoreRt();
         return jsonify(ok=True, agents=[a.id for a in ROUNDTABLE_AGENTS])
 
     @app.route("/roundtable/chat", methods=["POST"])
-    def roundtable_chat() -> Response:
+    def roundtable_chat() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
         msg = (body.get("message") or "").strip()
         if not msg:
@@ -3890,13 +3891,13 @@ restoreRt();
         )
 
     @app.route("/roundtable/stop", methods=["POST"])
-    def roundtable_stop() -> Response:
+    def roundtable_stop() -> ResponseReturnValue:
         with ROUNDTABLE_LOCK:
             ROUNDTABLE_AGENTS.clear()
         return jsonify(ok=True)
 
     @app.route("/roundtable/stop-agent", methods=["POST"])
-    def roundtable_stop_agent() -> Response:
+    def roundtable_stop_agent() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
         agent_id = body.get("agent_id", "").strip()
         if not agent_id:
@@ -3909,7 +3910,7 @@ restoreRt();
         return jsonify(ok=True)
 
     @app.route("/roundtable/status", methods=["GET"])
-    def roundtable_status() -> Response:
+    def roundtable_status() -> ResponseReturnValue:
         with ROUNDTABLE_LOCK:
             active = len(ROUNDTABLE_AGENTS) > 0
             agents = [a.id for a in ROUNDTABLE_AGENTS]
@@ -3917,7 +3918,7 @@ restoreRt();
         return jsonify(active=active, agents=agents, history=history)
 
     @app.route("/roundtable/direct", methods=["POST"])
-    def roundtable_direct() -> Response:
+    def roundtable_direct() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
         agent_id = (body.get("agent_id") or "").strip()
         msg = (body.get("message") or "").strip()
