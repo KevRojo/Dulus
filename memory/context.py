@@ -160,7 +160,7 @@ def find_relevant_memories(
         fused.append((score, entry))
 
     fused.sort(key=lambda x: x[0], reverse=True)
-    keyword_results = [e for _, e in fused]
+    keyword_results: list = [e for _, e in fused]
 
     if not keyword_results:
         return []
