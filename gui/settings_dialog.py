@@ -133,7 +133,7 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.set_appearance_mode(self.appearance_var.get())
         # Notify parent to apply color theme
         if hasattr(self.master, "apply_theme"):
-            self.master.apply_theme(self.theme_var.get())
+            self.master.apply_theme(self.theme_var.get())  # type: ignore[attr-defined]
         key = self.api_var.get().strip()
         if key:
             pname = self.config.get("model", "").split("/")[0]

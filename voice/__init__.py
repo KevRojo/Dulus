@@ -9,6 +9,7 @@ voice_input(...)     → transcribed text (record + transcribe in one call)
 WakeWordListener     → background wake-word (hotword) detector
 """
 
+from typing import Callable
 from .recorder import check_recording_availability, record_until_silence, list_input_devices
 from .stt import check_stt_availability, transcribe, transcribe_audio_file
 from .tts import check_tts_availability, say
@@ -35,7 +36,7 @@ def check_voice_deps() -> tuple[bool, str | None]:
 def voice_input(
     language: str = "auto",
     max_seconds: int = 30,
-    on_energy: "callable | None" = None,
+    on_energy: "Callable | None" = None,
     device_index: "int | None" = None,
 ) -> str:
     """Record until silence, then transcribe.  Returns transcribed text."""

@@ -233,18 +233,18 @@ class AnthropicBatchManager:
 
     def create_batch(self, requests: List[Dict[str, Any]]) -> str:
         """Create a batch inline. Returns batch_id."""
-        batch = self.client.messages.batches.create(requests=requests)
+        batch = self.client.messages.batches.create(requests=requests)  # type: ignore[arg-type]
         return batch.id
 
     def retrieve_batch(self, batch_id: str) -> Dict[str, Any]:
         """Get batch status. Normalizes field names to match BatchManager."""
         b = self.client.messages.batches.retrieve(batch_id)
         proc = getattr(b, "processing_status", None)
-        status = {
+        status = {  # type: ignore[arg-type]
             "in_progress": "in_progress",
             "canceling":   "cancelling",
             "ended":       "completed",
-        }.get(proc, proc or "unknown")
+        }.get(proc, proc or "unknown")  # type: ignore[arg-type]
 
         counts_raw = getattr(b, "request_counts", None)
         counts: Dict[str, int] = {}

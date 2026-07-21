@@ -2,7 +2,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 def _slug_to_func_name(slug: str) -> str:

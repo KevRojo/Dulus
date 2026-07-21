@@ -294,7 +294,7 @@ def delete_profile(name: str) -> tuple[bool, str]:
             import os, stat
             os.chmod(path, stat.S_IWRITE)
             func(path)
-        shutil.rmtree(pdir, onexc=_force)
+        shutil.rmtree(pdir, onexc=_force)  # type: ignore[call-arg]
     except Exception as e:
         return False, f"Could not delete: {e}"
     return True, f"Profile '{name}' deleted."

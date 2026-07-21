@@ -314,7 +314,7 @@ class HttpTransport:
             event = threading.Event()
             holder: dict = {"event": event, "result": None}
             self._sse_pending[req_id] = holder
-            client.post(self._session_url, json=msg)
+            client.post(self._session_url or "", json=msg)
             event.wait(timeout=wait_secs)
             self._sse_pending.pop(req_id, None)
             result = holder["result"]

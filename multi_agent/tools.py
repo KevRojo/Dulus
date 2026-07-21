@@ -107,7 +107,7 @@ def _send_message(params: dict, config: dict) -> str:
     if ok:
         return f"Message queued for agent '{target}'. It will be processed after current work completes."
     task_id = mgr._by_name.get(target, target)
-    task = mgr.tasks.get(task_id)
+    task = mgr.tasks.get(task_id)  # type: ignore[arg-type]
     if task is None:
         return f"Error: no agent found with id or name '{target}'"
     return f"Error: agent '{target}' is not running (status: {task.status}). Cannot send message."

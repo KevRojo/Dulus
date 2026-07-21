@@ -8,7 +8,7 @@ import time
 import uuid
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Generator
+from typing import Any, Generator
 
 from tool_registry import get_tool_schemas, clear_last_output
 from tools import execute_tool
@@ -99,8 +99,8 @@ def _load_short_memory() -> str:
     or bad save that stripped the flag cannot leave the scratchpad ungilded.
     """
     try:
-        from config import dulus_home
-        path = dulus_home() / "memory" / "short_memory.md"
+        from config import CONFIG_DIR
+        path = CONFIG_DIR / "memory" / "short_memory.md"
         try:
             from memory import ensure_short_memory
             ensure_short_memory(force_gold=True)
@@ -134,7 +134,7 @@ def run(
     """
     from common import sanitize_text
     # Append user turn in neutral format (sanitize to kill Windows surrogates)
-    user_msg = {"role": "user", "content": sanitize_text(user_message)}
+    user_msg: dict[str, Any] = {"role": "user", "content": sanitize_text(user_message)}
     # Attach pending image from /image command if present
     pending_img = config.pop("_pending_image", None)
     if pending_img:

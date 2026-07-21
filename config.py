@@ -1,5 +1,6 @@
 """Configuration management for Dulus (multi-provider)."""
 import os
+from typing import Any
 import json
 from pathlib import Path
 
@@ -143,7 +144,7 @@ def is_encrypted(value: str) -> bool:
     return isinstance(value, str) and value.startswith("enc:")
 
 
-def get_secret(key: str, cfg: dict | None = None, default: str = "") -> str:
+def get_secret(key: str, cfg: dict | None = None, default: str = "") -> Any:
     """Fetch a secret from config by (possibly dotted) key, decrypted.
 
     Looks the key up in `cfg` (or a fresh load_config() if omitted). Supports
