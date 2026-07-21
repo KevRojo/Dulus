@@ -36,7 +36,7 @@ except ImportError:
 try:
     import paste_placeholders as _paste_ph
 except ImportError:
-    _paste_ph = None  # type: ignore[assignment]
+    _paste_ph: Any = None
 
 try:
     from common import C
@@ -50,7 +50,7 @@ _commands_provider: Optional[Callable[[], dict]] = None
 _meta_provider: Optional[Callable[[], dict]] = None
 _toolbar_provider: Optional[Callable[[], str]] = None
 _toolbar_status: str = ""  # Background status (e.g. wake energy bar)
-_active_app: Optional["Application"] = None  # Track currently running prompt-toolkit app
+_active_app: Any = None  # Track currently running prompt-toolkit app (Any: optional pt)
 
 
 _TOOLBAR_SENTINEL = object()
@@ -77,7 +77,7 @@ def setup(
 # ── Completer ────────────────────────────────────────────────────────────────
 if HAS_PROMPT_TOOLKIT:
 
-    class SlashCompleter(Completer):
+    class SlashCompleter(Completer):  # type: ignore[no-redef]
         """Two-level completer for slash commands.
 
         Level 1: /partial  (no space)  → command names.
@@ -158,13 +158,13 @@ if HAS_PROMPT_TOOLKIT:
                     )
 
 else:  # pragma: no cover — unreachable when prompt_toolkit is installed
-    class SlashCompleter:
+    class SlashCompleter:  # type: ignore[no-redef]
         def __init__(self, *_args, **_kwargs):
             raise RuntimeError("prompt_toolkit is not installed")
 
 
 if HAS_PROMPT_TOOLKIT:
-    class FileMentionCompleter(Completer):
+    class FileMentionCompleter(Completer):  # type: ignore[no-redef]
         """Fuzzy ``@`` path completion using file_filter from kimi-cli."""
 
         _FRAGMENT_PATTERN = re.compile(r"[^\s@]+")
@@ -218,7 +218,7 @@ if HAS_PROMPT_TOOLKIT:
                 return None
             if index > 0:
                 prev = text[index - 1]
-                if prev.isalnum() or prev in FileMentionCompleter._TRIGGER_GUARDS:
+                if prev.isalnum() or prev in FileMentionCompleter._TRIGGER_GUARDS:  # type: ignore[attr-defined]
                     return None
             fragment = text[index + 1 :]
             if not fragment:
@@ -252,7 +252,7 @@ if HAS_PROMPT_TOOLKIT:
                 self._fragment_hint = None
 
 else:
-    class FileMentionCompleter:
+    class FileMentionCompleter:  # type: ignore[no-redef]
         def __init__(self, *_args, **_kwargs):
             raise RuntimeError("prompt_toolkit is not installed")
 
@@ -275,7 +275,7 @@ def _build_session(history_path: Optional[Path]):
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.filters import Condition
     from prompt_toolkit.application.current import get_app
-    completer = merge_completers([
+    completer = merge_completers([  # type: ignore[arg-type]
         SlashCompleter(),
         FileMentionCompleter(),
     ])
@@ -421,8 +421,8 @@ def read_line(prompt_ansi: str, history_path: Optional[Path] = None) -> str:
 # ── Split Layout Mode (Kimi/Claude style) ────────────────────────────────────
 # Fixed bottom input bar with scrollable output area above
 
-_split_app: Optional[Any] = None
-_split_buffer: Optional[Any] = None
+_split_app: Any = None
+_split_buffer: Any = None
 _output_buffer: list[str] = []
 _original_stdout = None
 
@@ -630,7 +630,7 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     
     # Input buffer with completer
     history = FileHistory(str(history_path)) if history_path else InMemoryHistory()
-    completer = merge_completers([
+    completer = merge_completers([  # type: ignore[arg-type]
         SlashCompleter(),
         FileMentionCompleter(),
     ])
