@@ -24,11 +24,11 @@ def build_agent_info_list() -> list[dict]:
         for task in mgr.list_tasks():
             status_map = {"pending": "idle", "running": "running", "completed": "completed", "failed": "error"}
             agents.append({
-                "id": task.task_id,
-                "name": task.name or task.task_id,
+                "id": getattr(task, "task_id", ""),
+                "name": task.name or getattr(task, "task_id", ""),
                 "status": status_map.get(task.status, "idle"),
-                "type": task.subagent_type or "sub-agent",
-                "model": getattr(task, "agent_def", None) and task.agent_def.model or "",
+                "type": getattr(task, "subagent_type", None) or "sub-agent",
+                "model": getattr(getattr(task, "agent_def", None), "model", "") or "",
                 "start_time": getattr(task, "start_time", None),
                 "last_activity": getattr(task, "end_time", None),
                 "progress": 100 if task.status == "completed" else (0 if task.status == "pending" else 50),

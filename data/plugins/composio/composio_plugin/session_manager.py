@@ -52,7 +52,7 @@ def get_or_create_session(user_id: str, toolkits: List[str], connected_accounts:
     }
     if connected_accounts:
         kwargs["connected_accounts"] = connected_accounts
-    return client.create(**kwargs)
+    return client.create(**kwargs)  # type: ignore[attr-defined]
 
 
 def list_accounts() -> List[Dict[str, Any]]:

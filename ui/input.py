@@ -49,7 +49,7 @@ def setup(
 # ── Completer ────────────────────────────────────────────────────────────────
 if HAS_PROMPT_TOOLKIT:
 
-    class SlashCompleter(Completer):
+    class SlashCompleter(Completer):  # type: ignore[no-redef]
         """Two-level completer for slash commands.
 
         Level 1: /partial  (no space)  → command names.
@@ -161,7 +161,7 @@ def _build_session(history_path: Optional[Path]):
     })
     return PromptSession(
         history=history,
-        completer=completer,
+        completer=completer,  # type: ignore[arg-type]
         auto_suggest=AutoSuggestFromHistory(),
         complete_while_typing=True,
         enable_history_search=False,
@@ -290,7 +290,7 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     
     _split_buffer = Buffer(
         history=history,
-        completer=completer,
+        completer=completer,  # type: ignore[arg-type]
         auto_suggest=AutoSuggestFromHistory(),
         complete_while_typing=True,
         enable_history_search=False,
@@ -325,7 +325,7 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     @kb.add("enter")
     def submit(event):
         """Submit input."""
-        event.app.exit(result=_split_buffer.text)
+        event.app.exit(result=_split_buffer.text)  # type: ignore[union-attr]
     
     @kb.add("c-c")
     @kb.add("c-d")

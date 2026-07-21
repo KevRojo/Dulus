@@ -178,8 +178,8 @@ if __name__ == "__main__":
         # Test 2: Modo wait
         print("\n[Test 2] Modo wait:")
         result = run_in_tmux("echo 'Esperando...' && sleep 2 && echo 'Listo!'", wait=True)
-        print(f"  Output: {result['stdout'].strip()}")
-        print(f"  Exit code: {result['returncode']}")
+        print(f"  Output: {result['stdout'].strip()}")  # type: ignore[index]
+        print(f"  Exit code: {result['returncode']}")  # type: ignore[index]
         print("  ✅ Test 2 pasado")
         
         print("\n🎉 Todo funcionando!")

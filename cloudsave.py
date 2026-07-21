@@ -66,7 +66,7 @@ def validate_token(token: str) -> tuple[bool, str]:
     scopes_needed = {"gist"}
     # GitHub returns X-OAuth-Scopes header but urllib doesn't easily expose it;
     # a successful /user call is sufficient for basic validation.
-    login = result.get("login", "unknown")
+    login = (result or {}).get("login", "unknown")
     return True, login
 
 
@@ -98,7 +98,7 @@ def upload_session(
 
     if err:
         return None, err
-    return result["id"], None
+    return (result or {})["id"], None
 
 
 def list_sessions(token: str, max_results: int = 20) -> tuple[list[dict], str | None]:
@@ -118,7 +118,7 @@ def list_sessions(token: str, max_results: int = 20) -> tuple[list[dict], str | 
             "url": g["html_url"],
             "files": list(g["files"].keys()),
         }
-        for g in result
+        for g in (result or [])
         if g.get("description", "").startswith(GIST_TAG)
     ]
     return sessions[:max_results], None
@@ -133,7 +133,7 @@ def download_session(token: str, gist_id: str) -> tuple[dict | None, str | None]
     if err:
         return None, err
 
-    files = result.get("files", {})
+    files = (result or {}).get("files", {})
     if not files:
         return None, "Gist has no files"
 

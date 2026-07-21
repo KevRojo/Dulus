@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import difflib
 import html
-from typing import Literal
+from typing import Callable, Literal
 
 
 # ── Display block type hints ─────────────────────────────────────────────────
@@ -234,7 +234,7 @@ def _render_unknown_cli(block: dict) -> str:
     return f"[Display Block: {block.get('type', 'unknown')}]\n{str(block)}"
 
 
-_CLI_RENDERERS: dict[str, callable] = {
+_CLI_RENDERERS: dict[str, Callable] = {
     "diff": _render_diff_cli,
     "todo": _render_todo_cli,
     "shell": _render_shell_cli,
@@ -377,7 +377,7 @@ def _render_unknown_html(block: dict) -> str:
     return f'<div class="display-block unknown-block"><pre>{content}</pre></div>'
 
 
-_HTML_RENDERERS: dict[str, callable] = {
+_HTML_RENDERERS: dict[str, Callable] = {
     "diff": _render_diff_html,
     "todo": _render_todo_html,
     "shell": _render_shell_html,
@@ -516,7 +516,7 @@ def _render_unknown_telegram(block: dict) -> str:
     return f"```\n{str(block)[:1000]}\n```"
 
 
-_TG_RENDERERS: dict[str, callable] = {
+_TG_RENDERERS: dict[str, Callable] = {
     "diff": _render_diff_telegram,
     "todo": _render_todo_telegram,
     "shell": _render_shell_telegram,

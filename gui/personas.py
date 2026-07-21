@@ -26,12 +26,12 @@ def _load_json(path: Path | str | None = None) -> dict[str, Any]:
     """Load and cache personas.json. Raises FileNotFoundError if missing."""
     global _persona_data
     if _persona_data is not None:
-        return _persona_data
+        return _persona_data or {}
 
     target = Path(path) if path else _DEFAULT_JSON_PATH
     with target.open("r", encoding="utf-8") as fh:
         _persona_data = json.load(fh)
-    return _persona_data
+    return _persona_data or {}
 
 
 def reload() -> dict[str, Any]:

@@ -65,7 +65,7 @@ class DulusWebBridge:
 
     # Dedicated worker thread + event loop
     _worker_thread: Optional[threading.Thread] = None
-    _worker_loop: Optional[asyncio.AbstractEventLoop] = None
+    _worker_loop: Any = None
     _worker_ready = threading.Event()
 
     def __new__(cls) -> "DulusWebBridge":
@@ -400,7 +400,7 @@ class DulusWebBridge:
                     break
 
                 tag_name = tag.name or ""
-                text = (
+                text = (  # type: ignore[union-attr]
                     tag.get_text(strip=True)
                     or tag.get("value", "")
                     or tag.get("placeholder", "")

@@ -394,7 +394,7 @@ This section is read by the verifier and by future re-adaptations, so be precise
         print_tool_start("Bash", {"command": f"pip install {' '.join(analysis['requirements'][:3])}..."})
         from .store import _install_dependencies
         dep_ok, dep_msg = _install_dependencies(analysis.get("requirements") or [])
-        print_tool_end("Bash", "Success" if dep_ok else f"Failed: {dep_msg}", success=dep_ok, verbose=config.get("verbose"))
+        print_tool_end("Bash", "Success" if dep_ok else f"Failed: {dep_msg}", success=dep_ok, verbose=config.get("verbose"))  # type: ignore[arg-type]
         if not dep_ok:
             warn("Some dependencies failed to install, proceeding anyway.")
 

@@ -10,12 +10,12 @@ try:
         reset_session as _reset_pt_session,
         HAS_PROMPT_TOOLKIT as _HAS_PT,
     )
-    def setup_slash_commands(commands_provider, meta_provider):
+    def setup_slash_commands(commands_provider, meta_provider):  # type: ignore[no-redef]
         """Initialize slash command tab completion."""
         _setup_slash_complete(commands_provider, meta_provider)
         return _HAS_PT
 
-    def read_slash_input(prompt):
+    def read_slash_input(prompt):  # type: ignore[no-redef]
         """Read input with slash completion."""
         return _read_line_pt(prompt, None)
 

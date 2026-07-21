@@ -50,10 +50,10 @@ def _tfidf_vectors(docs: List[str]) -> Tuple[List[Counter], Dict[str, int]]:
     vectors: List[Counter] = []
     for tokens in doc_tokens:
         tf = Counter(tokens)
-        vec = Counter()
+        vec: Counter = Counter()
         for term, count in tf.items():
             idf = math.log(n / (1 + vocab[term]))
-            vec[term] = count * idf
+            vec[term] = count * idf  # type: ignore[assignment]  # tf-idf weight (float)
         vectors.append(vec)
     return vectors, vocab
 

@@ -150,7 +150,7 @@ def install_plugin(
                             os.chmod(path, stat.S_IWRITE)
                             func(path)
                         try:
-                            shutil.rmtree(plugin_dir, onexc=_force_remove)
+                            shutil.rmtree(plugin_dir, onexc=_force_remove)  # type: ignore[call-arg]
                         except Exception:
                             pass
                         return False, f"Auto-adaptation failed for '{safe_name}'. Plugin directory removed."
@@ -322,7 +322,7 @@ def uninstall_plugin(
             """Handle read-only files (e.g. .git pack files on Windows)."""
             os.chmod(path, stat.S_IWRITE)
             func(path)
-        shutil.rmtree(entry.install_dir, onexc=_force_remove)
+        shutil.rmtree(entry.install_dir, onexc=_force_remove)  # type: ignore[call-arg]
     _remove_entry(entry.name, entry.scope)
     return True, f"Plugin '{name}' uninstalled."
 

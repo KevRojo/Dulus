@@ -186,7 +186,7 @@ class MCPServerEntry:
         description: str,
         source: str,          # "official", "dulus", "installed"
         command: str = "",
-        args: list[str] = None,
+        args: list[str] | None = None,
         env: dict | None = None,
         url: str = "",
         transport: str = "stdio",
