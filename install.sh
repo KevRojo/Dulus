@@ -715,7 +715,7 @@ case "$INSTALLER" in
         # Detect modern pip with PEP 668 + Termux quirks
         BREAK=""
         if [ "$IS_TERMUX" -eq 1 ] || "$PY_BIN" -m pip install --help 2>&1 | grep -q "break-system-packages"; then
-            BREAK="--break-system-packages"
+            BREAK="--break-system-packages --ignore-installed"
         fi
         # --user puts dulus in ~/.local/bin (Linux/macOS) or %APPDATA%\Python\
         # (Windows) where any plugin's `pip install pandas` lands too. If

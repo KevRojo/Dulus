@@ -146,7 +146,12 @@ def pip_install_cmd(*packages: str) -> list[str]:
     try:
         marker = Path(sysconfig.get_path("stdlib")) / "EXTERNALLY-MANAGED"
         if marker.exists():
-            cmd.append("--break-system-packages")
+            # --break-system-packages: PEP 668 externally-managed opt-out.
+            # --ignore-installed: force-install even when a distro/system package
+            #   "already satisfies" a dep but isn't usable in the target location
+            #   (e.g. plugin deps via the autoadapter) - without it pip skips them
+            #   and the import fails at runtime.
+            cmd += ["--break-system-packages", "--ignore-installed"]
     except Exception:
         pass
     return cmd + list(packages)
