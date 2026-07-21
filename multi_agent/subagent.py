@@ -418,7 +418,7 @@ class SubAgentManager:
         task._future = self._pool.submit(_run)
         return task
 
-    def wait(self, task_id: str, timeout: float = None) -> Optional[SubAgentTask]:
+    def wait(self, task_id: str, timeout: float | None = None) -> Optional[SubAgentTask]:
         """Block until a task completes or timeout expires.
 
         Returns:

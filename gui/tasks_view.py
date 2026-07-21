@@ -18,14 +18,18 @@ import datetime
 import os
 import threading
 from pathlib import Path
-from typing import Dict, List, Callable
+from typing import Any, Dict, List, Callable
 
 try:
-    import customtkinter as ctk
+    import customtkinter as _ctk
     HAS_CTK = True
 except ImportError:
-    import tkinter as ctk
+    import tkinter as _ctk
     HAS_CTK = False
+
+# Dual GUI framework (customtkinter, or tkinter fallback). Typed as Any so the
+# static checker doesn't flag ctk.<widget> against whichever module lacks it.
+ctk: Any = _ctk
 
 from gui.themes import get_theme
 

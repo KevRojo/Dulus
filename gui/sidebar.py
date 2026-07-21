@@ -8,15 +8,19 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 try:
-    import customtkinter as ctk
+    import customtkinter as _ctk
     HAS_CTK = True
 except ImportError:
-    import tkinter as ctk
+    import tkinter as _ctk
     from tkinter import ttk
     HAS_CTK = False
+
+# Dual GUI framework (customtkinter, or tkinter fallback). Typed as Any so the
+# static checker doesn't flag ctk.<widget> against whichever module lacks it.
+ctk: Any = _ctk
 
 from config import CONFIG_DIR, SESSIONS_DIR, DAILY_DIR, load_config
 from tool_registry import get_all_tools

@@ -557,7 +557,7 @@ def maybe_truncate_diff(diff_text, max_lines=80):
 _DEFAULT_READ_LIMIT = 1000  # kimi-cli default
 
 
-def _read(file_path: str, limit: int = None, offset: int = None) -> str:
+def _read(file_path: str, limit: int | None = None, offset: int | None = None) -> str:
     p = Path(file_path).expanduser().resolve()
     if not p.exists():
         return f"Error: file not found: {p}"
@@ -715,7 +715,7 @@ def _print_last_output() -> str:
         return f"Error reading saved output: {e}"
 
 
-def _search_last_output(pattern: str = None, context: int = 2) -> str:
+def _search_last_output(pattern: str | None = None, context: int = 2) -> str:
     """Search or summarize the tool outputs accumulated during this turn."""
     out_file = Path.home() / ".dulus" / "last_tool_output.txt"
     if not out_file.exists():
@@ -1271,7 +1271,7 @@ def _bash(command: str, timeout: int = 30) -> str:
         return f"Error: {e}"
 
 
-def _glob(pattern: str, path: str = None) -> str:
+def _glob(pattern: str, path: str | None = None) -> str:
     # pathlib's Path.glob() rejects absolute patterns ("Non-relative patterns
     # are unsupported"). If the model passes an absolute pattern, split it
     # into the longest non-glob prefix (base) + the rest (relative pattern).
@@ -1307,7 +1307,7 @@ def _has_rg() -> bool:
         return False
 
 
-def _grep_python_pure(pattern: str, search_path: Path, glob_pat: str = None,
+def _grep_python_pure(pattern: str, search_path: Path, glob_pat: str | None = None,
                       output_mode: str = "files_with_matches",
                       case_insensitive: bool = False, context: int = 0) -> str:
     """Pure-Python grep fallback for Windows or when grep/rg misbehave."""
@@ -1366,7 +1366,7 @@ def _grep_python_pure(pattern: str, search_path: Path, glob_pat: str = None,
     return out[:20000]
 
 
-def _grep(pattern: str, path: str = None, glob: str = None,
+def _grep(pattern: str, path: str | None = None, glob: str | None = None,
           output_mode: str = "files_with_matches",
           case_insensitive: bool = False, context: int = 0) -> str:
     # Guard against empty pattern (model sometimes passes it by mistake)
@@ -1457,7 +1457,7 @@ def _clean_html(html: str) -> str:
 
 
 def _libretranslate(text: str, source: str, target: str,
-                    host: str = None) -> str | None:
+                    host: str | None = None) -> str | None:
     """Translate via LibreTranslate (local). Returns None if unavailable.
     Splits into 800-char chunks to stay within API limits."""
     host = host or _libretranslate_host()
@@ -1534,7 +1534,7 @@ def _webfetch(url: str) -> str:
         return f"Error: {e}"
 
 
-def _bravesearch(query: str, api_key: str, country: str = None) -> str:
+def _bravesearch(query: str, api_key: str, country: str | None = None) -> str:
     """Search using Brave Search API."""
     try:
         import requests
@@ -1597,7 +1597,7 @@ def _bochasearch(query: str, api_key: str) -> str:
         return f"Error: Bocha Search failed: {e}"
 
 
-def _websearch(query: str, config: dict = None, region: str = None) -> str:
+def _websearch(query: str, config: dict | None = None, region: str | None = None) -> str:
     try:
         import requests
         from bs4 import BeautifulSoup
@@ -1688,8 +1688,8 @@ def _parse_cell_id(cell_id: str) -> int | None:
 def _notebook_edit(
     notebook_path: str,
     new_source: str,
-    cell_id: str = None,
-    cell_type: str = None,
+    cell_id: str | None = None,
+    cell_type: str | None = None,
     edit_mode: str = "replace",
 ) -> str:
     p = Path(notebook_path)
@@ -1818,7 +1818,7 @@ def _run_quietly(cmd: list[str], cwd: str | None = None, timeout: int = 30) -> t
         return -1, f"(error: {e})"
 
 
-def _get_diagnostics(file_path: str, language: str = None) -> str:
+def _get_diagnostics(file_path: str, language: str | None = None) -> str:
     p = Path(file_path)
     if not p.exists():
         return f"Error: file not found: {file_path}"
@@ -1902,7 +1902,7 @@ def _ask_user_question(
     question: str,
     options: list[dict] | None = None,
     allow_freetext: bool = True,
-    config: dict = None,
+    config: dict | None = None,
 ) -> str:
     """
     Block the agent loop and surface a question to the user in the terminal.
@@ -1933,7 +1933,7 @@ def _ask_user_question(
     return "(no answer - timeout)"
 
 
-def ask_input_interactive(prompt: str, config: dict, menu_text: str = None) -> str:
+def ask_input_interactive(prompt: str, config: dict, menu_text: str | None = None) -> str:
     """Prompt the user for input, routing to Telegram if in a Telegram turn.
     If menu_text is provided, it is sent ahead of the prompt."""
     is_tg = _is_in_tg_turn(config)
@@ -2093,7 +2093,7 @@ def _sleeptimer(seconds: int, config: dict) -> str:
     return f"Reminder scheduled for {seconds}s. End your turn silently and wait for the system wake-up — do NOT keep calling tools. If you needed a short pause BETWEEN tools, use Bash('sleep N') instead."
 
 
-def _print_to_console(content: str = "", style: str = "normal", prefix: str = "", from_line: int = None, to_line: int = None, file_path: str = None, config: dict = None) -> str:
+def _print_to_console(content: str = "", style: str = "normal", prefix: str = "", from_line: int | None = None, to_line: int | None = None, file_path: str | None = None, config: dict | None = None) -> str:
     """Print content to the user's console.
     
     This tool displays text to the user WITHOUT consuming output tokens.
@@ -2201,7 +2201,7 @@ def execute_tool(
     inputs: dict,
     permission_mode: str = "auto",
     ask_permission: Optional[Callable[[str], bool]] = None,
-    config: dict = None,
+    config: dict | None = None,
 ) -> str:
     """Dispatch tool execution; ask permission for write/destructive ops.
 

@@ -50,3 +50,5 @@ data/context.json
 # (index.html, JS/CSS bundles, wallpapers) that Flask serves at /sandbox.
 # It must be tracked so pip installs include the Mini OS frontend.
 
+_pyright_*.json
+_*.json

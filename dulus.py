@@ -163,9 +163,9 @@ import sys
 # (argparse and other libs need a working fileno()/isatty()).
 if sys.platform == "win32":
     if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
     if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
 
 # ── Suppress noisy third-party startup warnings ──────────────────────────
 # These don't affect functionality but pollute every Dulus boot (REPL,
@@ -261,12 +261,15 @@ if sys.platform == "win32":
     # guard so launching from the IDLE editor doesn't crash at import time.
     for _s in (sys.stdout, sys.stderr):
         try:
-            _s.reconfigure(encoding="utf-8")
+            _s.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
         except (AttributeError, Exception):
             pass
 
 try:
-    import readline
+    import readline as _readline
+    # typeshed hides readline's members on win32 (platform-gated stub); type as
+    # Any so readline.<fn> access checks cleanly on every platform.
+    readline: Any = _readline
 except ImportError:
     readline = None  # Windows compatibility
 # ── Optional rich for markdown rendering ──────────────────────────────────
@@ -278,7 +281,9 @@ try:
     from rich.panel import Panel
     from rich import print as rprint
     _RICH = True
-    console = Console()
+    # Typed Any: rich is optional (console is None when unavailable); Any keeps
+    # console.<attr> access checking cleanly without a guard at every call site.
+    console: Any = Console()
 except ImportError:
     _RICH = False
     console = None
@@ -376,7 +381,9 @@ except Exception:
     VERSION = "3.10.17"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
-from common import C, clr, info, ok, warn, err, stream_thinking, print_tool_start, print_tool_end, sanitize_text
+from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
+# print_tool_start/print_tool_end are defined locally below with a fuller
+# signature (config-aware); do not import common's — it would shadow-collide.
 
 def _rl_safe(prompt: str) -> str:
     """Wrap ANSI escape sequences with \\001/\\002 so readline ignores them
@@ -636,7 +643,9 @@ _tool_spinner_thread = None
 _tool_spinner_stop = threading.Event()
 
 _telegram_thread: threading.Thread | None = None
-_telegram_stop: threading.Event | None = None
+# Always a live Event after import (re-initialised on each bot start); declaring
+# it non-optional avoids spurious "attr of None" on _telegram_stop.is_set()/wait().
+_telegram_stop: threading.Event = threading.Event()
 _telegram_dashboard_bridge = None  # TelegramDashboardBridge instance when dashboard mode is active
 
 _spinner_phrase = ""
@@ -702,7 +711,7 @@ def print_tool_start(name: str, inputs: dict, verbose: bool):
     if verbose:
         print(clr(f"     inputs: {json.dumps(inputs, ensure_ascii=False)[:200]}", "dim"))
 
-def print_tool_end(name: str, result: str, verbose: bool, config: dict = None):
+def print_tool_end(name: str, result: str, verbose: bool, config: dict | None = None):
     # Special handling for PrintToConsole - always show full content
     if name == "PrintToConsole":
         print(clr(f"  [PrintToConsole] {len(result)} chars", "dim", "cyan"), flush=True)
@@ -1134,7 +1143,7 @@ def _interactive_ollama_picker(config: dict) -> bool:
         pass
     return False
 
-def cmd_brainstorm(args: str, state, config) -> bool:
+def cmd_brainstorm(args: str, state, config) -> "bool | tuple":
     """Run a multi-persona iterative brainstorming session on the project.
     
     Usage: /brainstorm [topic]
@@ -3587,12 +3596,12 @@ def cmd_kimi_chats(args: str, _state, config) -> bool:
     """
     import pathlib
     import json as _json
-    from providers import _kimi_web_auth_path, _kimi_web_list_chats
+    from providers import _web_auth_path, _kimi_web_list_chats
     from config import save_config
 
     a = args.strip()
 
-    apath = pathlib.Path(_kimi_web_auth_path(config))
+    apath = pathlib.Path(_web_auth_path(config, "kimi_web_auth_path", "kimi_consumer.json"))
 
     def _persist_kimi_chat(chat_id: str | None):
         """Sync chat_id (and clear parent_id) into both config AND kimi_consumer.json.
@@ -3719,7 +3728,7 @@ def cmd_claude_chats(args: str, _state, config) -> bool:
     """
     import pathlib, json as _json, urllib.request, urllib.error
     from providers import (
-        _claude_web_cookies_path, _claude_web_org_id, _claude_web_headers,
+        _web_auth_path, _claude_web_org_id, _claude_web_headers,
     )
     from config import save_config
 
@@ -3732,7 +3741,7 @@ def cmd_claude_chats(args: str, _state, config) -> bool:
         ok("Claude-web will create a new conversation on the next message.")
         return True
 
-    cpath = pathlib.Path(_claude_web_cookies_path(config))
+    cpath = pathlib.Path(_web_auth_path(config, "claude_web_cookies", "claude_cookies.json"))
     if not cpath.exists():
         err(f"No cookies file found at {cpath}. Run /harvest first.")
         return True
@@ -3980,6 +3989,8 @@ def _import_dulus_module(mod_name: str):
     root = Path(__file__).resolve().parent
     mod_path = root / "dulus_tools" / f"{mod_name}.py"
     spec = importlib.util.spec_from_file_location(f"dulus_{mod_name}", mod_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load dulus_tools/{mod_name}.py")
     mod = importlib.util.module_from_spec(spec)
     sys.modules[f"dulus_{mod_name}"] = mod
     spec.loader.exec_module(mod)
@@ -4299,6 +4310,7 @@ def cmd_cloudsave(args: str, state, config) -> bool:
         if err_msg:
             err(err_msg)
             return True
+        data = data or {}
         state.messages = data.get("messages", [])
         state.turn_count = data.get("turn_count", 0)
         state.total_input_tokens = data.get("total_input_tokens", 0)
@@ -5104,14 +5116,14 @@ def _pager(header: str, lines: list, page_size: int = 30) -> None:
         except Exception:
             pass
         try:
-            import tty, termios
+            import tty, termios  # Unix-only (guarded by except below)
             fd = sys.stdin.fileno()
-            old = termios.tcgetattr(fd)
+            old = termios.tcgetattr(fd)  # type: ignore[attr-defined]
             try:
-                tty.setcbreak(fd)
+                tty.setcbreak(fd)  # type: ignore[attr-defined]
                 return sys.stdin.read(1)
             finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)  # type: ignore[attr-defined]
         except Exception:
             # Fallback: regular input (requires Enter)
             return input().strip()[:1]
@@ -5610,9 +5622,9 @@ def cmd_mcp(args: str, _state, config) -> bool:
     if subcmd == "reload":
         target = parts[1] if len(parts) > 1 else ""
         if target:
-            err = refresh_server(target)
-            if err:
-                err(f"Failed to reload '{target}': {err}")
+            reload_err = refresh_server(target)
+            if reload_err:
+                err(f"Failed to reload '{target}': {reload_err}")
             else:
                 ok(f"Reloaded MCP server: {target}")
         else:
@@ -5687,7 +5699,7 @@ def cmd_mcp(args: str, _state, config) -> bool:
     return True
 
 
-def cmd_plugin(args: str, _state, config) -> bool:
+def cmd_plugin(args: str, _state, config) -> "bool | tuple":
     """Manage plugins.
 
     /plugin                                  — list installed plugins
@@ -5941,7 +5953,7 @@ def cmd_tasks(args: str, _state, config) -> bool:
 
 # ── SSJ Developer Mode ─────────────────────────────────────────────────────
 
-def cmd_ssj(args: str, state, config) -> bool:
+def cmd_ssj(args: str, state, config) -> "bool | tuple":
     """SSJ Developer Mode — Interactive power menu for project workflows.
 
     Usage: /ssj
@@ -6203,7 +6215,7 @@ def cmd_kill_tmux(_args: str, _state, config) -> bool:
 
 # ── Worker command ─────────────────────────────────────────────────────────
 
-def cmd_worker(args: str, state, config) -> bool:
+def cmd_worker(args: str, state, config) -> "bool | tuple":
     """Auto-implement pending tasks from a todo_list.txt file.
 
     Usage:
@@ -6346,7 +6358,7 @@ def cmd_worker(args: str, state, config) -> bool:
 _telegram_thread = None
 _telegram_stop = threading.Event()
 
-def _tg_api(token: str, method: str, params: dict = None):
+def _tg_api(token: str, method: str, params: dict | None = None):
     """Call Telegram Bot API. Returns parsed JSON or None on error."""
     import urllib.request, urllib.parse
     url = f"https://api.telegram.org/bot{token}/{method}"
@@ -6392,7 +6404,7 @@ def _tg_send(token: str, chat_id: int, text: str):
         if not result or not result.get("ok"):
             _tg_api(token, "sendMessage", {"chat_id": chat_id, "text": chunk})
 
-def _tg_typing_loop(token: str, chat_id: int, stop_event: threading.Event, config: dict = None):
+def _tg_typing_loop(token: str, chat_id: int, stop_event: threading.Event, config: dict | None = None):
     """Send 'typing...' indicator every 4 seconds until stop_event is set."""
     while not stop_event.is_set():
         if config and config.get("_tg_pause_typing"):
@@ -7447,7 +7459,7 @@ def cmd_say(args: str, state, config) -> bool:
     return True
 
 
-def cmd_voice(args: str, state, config) -> bool:
+def cmd_voice(args: str, state, config) -> "bool | tuple":
     """Voice input: record → STT → auto-submit as user message.
 
     /voice            — record once, transcribe, submit
@@ -8406,7 +8418,7 @@ def cmd_checkpoint(args: str, state, config) -> bool:
 cmd_rewind = cmd_checkpoint
 
 
-def cmd_plan(args: str, state, config) -> bool:
+def cmd_plan(args: str, state, config) -> "bool | tuple":
     """Enter/exit plan mode or show current plan.
 
     /plan <description>  — enter plan mode and start planning
@@ -9275,9 +9287,9 @@ def cmd_shell(args: str, state, config) -> bool:
     if output:
         print(output)
     if result.get("exit_code", 0) != 0:
-        err(result.get("message", ""))
+        err(str(result.get("message", "")))
     else:
-        info(result.get("message", ""))
+        info(str(result.get("message", "")))
     return True
 
 
@@ -10453,7 +10465,7 @@ def setup_readline(history_file: Path):
 
 # ── Main REPL ──────────────────────────────────────────────────────────────
 
-def repl(config: dict, initial_prompt: str = None):
+def repl(config: dict, initial_prompt: str | None = None):
     import uuid
     import threading
     from config import HISTORY_FILE
@@ -10663,10 +10675,11 @@ def repl(config: dict, initial_prompt: str = None):
     # ── Shell Environment Detection ───────────────────────────────────────────
     # Detect shell once at startup and cache in config
     try:
-        from context import detect_shell_runtime
-        shell_info = detect_shell_runtime()
+        from context import _detect_shell_type
+        shell_type = _detect_shell_type(config)
+        shell_info = {"shell_type": shell_type}
         config["_shell_info"] = shell_info
-        startup_status_msgs.append(clr(f"  🖥️  Shell detected: {shell_info.get('shell_type', 'unknown')}", "cyan"))
+        startup_status_msgs.append(clr(f"  🖥️  Shell detected: {shell_type}", "cyan"))
     except Exception:
         pass
 
@@ -12271,7 +12284,9 @@ def repl(config: dict, initial_prompt: str = None):
                     warn(f"Shell error: {e}")
             continue
 
-        result = handle_slash(user_input, state, config)
+        # Any: handle_slash returns bool | heterogeneous sentinel tuples; the
+        # loop below dispatches on result[0] and unpacks per-sentinel shapes.
+        result: Any = handle_slash(user_input, state, config)
         # ── Sentinel processing loop ──
         # Processes sentinel tuples returned by commands. SSJ-originated
         # sentinels loop back to the SSJ menu after completion.
@@ -12742,9 +12757,9 @@ def main():
         # Ensure stdout/stderr are UTF-8 in Windows console to prevent crashes on emojis
         import io
         if hasattr(sys.stdout, 'reconfigure'):
-            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stdout.reconfigure(encoding='utf-8')  # type: ignore[attr-defined]
         if hasattr(sys.stderr, 'reconfigure'):
-            sys.stderr.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')  # type: ignore[attr-defined]
 
 
 

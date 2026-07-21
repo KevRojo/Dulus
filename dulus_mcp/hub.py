@@ -187,7 +187,7 @@ class MCPServerEntry:
         source: str,          # "official", "dulus", "installed"
         command: str = "",
         args: list[str] = None,
-        env: dict = None,
+        env: dict | None = None,
         url: str = "",
         transport: str = "stdio",
         requires_args: bool = False,
@@ -197,7 +197,7 @@ class MCPServerEntry:
         config_name: str = "",  # name in mcp.json if installed
         error: str = "",
         repo_url: str = "",     # source repo (for future auditing)
-        security: dict = None,  # {score, tier, reasons} — filled by audit layer
+        security: dict | None = None,  # {score, tier, reasons} — filled by audit layer
     ):
         self.name = name
         self.description = description

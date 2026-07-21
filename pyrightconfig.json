@@ -1,0 +1,25 @@
+{
+  "include": ["."],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "**/venv",
+    "**/dist",
+    "**/build",
+    "sandbox",
+    "sandbox/**",
+    "brand-assets",
+    "assets",
+    "checkpoint",
+    "demos",
+    "docs",
+    "tests",
+    "skill/bundled",
+    ".git"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "pythonVersion": "3.11"
+}
