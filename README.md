@@ -28,7 +28,7 @@
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="downloads"/></a>
   <img src="https://img.shields.io/badge/python-3.11+-ff6b1f?style=flat-square&labelColor=07070a" alt="python"/>
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="license"/>
-  <img src="https://img.shields.io/badge/version-v3.10.13-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
+  <img src="https://img.shields.io/badge/version-v3.10.18-ff6b1f?style=flat-square&labelColor=07070a" alt="version"/>
   <img src="https://img.shields.io/badge/providers-100%2B%20via%20LiteLLM-ff6b1f?style=flat-square&labelColor=07070a" alt="providers"/>
   <img src="https://img.shields.io/badge/tools-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="tools"/>
   <img src="https://img.shields.io/badge/tests-263+-ff6b1f?style=flat-square&labelColor=07070a" alt="tests"/>
@@ -71,6 +71,7 @@
 
 > Full changelog: [`docs/news.md`](docs/news.md)  ·  Inside the REPL: `/news`
 
+- **🔬 Fully type-checked — 582 → 0, and real bugs fell out.** A top-to-bottom Pyright pass took the codebase from **582 static errors to zero** across 142 files — and it wasn't cosmetics. The checker flushed out genuine landmines: the skill runner (`execute_skill`) was called with the wrong arguments in the `--command` path and would have thrown `TypeError` the moment a skill ran; `/mcp reload` accidentally shadowed its own error printer and then tried to *call a string*; and a handful of dead imports pointed at symbols that no longer existed — repaired to the real APIs. Cleaner to read, safer to fork, fewer surprises. 🦅
 - **🩹 First community bug report → fixed on PyPI the same day.** [@aognio](https://github.com/aognio) found Dulus through Hacker News and reported a crash when NVIDIA's free tier ran out of quota ([#18](https://github.com/KevRojo/Dulus/issues/18)). Root cause: quota errors arrive mid-stream, past the old error guard. Now provider failures can't kill the REPL — fallback chain first, friendly *"try /model"* worst case, history intact. Report a bug, get a release. 🦅
 - **🛰️ Error tracking that actually tracks.** Confession: a mis-configured Sentry init meant no crash report had ever left anyone's machine. Fixed with a silent atexit flush (no noisy exit banner), and quota/provider failures now report as handled events — visibility without crashes.
 - **🌐 Three domains, one organism.** [dulus.ai](https://dulus.ai) is the front door. [dulus.online](https://dulus.online) is *Synthetic Operations* — deploy one agent or an entire company: persistent workers with tools, memory, approvals and measurable ownership, coordinated by MOD (plan → execute → validate, every step with a receipt). [dulus.work](https://dulus.work) is the HUB where every instance shares what it learns.
