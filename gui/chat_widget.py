@@ -270,9 +270,9 @@ class ChatWidget(ctk.CTkFrame):
         # Recolor existing message bubbles
         for outer in self._message_frames:
             if hasattr(outer, "_bubble"):
-                new_fg = t["user_bubble"] if outer._is_user else t["assistant_bubble"]
-                outer._bubble.configure(fg_color=new_fg)
-                for child in outer._bubble.winfo_children():
+                new_fg = t["user_bubble"] if outer._is_user else t["assistant_bubble"]  # type: ignore[attr-defined]
+                outer._bubble.configure(fg_color=new_fg)  # type: ignore[attr-defined]
+                for child in outer._bubble.winfo_children():  # type: ignore[attr-defined]
                     if isinstance(child, ctk.CTkTextbox):
                         child.configure(text_color=t["text"])
                     elif isinstance(child, ctk.CTkLabel):
@@ -320,8 +320,8 @@ class ChatWidget(ctk.CTkFrame):
 
         # Bubble frame
         bubble = ctk.CTkFrame(outer, fg_color=fg, corner_radius=14)
-        outer._bubble = bubble
-        outer._is_user = is_user
+        outer._bubble = bubble  # type: ignore[attr-defined]
+        outer._is_user = is_user  # type: ignore[attr-defined]
         if is_user:
             bubble.grid(row=0, column=1, sticky="e", padx=(80, 0))
         else:

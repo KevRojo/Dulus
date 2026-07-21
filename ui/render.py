@@ -13,6 +13,7 @@ from __future__ import annotations
 import sys
 import json
 import threading
+from typing import Any
 
 # ── Optional rich for markdown rendering ──────────────────────────────────
 try:
@@ -20,7 +21,7 @@ try:
     from rich.markdown import Markdown
     from rich.live import Live
     _RICH = True
-    console = Console()
+    console: Any = Console()
 except ImportError:
     _RICH = False
     console = None
@@ -78,7 +79,7 @@ def _has_diff(text: str) -> bool:
 # ── Conversation rendering ─────────────────────────────────────────────────
 
 _accumulated_text: list[str] = []   # buffer text during streaming
-_current_live = None                # active Rich Live instance (one at a time)
+_current_live: Any = None           # active Rich Live instance (one at a time)
 _RICH_LIVE = True                   # set False (via config rich_live=false) to disable
 
 def set_rich_live(enabled: bool) -> None:
@@ -89,14 +90,14 @@ def set_rich_live(enabled: bool) -> None:
 def _make_renderable(text: str):
     """Return a Rich renderable: Markdown if text contains markup, else plain."""
     if any(c in text for c in ("#", "*", "`", "_", "[")):
-        return Markdown(text)
+        return Markdown(text)  # type: ignore[misc]
     return text
 
 def _start_live() -> None:
     """Start a Rich Live block for in-place Markdown streaming (no-op if not Rich)."""
     global _current_live
     if _RICH and _RICH_LIVE and _current_live is None:
-        _current_live = Live(console=console, auto_refresh=False,
+        _current_live = Live(console=console, auto_refresh=False,  # type: ignore[misc]
                              vertical_overflow="visible")
         _current_live.start()
 
@@ -130,7 +131,7 @@ def stream_text(chunk: str) -> None:
         if line_count <= _LIVE_LINE_LIMIT:
             if _current_live is None:
                 _start_live()
-            _current_live.update(_make_renderable(full), refresh=True)
+            _current_live.update(_make_renderable(full), refresh=True)  # type: ignore[union-attr]
         else:
             # Already past limit, no Live — just append new chunk
             print(chunk, end="", flush=True)

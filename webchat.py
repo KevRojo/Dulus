@@ -13,9 +13,10 @@ import threading
 import time
 import uuid
 import webbrowser
-from typing import Generator
+from typing import Any, Generator
 
 from flask import Flask, request, jsonify, Response, stream_with_context
+from flask.typing import ResponseReturnValue
 
 from agent import (
     run as agent_run,
@@ -300,26 +301,26 @@ setInterval(syncChat, 5000);
 </body></html>"""
 
     @app.route("/")
-    def home() -> Response:
+    def home() -> ResponseReturnValue:
         return Response(PAGE, mimetype="text/html")
 
     @app.route("/state")
-    def state_endpoint() -> Response:
+    def state_endpoint() -> ResponseReturnValue:
         with HISTORY_LOCK:
             hist = [dict(m) for m in STATE.messages]
             model = CONFIG.get("model", "?")
         return jsonify(model=model, history=hist)
 
     @app.route("/clear", methods=["POST"])
-    def clear() -> Response:
+    def clear() -> ResponseReturnValue:
         with HISTORY_LOCK:
             STATE.messages.clear()
         return jsonify(ok=True)
 
     @app.route("/permission", methods=["POST"])
-    def permission() -> Response:
+    def permission() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
-        pid = body.get("id")
+        pid = str(body.get("id") or "")
         granted = body.get("granted", False)
         with HISTORY_LOCK:
             item = _PENDING_PERMISSIONS.get(pid)
@@ -331,7 +332,7 @@ setInterval(syncChat, 5000);
         return jsonify(ok=True)
 
     @app.route("/chat", methods=["POST"])
-    def chat() -> Response:
+    def chat() -> ResponseReturnValue:
         body = request.get_json(silent=True) or {}
         msg = (body.get("message") or "").strip()
         if not msg:
@@ -339,7 +340,7 @@ setInterval(syncChat, 5000);
 
         def generate():
             q: queue.Queue = queue.Queue(maxsize=512)
-            exc_holder = [None]
+            exc_holder: list[Any] = [None]
 
             def producer():
                 try:

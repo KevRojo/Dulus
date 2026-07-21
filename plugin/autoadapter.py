@@ -33,6 +33,7 @@ def _sanitize_python_code(code: str) -> str:
 
 def _analyze_repository(plugin_dir: Path | str, verbose: bool = False) -> dict:
     """Scan the repository for structure, functions, and dependencies (no execution)."""
+    plugin_dir = Path(plugin_dir)
     pname = getattr(plugin_dir, 'name', os.path.basename(str(plugin_dir)))
     print_tool_start("Read", {"file_path": pname})
     analysis = {
@@ -392,7 +393,7 @@ This section is read by the verifier and by future re-adaptations, so be precise
     if analysis["requirements"]:
         print_tool_start("Bash", {"command": f"pip install {' '.join(analysis['requirements'][:3])}..."})
         from .store import _install_dependencies
-        dep_ok, dep_msg = _install_dependencies(analysis["requirements"])
+        dep_ok, dep_msg = _install_dependencies(analysis.get("requirements") or [])
         print_tool_end("Bash", "Success" if dep_ok else f"Failed: {dep_msg}", success=dep_ok, verbose=config.get("verbose"))
         if not dep_ok:
             warn("Some dependencies failed to install, proceeding anyway.")
@@ -780,7 +781,7 @@ def _smoke_test_tool(td: Any) -> tuple[bool, str]:
         f_stderr = io.StringIO()
         try:
             with redirect_stdout(f_stdout), redirect_stderr(f_stderr):
-                func = td.func if hasattr(td, "func") else td.get("function") if isinstance(td, dict) else None
+                func = getattr(td, "func", None) or (td.get("function") if isinstance(td, dict) else None)
                 if not func:
                     return False, "Tool missing callable function"
                 result = func(test_params, {})
@@ -1122,7 +1123,7 @@ RULES (non-negotiable):
 
 def _attempt_fix(plugin_dir: Path, safe_name: str, task_title: str,
                  error_msg: str, analysis: dict, config: dict, original_goal: str | None = None,
-                 state=None, generation_context: str = "") -> tuple[bool, Any, bool]:
+                 state=None, generation_context: str = "") -> tuple[bool, Any, Any]:
     """
     Run a full tool-enabled agent turn to fix a failing task.
     The agent has Read/Write/Edit/Bash/Grep/WebSearch — same as normal Dulus.
