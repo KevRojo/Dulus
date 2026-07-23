@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.21] - 2026-07-23
+
+### Fixed
+- Same crash via a second entry point: `compaction.py` created its checkpoint
+  dir at import time with a hardcoded `~/.dulus` path (hit as soon as `agent.py`
+  imported it). Now derives from the resolved `config.CONFIG_DIR` and tolerates
+  a denied filesystem. (Sentry)
+- Ollama backend `HTTP 500` propagated as an unhandled `HTTPError` and crashed
+  the app. `stream_ollama` now retries transient 5xx/429 with backoff and fails
+  soft with a friendly turn (REPL intact) if the backend stays down. (Sentry)
+
+## [3.10.20] - 2026-07-23
+
+### Fixed
+- Startup crash `PermissionError [WinError 5]` on `~/.dulus`: `load_config()`
+  called `CONFIG_DIR.mkdir()` unguarded, so on OEM/multi-user/service-account
+  Windows boxes where `Path.home()` isn't writable the app died on boot.
+  `CONFIG_DIR` now resolves to the first writable candidate — `$DULUS_CONFIG_DIR`
+  → `~/.dulus` → `%LOCALAPPDATA%\dulus` (or `$XDG_DATA_HOME`) → temp dir — and
+  all dir creation is wrapped to warn instead of raise. (Sentry)
+
 ## [3.10.10] - 2026-07-15
 
 ### Added
