@@ -79,43 +79,47 @@ def _watch_for_cancel() -> None:
 def _play_audio_file(file_path: str | Path) -> None:
     """Play an audio file, interruptible with 'c' key."""
     file_path = str(file_path)
+    _shutil = __import__("shutil")
+
+    def _run_player(cmd: list[str]) -> bool:
+        """Launch player and poll _stop_event. Returns True if launched."""
+        try:
+            proc = subprocess.Popen(cmd)
+        except OSError:
+            return False
+        try:
+            while proc.poll() is None:
+                if _stop_event.is_set():
+                    proc.terminate()
+                    return True
+                time.sleep(0.05)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+        return True
 
     # Try ffplay
-    if shutil_which := __import__("shutil").which("ffplay"):
-        proc = subprocess.Popen(
-            [shutil_which, "-nodisp", "-autoexit", "-loglevel", "quiet", file_path])
-        try:
-            while proc.poll() is None:
-                if _stop_event.is_set():
-                    proc.terminate()
-                    return
-                time.sleep(0.05)
-        finally:
-            if proc.poll() is None:
-                proc.kill()
-        return
+    if shutil_which := _shutil.which("ffplay"):
+        if _run_player([shutil_which, "-nodisp", "-autoexit", "-loglevel", "quiet", file_path]):
+            return
 
     # Try mpv
-    if shutil_which := __import__("shutil").which("mpv"):
-        proc = subprocess.Popen(
-            [shutil_which, "--no-video", "--really-quiet", file_path])
-        try:
-            while proc.poll() is None:
-                if _stop_event.is_set():
-                    proc.terminate()
-                    return
-                time.sleep(0.05)
-        finally:
-            if proc.poll() is None:
-                proc.kill()
-        return
+    if shutil_which := _shutil.which("mpv"):
+        if _run_player([shutil_which, "--no-video", "--really-quiet", file_path]):
+            return
+
+    # macOS built-in player (afplay ships with every Mac)
+    if sys.platform == "darwin":
+        if shutil_which := _shutil.which("afplay"):
+            if _run_player([shutil_which, file_path]):
+                return
 
     # Windows MCI
     if os.name == "nt":
         _play_windows_mci(file_path)
         return
 
-    print(f"  [TTS] Cannot play audio: no player found (install ffmpeg or mpv). File: {file_path}")
+    print(f"  [TTS] Cannot play audio: no player found (install ffmpeg/mpv, or afplay on macOS). File: {file_path}")
 
 
 def _play_windows_mci(file_path: str) -> None:
@@ -830,9 +834,16 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
             if _should_try("riva") and _say_nvidia_riva(text, lang=lang):
                 return
 
-            # Final fallback — we intentionally do NOT print the spoken text
-            # to the CLI. The "📢 Speaking: ..." notification above is sufficient.
-            # This prevents accumulation of TTS notifications in the terminal.
+            # Explicit provider failed (or auto exhausted every backend).
+            # Surface a short hint so "📢 Speaking..." is not followed by silence
+            # with zero explanation — e.g. deepgram key missing / player missing.
+            if provider and provider.lower() not in ("auto",):
+                print(
+                    f"  [TTS] Provider '{provider}' failed or is unavailable. "
+                    f"Check API key / install, or try `/tts provider auto`.",
+                    flush=True,
+                )
+            # Intentionally do NOT dump the spoken text to the CLI.
         finally:
             _stop_event.set()  # stop watcher thread if playback ended naturally
 
