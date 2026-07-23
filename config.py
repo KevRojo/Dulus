@@ -1,10 +1,77 @@
 """Configuration management for Dulus (multi-provider)."""
 import os
+import sys
+import tempfile
 from typing import Any
 import json
 from pathlib import Path
 
-CONFIG_DIR        = Path.home() / ".dulus"
+
+def _dir_is_writable(path: Path) -> bool:
+    """True if `path` can be created and written to by the current process.
+
+    Creates the directory (parents included) if missing, then verifies write
+    access with a throwaway probe file. Any OSError — most importantly
+    PermissionError / WinError 5 — means "not usable", never a crash.
+    """
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".dulus_write_test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def _resolve_config_dir() -> Path:
+    """Pick the first writable config directory, resolved once at import.
+
+    On OEM / multi-user / service-account Windows boxes, Path.home() often
+    points at a profile (e.g. C:\\Users\\Administrator) the running process has
+    no write access to, so `~/.dulus` .mkdir() raised WinError 5 and crashed the
+    app on startup. We now try a chain of candidates and use the first that is
+    actually writable, so the app degrades gracefully instead of dying.
+
+    Order:
+      1. $DULUS_CONFIG_DIR    — explicit operator override, always wins
+      2. ~/.dulus             — the normal, historical location
+      3. %LOCALAPPDATA%\\dulus (Win) / $XDG_DATA_HOME|~/.local/share/dulus
+      4. <tempdir>/dulus      — last resort so the app still runs this session
+    """
+    candidates: list[Path] = []
+
+    override = os.environ.get("DULUS_CONFIG_DIR", "").strip()
+    if override:
+        candidates.append(Path(override).expanduser())
+
+    try:
+        candidates.append(Path.home() / ".dulus")
+    except (RuntimeError, OSError):
+        # Path.home() can itself raise if no home is resolvable.
+        pass
+
+    if sys.platform.startswith("win"):
+        local = os.environ.get("LOCALAPPDATA", "").strip()
+        if local:
+            candidates.append(Path(local) / "dulus")
+    else:
+        xdg = os.environ.get("XDG_DATA_HOME", "").strip()
+        candidates.append(Path(xdg) / "dulus" if xdg
+                          else Path.home() / ".local" / "share" / "dulus")
+
+    candidates.append(Path(tempfile.gettempdir()) / "dulus")
+
+    for cand in candidates:
+        if _dir_is_writable(cand):
+            return cand
+
+    # Nothing was writable (extremely unlikely). Return the historical default;
+    # downstream mkdir(exist_ok=True) is now wrapped and will report cleanly.
+    return Path(tempfile.gettempdir()) / "dulus"
+
+
+CONFIG_DIR        = _resolve_config_dir()
 CONFIG_FILE       = CONFIG_DIR  / "config.json"
 HISTORY_FILE      = CONFIG_DIR  / "input_history.txt"
 SESSIONS_DIR      = CONFIG_DIR  / "sessions"
@@ -182,10 +249,23 @@ def _unsecure_keys(cfg: dict) -> dict:
     return cfg
 
 
+def _ensure_config_dirs() -> None:
+    """Create the config dirs, never raising if the FS denies us.
+
+    CONFIG_DIR was already probed for writability at import, so this normally
+    just re-creates dirs that exist. Kept defensive (parents + swallow OSError)
+    so a mid-run permission change or a read-only mount can't crash startup —
+    the original WinError 5 came from exactly this call being unguarded.
+    """
+    for d in (CONFIG_DIR, SESSIONS_DIR, OUTPUT_DIR):
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            print(f"[dulus] WARNING: could not create {d}: {e}", file=sys.stderr)
+
+
 def load_config() -> dict:
-    CONFIG_DIR.mkdir(exist_ok=True)
-    SESSIONS_DIR.mkdir(exist_ok=True)
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    _ensure_config_dirs()
     cfg = dict(DEFAULTS)
     if CONFIG_FILE.exists():
         try:
@@ -247,7 +327,7 @@ def load_config() -> dict:
 
 
 def save_config(cfg: dict):
-    CONFIG_DIR.mkdir(exist_ok=True)
+    _ensure_config_dirs()
     # Build a complete config from defaults + whatever is already on disk, THEN
     # apply the runtime changes on top. This prevents catastrophic resets: if a
     # caller passes a thin `cfg` (e.g. only {"lang", "user_name"} at early
