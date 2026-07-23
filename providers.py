@@ -5263,8 +5263,37 @@ def stream_ollama(
 
     try:
         resp_cm = urllib.request.urlopen(req)
-    except urllib.error.HTTPError:
-        raise
+    except urllib.error.HTTPError as he:
+        # Ollama (esp. Cloud) returns transient 5xx/429 under load. This urlopen
+        # happens BEFORE any streaming, so retrying re-issues the request cleanly
+        # with no duplicate output. Retry transient codes a few times, then fail
+        # SOFT with a friendly turn instead of letting the HTTPError bubble all
+        # the way up and crash the app (Sentry: HTTP 500 in stream_ollama).
+        resp_cm = None
+        _transient = he.code in (408, 425, 429, 500, 502, 503, 504)
+        if _transient:
+            for _attempt in range(3):
+                _time.sleep(min(1.5 * (2 ** _attempt), 8.0))
+                try:
+                    resp_cm = urllib.request.urlopen(req)
+                    break
+                except urllib.error.HTTPError as he2:
+                    he = he2
+                    continue
+                except Exception:
+                    break
+        if resp_cm is None:
+            code = getattr(he, "code", "?")
+            if _transient:
+                msg = (f"[ollama] Server error {code} from {base_url} after retries. "
+                       "The Ollama backend is overloaded or unavailable — try again in a "
+                       "moment, or switch provider with /model.")
+            else:
+                msg = (f"[ollama] Request rejected ({code}) by {base_url}: {he.reason}. "
+                       "Check the model name and your Ollama config, or switch with /model.")
+            yield TextChunk(msg)
+            yield AssistantTurn(msg, [], 0, 0, error=True)
+            return
     except (urllib.error.URLError, ConnectionError, OSError) as e:
         # Ollama not reachable. If the `ollama` binary is installed, try to
         # auto-start the server and retry once before giving up — most users

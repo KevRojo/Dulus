@@ -21,8 +21,20 @@ DEFAULT_KEEP_RATIO = 0.55
 SUMMARY_SNIPPET_LEN = 1200
 
 # Where to store pre-compact checkpoints for possible rollback.
-CHECKPOINT_DIR = Path.home() / ".dulus" / "compaction_backups"
-CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+# Derive from config.CONFIG_DIR (resolved once to a writable location) instead
+# of hardcoding ~/.dulus: on OEM/multi-user Windows boxes Path.home() points at
+# a profile the process can't write, and this mkdir runs at IMPORT time (agent.py
+# imports compaction), so an unguarded call crashed the whole app on startup with
+# WinError 5 / WinError 3. Wrapped so a denied FS never brings down import.
+from config import CONFIG_DIR
+
+CHECKPOINT_DIR = CONFIG_DIR / "compaction_backups"
+try:
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Checkpoint writes (_save_precompact_checkpoint / rollback_compact) are all
+    # already wrapped, so a missing dir just disables rollback — never fatal.
+    pass
 
 
 # ── Token estimation ──────────────────────────────────────────────────────
