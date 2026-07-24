@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.22] - 2026-07-24
+
+### Fixed
+- `/mcp install` no longer writes servers that can't start. Catalog sources
+  scraped from GitHub READMEs (e.g. "awesome" lists) often carry only a
+  name/description/repo URL and no real launcher. Those sailed through and
+  landed in `mcp.json` with an empty `command`, then blew up at connect time
+  with "has no command configured". `install()` now rejects stdio entries with
+  no command and sse/http entries with no URL up front, pointing you at the
+  repo for manual setup. (MCP)
+- Runtime check now validates the exact launcher, not a loose category. Several
+  curated servers tagged `runtime="python"` actually boot via `uvx` (git,
+  fetch, …). The old check passed if *any* of python/uv/uvx was present, so a
+  box with `python` but no `uv` marked them "installed" and they failed later.
+  `_check_runtime` now takes the entry's real command and checks that. (MCP)
+- Case-insensitive server-name lookup in `get_server()` and `get_status()`, so
+  `/mcp status Git` finds a server registered as `git`. (MCP)
+
 ## [3.10.21] - 2026-07-23
 
 ### Fixed
