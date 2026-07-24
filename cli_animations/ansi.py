@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Sequence
+from typing import Sequence, TextIO
 
 
 def _enable_windows_ansi() -> None:
@@ -159,6 +159,15 @@ def animations_enabled(stream=None) -> bool:
         return bool(target.isatty())
     except Exception:
         return False
+
+
+def resolve_stream(stream: TextIO | None = None) -> TextIO:
+    """Resolve an optional stream to a concrete terminal output stream."""
+    if stream is not None:
+        return stream
+    if sys.stdout is None:
+        raise RuntimeError("No output stream is available")
+    return sys.stdout
 
 
 def clr(text: str, *keys: str) -> str:

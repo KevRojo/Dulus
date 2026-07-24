@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import random
-import sys
 import time
 from typing import TextIO
 
@@ -18,6 +17,7 @@ from .ansi import (
     animations_enabled,
     gradient_text,
     pad,
+    resolve_stream,
     rgb,
     rgb_tuple,
 )
@@ -35,7 +35,7 @@ def typewriter(
     stream: TextIO | None = None,
 ) -> None:
     """Print *text* character-by-character."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(clr(text, color) + "\n")
         stream.flush()
@@ -68,7 +68,7 @@ def animate_wave(
     stream: TextIO | None = None,
 ) -> None:
     """Animate a rainbow wave across *text*."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(pad(gradient_text(text, ORANGE, CYAN)) + "\n")
         stream.flush()
@@ -100,7 +100,7 @@ def print_creator_signature(
     In a real terminal the brand colors travel across the name. Logs, tests,
     pipes and redirected output get the same signature as one clean line.
     """
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     signature = f"◆  {name}  ◆"
     if animated and animations_enabled(stream):
         animate_wave(signature, frames=10, interval=0.035, stream=stream)
@@ -129,7 +129,7 @@ def animate_glitch(
     stream: TextIO | None = None,
 ) -> None:
     """Animate a glitch settle on *text*."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(pad(clr(text, "orange", "bold")) + "\n")
         stream.flush()
@@ -159,7 +159,7 @@ def matrix_rain(
     stream: TextIO | None = None,
 ) -> None:
     """Matrix-style cascading rain for *duration* seconds."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(pad(clr("Matrix rain · interactive terminal preview", "dim")) + "\n")
         stream.flush()
@@ -205,7 +205,7 @@ def pulse_line(
     stream: TextIO | None = None,
 ) -> None:
     """Pulse orange brightness on a single line of text."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(pad(clr(text, "orange", "bold")) + "\n")
         stream.flush()

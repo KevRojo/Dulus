@@ -6,13 +6,21 @@ from __future__ import annotations
 
 import itertools
 import random
-import sys
 import threading
 import time
 from contextlib import contextmanager
 from typing import Iterator, TextIO
 
-from .ansi import C, ORANGE, MUTED, animations_enabled, clr, pad, rgb_tuple
+from .ansi import (
+    C,
+    ORANGE,
+    MUTED,
+    animations_enabled,
+    clr,
+    pad,
+    resolve_stream,
+    rgb_tuple,
+)
 
 # Claude Code spinner frames
 CLAUDE_FRAMES = ["·", "✢", "✳", "✶", "✻", "✽"]
@@ -76,7 +84,7 @@ def spinner(
     stream: TextIO | None = None,
 ):
     """Context manager: animated spinner on one line until the block exits."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     frames = SPINNERS.get(style, CLAUDE_FRAMES)
     phrase_pool = phrases or []
     if not animations_enabled(stream):
@@ -126,7 +134,7 @@ def animate_spinner(
     stream: TextIO | None = None,
 ) -> None:
     """Run a spinner for *duration* seconds (blocking)."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         phrase_pool = phrases or DULUS_PHRASES
         phrase = message or random.choice(phrase_pool)

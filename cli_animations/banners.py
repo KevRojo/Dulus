@@ -1,11 +1,10 @@
 """ASCII banners and decorative frames for Dulus."""
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import TextIO
 
-from .ansi import ORANGE, AMBER, clr, gradient_text, pad
+from .ansi import ORANGE, AMBER, clr, gradient_text, pad, resolve_stream
 
 ASSETS = Path(__file__).resolve().parent / "assets" / "ascii"
 
@@ -69,7 +68,7 @@ BANNERS = {
 
 def print_banner(name: str = "dulus", *, stream: TextIO | None = None) -> None:
     """Print a named banner with Dulus orange→gold gradient."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     art = BANNERS.get(name, DULUS_BANNER)
     for line in art.strip("\n").splitlines():
         stream.write(pad(gradient_text(line, ORANGE, AMBER)) + "\n")
@@ -109,7 +108,7 @@ def print_box(
     stream: TextIO | None = None,
 ) -> None:
     """Print a colored box to *stream*."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     framed = box(text, title=title, width=width, style=style)
     for line in framed.splitlines():
         stream.write(pad(clr(line, color)) + "\n")
