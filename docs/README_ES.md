@@ -44,13 +44,13 @@
 | **Tiempo de setup** | Horas + aprobaciones | Dias de config | **30 segundos** |
 | **Costo inicial** | $$$ + API keys | $$$ + infra | **$0** |
 | **Proveedor** | Unico | Unico | **100+ proveedores** |
-| **Codigo** | Caja negra | 100K+ lineas | **~12K lineas legibles** |
+| **Codigo** | Caja negra | 100K+ lineas | **~56K lineas de Python propio** |
 | **Voz** | Solo nube | No incluido | **Whisper offline** |
 | **Memoria** | Solo contexto | Manual | **MemPalace semantica** |
 
 **El problema:** Los agentes de IA hoy estan bloqueados a un solo proveedor (solo Claude, solo GPT) o requieren un doctorado en ingenieria ML para configurarlos. Y todos quieren tu tarjeta de credito antes de que puedas probarlos.
 
-**La solucion:** Dulus. Un agente autonomo en Python que se conecta a cualquier modelo — desde sesiones gratuitas en el navegador (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) hasta 100+ proveedores pagos via LiteLLM, hasta modelos locales en tu Mac M2. ~12K lineas de Python legible. Sin build step. Sin gatekeeping. Solo garras.
+**La solucion:** Dulus. Un agente autonomo en Python que se conecta a cualquier modelo — desde sesiones gratuitas en el navegador (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) hasta 100+ proveedores pagos via LiteLLM y modelos locales en tu propio hardware. ~56K lineas de Python propio. Sin build step. Sin gatekeeping. Solo garras.
 
 ---
 

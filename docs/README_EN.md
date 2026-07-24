@@ -44,13 +44,13 @@
 | **Setup time** | Hours + approvals | Days of config | **30 seconds** |
 | **Cost to start** | $$$ + API keys | $$$ + infra | **$0** |
 | **Model lock-in** | Single provider | Single provider | **100+ providers** |
-| **Codebase** | Black box | 100K+ lines | **~12K readable lines** |
+| **Codebase** | Black box | 100K+ lines | **~56K first-party Python lines** |
 | **Voice** | Cloud-only | Not included | **Offline Whisper** |
 | **Memory** | Context-only | Manual | **MemPalace semantic** |
 
 **The problem:** AI agents today are either locked to one provider (Claude-only, GPT-only) or require a PhD in ML engineering to set up. And they all want your credit card before you can even try them.
 
-**The solution:** Dulus. A Python autonomous agent that connects to any model — from free browser-harvested sessions (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) to 100+ paid providers via LiteLLM, to local models on your M2 Mac. ~12K lines of readable Python. No build step. No gatekeeping. Just talons.
+**The solution:** Dulus. A Python autonomous agent that connects to any model — from free browser-backed sessions (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) to 100+ paid providers via LiteLLM, to local models on your own hardware. ~56K lines of first-party Python. No build step. No gatekeeping. Just talons.
 
 ---
 
@@ -266,7 +266,7 @@ MCP tools auto-registered as `mcp__<server>__<tool>`.
 - **No build step.** `pip install dulus` → it works. No npm. No webpack. No cargo.
 - **No gatekeeping.** GPLv3. Fork it, bend it, run it offline.
 - **One person, one vision.** Built by KevRojo from Santo Domingo, Dominican Republic.
-- **263+ tests.** Real test coverage, not a badge.
+- **780+ tests.** Real test coverage, not a badge.
 - **2.5 MB wheel.** Smaller than most frameworks' READMEs.
 
 ---

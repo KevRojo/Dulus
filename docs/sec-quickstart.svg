@@ -18,8 +18,8 @@
     <text x="0" y="230" font-size="14" fill="#9a9286">That&#39;s the whole setup. No YAML. No build step. No excuses.</text>
   </g>
   <g font-size="12" fill="#ff6b1f" font-family="&#39;JetBrains Mono&#39;,monospace">
-    <text x="1550" y="95" text-anchor="end">$ git clone KevRojo/Falcon</text>
-    <text x="1550" y="113" text-anchor="end">$ cd Falcon &amp;&amp; uv tool install .</text>
+    <text x="1550" y="95" text-anchor="end">$ git clone github.com/KevRojo/Dulus</text>
+    <text x="1550" y="113" text-anchor="end">$ cd Dulus &amp;&amp; uv tool install .</text>
     <text x="1550" y="131" text-anchor="end">$ export ANTHROPIC_API_KEY=sk-...</text>
     <text x="1550" y="149" text-anchor="end">$ falcon</text>
     <text x="1550" y="167" text-anchor="end">▲ ready · [0.7%] » _</text>
