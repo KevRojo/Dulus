@@ -15,6 +15,7 @@ from memory.store import (
     get_index_content,
 )
 from memory.context import get_memory_context, truncate_index_content
+from memory.palace import ensure_short_memory
 from memory.scan import (
     scan_memory_dir,
     format_memory_manifest,
@@ -31,12 +32,13 @@ from memory.types import MEMORY_TYPES
 @pytest.fixture(autouse=True)
 def redirect_memory_dirs(tmp_path, monkeypatch):
     """Redirect user and project memory dirs to tmp_path for all tests."""
-    user_mem = tmp_path / "user_memory"
-    user_mem.mkdir()
+    dulus_home = tmp_path / "dulus_home"
+    user_mem = dulus_home / "memory"
+    user_mem.mkdir(parents=True)
     proj_mem = tmp_path / "project_memory"
     proj_mem.mkdir()
 
-    monkeypatch.setattr(_store, "USER_MEMORY_DIR", user_mem)
+    monkeypatch.setenv("DULUS_HOME", str(dulus_home))
 
     # Patch get_project_memory_dir to return our tmp project dir
     monkeypatch.setattr(_store, "get_project_memory_dir", lambda: proj_mem)
@@ -95,6 +97,13 @@ class TestSaveAndLoad:
         names = {e.name for e in all_entries}
         assert "user note" in names
         assert "proj note" in names
+
+    def test_palace_respects_runtime_dulus_home(self, tmp_path, monkeypatch):
+        alternate_home = tmp_path / "alternate_dulus_home"
+        monkeypatch.setenv("DULUS_HOME", str(alternate_home))
+
+        assert ensure_short_memory()
+        assert (alternate_home / "memory" / "short_memory.md").exists()
 
 
 # ── Delete ────────────────────────────────────────────────────────────────
@@ -219,7 +228,7 @@ class TestScanAndAge:
     def test_scan_memory_dir(self):
         save_memory(_make_entry(name="note a"), scope="user")
         save_memory(_make_entry(name="note b"), scope="user")
-        user_dir = _store.USER_MEMORY_DIR
+        user_dir = _store.get_memory_dir("user")
         headers = scan_memory_dir(user_dir, "user")
         assert len(headers) == 2
         assert all(isinstance(h, MemoryHeader) for h in headers)

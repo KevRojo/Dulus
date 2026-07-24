@@ -11,7 +11,16 @@ when tkinter is missing.
 from __future__ import annotations
 
 import importlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .agent_bridge import DulusBridge
+    from .chat_widget import ChatWidget
+    from .main_window import DulusMainWindow
+    from .settings_dialog import SettingsDialog
+    from .sidebar import DulusSidebar
+    from .tasks_view import TasksView
+    from .tool_panel import ToolPanel
 
 # Map exposed name -> (submodule, attribute). Lazy so that `import gui`
 # works on a tk-less box; only attribute access pulls the GUI deps in.
@@ -25,7 +34,15 @@ _LAZY_ATTRS = {
     "TasksView":         ("gui.tasks_view",      "TasksView"),
 }
 
-__all__ = list(_LAZY_ATTRS.keys())
+__all__ = [
+    "DulusMainWindow",
+    "ChatWidget",
+    "DulusBridge",
+    "DulusSidebar",
+    "SettingsDialog",
+    "ToolPanel",
+    "TasksView",
+]
 
 
 def __getattr__(name: str) -> Any:

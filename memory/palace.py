@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .store import (
     MemoryEntry,
-    USER_MEMORY_DIR,
+    get_memory_dir,
     has_stacked_frontmatter,
     parse_frontmatter,
     save_memory,
@@ -153,8 +153,9 @@ def ensure_short_memory(*, force_gold: bool = True) -> bool:
     Returns:
         True if the file was created or upgraded.
     """
-    USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
-    path = USER_MEMORY_DIR / "short_memory.md"
+    user_memory_dir = get_memory_dir("user")
+    user_memory_dir.mkdir(parents=True, exist_ok=True)
+    path = user_memory_dir / "short_memory.md"
     today = datetime.now().strftime("%Y-%m-%d")
     desc, seed_body = _short_memory_seed_body()
 
@@ -229,11 +230,12 @@ def ensure_memory_palace() -> bool:
     Returns:
         True if anything was created/upgraded.
     """
-    USER_MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    user_memory_dir = get_memory_dir("user")
+    user_memory_dir.mkdir(parents=True, exist_ok=True)
     changed = False
 
     # We check if there are any .md files other than MEMORY.md / short_memory.md
-    existing_files = list(USER_MEMORY_DIR.glob("*.md"))
+    existing_files = list(user_memory_dir.glob("*.md"))
     content_files = [
         f for f in existing_files
         if f.name not in { "MEMORY.md", "short_memory.md" }
@@ -244,7 +246,7 @@ def ensure_memory_palace() -> bool:
         for bucket in DEFAULT_BUCKETS:
             # Check if this specific bucket already exists to avoid overwriting a custom Soul
             slug = bucket["name"].lower().replace(" ", "_")
-            if (USER_MEMORY_DIR / f"{slug}.md").exists():
+            if (user_memory_dir / f"{slug}.md").exists():
                 continue
 
             entry = MemoryEntry(

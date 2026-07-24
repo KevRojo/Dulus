@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import time
 import uuid
@@ -149,7 +150,7 @@ class WireEventBus:
             subs = self._subscribers.get(event.event_type, [])
             for _token, callback in subs:
                 try:
-                    if asyncio.iscoroutinefunction(callback):
+                    if inspect.iscoroutinefunction(callback):
                         await callback(event)
                     else:
                         callback(event)
@@ -161,7 +162,7 @@ class WireEventBus:
             wildcards = self._subscribers.get("*", [])
             for _token, callback in wildcards:
                 try:
-                    if asyncio.iscoroutinefunction(callback):
+                    if inspect.iscoroutinefunction(callback):
                         await callback(event)
                     else:
                         callback(event)
