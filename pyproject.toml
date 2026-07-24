@@ -99,7 +99,6 @@ Issues = "https://github.com/KevRojo/Dulus/issues"
 py-modules = [
     "agent",
     "batch_api",
-    "claude_code_watcher",
     "clipboard_utils",
     "cloudsave",
     "analytics",
@@ -114,9 +113,6 @@ py-modules = [
     "governance",
     "input",
     "license_manager",
-    # NOTE: skipping "memory" — there's a package memory/ that supersedes
-    # the legacy memory.py shim. Same import name; can't ship both.
-    "offload_helper",
     "paste_placeholders",
     "personality_config",
     "profiles",
@@ -126,9 +122,7 @@ py-modules = [
     "soul",
     "spinner",
     "steer_input",
-    "string_utils",
     "subagent",
-    "tmux_offloader",
     "tmux_tools",
     "tool_registry",
     "tools",

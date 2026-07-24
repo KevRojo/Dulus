@@ -42,6 +42,9 @@ out.txt
 out*.txt
 output.txt
 
+# Local screenshots and pasted working files
+/uploads/
+
 # MemPalace runtime cache
 data/mempalace_cache.json
 # Runtime context
