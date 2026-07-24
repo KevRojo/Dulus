@@ -1,9 +1,9 @@
-﻿"""Plugin Marketplace â€” esqueleto y registry de plugins disponibles. (#20)
+"""Plugin Marketplace — esqueleto y registry de plugins disponibles. (#20)
 
-Este mÃ³dulo maneja:
+Este módulo maneja:
 - Registry local de plugins conocidos
 - Metadatos de plugins del marketplace
-- InstalaciÃ³n simulada/remota de plugins
+- Instalación simulada/remota de plugins
 """
 import json
 from pathlib import Path
@@ -136,9 +136,9 @@ def get_stats() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print("ðŸ›’ Dulus Plugin Marketplace v0.1")
+    print("🛒 Dulus Plugin Marketplace v0.1")
     print("=" * 40)
     for p in load_registry():
-        status = "âœ…" if p["installed"] else "â¬œ"
-        print(f"{status} {p['name']} v{p['version']} â€” {p['description'][:50]}...")
+        status = "✅" if p["installed"] else "⬜"
+        print(f"{status} {p['name']} v{p['version']} — {p['description'][:50]}...")
     print(f"\nStats: {json.dumps(get_stats(), indent=2)}")

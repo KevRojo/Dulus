@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.25] - 2026-07-24
+
+### Fixed
+- Repaired UTF-8 damage introduced in v3.10.24. Four `backend/` modules were
+  rewritten by a tool that decoded them as cp1252 and re-encoded as UTF-8,
+  double-encoding every non-ASCII character (`—` → `â€"`, `🦅` → `ðŸ¦…`,
+  `español` → `espaÃ±ol`) and prepending a BOM. Nothing crashed — the mojibake
+  is still valid UTF-8 — but Spanish strings and emoji rendered as garbage.
+  The files are restored and the v3.10.24 fix reapplied without touching their
+  encoding. Upgrade straight past v3.10.24.
+
 ## [3.10.24] - 2026-07-24
 
 ### Fixed
