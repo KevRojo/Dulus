@@ -1,4 +1,4 @@
-"""Composio plugin for Falcon - native ToolDefs.
+"""Composio plugin for Dulus using native ToolDefs.
 
 Connects to Composio Tool Router and exposes tools natively.
 """
@@ -187,7 +187,7 @@ def composio_get_tool_schemas(params: dict, config: dict) -> str:
 def composio_generate_tool_py(params: dict, config: dict) -> str:
     """Generate a standalone .py file for a Composio tool.
 
-    Creates a native Falcon tool file that wraps a Composio tool.
+    Creates a native Dulus tool file that wraps a Composio tool.
     """
     tool_slug = params.get("tool_slug", "")
     output_dir = params.get("output_dir", str(Path.home() / ".falcon" / "plugins" / "composio" / "generated"))
@@ -227,7 +227,7 @@ def composio_generate_tool_py(params: dict, config: dict) -> str:
 
 
 def composio_generate_plugin_tool_py(params: dict, config: dict) -> str:
-    """Generate a full plugin_tool.py exporting multiple Composio tools as native Falcon tools."""
+    """Generate a plugin_tool.py exporting multiple Composio tools for Dulus."""
     tool_slugs = params.get("tool_slugs", [])
     if isinstance(tool_slugs, str):
         tool_slugs = [tool_slugs]
@@ -386,7 +386,7 @@ generate_tool_py_tool = ToolDef(
     name="composio_generate_tool_py",
     schema={
         "name": "composio_generate_tool_py",
-        "description": "Generate a standalone .py file wrapping a single Composio tool as a native Falcon tool.",
+        "description": "Generate a standalone .py file wrapping a Composio operation as a native Dulus tool.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -405,7 +405,7 @@ generate_plugin_tool_py_tool = ToolDef(
     name="composio_generate_plugin_tool_py",
     schema={
         "name": "composio_generate_plugin_tool_py",
-        "description": "Generate a full plugin_tool.py exporting multiple Composio tools as native Falcon tools.",
+        "description": "Generate a plugin_tool.py exporting multiple Composio operations as native Dulus tools.",
         "input_schema": {
             "type": "object",
             "properties": {

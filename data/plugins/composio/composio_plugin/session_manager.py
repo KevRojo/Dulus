@@ -8,7 +8,10 @@ _composio_client = None
 
 
 def _load_api_key() -> str:
-    """Load Composio API key from Dulus config (with Falcon fallback) or env."""
+    """Load the Composio API key from the environment or Dulus config.
+
+    The legacy ``~/.falcon`` path remains a read-only migration fallback.
+    """
     api_key = os.environ.get("COMPOSIO_API_KEY", "")
     if not api_key:
         for cfg_path in (Path.home() / ".dulus" / "config.json",
@@ -33,7 +36,7 @@ def get_client():
 
     api_key = _load_api_key()
     if not api_key:
-        raise RuntimeError("COMPOSIO_API_KEY not found. Set it in ~/.falcon/config.json or env.")
+        raise RuntimeError("COMPOSIO_API_KEY not found. Set it in ~/.dulus/config.json or the environment.")
 
     os.environ["COMPOSIO_API_KEY"] = api_key
 

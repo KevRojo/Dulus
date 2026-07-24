@@ -1,4 +1,4 @@
-"""Composio plugin helpers for Falcon."""
+"""Composio plugin helpers for Dulus."""
 from .session_manager import get_client, get_or_create_session, list_accounts
 from .tool_generator import generate_tool_py
 
