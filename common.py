@@ -127,10 +127,51 @@ def clr(text: str, *keys: str) -> str:
     # never takes down the daemon or REPL.
     return "".join(C.get(k, "") for k in keys) + str(text) + C.get("reset", "")
 
-def info(msg: str):   print(clr(msg, "cyan"))
-def ok(msg: str):     print(clr(msg, "green"))
-def warn(msg: str):   print(clr(f"Warning: {msg}", "yellow"))
-def err(msg: str):    print(clr(f"Error: {msg}", "red"), file=sys.stderr)
+try:
+    from cli_animations import toast as _toast, tool_status as _tool_status
+except Exception:
+    _toast = None
+    _tool_status = None
+
+
+def info(msg: str):
+    if _toast is not None:
+        try:
+            _toast(str(msg), kind="info")
+            return
+        except Exception:
+            pass
+    print(clr(msg, "cyan"))
+
+
+def ok(msg: str):
+    if _toast is not None:
+        try:
+            _toast(str(msg), kind="ok")
+            return
+        except Exception:
+            pass
+    print(clr(msg, "green"))
+
+
+def warn(msg: str):
+    if _toast is not None:
+        try:
+            _toast(str(msg), kind="warn")
+            return
+        except Exception:
+            pass
+    print(clr(f"Warning: {msg}", "yellow"))
+
+
+def err(msg: str):
+    if _toast is not None:
+        try:
+            _toast(str(msg), kind="error", stream=sys.stderr)
+            return
+        except Exception:
+            pass
+    print(clr(f"Error: {msg}", "red"), file=sys.stderr)
 
 def pip_install_cmd(*packages: str) -> list[str]:
     """Build a pip-install command that works on externally-managed Pythons.
@@ -170,7 +211,10 @@ def print_tool_start(name: str, inputs: dict):
     if name == "Write": desc = f"Write({inputs.get('file_path','')})"
     if name == "Bash": desc = f"Bash({inputs.get('command','')[:60]})"
     
-    print(clr(f"  ⚙  {desc}", "dim", "cyan"), flush=True)
+    if _tool_status is not None:
+        print(_tool_status(desc, "running"), flush=True)
+    else:
+        print(clr(f"  ⚙  {desc}", "dim", "cyan"), flush=True)
 
 def print_tool_end(name: str, result: str, success: bool = True, verbose: bool = False, auto_show: bool = True):
     # For PrintToConsole, always show the full content since that's the point
@@ -191,10 +235,11 @@ def print_tool_end(name: str, result: str, success: bool = True, verbose: bool =
     is_display = is_display_only(name)
 
     if success:
-        symbol = "[OK]"
-        color = "green"
         summary = f"-> {len(result)} chars" if len(result) > 100 else f"-> {result}"
-        print(clr(f"  {symbol} {summary}", "dim", color), flush=True)
+        if _tool_status is not None:
+            print(_tool_status(name, "done", summary), flush=True)
+        else:
+            print(clr(f"  [OK] {summary}", "dim", "green"), flush=True)
 
         # For display-only tools, show the full content immediately if auto_show is ON
         if is_display and auto_show:
@@ -205,9 +250,10 @@ def print_tool_end(name: str, result: str, success: bool = True, verbose: bool =
                 print(result.encode('utf-8', errors='replace').decode('utf-8'))
             print()
     else:
-        symbol = "[X]"
-        color = "red"
-        print(clr(f"  {symbol} {result[:120]}", "dim", color), flush=True)
+        if _tool_status is not None:
+            print(_tool_status(name, "error", result[:120]), flush=True)
+        else:
+            print(clr(f"  [X] {result[:120]}", "dim", "red"), flush=True)
 
     if verbose and success and not (is_display and auto_show):
         preview = result[:300] + ("..." if len(result) > 300 else "")

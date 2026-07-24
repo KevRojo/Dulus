@@ -162,6 +162,12 @@ def flush_response() -> None:
 
 from spinner import TOOL_SPINNER_PHRASES as _TOOL_SPINNER_PHRASES
 from spinner import DEBATE_SPINNER_PHRASES as _DEBATE_SPINNER_PHRASES
+try:
+    from cli_animations import thinking_line as _cli_thinking_line
+    from cli_animations import tool_status as _cli_tool_status
+except Exception:
+    _cli_thinking_line = None
+    _cli_tool_status = None
 
 _tool_spinner_thread = None
 _tool_spinner_stop = threading.Event()
@@ -177,7 +183,10 @@ def _run_tool_spinner():
         with _spinner_lock:
             phrase = _spinner_phrase
         frame = chars[i % len(chars)]
-        sys.stdout.write(f"\r  {frame} {clr(phrase, 'dim')}   ")
+        if _cli_thinking_line is not None:
+            sys.stdout.write(f"\r\033[2K{_cli_thinking_line(i, phrase)}")
+        else:
+            sys.stdout.write(f"\r  {frame} {clr(phrase, 'dim')}   ")
         sys.stdout.flush()
         i += 1
         _tool_spinner_stop.wait(0.1)
@@ -251,7 +260,10 @@ def _tool_desc(name: str, inputs: dict) -> str:
 def print_tool_start(name: str, inputs: dict, verbose: bool):
     """Show tool invocation."""
     desc = _tool_desc(name, inputs)
-    print(clr(f"  ⚙  {desc}", "dim", "cyan"), flush=True)
+    if _cli_tool_status is not None:
+        print(_cli_tool_status(desc, "running"), flush=True)
+    else:
+        print(clr(f"  ⚙  {desc}", "dim", "cyan"), flush=True)
     if verbose:
         print(clr(f"     inputs: {json.dumps(inputs, ensure_ascii=False)[:200]}", "dim"))
 
@@ -260,14 +272,20 @@ def print_tool_end(name: str, result: str, verbose: bool):
     size = len(result)
     summary = f"→ {lines} lines ({size} chars)"
     if not result.startswith("Error") and not result.startswith("Denied"):
-        print(clr(f"  ✓ {summary}", "dim", "green"), flush=True)
+        if _cli_tool_status is not None:
+            print(_cli_tool_status(name, "done", summary), flush=True)
+        else:
+            print(clr(f"  ✓ {summary}", "dim", "green"), flush=True)
         if name in ("Edit", "Write") and _has_diff(result):
             parts = result.split("\n\n", 1)
             if len(parts) == 2:
                 print(clr(f"  {parts[0]}", "dim"))
                 render_diff(parts[1])
     else:
-        print(clr(f"  ✗ {result[:120]}", "dim", "red"), flush=True)
+        if _cli_tool_status is not None:
+            print(_cli_tool_status(name, "error", result[:120]), flush=True)
+        else:
+            print(clr(f"  ✗ {result[:120]}", "dim", "red"), flush=True)
     if verbose and not result.startswith("Denied"):
         preview = result[:500] + ("…" if len(result) > 500 else "")
         print(clr(f"     {preview.replace(chr(10), chr(10)+'     ')}", "dim"))
