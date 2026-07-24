@@ -10,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from .store import (
-    USER_MEMORY_DIR,
     INDEX_FILENAME,
     MAX_INDEX_LINES,
     MAX_INDEX_BYTES,

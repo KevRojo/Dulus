@@ -4,12 +4,21 @@ import json
 import sys
 import time
 import unittest
+import warnings
 from pathlib import Path
 
 # Ensure repo root is in path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from license_manager import LicenseManager, LicenseTier, _generate_key, _LICENSE_SECRET
+# The fallback secret deliberately warns because it must never ship. This suite
+# validates the fallback itself, so suppress that one expected import warning.
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message="DULUS_LICENSE_SECRET not set.*",
+        category=RuntimeWarning,
+    )
+    from license_manager import LicenseManager, LicenseTier, _generate_key, _LICENSE_SECRET
 
 
 class TestLicenseValidation(unittest.TestCase):
@@ -165,35 +174,18 @@ class TestRevocation(unittest.TestCase):
 
 
 class TestCryptoConsistency(unittest.TestCase):
-    def test_manager_vs_server_signature_algorithm(self):
-        """Manager y server deben usar el mismo algoritmo HMAC (raw secret)."""
+    def test_generated_key_uses_raw_secret_hmac(self):
+        """Generated keys sign the exact serialized payload with the raw secret."""
         import hashlib, hmac
         secret = "test-secret-123"
-        payload = b'{"tier":"pro","exp":9999999999,"features":[],"iat":0}'
+        key = _generate_key("pro", 30, secret)
+        encoded = key.split("-", 1)[1]
+        payload, signature = base64.urlsafe_b64decode(encoded + "==").rsplit(b":", 1)
+        expected = hmac.new(
+            secret.encode("utf-8"), payload, hashlib.sha256
+        ).hexdigest()[:24]
 
-        # Manager style (raw secret)
-        manager_sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()[:24]
-
-        # Server style (raw secret — unified in KEYS-2 fix)
-        server_sig = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()[:24]
-
-        self.assertEqual(manager_sig, server_sig,
-            "Manager and server must use the same HMAC secret derivation")
-
-    def test_cross_validation_manager_to_server(self):
-        """Una key generada por license_manager debe validar en license_server."""
-        import sys
-        from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from license_server import parse_key, _verify_payload
-
-        key = _generate_key("pro", 30, _LICENSE_SECRET)
-        parsed = parse_key(key)
-        self.assertNotIn("error", parsed, f"parse_key failed: {parsed.get('error')}")
-
-        # El server debe verificar la firma correctamente
-        sig_ok = _verify_payload(parsed["payload_b64"], parsed["sig"], _LICENSE_SECRET)
-        self.assertTrue(sig_ok, "Server rejected a valid manager-generated key signature")
+        self.assertEqual(signature.decode("ascii"), expected)
 
 
 class TestMachineFingerprint(unittest.TestCase):

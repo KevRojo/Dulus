@@ -22,7 +22,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Iterable, Optional, cast
 
 # ── Interrupt flag ────────────────────────────────────────────────────────
 # `_say_lock` serializes calls to say(): two concurrent say()s would share
@@ -160,7 +160,7 @@ def _get_pyttsx3_engine():
         # Pre-set properties one-time for speed
         try:
             _pyttsx3_engine.setProperty("rate", 175)
-            voices = _pyttsx3_engine.getProperty("voices")
+            voices = cast(Iterable[Any], _pyttsx3_engine.getProperty("voices"))
             # Prefer Zira (Spanish/English female) or Helena (Spanish) over David
             zira = next((v for v in voices if "zira" in v.name.lower()), None)
             if zira:
