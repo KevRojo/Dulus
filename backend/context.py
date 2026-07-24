@@ -1,4 +1,4 @@
-﻿"""Smart Context Manager (#23 + #28) â€” generates optimized context for LLM sessions."""
+"""Smart Context Manager (#23 + #28) — generates optimized context for LLM sessions."""
 import json
 import os
 import subprocess
@@ -94,7 +94,7 @@ def build_context() -> dict[str, Any]:
             "name": active["name"],
             "role": active["role"],
             "color": active["color"],
-            "avatar": active.get("avatar", "ðŸ¤–"),
+            "avatar": active.get("avatar", "🤖"),
             "tone": active["tone"],
         },
         "memory": get_mempalace_context_block()
@@ -111,7 +111,7 @@ def load_context() -> dict[str, Any]:
     return build_context()
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Token & Smart Context Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────── Token & Smart Context Management ───────────
 
 def get_user_max_tokens() -> int:
     try:
@@ -317,16 +317,16 @@ def get_compact_context(max_tokens_estimate: int = 800) -> str:
         "Active Tasks:"
     ]
     for t in ctx["tasks"]["active"][:5]:
-        lines.append(f"  â€¢ {t['id']} [{t['status']}] {t['subject']} ({t['owner']}, {t['phase']})")
+        lines.append(f"  • {t['id']} [{t['status']}] {t['subject']} ({t['owner']}, {t['phase']})")
     lines.append("Agents:")
     for a in ctx["agents"]:
         marker = " [ACTIVE]" if a.get("active") else ""
-        lines.append(f"  â€¢ {a.get('avatar', 'ðŸ¤–')} {a['name']} ({a['role']}) - {a['status']}{marker}")
+        lines.append(f"  • {a.get('avatar', '🤖')} {a['name']} ({a['role']}) - {a['status']}{marker}")
     lines.append("Recent Commits:")
     for c in ctx["project"]["recent_commits"][:3]:
-        lines.append(f"  â€¢ {c['hash']} {c['subject']} by {c['author']}")
-    # â”€â”€ Persona activa (#19/#22) â”€â”€
+        lines.append(f"  • {c['hash']} {c['subject']} by {c['author']}")
+    # ── Persona activa (#19/#22) ──
     lines.append(get_persona_compact_text())
-    # â”€â”€ MemPalace real memories (#28) â”€â”€
+    # ── MemPalace real memories (#28) ──
     lines.append(get_mempalace_compact_text())
     return "\n".join(lines)

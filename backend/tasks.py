@@ -1,4 +1,4 @@
-﻿"""Task storage with JSON persistence."""
+"""Task storage with JSON persistence."""
 import json
 import time
 from pathlib import Path
