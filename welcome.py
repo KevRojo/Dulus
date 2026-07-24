@@ -186,8 +186,13 @@ class BirdSpinner:
         """Run the spinner animation loop."""
         frame_idx = 0
         while not self._stop_event.is_set():
-            frame = _BIRD_SPINNER_FRAMES[frame_idx % len(_BIRD_SPINNER_FRAMES)]
-            print(f"\r  {frame} {self.message}", end="", flush=True)
+            try:
+                from cli_animations import thinking_line
+                line = thinking_line(frame_idx, self.message)
+            except Exception:
+                frame = _BIRD_SPINNER_FRAMES[frame_idx % len(_BIRD_SPINNER_FRAMES)]
+                line = f"  {frame} {self.message}"
+            print(f"\r\033[2K{line}", end="", flush=True)
             frame_idx += 1
             time.sleep(0.15)
 
@@ -401,7 +406,16 @@ def show_welcome_banner(user_name: str = "friend", is_returning: bool = False) -
     import random
 
     print()
-    print(CIGUA_ASCII)
+    try:
+        from cli_animations import print_banner
+        print_banner("dulus")
+    except Exception:
+        print(CIGUA_ASCII)
+    try:
+        from cli_animations import print_creator_signature
+        print_creator_signature("kevrojo")
+    except Exception:
+        print("  ◆  kevrojo  ◆")
     print()
 
     # Time-based greeting

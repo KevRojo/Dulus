@@ -42,6 +42,7 @@ Slash commands in REPL:
   /cost       Show API cost this session
   /verbose    Toggle verbose mode
   /thinking [off|min|med|max|raw|0-4]  Set extended-thinking level (raw = API default, no nudges; no arg = toggle)
+  /animations [section]  Run the Dulus terminal animation showcase
   /soul [name]  List souls / switch active soul (e.g. /soul chill, /soul forensic)
   /schema [tool]  Inspect tool input schema (human-facing; model does not see this)
                   /schema              -> list all tools grouped
@@ -638,6 +639,14 @@ def flush_response() -> None:
 
 from spinner import TOOL_SPINNER_PHRASES as _TOOL_SPINNER_PHRASES
 from spinner import DEBATE_SPINNER_PHRASES as _DEBATE_SPINNER_PHRASES
+try:
+    from cli_animations import (
+        thinking_line as _cli_thinking_line,
+        tool_status as _cli_tool_status,
+    )
+except Exception:
+    _cli_thinking_line = None
+    _cli_tool_status = None
 
 _tool_spinner_thread = None
 _tool_spinner_stop = threading.Event()
@@ -667,7 +676,10 @@ def _run_tool_spinner():
         frame = chars[i % len(chars)]
         _redirected = type(sys.stdout).__name__ == "_OutputRedirector"
         if not _SUPPRESS_CONSOLE and not _redirected:
-            sys.stdout.write(f"\033[2K\r  {frame} {clr(phrase, 'dim')}   ")
+            if _cli_thinking_line is not None:
+                sys.stdout.write(f"\033[2K\r{_cli_thinking_line(i, phrase)}")
+            else:
+                sys.stdout.write(f"\033[2K\r  {frame} {clr(phrase, 'dim')}   ")
             sys.stdout.flush()
         i += 1
         _tool_spinner_stop.wait(0.1)
@@ -707,7 +719,10 @@ def _stop_tool_spinner():
 def print_tool_start(name: str, inputs: dict, verbose: bool):
     """Show tool invocation."""
     desc = _tool_desc(name, inputs)
-    print(clr(f"  ⚙  {desc}", "dim", "cyan"), flush=True)
+    if _cli_tool_status is not None:
+        print(_cli_tool_status(desc, "running"), flush=True)
+    else:
+        print(clr(f"  ⚙  {desc}", "dim", "cyan"), flush=True)
     if verbose:
         print(clr(f"     inputs: {json.dumps(inputs, ensure_ascii=False)[:200]}", "dim"))
 
@@ -739,7 +754,10 @@ def print_tool_end(name: str, result: str, verbose: bool, config: dict | None = 
     size = len(result)
     summary = f"-> {lines} lines ({size} chars)"
     if not result.startswith("Error") and not result.startswith("Denied"):
-        print(clr(f"  [OK] {summary}", "dim", "green"), flush=True)
+        if _cli_tool_status is not None:
+            print(_cli_tool_status(name, "done", summary), flush=True)
+        else:
+            print(clr(f"  [OK] {summary}", "dim", "green"), flush=True)
 
         # Display-only tools render their full output when auto_show is ON.
         if is_display and auto_show:
@@ -757,7 +775,10 @@ def print_tool_end(name: str, result: str, verbose: bool, config: dict | None = 
                 print(clr(f"  {parts[0]}", "dim"))
                 render_diff(parts[1])
     else:
-        print(clr(f"  [X] {result[:120]}", "dim", "red"), flush=True)
+        if _cli_tool_status is not None:
+            print(_cli_tool_status(name, "error", result[:120]), flush=True)
+        else:
+            print(clr(f"  [X] {result[:120]}", "dim", "red"), flush=True)
     if verbose and not result.startswith("Denied") and not (is_display and auto_show):
         preview = result[:500] + ("..." if len(result) > 500 else "")
         try:
@@ -940,6 +961,7 @@ _HELP_PAGES = [
         ("/kimi_chats",             "List recent Kimi conversations"),
     ]),
     ("Advanced", [
+        ("/animations [section]",   "Dulus CLI visual showcase (all/banners/effects/…)"),
         ("/thinking [off|min|med|max|raw|0-4]","Set extended-thinking level"),
         ("/schema [tool]",          "Inspect tool input schema"),
         ("/deep_override",          "DeepSeek simplified prompt (toggle)"),
@@ -1325,14 +1347,22 @@ def _save_synthesis(state, out_file: str) -> None:
 
 
 def _print_dulus_banner(config: dict, with_logo: bool = True) -> None:
-    """Reprint the Dulus logo + info box (used by startup and /clear)."""
+    """Reprint the Dulus logo, session card, and creator signature."""
     from providers import detect_provider
     if with_logo:
-        logo = globals().get("_DULUS_LOGO_CACHED")
-        if logo:
-            for line in logo:
-                print(clr(line, "cyan", "bold"))
-            print()
+        printed = False
+        try:
+            from cli_animations import print_banner
+            print_banner("dulus")
+            printed = True
+        except Exception:
+            pass
+        if not printed:
+            logo = globals().get("_DULUS_LOGO_CACHED")
+            if logo:
+                for line in logo:
+                    print(clr(line, "cyan", "bold"))
+                print()
     model    = config["model"]
     pname    = detect_provider(model)
     model_clr = clr(model, "cyan", "bold")
@@ -1344,6 +1374,11 @@ def _print_dulus_banner(config: dict, with_logo: bool = True) -> None:
     print(clr("  │", "dim") + clr("  Permissions: ", "dim") + pmode)
     print(clr("  │", "dim") + clr("  /model to switch · /help for commands", "dim"))
     print(clr("  ╰──────────────────────────────────────────────────────╯", "dim"))
+    try:
+        from cli_animations import print_creator_signature
+        print_creator_signature("kevrojo")
+    except Exception:
+        print(clr("  ◆  kevrojo  ◆", "cyan", "bold"))
 
 
 def cmd_clear(_args: str, state, config) -> bool:
@@ -2397,6 +2432,11 @@ def cmd_thinking(_args: str, _state, config) -> bool:
         config["_thinking_last_level"] = new_level
 
     labels = {0: "OFF", 1: "MIN", 2: "MED", 3: "MAX", 4: "RAW"}
+    try:
+        from cli_animations import render_effort_bar
+        print(render_effort_bar(new_level / 4, label=f"Thinking {labels[new_level]}"))
+    except Exception:
+        pass
     ok(f"Extended thinking: {labels[new_level]}  (level={new_level})")
     save_config(config)
     return True
@@ -10124,6 +10164,24 @@ def cmd_webbridge(args: str, state, config) -> bool:
     return True
 
 
+def cmd_animations(args: str, _state, _config) -> bool:
+    """/animations [section] — Run the Dulus CLI animation showcase."""
+    section = (args or "all").strip().lower()
+    allowed = {"all", "banners", "effort", "spinners", "progress", "effects", "status"}
+    if section not in allowed:
+        err(f"Unknown animation section '{section}'. Use: {', '.join(sorted(allowed))}")
+        return True
+    try:
+        from cli_animations.demo import main as animation_demo
+        animation_demo([section])
+    except KeyboardInterrupt:
+        print()
+        info("Animation showcase stopped.")
+    except Exception as exc:
+        err(f"Animation showcase failed: {exc}")
+    return True
+
+
 COMMANDS = {
     "tts":         cmd_tts,
     "say":         cmd_say,
@@ -10139,6 +10197,8 @@ COMMANDS = {
     "verbose":     cmd_verbose,
     "max_fix":     cmd_max_fix,
     "thinking":    cmd_thinking,
+    "animations":  cmd_animations,
+    "animation":   cmd_animations,
     "soul":        cmd_soul,
     "lang":        cmd_lang,
     "schema":      cmd_schema,
@@ -10296,6 +10356,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "verbose":     ("Toggle verbose output",              []),
     "git":         ("Toggle Git status injection",        []),
     "thinking":    ("Set extended-thinking level",        ["off", "min", "med", "max", "raw", "normal", "0", "1", "2", "3", "4"]),
+    "animations":  ("Run the Dulus CLI visual showcase",   ["all", "banners", "effort", "spinners", "progress", "effects", "status"]),
     "soul":        ("List/switch active soul identity",   ["chill", "forensic"]),
     "lang":        ("Switch reply language (en, es, zh, pt-br, ja, …)", ["en", "es", "zh", "zh-tw", "pt-br", "ja", "ko", "fr", "de", "ar"]),
     "schema":      ("Inspect tool input schemas (human)",  ["--json"]),
@@ -10748,19 +10809,17 @@ def repl(config: dict, initial_prompt: str | None = None):
         _DULUS_LOGO.append("     " + clr("New: /lang — speak any language or role. Type /news", "cyan", "dim"))
         _DULUS_LOGO.append("                                                                 ")
 
-        # Spinning galaxy animation — trimmed from 8 frames (0.96s of pure
-        # sleep) to 3 (0.24s). Startup-latency fix 2026-07-06: the boot
-        # animation was the single largest self-inflicted stall on the
-        # cold-start path. Keep the flair, cut the wait.
-        _GALAXY_FRAMES = ["◜", "◝", "◞", "◟"]
+        # Shared Dulus animation language for the short boot beat. Redirected
+        # output and DULUS_NO_ANIMATIONS skip cursor animation immediately.
         try:
-            for i in range(3):
-                frame = _GALAXY_FRAMES[i % 4]
-                sys.stdout.write(f"\r  {clr(frame, 'cyan', 'bold')} Initializing Dulus...")
-                sys.stdout.flush()
-                time.sleep(0.08)
-            sys.stdout.write(f"\r{' ' * 40}\r")
-            sys.stdout.flush()
+            from cli_animations import animate_spinner, animations_enabled
+            if animations_enabled(sys.stdout):
+                animate_spinner(
+                    0.32,
+                    style="orbit",
+                    message="Initializing Dulus",
+                    interval=0.06,
+                )
         except Exception:
             pass
 

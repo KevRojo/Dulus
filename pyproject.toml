@@ -149,6 +149,7 @@ where = ["."]
 include = [
     "backend*",
     "checkpoint*",
+    "cli_animations*",
     "data*",
     "docs*",
     "gui*",
