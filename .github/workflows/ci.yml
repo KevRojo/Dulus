@@ -1,0 +1,81 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.13"]
+
+    env:
+      DULUS_HOME: ${{ runner.temp }}/dulus-home
+      DULUS_LICENSE_SECRET: ci-only-test-secret
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install Dulus and test tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: python -m pytest -q
+
+  static:
+    name: Types and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DULUS_HOME: ${{ runner.temp }}/dulus-home
+      DULUS_LICENSE_SECRET: ci-only-test-secret
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install quality tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Type-check
+        run: pyright
+
+      - name: Compile all Python
+        run: python -m compileall -q .
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Validate package metadata and README
+        run: python -m twine check dist/*
