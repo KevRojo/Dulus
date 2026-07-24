@@ -354,8 +354,10 @@ def _run_mempalace_init() -> bool:
     """
     try:
         try:
-            from memory.store import USER_MEMORY_DIR
-            target_dir = USER_MEMORY_DIR
+            # Resolve live: USER_MEMORY_DIR is frozen at import time and goes
+            # stale if DULUS_HOME changed after startup.
+            from memory.store import get_memory_dir
+            target_dir = get_memory_dir("user")
         except Exception:
             from config import CONFIG_DIR
             target_dir = CONFIG_DIR / "memory"

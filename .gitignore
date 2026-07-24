@@ -22,9 +22,25 @@ sha3_wasm_bg.*.wasm
 # Local Context
 .dulus-context/
 
-# Sandbox
+# Sandbox — only the compiled bundle ships publicly.
+# The React/TypeScript sources are kept private; Flask, the GUI and
+# sandbox_bootstrap.py all read from sandbox/dist/ and never touch src/, so
+# the public tree stays runnable without carrying the source.
 sandbox/node_modules/
 sandbox/vite.log
+sandbox/src/
+sandbox/public/
+sandbox/package.json
+sandbox/package-lock.json
+sandbox/pnpm-lock.yaml
+sandbox/vite.config.ts
+sandbox/tsconfig*.json
+sandbox/tailwind.config.js
+sandbox/postcss.config.js
+sandbox/eslint.config.js
+sandbox/components.json
+sandbox/index.html
+!sandbox/dist/
 
 # Web GUI (React) — node_modules ignored; dist/ IS tracked (like sandbox/dist)
 # so pip installs ship a ready-to-run GUI without needing Node.
