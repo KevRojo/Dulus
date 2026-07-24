@@ -322,7 +322,10 @@ def uninstall_plugin(
             """Handle read-only files (e.g. .git pack files on Windows)."""
             os.chmod(path, stat.S_IWRITE)
             func(path)
-        shutil.rmtree(entry.install_dir, onexc=_force_remove)  # type: ignore[call-arg]
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(entry.install_dir, onexc=_force_remove)
+        else:
+            shutil.rmtree(entry.install_dir, onerror=_force_remove)
     _remove_entry(entry.name, entry.scope)
     return True, f"Plugin '{name}' uninstalled."
 

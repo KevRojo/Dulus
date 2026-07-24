@@ -48,15 +48,17 @@ def _watch_for_cancel() -> None:
         import msvcrt
         try:
             import ctypes
-            _user32 = ctypes.windll.user32
+            _user32 = getattr(ctypes, "windll").user32
         except Exception:
             _user32 = None
+        kbhit = getattr(msvcrt, "kbhit")
+        getwch = getattr(msvcrt, "getwch")
         VK_C = 0x43
         was_down = bool(_user32 and (_user32.GetAsyncKeyState(VK_C) & 0x8000))
         while not _stop_event.is_set():
             # Path 1: classic console read (works when no prompt is active).
-            if msvcrt.kbhit():
-                ch = msvcrt.getwch()
+            if kbhit():
+                ch = getwch()
                 if ch.lower() == 'c':
                     _stop_event.set()
                     print("\n  ⏹  TTS stopped.", flush=True)
@@ -126,7 +128,7 @@ def _play_windows_mci(file_path: str) -> None:
     """Play via MCI, polling _stop_event every 50ms to allow 'c' cancel."""
     try:
         import ctypes
-        winmm = ctypes.windll.winmm
+        winmm = getattr(ctypes, "windll").winmm
         abs_path = str(Path(file_path).resolve())
         ext = Path(file_path).suffix.lower()
         mci_type = {".wav": "waveaudio", ".mp3": "mpegvideo",

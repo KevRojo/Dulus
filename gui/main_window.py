@@ -687,7 +687,9 @@ class WebappLoader(ctk.CTkFrame):
         if hwnd:
             try:
                 import ctypes as _ctypes
-                _ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+                getattr(_ctypes, "windll").user32.PostMessageW(
+                    hwnd, 0x0010, 0, 0
+                )  # WM_CLOSE
             except Exception:
                 pass
             self._embedded_hwnd = 0
