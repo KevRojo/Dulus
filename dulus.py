@@ -2503,10 +2503,13 @@ def cmd_soul(args: str, state, config) -> bool:
     /soul <name>     — switch to <name> (e.g. chill, forensic) by injecting it
                        as an assistant message (same mechanism as startup load)
     """
-    from memory import USER_MEMORY_DIR
+    # Resolve live so a DULUS_HOME set after import still points at the right
+    # memory dir (USER_MEMORY_DIR is bound once, at import time).
+    from memory import get_memory_dir
     from config import save_config
 
-    soul_paths = sorted(USER_MEMORY_DIR.glob("soul*.md"))
+    user_memory_dir = get_memory_dir("user")
+    soul_paths = sorted(user_memory_dir.glob("soul*.md"))
     souls: list[tuple[str, str, str, str]] = []
     for p in soul_paths:
         try:
@@ -2528,7 +2531,7 @@ def cmd_soul(args: str, state, config) -> bool:
             souls.append((name, str(p), desc, body))
 
     if not souls:
-        warn("No soul files found in " + str(USER_MEMORY_DIR))
+        warn("No soul files found in " + str(user_memory_dir))
         return True
 
     arg = args.strip().lower()
@@ -10603,8 +10606,9 @@ def repl(config: dict, initial_prompt: str | None = None):
     # Loads the identity. One file, one soul: ~/.dulus/memory/soul.md.
     # Delete or rename the file to skip loading. Edit it to customize identity.
     try:
-        from memory import USER_MEMORY_DIR
-        soul_path = USER_MEMORY_DIR / "soul.md"
+        # Live resolution — see the note in cmd_soul().
+        from memory import get_memory_dir
+        soul_path = get_memory_dir("user") / "soul.md"
         if soul_path.exists():
             content = soul_path.read_text(encoding="utf-8", errors="replace")
             if content.strip():

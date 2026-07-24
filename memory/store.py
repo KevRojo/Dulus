@@ -28,7 +28,12 @@ def _user_memory_dir() -> Path:
     return Path(os.environ.get("DULUS_HOME") or (Path.home() / ".dulus")).expanduser() / "memory"
 
 
-# Backward-compatible name. Prefer get_memory_dir("user") for live resolution.
+# DEPRECATED — bound once, at import time. If DULUS_HOME changes afterwards
+# (workspace switch, tests, an embedding host) this keeps pointing at the old
+# home while everything using get_memory_dir("user") follows the new one, so
+# reads and writes silently land in different directories.
+# Kept only so external code importing the old name still works.
+# Use get_memory_dir("user") for anything that resolves a path at call time.
 USER_MEMORY_DIR = _user_memory_dir()
 INDEX_FILENAME = "MEMORY.md"
 

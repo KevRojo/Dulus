@@ -321,8 +321,12 @@ def _default_memory_dir() -> Path:
         Path to the Dulus memory directory.
     """
     try:
-        from memory.store import USER_MEMORY_DIR
-        return USER_MEMORY_DIR
+        # get_memory_dir() re-resolves DULUS_HOME on every call. The old
+        # USER_MEMORY_DIR constant is bound once at import time, so it went
+        # stale the moment DULUS_HOME changed after startup — soul.md would be
+        # read from one home while memory/palace.py wrote to another.
+        from memory.store import get_memory_dir
+        return get_memory_dir("user")
     except Exception:
         from config import CONFIG_DIR
         return CONFIG_DIR / "memory"
