@@ -66,8 +66,9 @@ The shortest route through the implementation is:
 git clone https://github.com/KevRojo/Dulus
 cd Dulus
 python -m venv .venv
-python -m pip install -e .
+python -m pip install -e ".[dev]"
 python -m pytest -q
+pyright
 ```
 
 Use a model that supports tool calling, then launch the editable install:

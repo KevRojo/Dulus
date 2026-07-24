@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ version = "3.10.25"
 description = "Provider-independent agent runtime for the terminal — cloud and local models, real tools, MCP, plugins, memory, sub-agents, and Dulus OS."
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "GPL-3.0"}
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [{name = "KevRojo"}]
 keywords = [
     "ai", "cli", "llm", "claude", "gemini", "nvidia", "openai",
@@ -18,7 +19,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -63,6 +63,12 @@ dependencies = [
 # in seconds everywhere; power users opt in with `pip install dulus[memory]`
 # (or `dulus[full]`) when they want MemPalace per-turn injection.
 [project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "pyright>=1.1.400",
+    "pytest>=8.0",
+    "twine>=5.0",
+]
 memory = ["mempalace>=3.3.4"]
 voice = ["sounddevice", "pyttsx3", "elevenlabs>=1.0.0"]
 webbridge = ["playwright>=1.40.0"]
