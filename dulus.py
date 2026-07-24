@@ -4886,9 +4886,10 @@ def _ipc_server_loop(config, state):
     # want a hard "port is taken, back off." SO_EXCLUSIVEADDRUSE gives us that.
     # On Linux, SO_REUSEADDR only matters for TIME_WAIT recovery, so skipping
     # it is fine — restart cooldown is a few seconds at worst.
-    if hasattr(_socket, "SO_EXCLUSIVEADDRUSE"):
+    exclusive_addr_use = getattr(_socket, "SO_EXCLUSIVEADDRUSE", None)
+    if exclusive_addr_use is not None:
         try:
-            sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_EXCLUSIVEADDRUSE, 1)
+            sock.setsockopt(_socket.SOL_SOCKET, exclusive_addr_use, 1)
         except OSError:
             pass
     try:
@@ -5114,7 +5115,7 @@ def _pager(header: str, lines: list, page_size: int = 30) -> None:
         """Read a single char without Enter (cross-platform)."""
         try:
             import msvcrt
-            return msvcrt.getwch()
+            return getattr(msvcrt, "getwch")()
         except Exception:
             pass
         try:
