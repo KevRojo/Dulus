@@ -649,8 +649,30 @@ def install(name: str, user_args: Optional[list[str]] = None, env_overrides: Opt
     if entry.installed:
         return False, f"MCP server '{name}' is already installed. Run '/mcp remove {name}' to reinstall."
 
-    # Check runtime availability
-    runtime_ok, runtime_msg = _check_runtime(entry.runtime)
+    # ── Guard: reject entries with no real launcher/endpoint ────────────────
+    # Some catalog sources (e.g. "awesome" — scraped from a GitHub README)
+    # only carry name/description/repo_url, never a real command or URL.
+    # Without this guard those entries sail through and get written to
+    # mcp.json with command="" (transport="stdio" default), which then
+    # blows up at connect time with "has no command configured". Reject
+    # them here instead, with a message pointing at the repo for manual setup.
+    if entry.transport == "stdio" and not (entry.command or "").strip():
+        msg = (
+            f"'{name}' has no installable command/package known to Dulus "
+            f"(catalog source: {entry.source})."
+        )
+        if entry.repo_url:
+            msg += f" Check {entry.repo_url} for manual setup instructions, then use '/mcp add' with the real command."
+        return False, msg
+    if entry.transport in ("sse", "http") and not (entry.url or "").strip():
+        msg = f"'{name}' has no endpoint URL known to Dulus (catalog source: {entry.source})."
+        if entry.repo_url:
+            msg += f" Check {entry.repo_url} for the correct URL."
+        return False, msg
+
+    # Check runtime availability (validates the exact launcher command too,
+    # not just a loose runtime category — see _check_runtime docstring)
+    runtime_ok, runtime_msg = _check_runtime(entry.runtime, entry.command)
     if not runtime_ok:
         return False, f"Cannot install '{name}': {runtime_msg}"
 
@@ -746,8 +768,28 @@ def get_status(name: str) -> dict:
 
 # ── Runtime detection ──────────────────────────────────────────────────────
 
-def _check_runtime(runtime: str) -> tuple[bool, str]:
-    """Check if the required runtime is available. Returns (ok, message)."""
+def _check_runtime(runtime: str, command: str = "") -> tuple[bool, str]:
+    """Check if the required runtime — and specifically the launcher command
+    the entry will actually invoke — is available. Returns (ok, message).
+
+    Why `command` matters: several curated servers tagged runtime="python"
+    actually launch via `uvx` (e.g. git, fetch), not via a plain `python`
+    interpreter. The old check accepted ANY of python/python3/uv/uvx being
+    present as proof the "python runtime" was satisfied — so on a machine
+    that has python.exe but never installed `uv`, servers needing `uvx`
+    would sail through this check, get marked "installed", and then fail
+    every single connection attempt with a raw FileNotFoundError/WinError 2.
+    We now also require the exact launcher binary to resolve via PATH.
+    """
+    if command and not shutil.which(command):
+        friendly = {
+            "uvx": "uv (install via https://astral.sh/uv or `pip install uv`) — needed for the 'uvx' launcher",
+            "uv": "uv (install via https://astral.sh/uv or `pip install uv`)",
+            "npx": "Node.js (install from https://nodejs.org) — needed for the 'npx' launcher",
+            "docker": "Docker (install from https://docker.com)",
+        }.get(command, f"the '{command}' command")
+        return False, f"Required launcher '{command}' not found on PATH. Install {friendly}."
+
     if not runtime:
         return True, ""
 
