@@ -5,7 +5,6 @@ Shares glyphs / colors / padding with the rest of the kit.
 from __future__ import annotations
 
 import random
-import sys
 import time
 from typing import TextIO
 
@@ -21,6 +20,7 @@ from .ansi import (
     animations_enabled,
     clr,
     pad,
+    resolve_stream,
     rgb_tuple,
 )
 from .spinners import CLAUDE_FRAMES, DULUS_PHRASES
@@ -55,7 +55,7 @@ def pipeline_status(stages: list[dict], *, stream: TextIO | None = None) -> None
 
     Each stage: ``{"name": str, "status": str, "detail": str?}``.
     """
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     n = len(stages)
     for i, stage in enumerate(stages):
         is_last = i == n - 1
@@ -90,7 +90,7 @@ def toast(message: str, *, kind: str = "info", stream: TextIO | None = None) -> 
         "error": (GLYPH["fail"], RED),
     }
     icon, color = styles.get(kind, styles["info"])
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     stream.write(pad(f"{rgb_tuple(color, icon)}  {clr(message, 'white')}") + "\n")
     stream.flush()
 
@@ -101,7 +101,7 @@ def animate_thinking(
     stream: TextIO | None = None,
 ) -> None:
     """Animate a thinking indicator for *duration* seconds."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(thinking_line(0, phrase or DULUS_PHRASES[0]) + "\n")
         stream.flush()

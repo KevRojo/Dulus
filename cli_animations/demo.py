@@ -51,14 +51,12 @@ from .status import (
 
 
 def _ensure_utf8() -> None:
-    if hasattr(sys.stdout, "reconfigure"):
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
         try:
-            sys.stdout.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
-    if hasattr(sys.stderr, "reconfigure"):
-        try:
-            sys.stderr.reconfigure(encoding="utf-8")
+            reconfigure(encoding="utf-8")
         except Exception:
             pass
 

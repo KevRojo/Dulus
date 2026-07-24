@@ -5,7 +5,6 @@ kit feels like one system, not four random widgets.
 """
 from __future__ import annotations
 
-import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -23,6 +22,7 @@ from .ansi import (
     clr,
     pad,
     render_track,
+    resolve_stream,
     rgb_tuple,
 )
 
@@ -137,7 +137,7 @@ def progress_bar(
     stream: TextIO | None = None,
 ):
     """Context manager yielding ``(update, set_progress)`` callables."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     state = {"current": 0}
     total = max(total, 1)
 
@@ -191,7 +191,7 @@ def indeterminate_bar(
     stream: TextIO | None = None,
 ):
     """Indeterminate shimmer bar — a glowing window slides along the track."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(pad(clr(f"{label}…", "dim")) + "\n")
         stream.flush()
@@ -249,7 +249,7 @@ def animate_progress_demo(
     stream: TextIO | None = None,
 ) -> None:
     """Animate a determinate bar from 0→100% (for demos)."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     if not animations_enabled(stream):
         stream.write(render_bar(1.0, label="Downloading") + "\n")
         stream.flush()

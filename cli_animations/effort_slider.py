@@ -11,7 +11,8 @@ from __future__ import annotations
 import sys
 import time
 from dataclasses import dataclass
-from typing import TextIO
+from importlib import import_module
+from typing import Any, TextIO, cast
 
 from .ansi import (
     C,
@@ -23,6 +24,7 @@ from .ansi import (
     clr,
     pad,
     render_track,
+    resolve_stream,
     rgb_tuple,
 )
 
@@ -69,7 +71,7 @@ def render_effort_slider(
     stream: TextIO | None = None,
 ) -> None:
     """Print a static effort slider at *index* — same track as progress bars."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     index = max(0, min(index, len(EFFORT_LEVELS) - 1))
     name, icon, desc = EFFORT_LEVELS[index]
     frac = _fraction_for_index(index)
@@ -118,8 +120,8 @@ def _stdin_is_tty() -> bool:
 
 
 def _read_key_unix() -> str:
-    import termios
-    import tty
+    termios = cast(Any, import_module("termios"))
+    tty = cast(Any, import_module("tty"))
 
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -134,18 +136,18 @@ def _read_key_unix() -> str:
 
 
 def _read_key_windows() -> str:
-    import msvcrt  # type: ignore[import-not-found]
+    msvcrt = cast(Any, import_module("msvcrt"))
 
-    ch = msvcrt.getwch()
+    ch = str(msvcrt.getwch())
     if ch in ("\x00", "\xe0"):
-        scan = msvcrt.getwch()
+        scan = str(msvcrt.getwch())
         mapping = {
             "K": "\x1b[D",
             "M": "\x1b[C",
             "H": "\x1b[A",
             "P": "\x1b[B",
         }
-        return mapping.get(scan, scan)
+        return mapping[scan] if scan in mapping else scan
     if ch == "\r":
         return "\r"
     if ch == "\x03":
@@ -194,7 +196,7 @@ def select_effort(
     stream: TextIO | None = None,
 ) -> EffortConfig:
     """Interactive effort slider (TTY) or numbered menu (fallback)."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     cfg = EffortConfig.from_level(initial)
     n = len(EFFORT_LEVELS)
 
@@ -258,7 +260,7 @@ def effort_ramp_animation(
     stream: TextIO | None = None,
 ) -> None:
     """Animate slider ramping up to *target* effort."""
-    stream = stream or sys.stdout
+    stream = resolve_stream(stream)
     names = [e[0] for e in EFFORT_LEVELS]
     target_idx = names.index(target) if target in names else len(names) - 1
     if not animations_enabled(stream):
