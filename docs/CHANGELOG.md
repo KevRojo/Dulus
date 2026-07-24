@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.23] - 2026-07-24
+
+### Security
+- **WebChat now authenticates once it leaves loopback.** The API can run shell
+  (`/api/sandbox/exec`), read and write files and spend model tokens. That is
+  harmless bound to `127.0.0.1`, where only you can reach it — but `/webchat
+  lan on`, a container or any cloud host previously exposed all of it with no
+  credential at all. A `before_request` gate now covers every endpoint:
+  - `DULUS_WEBCHAT_TOKEN` sets the secret; when unset one is generated and
+    printed once at startup.
+  - `DULUS_WEBCHAT_AUTH` — `auto` (default: on only once the bind leaves
+    loopback), `always`, or `off`.
+  - Clients may present it as `X-Dulus-Token`, `Authorization: Bearer <tok>`
+    or `?token=`.
+  - `/api/health` and the static UI stay reachable so health probes and page
+    loads still work; every functional call behind them is gated.
+  - Loopback runs are unchanged — no token required — but a cross-site browser
+    request is now refused (`403`), closing a CSRF path to the local agent.
+  Because the gate is a `before_request` hook rather than per-route opt-in,
+  endpoints added later are protected by default.
+
 ## [3.10.22] - 2026-07-24
 
 ### Fixed

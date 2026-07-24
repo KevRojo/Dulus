@@ -180,6 +180,129 @@ _SERVER_THREAD: threading.Thread | None = None
 _SERVER_PORT: int = 5000
 _WERKZEUG_SERVER = None
 
+# ── WebChat authentication ─────────────────────────────────────────────────
+# This API can run shell (/api/sandbox/exec), read and write files, and spend
+# model tokens. That is harmless on loopback, where only you can reach it, and
+# dangerous the moment the server binds anything else — a LAN, a container, a
+# cloud host. So auth switches itself on exactly when the bind leaves loopback.
+#
+#   DULUS_WEBCHAT_TOKEN — the shared secret. Auto-generated and printed once
+#                         at startup when unset.
+#   DULUS_WEBCHAT_AUTH  — "auto" (default: on only once exposed) | "always" | "off"
+#
+# Clients may present it as `X-Dulus-Token`, `Authorization: Bearer <tok>`,
+# or `?token=`.
+import os as _os_env
+import secrets as _secrets
+from urllib.parse import urlparse as _urlparse
+
+_WEBCHAT_TOKEN: str | None = None
+_TOKEN_AUTOGEN = False
+_LAN_EXPOSED = False  # True once the bind leaves loopback (0.0.0.0 / a LAN IP)
+_LOOPBACK_ADDRS = {"127.0.0.1", "::1", "localhost"}
+_LOOPBACK_ORIGIN_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _resolve_token() -> tuple[str, bool]:
+    env_tok = _os_env.environ.get("DULUS_WEBCHAT_TOKEN", "").strip()
+    if env_tok:
+        return env_tok, False
+    return _secrets.token_urlsafe(24), True
+
+
+def _auth_mode() -> str:
+    mode = _os_env.environ.get("DULUS_WEBCHAT_AUTH", "auto").strip().lower()
+    return mode if mode in ("auto", "always", "off") else "auto"
+
+
+def _auth_active() -> bool:
+    mode = _auth_mode()
+    if mode == "always":
+        return True
+    if mode == "off":
+        return False
+    return _LAN_EXPOSED
+
+
+def _request_token() -> str:
+    tok = (request.headers.get("X-Dulus-Token") or "").strip()
+    if not tok:
+        auth = (request.headers.get("Authorization") or "").strip()
+        if auth.lower().startswith("bearer "):
+            tok = auth[7:].strip()
+    if not tok:
+        tok = (request.args.get("token") or "").strip()
+    return tok
+
+
+def _token_ok(tok: str) -> bool:
+    return bool(_WEBCHAT_TOKEN) and bool(tok) and _secrets.compare_digest(tok, _WEBCHAT_TOKEN)
+
+
+def _cross_site_browser_ride() -> bool:
+    """Anti-CSRF: a browser sitting on some other site poking the local server."""
+    sfs = (request.headers.get("Sec-Fetch-Site") or "").lower()
+    if sfs == "cross-site":
+        return True
+    origin = request.headers.get("Origin")
+    if origin:
+        try:
+            host = (_urlparse(origin).hostname or "").lower()
+        except Exception:
+            return True
+        if host not in _LOOPBACK_ORIGIN_HOSTS:
+            return True
+    return False
+
+
+def _local_ui_exempt() -> bool:
+    """The UI this server itself served, over a real loopback socket.
+
+    Requires a genuine loopback peer (a remote client cannot forge remote_addr)
+    plus browser evidence of same-origin. A malicious page sends its own Origin
+    or a cross-site Sec-Fetch-Site, so it never qualifies.
+    """
+    if (request.remote_addr or "") not in _LOOPBACK_ADDRS:
+        return False
+    origin = request.headers.get("Origin")
+    if origin:
+        try:
+            host = (_urlparse(origin).hostname or "").lower()
+        except Exception:
+            return False
+        return host in _LOOPBACK_ORIGIN_HOSTS
+    sfs = (request.headers.get("Sec-Fetch-Site") or "").lower()
+    return sfs in ("same-origin", "same-site", "none")
+
+
+def _is_public_path() -> bool:
+    """Health probe and the static UI. Serving the HTML/JS is not privileged —
+    every functional call it then makes is still gated."""
+    path = request.path or "/"
+    if path == "/api/health":
+        return True
+    return request.method == "GET" and not path.startswith("/api/") and path != "/chat"
+
+
+def _require_auth():
+    """Gate every request. None to allow, or (response, status) to reject.
+
+    Applied as a before_request hook so endpoints added later are protected by
+    default rather than by remembering to opt in.
+    """
+    if request.method == "OPTIONS" or _is_public_path():
+        return None
+    if _token_ok(_request_token()):
+        return None
+    if not _auth_active():
+        # Loopback-only: no token needed, but never let another site ride along.
+        if _cross_site_browser_ride():
+            return jsonify(error="forbidden: cross-site request blocked"), 403
+        return None
+    if _local_ui_exempt():
+        return None
+    return jsonify(error="unauthorized: token required (X-Dulus-Token)"), 401
+
 # ── roundtable state ───────────────────────────────────────────────────────
 class RoundtableAgent:
     def __init__(self, agent_id: str, model: str):
@@ -567,6 +690,17 @@ def create_app() -> Flask:
     import logging as _logging
     _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
     app.logger.disabled = True
+
+    # Gate every request before it reaches a route (see _require_auth). Doing
+    # it here, rather than per-endpoint, means a route added later is protected
+    # by default instead of by remembering to opt in.
+    @app.before_request
+    def _auth_gate():  # type: ignore[unused-ignore]
+        denied = _require_auth()
+        if denied is not None:
+            body, status = denied
+            return body, status
+        return None
 
     # ── CORS: open allow-list for cross-origin clients ───────────────────
     # The Android sandbox APK loads its bundled React UI from a synthetic
@@ -4444,6 +4578,20 @@ def start(state: AgentState, config: dict, port: int = 5000, open_browser: bool 
     # safety footgun (anyone on the wifi can poke the agent). Opt-in via
     # config["webchat_lan"] = true (or /webchat lan on).
     bind_host = "0.0.0.0" if config.get("webchat_lan") else "127.0.0.1"
+
+    # Auth follows the bind: leaving loopback turns the token requirement on
+    # (unless DULUS_WEBCHAT_AUTH says otherwise). Print an auto-generated
+    # token once so an exposed server is still usable.
+    global _WEBCHAT_TOKEN, _TOKEN_AUTOGEN, _LAN_EXPOSED
+    _LAN_EXPOSED = bind_host != "127.0.0.1"
+    _WEBCHAT_TOKEN, _TOKEN_AUTOGEN = _resolve_token()
+    if _auth_active():
+        if _TOKEN_AUTOGEN:
+            print(f"[webchat] auth on ({bind_host}) — token: {_WEBCHAT_TOKEN}", flush=True)
+            print("[webchat] set DULUS_WEBCHAT_TOKEN to pin it across restarts.", flush=True)
+        else:
+            print(f"[webchat] auth on ({bind_host}) — using DULUS_WEBCHAT_TOKEN.", flush=True)
+
     _WERKZEUG_SERVER = make_server(bind_host, port, app, threaded=True)
     _SERVER_THREAD = threading.Thread(target=_WERKZEUG_SERVER.serve_forever, daemon=True)
     _SERVER_THREAD.start()
