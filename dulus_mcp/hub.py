@@ -622,9 +622,18 @@ def search(query: str) -> list[MCPServerEntry]:
 # ── Get single server ──────────────────────────────────────────────────────
 
 def get_server(name: str) -> Optional[MCPServerEntry]:
-    """Find an MCP server by name across all sources."""
+    """Find an MCP server by name across all sources.
+
+    Case-insensitive: catalog names are lowercase by convention (e.g. "make",
+    "github"), but a server the GUI or a prior install wrote to mcp.json may
+    be stored with a different case (e.g. "Make", "GitHub" — whatever the
+    user/GUI passed at install time). Without this, `/mcp install MAKE` or
+    a lookup with any case mismatch silently returned "not found" even
+    though the exact same server (just different case) exists.
+    """
+    target = name.strip().lower()
     for entry in list_all():
-        if entry.name == name or entry.config_name == name:
+        if entry.name.lower() == target or entry.config_name.lower() == target:
             return entry
     return None
 
@@ -741,7 +750,15 @@ def get_status(name: str) -> dict:
 
     configs = load_mcp_configs()
     if name not in configs:
-        return {"name": name, "state": "not_configured", "tools": 0, "error": "Not installed"}
+        # Case-insensitive fallback — same reasoning as get_server(): a server
+        # may be stored in mcp.json under a different case than what's passed
+        # in here (GUI polling, user typing, etc.), and without this a status
+        # check on e.g. "MAKE" would falsely report "not_configured" even
+        # though "Make" is installed and connected.
+        resolved = next((c for c in configs if c.lower() == name.lower()), None)
+        if resolved is None:
+            return {"name": name, "state": "not_configured", "tools": 0, "error": "Not installed"}
+        name = resolved
 
     cfg = configs[name]
     client = MCPClient(cfg)
