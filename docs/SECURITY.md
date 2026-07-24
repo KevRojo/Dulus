@@ -8,10 +8,8 @@
 
 | Version | Supported |
 |---|---|
-| 3.2.x | :white_check_mark: Current stable |
-| 3.1.x | :white_check_mark: Security fixes only |
-| 3.0.x | :x: End of life |
-| < 3.0 | :x: Not supported |
+| Latest PyPI / GitHub release | :white_check_mark: Actively supported |
+| Older releases | Upgrade recommended; fixes are not guaranteed to be backported |
 
 ---
 
@@ -23,31 +21,40 @@ Dulus operates with a tiered permission system:
 
 | Mode | Behavior | Use Case |
 |---|---|---|
-| `auto` | Reads always allowed. Prompts before writes/shell. | Daily development |
-| `manual` | Prompts for every operation | Sensitive environments |
+| `auto` | Reads and known-safe shell commands run freely. Writes and unsafe shell commands prompt. | Daily development |
+| `manual` | Strict interactive approval mode. | Sensitive environments |
 | `plan` | Read-only analysis. Only plan file writable | Code review |
-| `accept-all` | No prompts (dangerous) | CI/CD pipelines only |
+| `accept-all` | No prompts. | Trusted sandboxes and controlled automation only |
 
 ### API Key Protection
 
-- Keys stored in `~/.dulus/config.json` are encrypted with XOR + base64
-- Environment variable bridging only sets vars that aren't already present
-- No keys are ever logged or transmitted outside of API calls
-- Keys can be rotated via `/config <provider>_api_key=new_key`
+- API-key fields stored in `~/.dulus/config.json` are obfuscated with XOR + base64.
+- Set `DULUS_SECRET` to replace the built-in compatibility key.
+- Environment variable bridging does not overwrite variables that are already present.
+- Secrets are redacted from configuration and diagnostic output where those paths are handled.
+- Keys can be rotated with `/config <provider>_api_key=new_key`.
+
+This storage format is **not cryptographic secret storage**. It prevents casual
+plaintext disclosure but does not protect against an attacker who can read the
+configuration and application source. Use operating-system permissions, full-disk
+encryption, short-lived credentials, or a separate secret manager for stronger
+protection.
 
 ### Safe Execution
 
 - **Bash whitelist:** Safe commands (`ls`, `cat`, `grep`) auto-approve in `auto` mode
-- **Dangerous commands** (`rm`, `dd`, `mkfs`, etc.) always require explicit approval
-- **Network isolation:** All tool execution happens locally
-- **Sandbox:** Experimental browser-based OS for isolated execution
+- **Mutation gate:** File writes and shell commands outside the safe-command set request approval unless `accept-all` is active
+- **Plan mode:** Blocks mutating tools while preserving a writable plan artifact
+- **Auditability:** Tool requests and results remain visible in the active session
+- **Worktree isolation:** Sub-agents can work in separate git worktrees to reduce accidental overlap
 
 ### Data Privacy
 
-- All processing happens on your machine
-- No telemetry, analytics, or tracking
-- MemPalace data stays local (`~/.dulus/memory/`)
-- Conversations are not sent to any third party (except your chosen AI provider)
+- Dulus runs locally and stores its sessions, tasks, and memory on the machine.
+- Prompts and tool context are sent to the provider you select unless you use a local model.
+- Plugins, MCP servers, browser-backed providers, search tools, and bridges may contact their own services; review them before enabling them.
+- Memory stays under `~/.dulus/memory/` and project-local `.dulus/memory/` unless a configured integration moves that data.
+- Telemetry is opt-in. When enabled, operational events exclude prompts, responses, file contents, paths, credentials, emails, and usernames.
 
 ---
 
@@ -96,7 +103,7 @@ We publicly credit security researchers who report valid vulnerabilities (with t
 ```
 /permissions auto        # Default — safe for daily use
 /permissions manual      # When working with sensitive data
-/permissions plan        # For read-only analysis
+/plan                    # Enter read-only planning mode
 ```
 
 ### 2. Protect Your Config Directory
@@ -143,19 +150,11 @@ cat ~/.dulus/mcp.json
 
 ## Known Limitations
 
-1. **Config encryption** is XOR + base64 — protects against casual snooping but is not military-grade. Use full-disk encryption for strong protection.
-2. **Browser harvest** requires Dulus to manage browser cookies. Use only on trusted machines.
-3. **`accept-all` mode** is dangerous — never use it in production or with sensitive data.
-4. **Sub-agents** run with the same permissions as the parent. Use governance layer to restrict.
-
----
-
-## Compliance
-
-Dulus is designed to be compliant with:
-- **GDPR** — No personal data collection, all processing local
-- **CCPA** — No data selling, no tracking
-- **SOC 2** (future) — Audit logs, access controls planned for Enterprise tier
+1. **Config obfuscation is reversible.** Use operating-system or external secret storage for strong protection.
+2. **Browser-backed providers manage session cookies or tokens.** Use them only on trusted machines and rotate sessions after suspected exposure.
+3. **`accept-all` removes the approval boundary.** Do not use it with sensitive data or on an untrusted checkout.
+4. **Third-party code runs with your user permissions.** Review plugins, skills, MCP servers, hooks, and generated adapters before enabling them.
+5. **Sub-agents are not a security boundary.** Worktrees isolate files, not operating-system privileges.
 
 ---
 

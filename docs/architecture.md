@@ -410,7 +410,7 @@ The sub-agent architecture is designed to be network-transparent. Future version
 ## Testing
 
 ```bash
-# Run all 263+ tests
+# Run the complete 780+ test suite
 python -m pytest tests/ -v
 
 # Run specific module tests

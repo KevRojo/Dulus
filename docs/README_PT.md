@@ -43,13 +43,13 @@
 | **Tempo de setup** | Horas + aprovacoes | Dias de config | **30 segundos** |
 | **Custo inicial** | $$$ + chaves API | $$$ + infra | **$0** |
 | **Lock-in** | Provedor unico | Provedor unico | **100+ provedores** |
-| **Codebase** | Caixa preta | 100K+ linhas | **~12K linhas legiveis** |
+| **Codebase** | Caixa preta | 100K+ linhas | **~56K linhas Python proprias** |
 | **Voz** | Apenas nuvem | Nao incluido | **Whisper offline** |
 | **Memoria** | Apenas contexto | Manual | **MemPalace semantica** |
 
 **O problema:** Agentes de IA hoje estao bloqueados em um unico provedor ou exigem um doutorado em engenharia ML para configurar. E todos querem seu cartao de credito antes que voce possa experimenta-los.
 
-**A solucao:** Dulus. Um agente autonomo Python que se conecta a qualquer modelo — de sessoes de navegador gratuitas a 100+ provedores pagos via LiteLLM, a modelos locais no seu Mac M2. ~12K linhas de Python legivel. Sem build step. Sem gatekeeping.
+**A solucao:** Dulus. Um agente autonomo Python que se conecta a qualquer modelo — de sessoes de navegador gratuitas a 100+ provedores pagos via LiteLLM e modelos locais no seu proprio hardware. ~56K linhas Python proprias. Sem build step. Sem gatekeeping.
 
 ---
 

@@ -70,7 +70,7 @@ dulus/
   task/                 # Task management
   webbridge/            # Playwright browser automation
   dulus_mcp/            # MCP client
-  tests/                # 263+ tests
+  tests/                # 780+ tests
 ```
 
 **Key invariant:** Dependencies flow downward. `dulus.py` imports `agent.py`, which imports `providers.py`, `tool_registry.py`, `compaction.py`, etc. No circular imports at the module level.

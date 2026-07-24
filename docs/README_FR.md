@@ -43,13 +43,13 @@
 | **Temps de setup** | Heures + approbations | Jours de config | **30 secondes** |
 | **Cout initial** | $$$ + cles API | $$$ + infra | **0 $** |
 | **Verrouillage** | Fournisseur unique | Fournisseur unique | **100+ fournisseurs** |
-| **Codebase** | Boite noire | 100K+ lignes | **~12K lignes lisibles** |
+| **Codebase** | Boite noire | 100K+ lignes | **~56K lignes Python proprietaires** |
 | **Voix** | Cloud uniquement | Non inclus | **Whisper hors ligne** |
 | **Memoire** | Contexte seul | Manuelle | **MemPalace semantique** |
 
 **Le probleme :** Les agents IA aujourd'hui sont verrouilles sur un seul fournisseur ou necessitent un doctorat en ML pour les configurer. Et ils veulent tous votre carte de credit avant que vous puissiez les essayer.
 
-**La solution :** Dulus. Un agent autonome Python qui se connecte a n'importe quel modele — des sessions navigateur gratuites a 100+ fournisseurs via LiteLLM, aux modeles locaux sur votre Mac M2. ~12K lignes de Python lisible. Pas d'etape de build. Pas de gatekeeping.
+**La solution :** Dulus. Un agent autonome Python qui se connecte a n'importe quel modele — des sessions navigateur gratuites a 100+ fournisseurs via LiteLLM et aux modeles locaux sur votre propre materiel. ~56K lignes de Python proprietaire. Pas d'etape de build. Pas de gatekeeping.
 
 ---
 
