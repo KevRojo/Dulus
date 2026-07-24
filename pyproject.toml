@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "3.10.25"
+version = "3.10.26"
 description = "Provider-independent agent runtime for the terminal — cloud and local models, real tools, MCP, plugins, memory, sub-agents, and Dulus OS."
 readme = "README.md"
 requires-python = ">=3.11"
