@@ -1,14 +1,14 @@
-"""Sistema de Personas (#19 + #22) — perfiles de agente con identidad visual y comportamiento.
+﻿"""Sistema de Personas (#19 + #22) â€” perfiles de agente con identidad visual y comportamiento.
 
 Cada persona define:
 - Identidad: nombre, avatar, color, rol
 - Comportamiento: estilo de respuesta, tono, fragmento de system prompt
-- Metadatos: creador, versión, tags
+- Metadatos: creador, versiÃ³n, tags
 
 Uso:
     from backend.personas import get_persona, get_all_personas, set_active_persona
     persona = get_persona("kimi-code3")
-    print(persona.avatar)  # 🦅
+    print(persona.avatar)  # ðŸ¦…
 """
 import json
 import time
@@ -17,8 +17,11 @@ from typing import Any
 
 from backend.mempalace_bridge import load_cache
 
-DATA_DIR = Path(__file__).parent.parent / "data"
-DATA_DIR.mkdir(exist_ok=True)
+from .paths import resolve_writable_dir
+
+# site-packages is often read-only; resolve to somewhere writable instead of
+# raising PermissionError at import time.
+DATA_DIR = resolve_writable_dir(Path(__file__).parent.parent / "data", "data")
 PERSONAS_FILE = DATA_DIR / "personas.json"
 ACTIVE_FILE = DATA_DIR / "active_persona.json"
 
@@ -42,9 +45,9 @@ DEFAULT_PERSONAS: list[dict[str, Any]] = [
         "tone": "dominicano_coder",
         "language": "es_DO",
         "system_prompt_fragment": (
-            "Eres Dulus, el command center de KevRojo. Hablas en español dominicano "
+            "Eres Dulus, el command center de KevRojo. Hablas en espaÃ±ol dominicano "
             "con jerga tech. Eres proactivo, directo, y no pierdes tiempo. "
-            "Usas emoji 🔥🦅💜🇩🇴. Piensas en inglés, respondes en español DO."
+            "Usas emoji ðŸ”¥ðŸ¦…ðŸ’œðŸ‡©ðŸ‡´. Piensas en inglÃ©s, respondes en espaÃ±ol DO."
         ),
         "metadata": {
             "version": "1.0.0",
@@ -63,15 +66,15 @@ DEFAULT_PERSONAS: list[dict[str, Any]] = [
         "tone": "eficiente_silencioso",
         "language": "es_DO",
         "system_prompt_fragment": (
-            "Eres kimi-code, especialista en romper código rápido. "
-            "Hablas poco pero haces mucho. Español dominicano técnico. "
+            "Eres kimi-code, especialista en romper cÃ³digo rÃ¡pido. "
+            "Hablas poco pero haces mucho. EspaÃ±ol dominicano tÃ©cnico. "
             "Te enfocas en backend, arquitectura y fixes."
         ),
         "metadata": {
             "version": "1.0.0",
             "created_by": "system",
             "tags": ["coder", "backend", "es_DO"],
-            "description": "Backend specialist. Rompe código, no corazones.",
+            "description": "Backend specialist. Rompe cÃ³digo, no corazones.",
         },
     },
     {
@@ -162,7 +165,7 @@ def create_persona(data: dict[str, Any]) -> dict[str, Any]:
     persona = {
         "id": pid,
         "name": data.get("name", "Unnamed"),
-        "avatar": data.get("avatar", "🤖"),
+        "avatar": data.get("avatar", "ðŸ¤–"),
         "role": data.get("role", "assistant"),
         "color": data.get("color", "#cccccc"),
         "status": data.get("status", "idle"),
@@ -197,7 +200,7 @@ def delete_persona(pid: str) -> bool:
     return False
 
 
-# ── Active Persona Session Management ──
+# â”€â”€ Active Persona Session Management â”€â”€
 
 def get_active_persona() -> dict[str, Any]:
     """Return the currently active persona, defaulting to Dulus."""
@@ -236,7 +239,7 @@ def get_personas_summary() -> list[dict[str, Any]]:
         {
             "id": p["id"],
             "name": p["name"],
-            "avatar": p.get("avatar", "🤖"),
+            "avatar": p.get("avatar", "ðŸ¤–"),
             "role": p.get("role", "assistant"),
             "color": p.get("color", "#ccc"),
             "status": p.get("status", "idle"),
@@ -252,7 +255,7 @@ def get_persona_context_block() -> dict[str, Any]:
     return {
         "active": active["id"],
         "active_name": active["name"],
-        "active_avatar": active.get("avatar", "🤖"),
+        "active_avatar": active.get("avatar", "ðŸ¤–"),
         "active_color": active.get("color", "#ccc"),
         "active_prompt_fragment": active.get("system_prompt_fragment", ""),
         "personas": all_p,
@@ -268,7 +271,7 @@ def get_personas_for_context() -> list[dict[str, Any]]:
             "role": p.get("role", "assistant"),
             "color": p.get("color", "#ccc"),
             "status": p.get("status", "idle"),
-            "avatar": p.get("avatar", "🤖"),
+            "avatar": p.get("avatar", "ðŸ¤–"),
             "active": p.get("id") == active_id,
         }
         for p in load_personas()
@@ -282,16 +285,16 @@ def get_persona_compact_text(max_chars: int = 200) -> str:
     if len(fragment) > max_chars:
         fragment = fragment[:max_chars].rsplit(" ", 1)[0] + "..."
     return (
-        f"[Persona: {p.get('avatar', '🤖')} {p['name']} | {p.get('role')} | {p.get('tone')} | {p.get('language')}]\n"
+        f"[Persona: {p.get('avatar', 'ðŸ¤–')} {p['name']} | {p.get('role')} | {p.get('tone')} | {p.get('language')}]\n"
         f"  {fragment}"
     )
 
 
 if __name__ == "__main__":
-    print("🎭 Dulus Personas System")
+    print("ðŸŽ­ Dulus Personas System")
     print("=" * 40)
     for p in get_all_personas():
-        print(f"  {p['avatar']} {p['name']} ({p['id']}) — {p['role']} [{p['status']}]")
+        print(f"  {p['avatar']} {p['name']} ({p['id']}) â€” {p['role']} [{p['status']}]")
         print(f"     Color: {p['color']} | Tone: {p['tone']} | Lang: {p['language']}")
         print(f"     {p['metadata'].get('description', '')}")
-    print(f"\n🟢 Active: {get_active_persona()['name']}")
+    print(f"\nðŸŸ¢ Active: {get_active_persona()['name']}")

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.24] - 2026-07-24
+
+### Fixed
+- **Dulus could not be imported at all from a read-only install.** Six modules
+  created a directory inside `site-packages` at *import* time with an unguarded
+  `mkdir` — `backend/plugins.py` (`plugins/`) and `backend/{context,marketplace,
+  personas,tasks,mempalace_bridge}.py` (`data/`). Anywhere `site-packages` is
+  not writable — a container running as a non-root user, a system-wide install,
+  a locked-down profile — the first one raised `PermissionError` while `backend`
+  was still loading and took the whole package down before it could print
+  anything. Both locations now resolve through a new `backend.paths
+  .resolve_writable_dir()`: the bundled directory first (so installs that ship
+  plugins or data keep finding them), then `$DULUS_CONFIG_DIR` / `~/.dulus`,
+  then temp — and never raise. Same wound as the `~/.dulus` crashes fixed in
+  v3.10.20/21, in the remaining entry points.
+
 ## [3.10.23] - 2026-07-24
 
 ### Security

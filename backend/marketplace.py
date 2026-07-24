@@ -1,16 +1,19 @@
-"""Plugin Marketplace — esqueleto y registry de plugins disponibles. (#20)
+﻿"""Plugin Marketplace â€” esqueleto y registry de plugins disponibles. (#20)
 
-Este módulo maneja:
+Este mÃ³dulo maneja:
 - Registry local de plugins conocidos
 - Metadatos de plugins del marketplace
-- Instalación simulada/remota de plugins
+- InstalaciÃ³n simulada/remota de plugins
 """
 import json
 from pathlib import Path
 from typing import Any
 
-DATA_DIR = Path(__file__).parent.parent / "data"
-DATA_DIR.mkdir(exist_ok=True)
+from .paths import resolve_writable_dir
+
+# site-packages is often read-only; resolve to somewhere writable instead of
+# raising PermissionError at import time.
+DATA_DIR = resolve_writable_dir(Path(__file__).parent.parent / "data", "data")
 MARKETPLACE_FILE = DATA_DIR / "marketplace.json"
 
 # Plugins pre-registrados en el marketplace oficial
@@ -133,9 +136,9 @@ def get_stats() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print("🛒 Dulus Plugin Marketplace v0.1")
+    print("ðŸ›’ Dulus Plugin Marketplace v0.1")
     print("=" * 40)
     for p in load_registry():
-        status = "✅" if p["installed"] else "⬜"
-        print(f"{status} {p['name']} v{p['version']} — {p['description'][:50]}...")
+        status = "âœ…" if p["installed"] else "â¬œ"
+        print(f"{status} {p['name']} v{p['version']} â€” {p['description'][:50]}...")
     print(f"\nStats: {json.dumps(get_stats(), indent=2)}")
