@@ -7,8 +7,11 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-PLUGINS_DIR = Path(__file__).parent.parent / "plugins"
-PLUGINS_DIR.mkdir(exist_ok=True)
+from .paths import resolve_writable_dir
+
+# site-packages is often read-only; resolve to somewhere writable instead of
+# raising PermissionError at import time.
+PLUGINS_DIR = resolve_writable_dir(Path(__file__).parent.parent / "plugins", "plugins")
 
 _hooks: dict[str, list[Callable]] = {}
 _registry: dict[str, dict[str, Any]] = {}
