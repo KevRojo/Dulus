@@ -278,7 +278,6 @@ Try `Glob *.py` to find it.
 |---|---|---|
 | Bird (PNG) | `docs/dulus-bird.png` | Primary visual |
 | Divider | `docs/divider.svg` | Section separators |
-| Hero banner | `docs/hero.svg` | Website hero |
 | Terminal boot | `docs/terminal-boot.svg` | README illustration |
 | Badges | Generated via shields.io | GitHub README |
 
