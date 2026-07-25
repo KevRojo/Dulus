@@ -30,6 +30,13 @@ from typing import Any, Iterable, Optional, cast
 # leaving overlapping audio with no way to interrupt. Lock keeps audio sequential.
 _stop_event = threading.Event()
 _say_lock = threading.Lock()
+# Timestamp of the last user cancel. When several utterances are queued, hitting
+# 'c'/Ctrl+C on one must silence the whole burst — but each say() clears
+# _stop_event, which would let the next queued line speak right through the
+# cancel. A short guard window (below) swallows utterances that start within
+# _CANCEL_GUARD_S of a cancel so the burst actually stops.
+_last_cancel_ts = 0.0
+_CANCEL_GUARD_S = 1.0
 
 def _watch_for_cancel() -> None:
     """Background thread: set _stop_event if user presses 'c'.
@@ -44,6 +51,7 @@ def _watch_for_cancel() -> None:
          so a held key doesn't retrigger.
     Also sleeps 30ms per iteration — the old loop busy-spun at 100% CPU.
     """
+    global _last_cancel_ts
     try:
         import msvcrt
         try:
@@ -60,6 +68,7 @@ def _watch_for_cancel() -> None:
             if kbhit():
                 ch = getwch()
                 if ch.lower() == 'c':
+                    _last_cancel_ts = time.time()
                     _stop_event.set()
                     print("\n  ⏹  TTS stopped.", flush=True)
                     return
@@ -68,6 +77,7 @@ def _watch_for_cancel() -> None:
             if _user32 is not None:
                 is_down = bool(_user32.GetAsyncKeyState(VK_C) & 0x8000)
                 if is_down and not was_down:
+                    _last_cancel_ts = time.time()
                     _stop_event.set()
                     print("\n  ⏹  TTS stopped.", flush=True)
                     return
@@ -84,7 +94,12 @@ def _play_audio_file(file_path: str | Path) -> None:
     _shutil = __import__("shutil")
 
     def _run_player(cmd: list[str]) -> bool:
-        """Launch player and poll _stop_event. Returns True if launched."""
+        """Launch player and poll _stop_event. Returns True if launched.
+
+        The finally kills the child on EVERY exit — natural end, 'c' cancel, and
+        a Ctrl+C KeyboardInterrupt (BaseException) — so no player process is ever
+        left playing after the call returns or the interrupt propagates.
+        """
         try:
             proc = subprocess.Popen(cmd)
         except OSError:
@@ -92,12 +107,18 @@ def _play_audio_file(file_path: str | Path) -> None:
         try:
             while proc.poll() is None:
                 if _stop_event.is_set():
-                    proc.terminate()
-                    return True
+                    break
                 time.sleep(0.05)
+        except BaseException:
+            _stop_event.set()
+            raise
         finally:
             if proc.poll() is None:
-                proc.kill()
+                proc.terminate()
+                try:
+                    proc.wait(timeout=1.0)
+                except Exception:
+                    proc.kill()
         return True
 
     # Try ffplay
@@ -125,7 +146,15 @@ def _play_audio_file(file_path: str | Path) -> None:
 
 
 def _play_windows_mci(file_path: str) -> None:
-    """Play via MCI, polling _stop_event every 50ms to allow 'c' cancel."""
+    """Play via MCI, polling _stop_event every 50ms to allow 'c' cancel.
+
+    'play' is ASYNCHRONOUS — the OS keeps the sound alive on its own, so only an
+    explicit 'stop'+'close' silences it. Therefore EVERY exit path must run the
+    teardown: natural end, 'c' cancel, and especially a Ctrl+C KeyboardInterrupt
+    (which is a BaseException, NOT an Exception — the old `except Exception`
+    never caught it, so the clip kept playing as a zombie and the alias leaked).
+    Hence the try/finally that always tears the track down.
+    """
     try:
         import ctypes
         winmm = getattr(ctypes, "windll").winmm
@@ -133,21 +162,36 @@ def _play_windows_mci(file_path: str) -> None:
         ext = Path(file_path).suffix.lower()
         mci_type = {".wav": "waveaudio", ".mp3": "mpegvideo",
                     ".mp4": "mpegvideo", ".avi": "avivideo"}.get(ext, "mpegvideo")
+    except Exception as e:
+        print(f"  [TTS] Windows MCI init error: {e}")
+        return
+
+    opened = False
+    try:
         winmm.mciSendStringW(f'open "{abs_path}" type {mci_type} alias _tts_track', None, 0, None)
+        opened = True
         winmm.mciSendStringW('play _tts_track', None, 0, None)
         buf = ctypes.create_unicode_buffer(128)
         while True:
             if _stop_event.is_set():
-                winmm.mciSendStringW('stop _tts_track', None, 0, None)
                 break
             winmm.mciSendStringW('status _tts_track mode', buf, 128, None)
             if buf.value != 'playing':
                 break
             time.sleep(0.05)
-        winmm.mciSendStringW('close _tts_track', None, 0, None)
-        time.sleep(0.1)  # let MCI fully release the file handle
-    except Exception as e:
-        print(f"  [TTS] Windows MCI playback error: {e}")
+    except BaseException:
+        # Ctrl+C (or anything else): flag the stop so callers/the pipeline bail,
+        # then let the finally silence + release before the exception propagates.
+        _stop_event.set()
+        raise
+    finally:
+        if opened:
+            try:
+                winmm.mciSendStringW('stop _tts_track', None, 0, None)
+                winmm.mciSendStringW('close _tts_track', None, 0, None)
+                time.sleep(0.1)  # let MCI fully release the file handle
+            except Exception:
+                pass
 
 
 # ── pyttsx3 singleton ─────────────────────────────────────────────────────
@@ -921,6 +965,11 @@ def _say_deepgram(text: str, voice: Optional[str] = None, lang: str = "es") -> b
                 played_any = True
             finally:
                 _unlink_retry(tmp_chunk)
+    except KeyboardInterrupt:
+        # Ctrl+C mid-speech: flag the stop so the producer bails and no further
+        # chunk is played, then re-raise after the finally drains the queue.
+        _stop_event.set()
+        raise
     except Exception as e:
         print(f"  [Deepgram TTS] Error: {e}")
         return played_any
@@ -947,6 +996,12 @@ def say(text: str, voice: Optional[str] = None, speed: float = 1.0, lang: str = 
     """
     text = _clean_for_tts(text)
     if not text.strip():
+        return
+
+    # If the user just cancelled, swallow utterances that were already queued
+    # behind it so a single 'c'/Ctrl+C silences the whole burst instead of only
+    # the clip that happened to be playing.
+    if (time.time() - _last_cancel_ts) < _CANCEL_GUARD_S:
         return
 
     with _say_lock:

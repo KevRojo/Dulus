@@ -369,3 +369,93 @@ class TestDeepgramFetchRetry:
         assert tts._say_deepgram("Hola papa.", lang="es") is True
         assert calls["n"] == 2  # blip + successful retry
         assert len(played) == 1
+
+
+class TestTtsCancel:
+    """A cancel must actually stop the sound — including Ctrl+C mid-clip and a
+    burst of queued utterances (one 'c' silences the whole burst, not just the
+    clip that happened to be playing)."""
+
+    def _capture_speech(self, monkeypatch):
+        """Route say() to a single sentinel backend regardless of backend order.
+
+        say()'s backend priority differs across builds (public = pyttsx3 first,
+        private = deepgram first). To test the cancel GUARD (not the ordering) we
+        make every backend report it spoke into one shared list, so 'did say()
+        reach any backend?' is what the assertion checks."""
+        from voice import tts
+        spoken = []
+        def _spoke(*_a, **_k):
+            spoken.append("x")
+            return True
+        for name in ("_say_pyttsx3", "_say_edge_tts", "_say_deepgram",
+                     "_say_elevenlabs", "_say_gtts", "_say_openai",
+                     "_say_azure", "_say_nvidia_riva"):
+            if hasattr(tts, name):
+                monkeypatch.setattr(tts, name, _spoke)
+        return spoken
+
+    def test_cancel_guard_swallows_queued_utterance(self, monkeypatch):
+        """After a cancel, a say() that fires within the guard window is dropped
+        instead of speaking through the cancel."""
+        from voice import tts
+        spoken = self._capture_speech(monkeypatch)
+        tts._stop_event.clear()
+        tts._last_cancel_ts = tts.time.time()  # pretend we JUST cancelled
+        try:
+            tts.say("linea encolada tras el cancel")
+            assert spoken == []  # swallowed by the guard window
+        finally:
+            tts._last_cancel_ts = 0.0
+
+    def test_utterance_speaks_after_guard_window(self, monkeypatch):
+        """Once the guard window elapses, speech resumes normally."""
+        from voice import tts
+        spoken = self._capture_speech(monkeypatch)
+        tts._stop_event.clear()
+        tts._last_cancel_ts = tts.time.time() - (tts._CANCEL_GUARD_S + 0.5)
+        try:
+            tts.say("hola despues del cancel")
+            assert spoken == ["x"]  # guard expired -> spoke via one backend
+        finally:
+            tts._last_cancel_ts = 0.0
+
+    def test_run_player_kills_child_on_keyboardinterrupt(self, monkeypatch):
+        """Ctrl+C while a player subprocess is running must terminate it and set
+        the stop flag — never leave a zombie player sounding."""
+        from voice import tts
+
+        class FakeProc:
+            def __init__(self):
+                self._alive = True
+                self.terminated = False
+                self.killed = False
+            def poll(self):
+                return None if self._alive else 0
+            def terminate(self):
+                self.terminated = True
+                self._alive = False
+            def kill(self):
+                self.killed = True
+                self._alive = False
+            def wait(self, timeout=None):
+                return 0
+
+        proc = FakeProc()
+        monkeypatch.setattr(tts.subprocess, "Popen", lambda *a, **k: proc)
+        # First poll returns None (running); the sleep then raises Ctrl+C.
+        def boom(_s):
+            raise KeyboardInterrupt()
+        monkeypatch.setattr(tts.time, "sleep", boom)
+        tts._stop_event.clear()
+        # _play_audio_file resolves players via shutil.which — make only ffplay
+        # "exist" so it takes the subprocess path we're exercising.
+        import shutil as _sh
+        monkeypatch.setattr(_sh, "which", lambda n: "ffplay" if n == "ffplay" else None)
+        try:
+            with pytest.raises(KeyboardInterrupt):
+                tts._play_audio_file("dummy.mp3")
+            assert proc.terminated or proc.killed  # child was torn down
+            assert tts._stop_event.is_set()        # stop flag propagated
+        finally:
+            tts._stop_event.clear()
