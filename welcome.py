@@ -265,6 +265,7 @@ def _get_motivational_quote() -> str:
 # ---------------------------------------------------------------------------
 
 _PROVIDER_MENU = [
+    ("gemini-web", "Google Gemini Web (FREE - no API key, auto-setup)", "gemini-web/gemini-latest", False),
     ("ollama",     "Ollama (local, free)",                    "gemma3:latest",                  False),
     ("nvidia-web", "NVIDIA NIM (14 free models)",             "llama-3.3-70b-instruct",         True),
     ("anthropic",  "Anthropic Claude",                         "claude-sonnet-4-6",              True),
@@ -517,6 +518,8 @@ def run_welcome_wizard(config: dict) -> dict:
     # LiteLLM special flow
     if provider == "litellm":
         _setup_litellm(config, default_model)
+    elif provider == "gemini-web":
+        _setup_gemini_web(config)
     else:
         _setup_standard_provider(config, provider, default_model, needs_key)
 
@@ -636,6 +639,27 @@ def _setup_litellm(config: dict, default_model: str) -> None:
         if key:
             config[f"{backend}_api_key"] = key
             print(f"  OK Key saved as {backend}_api_key")
+
+
+def _setup_gemini_web(config: dict) -> None:
+    """Configure the FREE Gemini Web provider and auto-connect it.
+
+    No API key, no manual browser step: the harvester runs headless, opens
+    Gemini in the background, auto-sends a priming message, and captures the
+    session tokens. Set DULUS_GEMINI_HEADLESS=0 to watch the window (e.g. if
+    Google asks for a one-time sign-in).
+    """
+    config["model"] = "gemini-web/gemini-latest"
+    print("\n  🦅 Gemini Web is FREE and needs no API key.")
+    print("  Connecting it now (this runs in the background)...")
+    try:
+        from dulus import cmd_harvest_gemini
+        cmd_harvest_gemini("", None, config)
+        print("  If it didn't finish, run  /harvest-gemini  once (set "
+              "DULUS_GEMINI_HEADLESS=0 to sign in).")
+    except Exception as e:
+        print(f"  (Auto-connect skipped: {e})")
+        print("  You can connect it any time with:  /harvest-gemini")
 
 
 def _setup_standard_provider(config: dict, provider: str, default_model: str, needs_key: bool) -> None:
