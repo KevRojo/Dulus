@@ -48,7 +48,10 @@ def test_public_cli_wires_animation_showcase_and_signature() -> None:
     source = (Path(__file__).parents[1] / "dulus.py").read_text(encoding="utf-8")
 
     assert '"animations":  cmd_animations' in source
-    assert 'print_creator_signature("kevrojo")' in source
+    # The banner signature is personalized from the welcome wizard's
+    # config["user_name"], not a hardcoded name.
+    assert "print_creator_signature(_sig)" in source
+    assert 'config.get("user_name")' in source
     assert "_cli_thinking_line(i, phrase)" in source
     assert "_cli_tool_status(desc, \"running\")" in source
     assert "Interant" not in source

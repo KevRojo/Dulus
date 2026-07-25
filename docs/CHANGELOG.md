@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.32] - 2026-07-25
+
+### Changed
+- **The boot/welcome color-wave signature now shows YOUR name, not a hardcoded
+  one.** The animated `◆ name ◆` under the banner was always "kevrojo". It now
+  reads the name you gave in the first-run welcome wizard (`config["user_name"]`,
+  already persisted there) and animates that instead, so every install greets
+  its own owner. Falls back to "dulus" when the name was skipped or left as the
+  generic default. Both entry points — the REPL boot banner and the welcome
+  banner — are wired to the same saved name.
+
 ## [3.10.30] - 2026-07-25
 
 ### Added

@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.31"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.32"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -1378,11 +1378,17 @@ def _print_dulus_banner(config: dict, with_logo: bool = True) -> None:
     print(clr("  │", "dim") + clr("  Permissions: ", "dim") + pmode)
     print(clr("  │", "dim") + clr("  /model to switch · /help for commands", "dim"))
     print(clr("  ╰──────────────────────────────────────────────────────╯", "dim"))
+    # The color-wave signature shows the user's OWN name (captured in the
+    # welcome wizard as config["user_name"]), not a hardcoded one. Falls back
+    # to the brand name when they skipped it or kept the generic default.
+    _sig = (config.get("user_name") or "").strip()
+    if not _sig or _sig.lower() in ("friend", "amigo"):
+        _sig = "dulus"
     try:
         from cli_animations import print_creator_signature
-        print_creator_signature("kevrojo")
+        print_creator_signature(_sig)
     except Exception:
-        print(clr("  ◆  kevrojo  ◆", "cyan", "bold"))
+        print(clr(f"  ◆  {_sig}  ◆", "cyan", "bold"))
 
 
 def cmd_clear(_args: str, state, config) -> bool:
