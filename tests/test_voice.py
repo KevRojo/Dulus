@@ -294,3 +294,78 @@ class TestWakeWord:
         assert hasattr(voice, "WakeWordListener")
         assert hasattr(voice, "listen_once")
         assert hasattr(voice, "WAKE_PHRASES")
+
+
+# ── voice.tts: Deepgram transient-failure retry ───────────────────────────
+
+class TestDeepgramFetchRetry:
+    """A transient Deepgram blip must NOT drop the reply to another backend.
+
+    Without a retry, one network hiccup made the whole answer fall through to
+    a different TTS engine (re-spoken in another voice), and a blip on a later
+    pipeline chunk silently truncated the speech.
+    """
+
+    def _patch_fetch(self, monkeypatch, fail_first: int):
+        """Install a fake fetch that fails ``fail_first`` times, then succeeds."""
+        from voice import tts
+        calls = {"n": 0}
+
+        def fake_fetch(text, model, key, timeout=30):
+            calls["n"] += 1
+            if calls["n"] <= fail_first:
+                raise RuntimeError(f"blip #{calls['n']}")
+            return b"AUDIO:" + text.encode()
+
+        monkeypatch.setattr(tts, "_deepgram_fetch", fake_fetch)
+        monkeypatch.setattr(tts.time, "sleep", lambda _s: None)  # no real backoff
+        tts._stop_event.clear()
+        return calls
+
+    def test_retries_then_succeeds(self, monkeypatch):
+        from voice import tts
+        calls = self._patch_fetch(monkeypatch, fail_first=2)
+        assert tts._deepgram_fetch_retry("hola", "m", "k") == b"AUDIO:hola"
+        assert calls["n"] == 3  # 1 try + 2 retries
+
+    def test_reraises_after_attempts_exhausted(self, monkeypatch):
+        from voice import tts
+        calls = self._patch_fetch(monkeypatch, fail_first=99)
+        with pytest.raises(RuntimeError):
+            tts._deepgram_fetch_retry("hola", "m", "k")
+        assert calls["n"] == 3  # bounded — does not retry forever
+
+    def test_no_retry_when_first_call_succeeds(self, monkeypatch):
+        from voice import tts
+        calls = self._patch_fetch(monkeypatch, fail_first=0)
+        assert tts._deepgram_fetch_retry("hola", "m", "k") == b"AUDIO:hola"
+        assert calls["n"] == 1  # happy path stays a single request
+
+    def test_stop_event_short_circuits(self, monkeypatch):
+        from voice import tts
+        calls = self._patch_fetch(monkeypatch, fail_first=0)
+        tts._stop_event.set()
+        try:
+            assert tts._deepgram_fetch_retry("hola", "m", "k") == b""
+            assert calls["n"] == 0  # interrupted speech makes no new requests
+        finally:
+            tts._stop_event.clear()
+
+    def test_single_shot_path_survives_transient_blip(self, monkeypatch):
+        """The <2-chunk path (most replies) must retry, not fall through."""
+        from voice import tts
+        calls = self._patch_fetch(monkeypatch, fail_first=1)
+        monkeypatch.setenv("DEEPGRAM_API_KEY", "fake-key")
+        # The key/availability gate is named differently across builds — open
+        # whichever one this build uses so the test asserts the retry, not the gate.
+        for gate, value in (("_deepgram_tts_available", True),
+                            ("_deepgram_tts_key", "fake-key")):
+            if hasattr(tts, gate):
+                monkeypatch.setattr(tts, gate, lambda _v=value: _v)
+        played = []
+        monkeypatch.setattr(tts, "_play_audio_file", lambda p, *a, **k: played.append(p))
+        monkeypatch.setattr(tts, "_split_for_deepgram", lambda _t: ["one chunk"])
+
+        assert tts._say_deepgram("Hola papa.", lang="es") is True
+        assert calls["n"] == 2  # blip + successful retry
+        assert len(played) == 1

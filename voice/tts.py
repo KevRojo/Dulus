@@ -793,6 +793,28 @@ def _deepgram_fetch(text: str, model: str, key: str, timeout: int = 30) -> bytes
     return _u.urlopen(req, timeout=timeout).read()
 
 
+def _deepgram_fetch_retry(text: str, model: str, key: str, attempts: int = 3) -> bytes:
+    """``_deepgram_fetch`` plus short backoffs for transient network blips.
+
+    Why: without a retry, one hiccup makes the whole reply fall through to a
+    different TTS backend (the answer gets re-spoken in another voice), and a
+    blip on a later pipeline chunk silently truncates the speech. Re-raises the
+    last exception once the attempts are spent so callers can still fall back.
+    """
+    last: Optional[BaseException] = None
+    for attempt in range(max(1, attempts)):
+        if _stop_event.is_set():
+            return b""
+        try:
+            return _deepgram_fetch(text, model, key)
+        except Exception as exc:  # noqa: PERF203 - retry loop needs the try inside
+            last = exc
+            if attempt == attempts - 1:
+                break
+            time.sleep(0.4 * (attempt + 1))
+    raise last if last is not None else RuntimeError("Deepgram fetch failed")
+
+
 def _say_deepgram(text: str, voice: Optional[str] = None, lang: str = "es") -> bool:
     """Synthesize via Deepgram Aura-2 and play the MP3. No SDK needed.
 
@@ -831,7 +853,7 @@ def _say_deepgram(text: str, voice: Optional[str] = None, lang: str = "es") -> b
     if len(chunks) < 2:
         tmp_path: Optional[str] = None
         try:
-            audio = _deepgram_fetch(text, model, key)
+            audio = _deepgram_fetch_retry(text, model, key)
             if not audio:
                 return False
             fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
@@ -858,7 +880,7 @@ def _say_deepgram(text: str, voice: Optional[str] = None, lang: str = "es") -> b
                 if _stop_event.is_set():
                     break
                 try:
-                    audio_q.put(("audio", _deepgram_fetch(chunk, model, key)))
+                    audio_q.put(("audio", _deepgram_fetch_retry(chunk, model, key)))
                 except Exception as exc:
                     audio_q.put(("audio", exc))
                     return
