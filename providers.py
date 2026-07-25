@@ -1980,7 +1980,8 @@ def _chatgpt_load_codex_cli_auth() -> dict:
         return {}
     if not isinstance(raw, dict):
         return {}
-    tokens = raw.get("tokens") if isinstance(raw.get("tokens"), dict) else {}
+    _tk = raw.get("tokens")
+    tokens = _tk if isinstance(_tk, dict) else {}
     access = tokens.get("access_token") or ""
     refresh = tokens.get("refresh_token") or ""
     if not access and not refresh:
@@ -2282,7 +2283,7 @@ def _chatgpt_oauth_login(config: dict, notify=print, get_code=None) -> str | Non
     _chatgpt_oauth_save_store(store)
     notify(
         f"[chatgpt] Logged in"
-        + (f" (account {store.get('account_id')[:8]}…)" if store.get("account_id") else "")
+        + (f" (account {(store.get('account_id') or '')[:8]}…)" if store.get("account_id") else "")
         + ". chatgpt/* models now use your ChatGPT subscription."
     )
     return store["access_token"]
