@@ -1303,8 +1303,13 @@ def _parse_grok_billing_payloads(
     """Normalize Grok Build billing JSON into a stable snapshot dict."""
     credits = credits if isinstance(credits, dict) else {}
     legacy = legacy if isinstance(legacy, dict) else {}
-    cfg = credits.get("config") if isinstance(credits.get("config"), dict) else {}
-    leg_cfg = legacy.get("config") if isinstance(legacy.get("config"), dict) else {}
+    # NOTE: bind to a local before isinstance() so type checkers can narrow it.
+    # Calling .get() twice reads as two unrelated expressions and leaves the
+    # result Optional, which makes every downstream cfg.get(...) an error.
+    _cfg_raw = credits.get("config")
+    cfg: dict[str, Any] = _cfg_raw if isinstance(_cfg_raw, dict) else {}
+    _leg_cfg_raw = legacy.get("config")
+    leg_cfg: dict[str, Any] = _leg_cfg_raw if isinstance(_leg_cfg_raw, dict) else {}
 
     usage_pct = cfg.get("creditUsagePercent")
     if usage_pct is None:

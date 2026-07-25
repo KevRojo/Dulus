@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.30] - 2026-07-25
+
+### Added
+- **Grok Build billing on the TUI toolbar.** When the active provider is Grok,
+  the toolbar shows the remaining usage pulled from the Grok Build billing
+  endpoints, so you can see what's left without leaving the terminal. Fetched on
+  a daemon thread with a 12s timeout, so a slow or unreachable billing API never
+  blocks the prompt.
+
+### Fixed
+- **Deepgram TTS no longer switches voices mid-answer on a network blip.** The
+  retry added in 3.10.29 only lived in the pipeline producer, which means it
+  only ever ran for replies long enough to split into 2+ chunks — the
+  single-shot path most answers take had *no* retry at all, so one transient
+  failure dropped the whole reply to a different TTS backend and Dulus re-spoke
+  it in another voice. Both paths now share `_deepgram_fetch_retry()`
+  (3 attempts, 0.4s incremental backoff, honours the stop event and re-raises
+  once spent, so a genuine outage still falls back cleanly and quickly).
+- Type-checker narrowing bug in `_parse_grok_billing_payloads()`: the billing
+  `config` blob was fetched twice around its own `isinstance()` guard, which
+  left it Optional and made all 28 downstream reads type errors. Bound to a
+  local before the check.
+
 ## [3.10.29] - 2026-07-24
 
 ### Changed
