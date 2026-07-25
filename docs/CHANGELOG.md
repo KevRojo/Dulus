@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.34] - 2026-07-25
+
+### Changed
+- **Gemini Web is the free, zero-config default provider on a fresh install.**
+  New installs now default to `gemini-web/gemini-latest`, and the welcome wizard
+  lists it as the first option — FREE, no API key — and auto-connects it by
+  running the harvester headless in the background: it opens Gemini, sends a
+  priming message, and captures the session with no manual browser step. Set
+  `DULUS_GEMINI_HEADLESS=0` to watch the window for a one-time Google sign-in if
+  your region requires one. Every other provider is still one wizard choice away.
+
 ## [3.10.33] - 2026-07-25
 
 ### Fixed
