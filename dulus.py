@@ -101,6 +101,7 @@ Slash commands in REPL:
   /voice            Record voice input, transcribe, and submit
   /voice status     Show available recording and STT backends
   /voice lang <code>  Set STT language (e.g. zh, en, ja — default: auto)
+  /tts              Toggle spoken replies; /tts stream on|off for low-latency start
   /wake on|off      Toggle wake-word (hotword) detection — say "Hey Dulus"
   /wake status      Show wake-word listener state
   /wake phrases     List recognised wake phrases
@@ -379,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.28"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.29"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -936,6 +937,9 @@ _HELP_PAGES = [
         ("/voice",                  "Record voice → transcribe → submit"),
         ("/voice status",           "Show recording + STT backends"),
         ("/voice lang <code>",      "Set STT language (zh/en/ja/auto)"),
+        ("/tts",                    "Toggle spoken replies ON/OFF"),
+        ("/tts provider <name>",    "Pick TTS backend (auto/deepgram/edge…)"),
+        ("/tts stream on|off",      "Low-latency: talk after 1st sentence"),
         ("/wake on|off",            "Toggle wake-word ('Hey Dulus')"),
         ("/wake status",            "Show wake-word listener state"),
         ("/wake phrases",           "List recognised wake phrases"),
@@ -7410,6 +7414,8 @@ def cmd_tts(args: str, state, config) -> bool:
     /tts auto                 — toggle auto-listen: after Dulus speaks, mic opens for
                                 your next reply (continuous voice conversation)
     /tts auto on|off          — explicit auto-listen toggle
+    /tts stream [on|off]      — low-latency Deepgram pipeline (default ON): speaks the
+                                first sentence while the rest still synthesizes
     """
     from config import save_config
 
@@ -7452,6 +7458,24 @@ def cmd_tts(args: str, state, config) -> bool:
             return True
         config["azure_tts_voice"] = name
         ok(f"Azure TTS voice set to: {name}")
+        save_config(config)
+        return True
+
+    if parts and parts[0].lower() == "stream":
+        sub = parts[1].strip().lower() if len(parts) > 1 else ""
+        if sub in ("on", "true", "enable"):
+            config["tts_stream"] = True
+        elif sub in ("off", "false", "disable"):
+            config["tts_stream"] = False
+        else:
+            config["tts_stream"] = not config.get("tts_stream", True)
+        if config["tts_stream"]:
+            ok("TTS streaming: ON  (Deepgram starts talking after the first sentence)")
+        else:
+            ok("TTS streaming: OFF  (waits for the full audio — slower to start)")
+        import os as _os
+        if _os.environ.get("DULUS_DEEPGRAM_TTS_STREAM", "").strip():
+            warn("DULUS_DEEPGRAM_TTS_STREAM is set in the environment and overrides this setting.")
         save_config(config)
         return True
 

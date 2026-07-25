@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.29] - 2026-07-24
+
+### Changed
+- **Deepgram TTS starts speaking ~3x sooner on long replies.** `_say_deepgram()`
+  used to `urlopen(...).read()` the *entire* MP3 before playing a single sound,
+  and Deepgram's synthesis time scales with input length (measured: 11 chars =
+  1.1s, 368 chars = 10.2s) — so the longer the answer, the longer the silence
+  before Dulus spoke. It now splits the text on sentence boundaries and runs a
+  producer/consumer pipeline: the first (deliberately short) chunk plays while
+  the rest are still being synthesized, so time-to-first-sound stops depending
+  on total length (measured first-sound 10.1s → 3.0s). Under two chunks it uses
+  the original single-shot path, so short replies gain nothing to lose.
+
+### Added
+- `/tts stream on|off` — toggle the low-latency Deepgram pipeline (default ON),
+  persisted in config. `DULUS_DEEPGRAM_TTS_STREAM=0` overrides it for a one-off
+  A/B against the old single-shot path (env wins over config).
+
 ## [3.10.25] - 2026-07-24
 
 ### Fixed

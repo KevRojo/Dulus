@@ -694,11 +694,118 @@ def _deepgram_tts_available() -> bool:
         return False
 
 
+def _unlink_retry(path: Optional[str], tries: int = 10) -> None:
+    """Delete a temp file, tolerating a player still holding the handle."""
+    if not path:
+        return
+    for _ in range(tries):
+        try:
+            os.unlink(path)
+            return
+        except FileNotFoundError:
+            return
+        except OSError:
+            time.sleep(0.1)
+
+
+def _split_for_deepgram(text: str, first_min: int = 40, rest_min: int = 140,
+                        max_chars: int = 400) -> list[str]:
+    """Split text into synthesis chunks on sentence boundaries.
+
+    The FIRST chunk is deliberately small (``first_min``): time-to-first-sound
+    is bounded by how long that one chunk takes to synthesize, so a short
+    opener makes Dulus start talking almost immediately. Later chunks are
+    larger (``rest_min``) — they're produced while audio is already playing, so
+    fewer/bigger requests there means less HTTP overhead and better prosody.
+
+    A sentence longer than ``max_chars`` is hard-split on commas (then spaces)
+    so one runaway paragraph can't reintroduce the original stall.
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+    # Don't split on the dot of a common abbreviation or an initial ("J. Doe").
+    sentences = re.split(r'(?<=[.!?…])\s+(?![a-záéíóúñ])', text)
+    chunks: list[str] = []
+    cur = ""
+    for sent in sentences:
+        sent = sent.strip()
+        if not sent:
+            continue
+        while len(sent) > max_chars:
+            cut = sent.rfind(",", 0, max_chars)
+            if cut < max_chars // 2:
+                cut = sent.rfind(" ", 0, max_chars)
+            if cut <= 0:
+                cut = max_chars
+            head, sent = sent[:cut + 1].strip(), sent[cut + 1:].strip()
+            if cur:
+                chunks.append(cur)
+                cur = ""
+            chunks.append(head)
+        if not sent:
+            continue
+        cur = f"{cur} {sent}".strip() if cur else sent
+        need = first_min if not chunks else rest_min
+        if len(cur) >= need:
+            chunks.append(cur)
+            cur = ""
+    if cur:
+        # Tail too short to stand alone: glue it to the previous chunk so we
+        # don't pay a whole HTTP round-trip for two words.
+        if chunks and len(cur) < 25:
+            chunks[-1] = f"{chunks[-1]} {cur}"
+        else:
+            chunks.append(cur)
+    return chunks
+
+
+_FALSEY = ("0", "false", "no", "off")
+
+
+def _deepgram_pipeline_enabled() -> bool:
+    """Is the low-latency chunked pipeline on? (default yes)
+
+    Env wins over config so a one-off `DULUS_DEEPGRAM_TTS_STREAM=0` can
+    A/B-test against the old single-shot path without editing settings.
+    """
+    env = os.environ.get("DULUS_DEEPGRAM_TTS_STREAM", "").strip().lower()
+    if env:
+        return env not in _FALSEY
+    try:
+        from config import load_config
+        return bool(load_config().get("tts_stream", True))
+    except Exception:
+        return True
+
+
+def _deepgram_fetch(text: str, model: str, key: str, timeout: int = 30) -> bytes:
+    """One Deepgram /v1/speak call. Returns raw MP3 bytes."""
+    import json as _json
+    import urllib.parse as _up
+    import urllib.request as _u
+
+    url = f"https://api.deepgram.com/v1/speak?{_up.urlencode({'model': model})}"
+    req = _u.Request(url, data=_json.dumps({"text": text[:2000]}).encode(),
+                     headers={"Authorization": f"Token {key}",
+                              "Content-Type": "application/json"},
+                     method="POST")
+    return _u.urlopen(req, timeout=timeout).read()
+
+
 def _say_deepgram(text: str, voice: Optional[str] = None, lang: str = "es") -> bool:
     """Synthesize via Deepgram Aura-2 and play the MP3. No SDK needed.
 
     Voice resolution: explicit arg > env var (per-lang, then global) >
     config > language default. Returns True on successful playback.
+
+    Latency: the request is *not* made in one blocking shot. Deepgram's
+    synthesis time scales with input length (measured: 11 chars=1.1s,
+    368 chars=10.2s), so waiting for the full MP3 meant long answers sat silent
+    for ~10s. Instead the text is chunked and run through a producer/consumer
+    pipeline: chunk 1 starts playing while the rest are still downloading, so
+    time-to-first-sound stops depending on total length (measured 10.1s → 3.0s).
+    Set DULUS_DEEPGRAM_TTS_STREAM=0 to fall back to the old single-shot path.
     """
     if not _deepgram_tts_available():
         return False
@@ -718,37 +825,92 @@ def _say_deepgram(text: str, voice: Optional[str] = None, lang: str = "es") -> b
              or os.environ.get("DULUS_DEEPGRAM_TTS_VOICE", "")
              or _DEEPGRAM_TTS_VOICES.get(lang2, _DEEPGRAM_TTS_VOICES["en"]))
 
-    tmp_path: Optional[str] = None
-    try:
-        import json as _json
-        import urllib.parse
-        import urllib.request
-
-        url = f"https://api.deepgram.com/v1/speak?{urllib.parse.urlencode({'model': model})}"
-        req = urllib.request.Request(
-            url, data=_json.dumps({"text": text[:2000]}).encode(),
-            headers={"Authorization": f"Token {key}",
-                     "Content-Type": "application/json"},
-            method="POST")
-        audio = urllib.request.urlopen(req, timeout=30).read()
-        if not audio:
+    chunks = _split_for_deepgram(text) if _deepgram_pipeline_enabled() else []
+    # Below ~2 chunks the pipeline can't overlap anything — the single-shot
+    # path is already as fast and avoids a thread + queue for nothing.
+    if len(chunks) < 2:
+        tmp_path: Optional[str] = None
+        try:
+            audio = _deepgram_fetch(text, model, key)
+            if not audio:
+                return False
+            fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
+            with os.fdopen(fd, "wb") as f:
+                f.write(audio)
+            _play_audio_file(tmp_path)
+            return True
+        except Exception as e:
+            print(f"  [Deepgram TTS] Error: {e}")
             return False
-        fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
-        with os.fdopen(fd, "wb") as f:
-            f.write(audio)
-        _play_audio_file(tmp_path)
-        return True
+        finally:
+            _unlink_retry(tmp_path)
+
+    import queue as _queue
+
+    # maxsize caps how far the producer runs ahead: enough to always have the
+    # next clip ready, small enough not to buffer a whole speech in RAM.
+    audio_q: "_queue.Queue" = _queue.Queue(maxsize=3)
+    _DONE = object()
+
+    def _producer() -> None:
+        try:
+            for chunk in chunks:
+                if _stop_event.is_set():
+                    break
+                try:
+                    audio_q.put(("audio", _deepgram_fetch(chunk, model, key)))
+                except Exception as exc:
+                    audio_q.put(("audio", exc))
+                    return
+        finally:
+            audio_q.put(_DONE)
+
+    producer = threading.Thread(target=_producer, daemon=True)
+    producer.start()
+
+    played_any = False
+    try:
+        while True:
+            if _stop_event.is_set():
+                return True
+            try:
+                item = audio_q.get(timeout=45)
+            except _queue.Empty:
+                print("  [Deepgram TTS] Timed out waiting for audio chunk")
+                return played_any
+            if item is _DONE:
+                return played_any
+            _, payload = item
+            if isinstance(payload, Exception):
+                # Chunk 0 failed => nothing was heard, so report failure and let
+                # say()'s backend chain fall through to pyttsx3/edge. A later
+                # failure means the user already heard part of the answer;
+                # claiming failure there would replay it in another voice.
+                print(f"  [Deepgram TTS] Error: {payload}")
+                return played_any
+            if not payload:
+                continue
+            tmp_chunk: Optional[str] = None
+            try:
+                fd, tmp_chunk = tempfile.mkstemp(suffix=".mp3")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(payload)
+                _play_audio_file(tmp_chunk)
+                played_any = True
+            finally:
+                _unlink_retry(tmp_chunk)
     except Exception as e:
         print(f"  [Deepgram TTS] Error: {e}")
-        return False
+        return played_any
     finally:
-        if tmp_path:
-            for _ in range(5):
-                try:
-                    os.unlink(tmp_path)
-                    break
-                except Exception:
-                    time.sleep(0.2)
+        # Drain whatever is buffered so a producer parked on the bounded queue
+        # (e.g. after a cancel) can push its last item and exit instead of
+        # leaking a blocked thread.
+        try:
+            while not audio_q.empty():
+                audio_q.get_nowait()
+        except Exception:
+            pass
 
 
 # ── Public Entry Point ────────────────────────────────────────────────────
