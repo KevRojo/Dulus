@@ -776,6 +776,20 @@ PROVIDERS: dict[str, dict] = {
             "grok-4", "grok-3", "grok-2-latest", "grok-beta", "grok-build",
         ],
     },
+    # ChatGPT / Codex subscription OAuth (`/login chatgpt` or reuse ~/.codex/auth.json).
+    # Hits chatgpt.com/backend-api/codex (Responses API) — NOT api.openai.com.
+    # Usage bills against the ChatGPT plan, not platform API credits.
+    "chatgpt-oauth": {
+        "type":       "chatgpt-oauth",
+        "api_key_env": None,
+        "base_url":   "https://chatgpt.com/backend-api/codex",
+        "context_limit": 200000,
+        "models": [
+            "chatgpt/gpt-5.5", "chatgpt/gpt-5.4", "chatgpt/gpt-5.4-mini",
+            "chatgpt/gpt-5.1-codex", "chatgpt/gpt-5.1-codex-mini",
+            "chatgpt/codex-mini-latest", "chatgpt/o3", "chatgpt/o4-mini",
+        ],
+    },
     "xiaomi": {
         "type": "openai_compat",
         "api_key_env": "XIAOMI_API_KEY",
@@ -831,6 +845,19 @@ COSTS = {
 
 # Auto-detection: prefix → provider name
 _PREFIXES = [
+    # ChatGPT/Codex subscription (OAuth) — MUST precede the generic "gpt-"→openai
+    # rule below, or gpt-5.x / codex-* ids route to the paid API instead of the
+    # user's ChatGPT plan. Order matters: first match wins.
+    ("chatgpt/",      "chatgpt-oauth"),
+    ("chatgpt-",      "chatgpt-oauth"),
+    ("codex/",        "chatgpt-oauth"),
+    ("codex-",        "chatgpt-oauth"),
+    ("gpt-5.5",       "chatgpt-oauth"),
+    ("gpt-5.4",       "chatgpt-oauth"),
+    ("gpt-5.1-codex", "chatgpt-oauth"),
+    ("gpt-5-codex",   "chatgpt-oauth"),
+    ("codex-mini",    "chatgpt-oauth"),
+    ("codex-auto",    "chatgpt-oauth"),
     ("claude-",       "anthropic"),
     ("gpt-",          "openai"),
     ("o1",            "openai"),
@@ -1782,6 +1809,952 @@ def _anthropic_oauth_system_blocks(system, cc_marker: dict | None = None):
             return system  # identity already present
         return [identity] + system
     return [identity]
+
+
+# ── Generic OAuth token-store helpers (shared by chatgpt-oauth) ──────────
+# Ported from the private build's refactor so chatgpt-oauth can reuse one
+# store implementation. The per-provider _xai_*/_anthropic_* stores are left
+# untouched; these only back the ChatGPT/Codex store below.
+def _oauth_store_path(filename: str):
+    """Return a path inside the private Dulus auth directory.
+
+    OAuth stores contain bearer and refresh tokens.  Keeping the directory
+    creation and file handling in one place prevents the xAI and Anthropic
+    implementations from drifting apart.
+    """
+    import os
+    import pathlib
+
+    home = pathlib.Path(
+        os.environ.get("DULUS_HOME") or (pathlib.Path.home() / ".dulus")
+    )
+    home.mkdir(parents=True, exist_ok=True)
+    return home / filename
+
+
+def _oauth_load_store(path) -> dict:
+    """Load an OAuth JSON object, treating corrupt/non-object data as absent."""
+    import json
+
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _oauth_save_store(path, data: dict) -> None:
+    """Atomically save an OAuth token store with owner-only permissions.
+
+    A process interruption during ``write_text`` used to leave a truncated
+    auth file, effectively logging the user out.  Writing beside the target
+    and replacing it atomically avoids that failure mode.  ``chmod`` is best
+    effort on Windows and enforces 0600 on POSIX.
+    """
+    import json
+    import os
+
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp, path)
+    except (OSError, TypeError, ValueError):
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _oauth_expires_at(token_payload: dict, default_seconds: int = 3600) -> float:
+    """Calculate a buffered expiry even when a provider returns odd metadata."""
+    import time
+
+    try:
+        lifetime = max(0, int(float(token_payload.get("expires_in", default_seconds))))
+    except (TypeError, ValueError):
+        lifetime = default_seconds
+    return time.time() + lifetime - 60
+
+
+# ── ChatGPT / Codex OAuth (ChatGPT Plus/Pro/Team subscription — NO API key) ──
+# Same Authorization-Code + PKCE flow the official Codex CLI uses against
+# auth.openai.com (client_id app_EMoamEEZ73f0CkXaXp7hrann). Tokens land in
+# ~/.dulus/chatgpt_oauth.json; we ALSO reuse ~/.codex/auth.json when present
+# (so a prior `codex login` Just Works). Inference goes to the Codex backend
+# Responses API (chatgpt.com/backend-api/codex/responses) — the OAuth token is
+# rejected by the regular platform /v1/chat/completions endpoint.
+#
+# Refs (reverse-engineered from Codex CLI + OpenCode + codex-openai-proxy):
+#   https://developers.openai.com/codex/auth
+#   client_id / endpoints documented in openai/codex + anomalyco/opencode
+CHATGPT_OAUTH_CLIENT_ID     = "app_EMoamEEZ73f0CkXaXp7hrann"
+CHATGPT_OAUTH_AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize"
+CHATGPT_OAUTH_TOKEN_URL     = "https://auth.openai.com/oauth/token"
+CHATGPT_OAUTH_REDIRECT_URI  = "http://localhost:1455/auth/callback"
+CHATGPT_OAUTH_SCOPE         = "openid profile email offline_access"
+CHATGPT_OAUTH_BASE_URL      = "https://chatgpt.com/backend-api/codex"
+CHATGPT_OAUTH_ORIGINATOR    = "codex_cli_rs"
+CHATGPT_OAUTH_CLIENT_VER    = "0.139.0"  # matches a recent Codex CLI release
+CHATGPT_OAUTH_USER_AGENT    = f"codex_cli_rs/{CHATGPT_OAUTH_CLIENT_VER}"
+# Local loopback capture (Codex CLI default port). If 1455 is busy we fall
+# back to paste-the-callback-URL mode, same as Claude/Z.ai.
+CHATGPT_OAUTH_REDIRECT_PORT = 1455
+
+
+def _chatgpt_oauth_store_path():
+    return _oauth_store_path("chatgpt_oauth.json")
+
+
+def _chatgpt_oauth_load_store() -> dict:
+    return _oauth_load_store(_chatgpt_oauth_store_path())
+
+
+def _chatgpt_oauth_save_store(data: dict) -> None:
+    _oauth_save_store(_chatgpt_oauth_store_path(), data)
+
+
+def _chatgpt_jwt_payload(token: str | None) -> dict:
+    """Decode a JWT payload without verifying the signature (we only need claims)."""
+    if not token or not isinstance(token, str) or token.count(".") < 2:
+        return {}
+    try:
+        import base64
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        data = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _chatgpt_extract_account_id(
+    id_token: str | None = None,
+    access_token: str | None = None,
+    fallback: str | None = None,
+) -> str:
+    """Pull chatgpt_account_id from id_token → access_token → explicit fallback."""
+    for tok in (id_token, access_token):
+        pl = _chatgpt_jwt_payload(tok)
+        if not pl:
+            continue
+        auth = pl.get("https://api.openai.com/auth") or {}
+        if isinstance(auth, dict):
+            aid = auth.get("chatgpt_account_id") or auth.get("account_id")
+            if aid:
+                return str(aid)
+        aid = pl.get("chatgpt_account_id") or pl.get("account_id")
+        if aid:
+            return str(aid)
+    return str(fallback or "")
+
+
+def _chatgpt_codex_auth_path():
+    """Path to the official Codex CLI auth cache (~/.codex/auth.json)."""
+    import os
+    import pathlib
+    home = os.environ.get("CODEX_HOME") or str(pathlib.Path.home() / ".codex")
+    override = os.environ.get("CODEX_AUTH_FILE")
+    return pathlib.Path(override) if override else pathlib.Path(home) / "auth.json"
+
+
+def _chatgpt_load_codex_cli_auth() -> dict:
+    """Read ~/.codex/auth.json (written by `codex login`) into our store shape.
+
+    Returns {} when missing/unreadable. Does NOT refresh — caller handles that.
+    """
+    import pathlib
+    path = _chatgpt_codex_auth_path()
+    try:
+        if not pathlib.Path(path).is_file():
+            return {}
+        raw = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    tokens = raw.get("tokens") if isinstance(raw.get("tokens"), dict) else {}
+    access = tokens.get("access_token") or ""
+    refresh = tokens.get("refresh_token") or ""
+    if not access and not refresh:
+        return {}
+    id_token = tokens.get("id_token") or ""
+    account_id = (
+        tokens.get("account_id")
+        or _chatgpt_extract_account_id(id_token, access)
+        or ""
+    )
+    # Prefer exp claim from the access JWT; fall back to last_refresh + 1h.
+    expires_at = None
+    pl = _chatgpt_jwt_payload(access)
+    if pl.get("exp") is not None:
+        try:
+            expires_at = float(pl["exp"])
+        except (TypeError, ValueError):
+            expires_at = None
+    if expires_at is None:
+        # Codex stores last_refresh as ISO; give a conservative 50min window.
+        try:
+            from datetime import datetime, timezone
+            lr = raw.get("last_refresh") or ""
+            if lr:
+                dt = datetime.fromisoformat(str(lr).replace("Z", "+00:00"))
+                expires_at = dt.timestamp() + 3000.0
+        except Exception:
+            expires_at = None
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "id_token": id_token,
+        "account_id": account_id,
+        "token_type": "Bearer",
+        "scope": CHATGPT_OAUTH_SCOPE,
+        "obtained_at": time.time(),
+        "expires_at": expires_at,
+        "source": "codex-cli",
+    }
+
+
+def _chatgpt_oauth_apply_token_response(tok: dict, prev: dict | None = None) -> dict:
+    """Normalize a token-endpoint JSON body into our on-disk store shape."""
+    prev = prev or {}
+    access = tok.get("access_token") or ""
+    refresh = tok.get("refresh_token") or prev.get("refresh_token") or ""
+    id_token = tok.get("id_token") or prev.get("id_token") or ""
+    account_id = (
+        tok.get("account_id")
+        or _chatgpt_extract_account_id(id_token, access, prev.get("account_id"))
+        or prev.get("account_id")
+        or ""
+    )
+    store = {
+        "access_token": access,
+        "refresh_token": refresh,
+        "id_token": id_token,
+        "account_id": account_id,
+        "token_type": tok.get("token_type", "Bearer"),
+        "scope": tok.get("scope", CHATGPT_OAUTH_SCOPE),
+        "obtained_at": time.time(),
+        "expires_at": _oauth_expires_at(tok),
+        "source": prev.get("source") or "dulus",
+    }
+    # If the token response didn't give expires_in, fall back to JWT exp.
+    if not store.get("expires_at"):
+        pl = _chatgpt_jwt_payload(access)
+        if pl.get("exp") is not None:
+            try:
+                store["expires_at"] = float(pl["exp"])
+            except (TypeError, ValueError):
+                pass
+    return store
+
+
+def _chatgpt_oauth_refresh(refresh_token: str, prev: dict | None = None) -> dict | None:
+    """Refresh a ChatGPT/Codex OAuth access token. Returns updated store or None."""
+    import requests as _req
+    if not refresh_token:
+        return None
+    try:
+        r = _req.post(
+            CHATGPT_OAUTH_TOKEN_URL,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": CHATGPT_OAUTH_CLIENT_ID,
+            },
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+            },
+            timeout=30,
+        )
+    except Exception:
+        return None
+    if r.status_code != 200:
+        return None
+    try:
+        tok = r.json()
+    except Exception:
+        return None
+    if not isinstance(tok, dict) or not tok.get("access_token"):
+        return None
+    store = _chatgpt_oauth_apply_token_response(tok, prev)
+    _chatgpt_oauth_save_store(store)
+    return store
+
+
+def _chatgpt_oauth_login(config: dict, notify=print, get_code=None) -> str | None:
+    """Native Authorization-Code + PKCE login for ChatGPT/Codex.
+
+    Opens the browser to auth.openai.com (Codex CLI client). Prefers a local
+    loopback capture on :1455 (Codex's redirect_uri); falls back to paste-the-
+    callback-URL if the port is busy or get_code is supplied. Returns the
+    access token on success, None on failure.
+    """
+    import secrets
+    import socket
+    import webbrowser
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from urllib.parse import parse_qs, urlencode, urlparse
+    import requests as _req
+
+    verifier, challenge = _xai_pkce_pair()  # generic S256 helper
+    state = secrets.token_urlsafe(24)
+
+    auth_params = {
+        "response_type": "code",
+        "client_id": CHATGPT_OAUTH_CLIENT_ID,
+        "redirect_uri": CHATGPT_OAUTH_REDIRECT_URI,
+        "scope": CHATGPT_OAUTH_SCOPE,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+        "state": state,
+        "id_token_add_organizations": "true",
+        "codex_cli_simplified_flow": "true",
+        "originator": CHATGPT_OAUTH_ORIGINATOR,
+    }
+    auth_url = CHATGPT_OAUTH_AUTHORIZE_URL + "?" + urlencode(auth_params)
+
+    captured: dict = {"code": "", "state": "", "error": ""}
+
+    def _parse_callback(raw: str) -> None:
+        raw = (raw or "").strip()
+        if not raw:
+            return
+        # Accept full callback URL, bare code, or code#state.
+        if "code=" in raw or raw.startswith("http"):
+            qs = parse_qs(urlparse(raw).query)
+            captured["code"] = (qs.get("code") or [""])[0]
+            captured["state"] = (qs.get("state") or [state])[0]
+            captured["error"] = (qs.get("error") or [""])[0]
+            return
+        if "#" in raw:
+            code, _, st = raw.partition("#")
+            captured["code"] = code
+            captured["state"] = st or state
+            return
+        captured["code"] = raw
+        captured["state"] = state
+
+    # Try loopback capture on Codex's default port first.
+    server = None
+    port_free = False
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("127.0.0.1", CHATGPT_OAUTH_REDIRECT_PORT))
+            port_free = True
+    except OSError:
+        port_free = False
+
+    if port_free and get_code is None:
+        class _Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                qs = parse_qs(urlparse(self.path).query)
+                captured["code"] = (qs.get("code") or [""])[0]
+                captured["state"] = (qs.get("state") or [""])[0]
+                captured["error"] = (qs.get("error") or [""])[0]
+                ok = bool(captured["code"]) and not captured["error"]
+                html = (
+                    "<html><body style='font-family:sans-serif;padding:2rem'>"
+                    "<h2>Dulus &mdash; ChatGPT login OK</h2>"
+                    "<p>You can close this tab and return to the terminal.</p>"
+                    "</body></html>"
+                    if ok else
+                    "<html><body style='font-family:sans-serif;padding:2rem'>"
+                    "<h2>Dulus &mdash; ChatGPT login failed</h2>"
+                    "<p>No authorization code received. Close this tab and retry.</p>"
+                    "</body></html>"
+                )
+                body = html.encode("utf-8")
+                self.send_response(200 if ok else 400)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, fmt, *args):  # silence
+                return
+
+        try:
+            server = HTTPServer(("127.0.0.1", CHATGPT_OAUTH_REDIRECT_PORT), _Handler)
+            server.timeout = 1.0
+        except OSError:
+            server = None
+
+    notify("[chatgpt] Opening your browser to log in with ChatGPT (Codex OAuth)…")
+    notify(f"[chatgpt] If it doesn't open, paste this URL manually:\n{auth_url}")
+    try:
+        webbrowser.open(auth_url)
+    except Exception:
+        pass
+
+    if server is not None:
+        notify(
+            f"[chatgpt] Waiting for browser callback on "
+            f"http://localhost:{CHATGPT_OAUTH_REDIRECT_PORT}/auth/callback …"
+        )
+        notify("[chatgpt] (Ctrl+C to cancel)")
+        try:
+            deadline = time.time() + 300.0
+            while time.time() < deadline and not captured["code"] and not captured["error"]:
+                server.handle_request()
+        except KeyboardInterrupt:
+            notify("[chatgpt] Login cancelled.")
+            try:
+                server.server_close()
+            except Exception:
+                pass
+            return None
+        try:
+            server.server_close()
+        except Exception:
+            pass
+    else:
+        # Port busy or get_code supplied — paste mode.
+        notify(
+            "[chatgpt] Paste the full redirect URL from the browser "
+            "(looks like http://localhost:1455/auth/callback?code=…&state=…):"
+        )
+        try:
+            if get_code is not None:
+                raw = (get_code() or "").strip()
+            else:
+                raw = input("[chatgpt] Callback URL or code: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            notify("[chatgpt] Login cancelled.")
+            return None
+        _parse_callback(raw)
+
+    if captured.get("error"):
+        notify(f"[chatgpt] Auth error from OpenAI: {captured['error']}")
+        return None
+    code = (captured.get("code") or "").strip()
+    if not code:
+        notify("[chatgpt] No authorization code received.")
+        return None
+    st = (captured.get("state") or "").strip()
+    if st and st != state:
+        notify("[chatgpt] State mismatch — aborting (possible CSRF). Re-run /login chatgpt.")
+        return None
+
+    try:
+        r = _req.post(
+            CHATGPT_OAUTH_TOKEN_URL,
+            data={
+                "grant_type": "authorization_code",
+                "client_id": CHATGPT_OAUTH_CLIENT_ID,
+                "code": code,
+                "redirect_uri": CHATGPT_OAUTH_REDIRECT_URI,
+                "code_verifier": verifier,
+            },
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+            },
+            timeout=30,
+        )
+    except Exception as e:
+        notify(f"[chatgpt] Token exchange failed: {e}")
+        return None
+
+    if r.status_code != 200:
+        notify(f"[chatgpt] Token exchange HTTP {r.status_code}: {(r.text or '')[:300]}")
+        return None
+    try:
+        tok = r.json()
+    except Exception as e:
+        notify(f"[chatgpt] Invalid token response: {e}")
+        return None
+    if not isinstance(tok, dict) or not tok.get("access_token"):
+        notify("[chatgpt] No access_token in token response.")
+        return None
+
+    store = _chatgpt_oauth_apply_token_response(tok)
+    store["source"] = "dulus"
+    _chatgpt_oauth_save_store(store)
+    notify(
+        f"[chatgpt] Logged in"
+        + (f" (account {store.get('account_id')[:8]}…)" if store.get("account_id") else "")
+        + ". chatgpt/* models now use your ChatGPT subscription."
+    )
+    return store["access_token"]
+
+
+def _chatgpt_oauth_get_session(config: dict | None = None) -> dict:
+    """Return a valid ChatGPT OAuth session dict {access_token, account_id, ...}.
+
+    Priority:
+      1. Dulus-native store (~/.dulus/chatgpt_oauth.json) from `/login chatgpt`
+      2. Official Codex CLI cache (~/.codex/auth.json) from `codex login`
+    Auto-refreshes when expired. Returns {} when nothing usable is available.
+    """
+    config = config or {}
+
+    # 1. Dulus-native store
+    store = _chatgpt_oauth_load_store()
+    if store.get("access_token") or store.get("refresh_token"):
+        if store.get("access_token") and not _is_token_expired(store):
+            return store
+        if store.get("refresh_token"):
+            refreshed = _chatgpt_oauth_refresh(store["refresh_token"], store)
+            if refreshed and refreshed.get("access_token"):
+                return refreshed
+
+    # 2. Official Codex CLI cache
+    cli = _chatgpt_load_codex_cli_auth()
+    if cli.get("access_token") or cli.get("refresh_token"):
+        if cli.get("access_token") and not _is_token_expired(cli):
+            # Mirror into Dulus store so subsequent calls are fast + refreshable.
+            try:
+                _chatgpt_oauth_save_store({**cli, "source": "codex-cli"})
+            except Exception:
+                pass
+            return cli
+        if cli.get("refresh_token"):
+            refreshed = _chatgpt_oauth_refresh(cli["refresh_token"], cli)
+            if refreshed and refreshed.get("access_token"):
+                return refreshed
+
+    return {}
+
+
+def _chatgpt_oauth_get_token(config: dict | None = None) -> str:
+    """Convenience: just the bearer access token, or ''."""
+    return (_chatgpt_oauth_get_session(config) or {}).get("access_token") or ""
+
+
+def _chatgpt_oauth_headers(session: dict) -> dict:
+    """Build the headers Codex CLI sends to chatgpt.com/backend-api/codex."""
+    headers = {
+        "Authorization": f"Bearer {session.get('access_token', '')}",
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": CHATGPT_OAUTH_ORIGINATOR,
+        "User-Agent": CHATGPT_OAUTH_USER_AGENT,
+        "version": CHATGPT_OAUTH_CLIENT_VER,
+    }
+    account_id = session.get("account_id") or _chatgpt_extract_account_id(
+        session.get("id_token"), session.get("access_token")
+    )
+    if account_id:
+        headers["ChatGPT-Account-Id"] = account_id
+    return headers
+
+
+def _chatgpt_parse_reasoning_suffix(model: str) -> tuple[str, str | None]:
+    """Strip optional reasoning-effort suffixes from a model id.
+
+    Examples:
+      gpt-5.4-high     → (gpt-5.4, high)
+      gpt-5.5-xhigh    → (gpt-5.5, xhigh)
+      chatgpt/gpt-5.4  → (gpt-5.4, None)
+    """
+    m = (model or "").strip()
+    for prefix in ("chatgpt/", "chatgpt-", "codex/", "codex-"):
+        if m.lower().startswith(prefix):
+            m = m[len(prefix):]
+            break
+    effort = None
+    for suffix in ("-xhigh", "-high", "-medium", "-low", "-minimal"):
+        if m.lower().endswith(suffix):
+            effort = suffix.lstrip("-")
+            m = m[: -len(suffix)]
+            break
+    return m, effort
+
+
+def _chatgpt_messages_to_responses_input(
+    system: str,
+    messages: list,
+) -> tuple[str, list]:
+    """Translate Dulus neutral messages → Codex Responses API (instructions, input)."""
+    instruction_parts: list[str] = []
+    if system:
+        instruction_parts.append(str(system))
+
+    # Sanitize orphans the same way chat-completions does, then convert.
+    openai_msgs = messages_to_openai(messages)
+
+    input_items: list[dict] = []
+    for m in openai_msgs:
+        role = m.get("role")
+        if role in ("system", "developer"):
+            content = m.get("content") or ""
+            if isinstance(content, list):
+                content = "".join(
+                    (p.get("text") or "") if isinstance(p, dict) else str(p)
+                    for p in content
+                )
+            if content:
+                instruction_parts.append(str(content))
+            continue
+
+        if role == "user":
+            content = m.get("content") or ""
+            if isinstance(content, list):
+                parts = []
+                for p in content:
+                    if isinstance(p, dict):
+                        txt = p.get("text") or p.get("input_text") or ""
+                        if txt:
+                            parts.append({"type": "input_text", "text": str(txt)})
+                        # Best-effort image passthrough
+                        elif p.get("type") in ("image_url", "input_image"):
+                            url = (
+                                (p.get("image_url") or {}).get("url")
+                                if isinstance(p.get("image_url"), dict)
+                                else p.get("image_url") or p.get("url")
+                            )
+                            if url:
+                                parts.append({"type": "input_image", "image_url": url})
+                    elif p:
+                        parts.append({"type": "input_text", "text": str(p)})
+                if not parts:
+                    parts = [{"type": "input_text", "text": ""}]
+            else:
+                parts = [{"type": "input_text", "text": str(content)}]
+            input_items.append({"type": "message", "role": "user", "content": parts})
+            continue
+
+        if role == "assistant":
+            content = m.get("content") or ""
+            if isinstance(content, list):
+                text = "".join(
+                    (p.get("text") or "") if isinstance(p, dict) else str(p)
+                    for p in content
+                )
+            else:
+                text = str(content) if content is not None else ""
+            if text:
+                input_items.append({
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": text}],
+                })
+            for tc in (m.get("tool_calls") or []):
+                fn = tc.get("function") or {}
+                input_items.append({
+                    "type": "function_call",
+                    "call_id": tc.get("id") or "",
+                    "name": fn.get("name") or tc.get("name") or "",
+                    "arguments": fn.get("arguments") or tc.get("arguments") or "{}",
+                })
+            continue
+
+        if role == "tool":
+            input_items.append({
+                "type": "function_call_output",
+                "call_id": m.get("tool_call_id") or "",
+                "output": str(m.get("content") or ""),
+            })
+            continue
+
+        # Unknown role → treat as user text
+        input_items.append({
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_text", "text": str(m.get("content") or "")}],
+        })
+
+    instructions = "\n\n".join(p for p in instruction_parts if p)
+    return instructions, input_items
+
+
+def _chatgpt_tools_to_responses(tool_schemas: list) -> list:
+    """Convert Anthropic-style tool schemas → Responses API function tools."""
+    out = []
+    for t in tools_to_openai(tool_schemas or []):
+        fn = t.get("function") or {}
+        name = fn.get("name") or t.get("name")
+        if not name:
+            continue
+        out.append({
+            "type": "function",
+            "name": name,
+            "description": fn.get("description") or t.get("description") or "",
+            "parameters": fn.get("parameters") or {"type": "object", "properties": {}},
+        })
+    return out
+
+
+def stream_chatgpt_oauth(
+    model: str,
+    system: str,
+    messages: list,
+    tool_schemas: list,
+    config: dict,
+) -> Generator:
+    """Stream from ChatGPT/Codex subscription via the Responses API backend.
+
+    Requires a prior `/login chatgpt` (or an existing `codex login` session in
+    ~/.codex/auth.json). Yields TextChunk / ThinkingChunk / AssistantTurn.
+    """
+    import requests as _req
+
+    session = _chatgpt_oauth_get_session(config)
+    if not session.get("access_token"):
+        yield TextChunk(
+            "[chatgpt] No ChatGPT/Codex OAuth session. Run `/login chatgpt` "
+            "(or `codex login`) to sign in with your ChatGPT account — no API key."
+        )
+        yield AssistantTurn(
+            "[chatgpt] No ChatGPT/Codex OAuth session. Run `/login chatgpt`.",
+            [], 0, 0, error=True,
+        )
+        return
+
+    wire_model, effort_from_suffix = _chatgpt_parse_reasoning_suffix(model)
+    instructions, input_items = _chatgpt_messages_to_responses_input(system, messages)
+
+    body: dict[str, Any] = {
+        "model": wire_model,
+        "instructions": instructions,
+        "input": input_items,
+        "stream": True,
+        "store": False,
+    }
+
+    # Prompt caching: OpenAI auto-caches the prompt prefix (>1024 tokens), but
+    # routes cache lookups by `prompt_cache_key`. Without a stable key, turns of
+    # the same conversation can hit different cache nodes and miss. Key off the
+    # system prompt (stable across a session) + account so every turn of this
+    # chat lands on the same cached prefix. Cheap, and turns cache hits from
+    # "sometimes" into "reliably".
+    try:
+        import hashlib as _hl
+        _seed = (instructions or "") + "|" + (session.get("account_id") or "")
+        body["prompt_cache_key"] = "dulus-" + _hl.sha256(_seed.encode("utf-8")).hexdigest()[:32]
+    except Exception:
+        pass
+
+    # Reasoning effort: config override → model suffix → omit (server default).
+    effort = (
+        (config or {}).get("chatgpt_reasoning_effort")
+        or (config or {}).get("reasoning_effort")
+        or effort_from_suffix
+    )
+    if effort:
+        body["reasoning"] = {"effort": str(effort)}
+
+    tools = _chatgpt_tools_to_responses(tool_schemas)
+    if tools:
+        body["tools"] = tools
+        if not (config or {}).get("disable_tool_choice"):
+            body["tool_choice"] = "auto"
+
+    url = CHATGPT_OAUTH_BASE_URL.rstrip("/") + "/responses"
+    headers = _chatgpt_oauth_headers(session)
+
+    text = ""
+    thinking = ""
+    in_tok = 0
+    out_tok = 0
+    cached_tok = 0  # prompt-cached input tokens reported by the Responses API
+    # tool_buf keyed by call_id (or synthetic index when id arrives late)
+    tool_buf: dict[str, dict] = {}
+    tool_order: list[str] = []
+    current_call_id: str | None = None
+    stream_interrupted = False
+    auth_retried = False
+    resp = None
+
+    def _ensure_tool(call_id: str | None, name: str | None = None) -> str:
+        nonlocal current_call_id
+        cid = call_id or current_call_id or f"call_{len(tool_order)}"
+        if cid not in tool_buf:
+            tool_buf[cid] = {"id": cid, "name": name or "", "args": ""}
+            tool_order.append(cid)
+        elif name and not tool_buf[cid].get("name"):
+            tool_buf[cid]["name"] = name
+        current_call_id = cid
+        return cid
+
+    def _do_request(hdrs: dict):
+        return _req.post(url, headers=hdrs, json=body, stream=True, timeout=300)
+
+    try:
+        resp = _do_request(headers)
+        # One silent refresh+retry on 401
+        if resp.status_code == 401 and session.get("refresh_token") and not auth_retried:
+            auth_retried = True
+            refreshed = _chatgpt_oauth_refresh(session["refresh_token"], session)
+            if refreshed and refreshed.get("access_token"):
+                session = refreshed
+                headers = _chatgpt_oauth_headers(session)
+                try:
+                    resp.close()
+                except Exception:
+                    pass
+                resp = _do_request(headers)
+
+        if resp.status_code == 401:
+            yield TextChunk(
+                "[chatgpt] Auth error 401. Run `/login chatgpt force` to re-authenticate."
+            )
+            yield AssistantTurn(
+                "[chatgpt] Auth error 401. Run `/login chatgpt force`.",
+                [], 0, 0, error=True,
+            )
+            return
+        if resp.status_code == 402:
+            body_preview = (resp.text or "")[:300]
+            yield TextChunk(
+                "[chatgpt] HTTP 402 — ChatGPT workspace inactive / plan required. "
+                f"Check your ChatGPT subscription. Detail: {body_preview}"
+            )
+            yield AssistantTurn(
+                "[chatgpt] HTTP 402 — ChatGPT workspace inactive / plan required.",
+                [], 0, 0, error=True,
+            )
+            return
+        if resp.status_code >= 400:
+            body_preview = (resp.text or "")[:400]
+            yield TextChunk(f"[chatgpt] HTTP {resp.status_code}: {body_preview}")
+            yield AssistantTurn(
+                f"[chatgpt] HTTP {resp.status_code}: {body_preview}",
+                [], 0, 0, error=True,
+            )
+            return
+
+        event_type = ""
+        for raw_line in resp.iter_lines(decode_unicode=True):
+            if raw_line is None:
+                continue
+            line = raw_line.strip() if isinstance(raw_line, str) else raw_line.decode("utf-8", "replace").strip()
+            if not line:
+                continue
+            if line.startswith(":"):
+                continue
+            if line.startswith("event:"):
+                event_type = line[6:].strip()
+                continue
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                event = json.loads(data)
+            except Exception:
+                continue
+            if not isinstance(event, dict):
+                continue
+            et = event.get("type") or event_type or ""
+
+            if et in ("response.output_text.delta", "response.refusal.delta"):
+                delta = event.get("delta") or ""
+                if delta:
+                    text += delta
+                    yield TextChunk(delta)
+                continue
+
+            if et in (
+                "response.reasoning_summary_text.delta",
+                "response.reasoning_text.delta",
+            ):
+                delta = event.get("delta") or ""
+                if delta:
+                    thinking += delta
+                    yield ThinkingChunk(delta)
+                continue
+
+            if et == "response.output_item.added":
+                item = event.get("item") or {}
+                if isinstance(item, dict) and item.get("type") == "function_call":
+                    _ensure_tool(item.get("call_id") or item.get("id"), item.get("name"))
+                continue
+
+            if et == "response.function_call_arguments.delta":
+                cid = event.get("call_id") or current_call_id
+                key = _ensure_tool(cid)
+                delta_args = event.get("delta") or ""
+                if delta_args:
+                    tool_buf[key]["args"] += delta_args
+                continue
+
+            if et == "response.function_call_arguments.done":
+                cid = event.get("call_id") or current_call_id
+                key = _ensure_tool(cid)
+                final_args = event.get("arguments")
+                if final_args is not None:
+                    tool_buf[key]["args"] = final_args
+                continue
+
+            if et == "response.output_item.done":
+                item = event.get("item") or {}
+                if isinstance(item, dict) and item.get("type") == "function_call":
+                    key = _ensure_tool(item.get("call_id") or item.get("id"), item.get("name"))
+                    if item.get("name"):
+                        tool_buf[key]["name"] = item["name"]
+                    if item.get("arguments") is not None:
+                        tool_buf[key]["args"] = item["arguments"]
+                    if item.get("call_id"):
+                        tool_buf[key]["id"] = item["call_id"]
+                continue
+
+            if et in ("response.completed", "response.incomplete"):
+                resp_obj = event.get("response") or {}
+                usage = resp_obj.get("usage") or event.get("usage") or {}
+                if isinstance(usage, dict):
+                    in_tok = int(usage.get("input_tokens") or usage.get("prompt_tokens") or in_tok or 0)
+                    out_tok = int(usage.get("output_tokens") or usage.get("completion_tokens") or out_tok or 0)
+                    # Responses API reports the cached slice under
+                    # input_tokens_details.cached_tokens (prompt_tokens_details on
+                    # the Chat-Completions shape). Surfacing it lets the toolbar
+                    # credit cache hits instead of billing full input every turn.
+                    _det = usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {}
+                    if isinstance(_det, dict):
+                        cached_tok = int(_det.get("cached_tokens") or cached_tok or 0)
+                continue
+
+            if et in ("response.failed", "error"):
+                err = event.get("error") or event.get("response", {}).get("error") or event
+                msg = ""
+                if isinstance(err, dict):
+                    msg = err.get("message") or err.get("code") or json.dumps(err)[:300]
+                else:
+                    msg = str(err)[:300]
+                note = f"\n\n_[chatgpt error: {msg}]_"
+                text += note
+                yield TextChunk(note)
+                continue
+
+    except _req.exceptions.ChunkedEncodingError:
+        stream_interrupted = True
+    except _req.exceptions.ConnectionError:
+        stream_interrupted = True
+    except Exception as e:
+        msg = f"[chatgpt] Error: {e}"
+        yield TextChunk(msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+        return
+    finally:
+        if resp is not None:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+    if stream_interrupted and not tool_buf:
+        note = "\n\n_[chatgpt: el streaming se cortó a media respuesta — esto es parcial, reintenta]_"
+        text += note
+        yield TextChunk(note)
+
+    # Build final tool_calls list in arrival order
+    ordered_buf = {i: tool_buf[k] for i, k in enumerate(tool_order)} if tool_order else tool_buf
+    final_tool_calls = _finalize_tool_calls(ordered_buf)
+
+    yield AssistantTurn(text, final_tool_calls, in_tok, out_tok, thinking=thinking,
+                        cache_read_tokens=cached_tok)
 
 
 def stream_xai_oauth(
@@ -5881,6 +6854,10 @@ def stream(
             # Official Grok Build TUI session (`grok login` → ~/.grok/auth.json) or XAI_API_KEY.
             # No separate harvest file is used (old Playwright harvest for Grok was removed).
             yield from stream_xai_oauth(model_name, system, messages, tool_schemas, config)
+        elif prov["type"] == "chatgpt-oauth":
+            # ChatGPT/Codex subscription OAuth (`/login chatgpt` or ~/.codex/auth.json)
+            # → chatgpt.com/backend-api/codex/responses (Responses API, not chat/completions)
+            yield from stream_chatgpt_oauth(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "gcloud":
             yield from stream_gcloud(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "litellm":

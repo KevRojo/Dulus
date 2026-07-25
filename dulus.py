@@ -8749,6 +8749,62 @@ def cmd_login(args: str, _state, config) -> bool:
         print(clr("Could not authenticate Claude. Re-run `/login claude` (or `/login claude force` for a fresh attempt).", "yellow"))
         return True
 
+    # /login chatgpt — ChatGPT Plus/Pro/Team via Codex CLI OAuth client.
+    # Reuses ~/.codex/auth.json when present; otherwise opens auth.openai.com.
+    if sub.split(" ")[0] in ("chatgpt", "openai-oauth", "codex", "gpt-oauth"):
+        from providers import (
+            _chatgpt_oauth_login, _chatgpt_oauth_get_session,
+            _chatgpt_load_codex_cli_auth,
+        )
+        force = "force" in (args or "").lower()
+        if not force:
+            session = _chatgpt_oauth_get_session(config)
+            if session.get("access_token"):
+                src = session.get("source") or "dulus"
+                where = (
+                    "~/.codex/auth.json (Codex CLI)"
+                    if src == "codex-cli"
+                    else "~/.dulus/chatgpt_oauth.json"
+                )
+                print(clr(f"✅ ChatGPT OAuth session already active ({where}).", "green"))
+                print(clr(
+                    "chatgpt/* models use your ChatGPT subscription automatically. "
+                    "Use `/login chatgpt force` to re-login.",
+                    "green",
+                ))
+                return True
+            # Friendly hint if Codex CLI cache exists but is expired/unusable
+            cli = _chatgpt_load_codex_cli_auth()
+            if cli.get("refresh_token") or cli.get("access_token"):
+                print(clr(
+                    "Found ~/.codex/auth.json but the token looks expired/unusable — "
+                    "starting a fresh login…",
+                    "yellow",
+                ))
+        print(clr("Starting ChatGPT login (Codex OAuth via auth.openai.com)…", "cyan"))
+        print(clr(
+            "A browser will open — sign in with ChatGPT, approve, and the callback "
+            "is captured automatically (or paste the localhost URL if asked).",
+            "cyan",
+        ))
+        try:
+            token = _chatgpt_oauth_login(config, notify=lambda m: print(clr(m, "cyan")))
+        except Exception as e:
+            token = None
+            print(clr(f"ChatGPT login error: {e}", "red"))
+        if token:
+            print(clr(
+                "✅ Logged in. Try `/model chatgpt/gpt-5.4` — runs on your ChatGPT plan (no API key).",
+                "green",
+            ))
+            return True
+        print(clr(
+            "Could not authenticate ChatGPT. Re-run `/login chatgpt` "
+            "(or `/login chatgpt force`). Also works if you run `codex login` first.",
+            "yellow",
+        ))
+        return True
+
     if sub in ("grok", "xai", "x", "grok-oauth", ""):
         from providers import (
             _load_grok_build_session_token, _xai_oauth_login,
@@ -8817,6 +8873,12 @@ def cmd_login_claude(args: str, _state, config) -> bool:
     """Alias for `/login claude` so `/login-claude` and `/claude-login` route to the
     Claude OAuth flow (forwarding any extra args like `force`)."""
     return cmd_login(("claude " + (args or "")).strip(), _state, config)
+
+
+def cmd_login_chatgpt(args: str, _state, config) -> bool:
+    """Alias for `/login chatgpt` so `/login-chatgpt`, `/chatgpt-login`, `/login-codex`
+    route to the ChatGPT/Codex OAuth flow (forwarding any extra args like `force`)."""
+    return cmd_login(("chatgpt " + (args or "")).strip(), _state, config)
 
 
 def cmd_profile(args: str, state, config) -> bool:
@@ -10308,6 +10370,10 @@ COMMANDS = {
     "login":            cmd_login,
     "login-claude":     cmd_login_claude,
     "claude-login":     cmd_login_claude,
+    "login-chatgpt":    cmd_login_chatgpt,
+    "chatgpt-login":    cmd_login_chatgpt,
+    "login-codex":      cmd_login_chatgpt,
+    "codex-login":      cmd_login_chatgpt,
     "login-grok":       cmd_login,
     "grok-login":       cmd_login,
     "xai-login":        cmd_login,
