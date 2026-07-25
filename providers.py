@@ -2997,7 +2997,16 @@ def stream_gemini_web(
         if raw_content:
             break
 
-    yield from _yield_web_parsed(parser, raw_content)
+    # Parse the accumulated raw response ONCE and capture the text into `text`
+    # so the final AssistantTurn (which is saved to history) matches what was
+    # streamed. Previously _yield_web_parsed() streamed the text but left `text`
+    # empty, so every gemini-web turn was persisted as the error placeholder.
+    if raw_content:
+        parsed = parser.parse_chunk(raw_content)
+        parsed += parser.flush()
+        if parsed:
+            text += parsed
+            yield TextChunk(parsed)
 
     if not text and not parser.tool_calls:
         yield AssistantTurn("[gemini-web: no response after retries]", [], 0, 0)
