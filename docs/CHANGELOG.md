@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.33] - 2026-07-25
+
+### Fixed
+- **gemini-web now saves the reply it actually gave you.** `stream_gemini_web`
+  streamed the model's text to the screen but persisted the
+  `[gemini-web: no response after retries]` placeholder as the assistant turn —
+  so every gemini-web exchange was recorded in history as an error, poisoning
+  multi-turn context. The parsed text is now captured into the saved
+  `AssistantTurn`, matching what was streamed.
+- **`/gemini_chats new` actually starts a new chat now.** Clearing the thread
+  `pop()`-ed the conversation-id keys, but `save_config()` deliberately re-merges
+  the on-disk file on top of defaults (to prevent config wipes), so a popped key
+  silently resurrected its old value — the "new" chat kept talking to the old
+  thread. Clearing now writes `""`, which persists and reads as "no thread".
+- **A fresh Gemini chat answers on the first try instead of the third.** The
+  harvester seeded the throwaway "DULUS" priming thread's ids into config, so the
+  first two real requests came back empty (an anonymous Gemini thread rejects a
+  continuation from a different payload) and burned a 2-retry cascade on every
+  new conversation. The harvest now clears the thread; `stream_gemini_web`
+  re-captures the real ids from the first successful response, so continuity is
+  kept from message one onward.
+
 ## [3.10.32] - 2026-07-25
 
 ### Changed
