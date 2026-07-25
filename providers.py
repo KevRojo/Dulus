@@ -1226,6 +1226,363 @@ def _is_token_expired(auth_data: dict) -> bool:
         return False
 
 
+# ── Grok / xAI remaining usage (Grok Build `/usage` path) ─────────────────────
+# Source: open-source xai-org/grok-build (`extensions/billing.rs`).
+# The official TUI `/usage` command hits the CLI chat proxy with the same OAuth
+# token from `grok login` / `/login grok` — NOT the Management API key.
+#
+#   GET https://cli-chat-proxy.grok.com/v1/billing?format=credits
+#   GET https://cli-chat-proxy.grok.com/v1/billing   (legacy cents)
+#
+# Toolbar must NEVER block on network: peek_* returns cache only and refreshes
+# in a background thread.
+
+GROK_CLI_CHAT_PROXY_BASE = "https://cli-chat-proxy.grok.com/v1"
+_GROK_USAGE_CACHE: dict[str, Any] = {
+    "snapshot": None,       # dict | None
+    "fetched_at": 0.0,      # monotonic-ish wall time
+    "error": None,          # str | None
+    "refreshing": False,
+}
+_GROK_USAGE_LOCK = None  # lazy threading.Lock
+_GROK_USAGE_TTL_OK_S = 120.0
+_GROK_USAGE_TTL_ERR_S = 60.0
+
+
+def _grok_usage_lock():
+    global _GROK_USAGE_LOCK
+    if _GROK_USAGE_LOCK is None:
+        import threading
+        _GROK_USAGE_LOCK = threading.Lock()
+    return _GROK_USAGE_LOCK
+
+
+def is_grok_model(model: str | None) -> bool:
+    """True when the active model routes through xAI / Grok OAuth."""
+    if not model:
+        return False
+    m = str(model).strip().lower()
+    if not m:
+        return False
+    # Explicit provider prefix
+    if m.startswith(("grok-", "xai-", "xai/", "xai-oauth/", "grok/")):
+        return True
+    # Bare model ids used in the wild
+    if m.startswith("grok"):
+        return True
+    # provider/model form
+    if "/" in m:
+        head, _tail = m.split("/", 1)
+        if head in ("xai", "xai-oauth", "grok", "grok-build"):
+            return True
+    try:
+        return detect_provider(model) == "xai-oauth"
+    except Exception:
+        return False
+
+
+def _cent_val(obj: Any) -> int | None:
+    """Extract USD-cents integer from Grok billing Cent shape ``{"val": N}``."""
+    if obj is None:
+        return None
+    if isinstance(obj, (int, float)):
+        return int(obj)
+    if isinstance(obj, dict):
+        if "val" in obj:
+            try:
+                return int(obj.get("val") or 0)
+            except (TypeError, ValueError):
+                return 0
+    return None
+
+
+def _parse_grok_billing_payloads(
+    credits: dict | None,
+    legacy: dict | None = None,
+) -> dict[str, Any]:
+    """Normalize Grok Build billing JSON into a stable snapshot dict."""
+    credits = credits if isinstance(credits, dict) else {}
+    legacy = legacy if isinstance(legacy, dict) else {}
+    cfg = credits.get("config") if isinstance(credits.get("config"), dict) else {}
+    leg_cfg = legacy.get("config") if isinstance(legacy.get("config"), dict) else {}
+
+    usage_pct = cfg.get("creditUsagePercent")
+    if usage_pct is None:
+        usage_pct = cfg.get("credit_usage_percent")
+    try:
+        usage_pct_f = float(usage_pct) if usage_pct is not None else None
+    except (TypeError, ValueError):
+        usage_pct_f = None
+
+    remaining_pct = None
+    if usage_pct_f is not None:
+        remaining_pct = max(0.0, min(100.0, 100.0 - usage_pct_f))
+
+    period = cfg.get("currentPeriod") or cfg.get("current_period") or {}
+    period_type = None
+    period_start = None
+    period_end = None
+    if isinstance(period, dict):
+        period_type = period.get("type")
+        period_start = period.get("start")
+        period_end = period.get("end")
+    if not period_start:
+        period_start = cfg.get("billingPeriodStart") or cfg.get("billing_period_start")
+        period_start = period_start or leg_cfg.get("billingPeriodStart")
+    if not period_end:
+        period_end = cfg.get("billingPeriodEnd") or cfg.get("billing_period_end")
+        period_end = period_end or leg_cfg.get("billingPeriodEnd")
+
+    prepaid_cents = _cent_val(cfg.get("prepaidBalance") or cfg.get("prepaid_balance"))
+    on_demand_cap = _cent_val(cfg.get("onDemandCap") or cfg.get("on_demand_cap")
+                              or leg_cfg.get("onDemandCap"))
+    on_demand_used = _cent_val(cfg.get("onDemandUsed") or cfg.get("on_demand_used")
+                               or leg_cfg.get("onDemandUsed"))
+
+    # Legacy monthly cents (still useful for dollar remaining display)
+    monthly_limit_cents = _cent_val(leg_cfg.get("monthlyLimit") or leg_cfg.get("monthly_limit")
+                                    or cfg.get("monthlyLimit") or cfg.get("monthly_limit"))
+    used_cents = _cent_val(leg_cfg.get("used") or cfg.get("used"))
+
+    remaining_usd = None
+    used_usd = None
+    limit_usd = None
+    if monthly_limit_cents is not None and used_cents is not None:
+        limit_usd = monthly_limit_cents / 100.0
+        used_usd = used_cents / 100.0
+        remaining_usd = max(0.0, (monthly_limit_cents - used_cents) / 100.0)
+    prepaid_usd = (prepaid_cents / 100.0) if prepaid_cents is not None else None
+
+    # Status buckets for toolbar color
+    status = "unknown"
+    if remaining_pct is not None:
+        if remaining_pct <= 0.5:
+            status = "exhausted"
+        elif remaining_pct < 20.0:
+            status = "low"
+        else:
+            status = "ok"
+    elif remaining_usd is not None and limit_usd is not None:
+        if remaining_usd <= 0:
+            status = "exhausted"
+        elif limit_usd > 0 and (remaining_usd / limit_usd) < 0.20:
+            status = "low"
+        else:
+            status = "ok"
+
+    product_usage = cfg.get("productUsage") or cfg.get("product_usage") or []
+
+    return {
+        "provider": "grok",
+        "usage_percent": usage_pct_f,
+        "remaining_percent": remaining_pct,
+        "remaining_usd": remaining_usd,
+        "used_usd": used_usd,
+        "limit_usd": limit_usd,
+        "prepaid_usd": prepaid_usd,
+        "on_demand_cap_usd": (on_demand_cap / 100.0) if on_demand_cap is not None else None,
+        "on_demand_used_usd": (on_demand_used / 100.0) if on_demand_used is not None else None,
+        "period_type": period_type,
+        "period_start": period_start,
+        "period_end": period_end,
+        "is_unified_billing": cfg.get("isUnifiedBillingUser", cfg.get("is_unified_billing_user")),
+        "product_usage": product_usage if isinstance(product_usage, list) else [],
+        "status": status,
+        "raw_credits": credits or None,
+        "raw_legacy": legacy or None,
+        "checked_at": time.time(),
+    }
+
+
+def fetch_grok_billing(config: dict | None = None, *, timeout: float = 12.0) -> dict[str, Any]:
+    """Live-fetch Grok Build billing/usage via OAuth (same path as `/usage`).
+
+    Raises on hard failures (no token / HTTP error). Prefer
+    ``get_grok_usage_snapshot`` for UI paths that must stay non-blocking.
+    """
+    config = config or {}
+    token = _xai_oauth_get_token(config) or ""
+    if not token:
+        raise RuntimeError("No Grok/xAI OAuth token. Run /login grok first.")
+
+    base = GROK_CLI_CHAT_PROXY_BASE.rstrip("/")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "User-Agent": "dulus-grok-usage/1.0",
+        "x-grok-client-mode": "cli",
+    }
+
+    def _get(url: str) -> dict:
+        resp = requests.get(url, headers=headers, timeout=timeout)
+        if resp.status_code == 401:
+            # One refresh attempt via native store, then retry once.
+            store = _xai_oauth_load_store()
+            if store.get("refresh_token"):
+                refreshed = _xai_oauth_refresh(store["refresh_token"])
+                if refreshed and refreshed.get("access_token"):
+                    headers["Authorization"] = f"Bearer {refreshed['access_token']}"
+                    resp = requests.get(url, headers=headers, timeout=timeout)
+        if resp.status_code >= 400:
+            body = (resp.text or "")[:240]
+            raise RuntimeError(f"Grok billing HTTP {resp.status_code}: {body}")
+        try:
+            data = resp.json()
+        except Exception as e:
+            raise RuntimeError(f"Grok billing: invalid JSON ({e})") from e
+        return data if isinstance(data, dict) else {}
+
+    credits = _get(f"{base}/billing?format=credits")
+    legacy: dict = {}
+    try:
+        legacy = _get(f"{base}/billing")
+    except Exception:
+        # Credits-only is enough for the toolbar; legacy is enrichment.
+        legacy = {}
+    snap = _parse_grok_billing_payloads(credits, legacy)
+    # Keep the toolbar cache warm whenever anyone does a live fetch.
+    try:
+        with _grok_usage_lock():
+            _GROK_USAGE_CACHE["snapshot"] = snap
+            _GROK_USAGE_CACHE["fetched_at"] = time.time()
+            _GROK_USAGE_CACHE["error"] = None
+            _GROK_USAGE_CACHE["refreshing"] = False
+    except Exception:
+        pass
+    return snap
+
+
+def get_grok_usage_snapshot(
+    config: dict | None = None,
+    *,
+    force: bool = False,
+    wait: bool = False,
+    timeout: float = 12.0,
+) -> dict[str, Any] | None:
+    """Return cached Grok usage snapshot; refresh in background when stale.
+
+    - ``wait=False`` (default): never blocks — returns last good snapshot or None
+      and kicks a background refresh if needed. Safe for the TUI toolbar.
+    - ``wait=True`` / ``force=True``: fetch synchronously (for /quota, tests).
+    """
+    config = config or {}
+    now = time.time()
+    lock = _grok_usage_lock()
+
+    with lock:
+        snap = _GROK_USAGE_CACHE.get("snapshot")
+        fetched_at = float(_GROK_USAGE_CACHE.get("fetched_at") or 0.0)
+        err = _GROK_USAGE_CACHE.get("error")
+        refreshing = bool(_GROK_USAGE_CACHE.get("refreshing"))
+        ttl = _GROK_USAGE_TTL_OK_S if snap is not None else _GROK_USAGE_TTL_ERR_S
+        age = now - fetched_at if fetched_at else 1e18
+        stale = force or age >= ttl
+
+    if not stale and snap is not None:
+        return snap
+
+    if wait or force:
+        try:
+            fresh = fetch_grok_billing(config, timeout=timeout)
+            with lock:
+                _GROK_USAGE_CACHE["snapshot"] = fresh
+                _GROK_USAGE_CACHE["fetched_at"] = time.time()
+                _GROK_USAGE_CACHE["error"] = None
+                _GROK_USAGE_CACHE["refreshing"] = False
+            return fresh
+        except Exception as e:
+            with lock:
+                _GROK_USAGE_CACHE["error"] = str(e)[:240]
+                _GROK_USAGE_CACHE["fetched_at"] = time.time()
+                _GROK_USAGE_CACHE["refreshing"] = False
+            return snap  # last good, if any
+
+    # Non-blocking path: spawn refresh if not already running
+    if stale and not refreshing:
+        import threading
+
+        def _bg():
+            try:
+                fresh = fetch_grok_billing(config, timeout=timeout)
+                with lock:
+                    _GROK_USAGE_CACHE["snapshot"] = fresh
+                    _GROK_USAGE_CACHE["fetched_at"] = time.time()
+                    _GROK_USAGE_CACHE["error"] = None
+            except Exception as e:
+                with lock:
+                    _GROK_USAGE_CACHE["error"] = str(e)[:240]
+                    _GROK_USAGE_CACHE["fetched_at"] = time.time()
+            finally:
+                with lock:
+                    _GROK_USAGE_CACHE["refreshing"] = False
+
+        with lock:
+            if _GROK_USAGE_CACHE.get("refreshing"):
+                return snap
+            _GROK_USAGE_CACHE["refreshing"] = True
+        t = threading.Thread(target=_bg, name="grok-usage-refresh", daemon=True)
+        t.start()
+
+    return snap
+
+
+def format_grok_usage_toolbar(snapshot: dict[str, Any] | None) -> str:
+    """Short plain label for the TUI toolbar (no ANSI). Empty if unknown."""
+    if not snapshot:
+        return ""
+    # Prefer percent remaining (Grok Build primary signal)
+    rem_pct = snapshot.get("remaining_percent")
+    if rem_pct is not None:
+        try:
+            return f"💳 {int(rem_pct)}% left"
+        except (TypeError, ValueError):
+            pass
+    rem_usd = snapshot.get("remaining_usd")
+    if rem_usd is not None:
+        try:
+            v = float(rem_usd)
+            if v >= 100:
+                return f"💳 ${v:.0f} left"
+            return f"💳 ${v:.2f} left"
+        except (TypeError, ValueError):
+            pass
+    prepaid = snapshot.get("prepaid_usd")
+    if prepaid is not None:
+        try:
+            v = float(prepaid)
+            if v > 0:
+                return f"💳 ${v:.2f} prepaid"
+        except (TypeError, ValueError):
+            pass
+    return ""
+
+
+def peek_grok_usage_toolbar(config: dict | None = None, model: str | None = None) -> str:
+    """Toolbar-safe Grok remaining-usage label.
+
+    Returns "" unless the active model is Grok and we already have (or can
+    background-fetch) a snapshot. Never raises, never blocks on network.
+    """
+    try:
+        cfg = config or {}
+        m = model if model is not None else cfg.get("model", "")
+        if not is_grok_model(m):
+            return ""
+        snap = get_grok_usage_snapshot(cfg, force=False, wait=False)
+        return format_grok_usage_toolbar(snap)
+    except Exception:
+        return ""
+
+
+def reset_grok_usage_cache() -> None:
+    """Test helper — clear the in-process Grok usage cache."""
+    with _grok_usage_lock():
+        _GROK_USAGE_CACHE["snapshot"] = None
+        _GROK_USAGE_CACHE["fetched_at"] = 0.0
+        _GROK_USAGE_CACHE["error"] = None
+        _GROK_USAGE_CACHE["refreshing"] = False
+
+
 # ── Anthropic / Claude OAuth (Claude Pro/Max subscription login — NO API key) ──
 # Mirrors the Grok OAuth flow above, for Anthropic's subscription auth. The user
 # logs in at claude.ai (the browser part), the authorization code is shown on the
