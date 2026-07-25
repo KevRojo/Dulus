@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.36] - 2026-07-25
+
+### Added
+- **ChatGPT Plus/Pro/Team as a provider — no API key.** New `chatgpt-oauth`
+  provider: run `/login chatgpt` (Codex OAuth via auth.openai.com, or it reuses
+  an existing `~/.codex/auth.json` from `codex login`), then `chatgpt/*` model ids
+  — `chatgpt/gpt-5.4`, `chatgpt/gpt-5.1-codex`, `chatgpt/o4-mini`, … — stream from
+  the ChatGPT backend (Responses API) billed against your ChatGPT subscription,
+  not platform API credits. Aliases: `/login-chatgpt`, `/chatgpt-login`,
+  `/login-codex`, `/codex-login`. Model ids `gpt-5.x` / `codex-*` route here ahead
+  of the paid API; plain `gpt-4o`/`o3` still go to the OpenAI API as before.
+- Prompt-cache accounting for the ChatGPT backend: sends a stable
+  `prompt_cache_key` and reads `input_tokens_details.cached_tokens`, so cache
+  hits are credited when the backend reports them. (Note: the ChatGPT/Codex
+  subscription endpoint currently forces `store:false` and does not populate the
+  prompt cache, so cached tokens read 0 there today — this is correct reporting +
+  future-proofing, not a promise of caching on that path.)
+
 ## [3.10.35] - 2026-07-25
 
 ### Fixed
