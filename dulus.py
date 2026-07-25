@@ -10629,6 +10629,27 @@ def repl(config: dict, initial_prompt: str | None = None):
         except Exception:
             pass
 
+        # Grok remaining usage — only when active model is Grok and OAuth
+        # billing is available. peek_* is cache-only + background refresh;
+        # never blocks the toolbar on network I/O.
+        try:
+            from providers import peek_grok_usage_toolbar, get_grok_usage_snapshot, is_grok_model
+            _gmodel = config.get("model", "")
+            if is_grok_model(_gmodel):
+                _glabel = peek_grok_usage_toolbar(config, _gmodel)
+                if _glabel:
+                    _gsnap = get_grok_usage_snapshot(config, force=False, wait=False)
+                    _gstatus = (_gsnap or {}).get("status") or "ok"
+                    if _gstatus == "exhausted":
+                        _gcolor = "red"
+                    elif _gstatus == "low":
+                        _gcolor = "yellow"
+                    else:
+                        _gcolor = "gray"
+                    parts.append(clr(_glabel, _gcolor))
+        except Exception:
+            pass
+
         # Permission mode — gray normally, RED if accept-all (dangerous)
         pmode = config.get("permission_mode", "auto")
         lock = "🔓" if pmode == "accept-all" else "🔒"
@@ -10644,6 +10665,15 @@ def repl(config: dict, initial_prompt: str | None = None):
         commands_provider = lambda: dict(COMMANDS)
         meta_provider = lambda: dict(_CMD_META)
         input_setup(commands_provider, meta_provider, toolbar_provider=_render_toolbar)
+
+    # Warm Grok remaining-usage cache in the background so the toolbar can
+    # show "N% left" shortly after boot (never blocks startup).
+    try:
+        from providers import is_grok_model, get_grok_usage_snapshot
+        if is_grok_model(config.get("model", "")):
+            get_grok_usage_snapshot(config, force=False, wait=False)
+    except Exception:
+        pass
 
     # Collected status lines from init steps. Printed AFTER the banner so the
     # logo + box stay visually clean. Soul picker (only thing that needs
