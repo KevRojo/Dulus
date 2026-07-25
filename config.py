@@ -83,7 +83,7 @@ OUTPUT_DIR        = CONFIG_DIR  / "output"         # WebFetch compressed cache
 MR_SESSION_DIR = SESSIONS_DIR / "mr_sessions"
 
 DEFAULTS = {
-    "model":            "ollama/gemma4:latest",
+    "model":            "gemini-web/gemini-latest",
     "max_tokens":       128000,
     "permission_mode":  "auto",   # auto | accept-all | manual
     "verbose":          False,
