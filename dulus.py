@@ -3269,34 +3269,21 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
         with open(out_path, "w", encoding="utf-8") as f:
             _json.dump(data, f, indent=2)
 
-        # Try to extract conversation IDs from the intercepted request to sync immediately
+        # Start the next real message on a FRESH thread. The harvest primes the
+        # session with a throwaway "DULUS" message; reusing that thread's IDs
+        # makes the first two real requests come back empty (an anonymous Gemini
+        # thread won't accept a continuation from a different payload), forcing a
+        # slow 2-retry cascade on every new conversation. Clear the ids — set ""
+        # rather than pop(), since save_config() re-merges the on-disk file and a
+        # popped key resurrects its old value. stream_gemini_web re-captures the
+        # real thread's ids from the first successful response, so continuity is
+        # kept from message one onward.
         try:
-            import urllib.parse
-            last_pd = intercepted[-1].get("post_data", "")
-            if last_pd:
-                pd_parsed = urllib.parse.parse_qs(last_pd)
-                if "f.req" in pd_parsed:
-                    # f.req = [[["otAQ7b", "<inner_json_str>", null, "generic"]]]
-                    f_req_outer = _json.loads(pd_parsed["f.req"][0])
-                    inner_str = f_req_outer[0][0][1]  # the inner JSON string
-                    inner = _json.loads(inner_str)
-                    # inner = [message, null, null, [], ..., [[c_id, r_id, rc_id]]]
-                    # IDs are in the last non-null list element
-                    ids_list = None
-                    for part in reversed(inner):
-                        if isinstance(part, list) and part:
-                            ids_list = part
-                            break
-                    if ids_list and isinstance(ids_list[0], list) and len(ids_list[0]) >= 2:
-                        c = ids_list[0][0]
-                        r = ids_list[0][1]
-                        rc = ids_list[0][2] if len(ids_list[0]) > 2 else ""
-                        if c: config["gemini_web_c_id"] = c
-                        if r: config["gemini_web_r_id"] = r
-                        if rc: config["gemini_web_rc_id"] = rc
-                        from config import save_config
-                        save_config(config)
-                        ok(f"¡Active Gemini session synced! → {config.get('gemini_web_c_id','?')[:10]}...")
+            config["gemini_web_c_id"] = ""
+            config["gemini_web_r_id"] = ""
+            config["gemini_web_rc_id"] = ""
+            from config import save_config
+            save_config(config)
         except Exception:
             pass
 
@@ -3620,9 +3607,12 @@ def cmd_gemini_chats(args: str, _state, config) -> bool:
     from config import save_config
     arg = args.strip().lower()
     if arg == "new":
-        config.pop("gemini_web_c_id", None)
-        config.pop("gemini_web_r_id", None)
-        config.pop("gemini_web_rc_id", None)
+        # Set "" instead of pop(): save_config() re-merges the on-disk file, so
+        # a popped key resurrects its old value. Empty string persists and reads
+        # as "no active thread" (every reader gates on `if c_id and r_id`).
+        config["gemini_web_c_id"] = ""
+        config["gemini_web_r_id"] = ""
+        config["gemini_web_rc_id"] = ""
         save_config(config)
         ok("Gemini context cleared. Next message will start a new chat.")
         return True
