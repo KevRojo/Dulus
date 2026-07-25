@@ -411,11 +411,14 @@ def show_welcome_banner(user_name: str = "friend", is_returning: bool = False) -
         print_banner("dulus")
     except Exception:
         print(CIGUA_ASCII)
+    _sig = (user_name or "").strip()
+    if not _sig or _sig.lower() in ("friend", "amigo"):
+        _sig = "dulus"
     try:
         from cli_animations import print_creator_signature
-        print_creator_signature("kevrojo")
+        print_creator_signature(_sig)
     except Exception:
-        print("  ◆  kevrojo  ◆")
+        print(f"  ◆  {_sig}  ◆")
     print()
 
     # Time-based greeting
