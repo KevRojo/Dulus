@@ -3090,6 +3090,61 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
     return True
 
 
+def _launch_harvest_browser(p, pw_profile, headless):
+    """Launch a persistent browser for harvesting, resilient to a bare box.
+
+    Uses system Google Chrome (channel="chrome"). If it's missing — the common
+    case on fresh servers/containers — it installs *Google Chrome*, not plain
+    Chromium: the google-chrome package pulls the system libraries
+    (libnss3/libatk/libgbm/…) that a raw Chromium download leaves out, which is
+    the whole reason a bare Ubuntu can't launch the browser. `--with-deps` makes
+    Playwright apt-install those libs. Raises the real error if nothing launches,
+    so the caller can print an actionable fix instead of failing silently.
+    """
+    import subprocess, sys as _sys
+
+    common = dict(
+        user_data_dir=pw_profile,
+        headless=headless,
+        ignore_default_args=["--enable-automation"],
+        args=[
+            "--no-sandbox",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-infobars",
+            "--no-default-browser-check",
+            "--disable-dev-shm-usage",  # small /dev/shm in containers crashes Chrome
+        ],
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        viewport={"width": 1400, "height": 900},
+        timeout=60000,
+    )
+
+    # 1) System Google Chrome, if the box already has it.
+    try:
+        return p.chromium.launch_persistent_context(channel="chrome", **common)
+    except Exception as e_chrome:
+        info(f"  Google Chrome not found ({str(e_chrome).splitlines()[0][:60]}); installing it (pulls the missing libs)...")
+
+    # 2) Install Google Chrome + its system libraries, then retry. --with-deps
+    #    is what drags in libnss3/libatk/libgbm — installing chromium alone does
+    #    NOT, which is why the bare box failed. Fall back to a plain chrome
+    #    install if --with-deps can't run (e.g. no root for apt).
+    for extra in (["--with-deps", "chrome"], ["chrome"]):
+        try:
+            subprocess.run([_sys.executable, "-m", "playwright", "install", *extra],
+                           check=False, timeout=600)
+        except Exception:
+            continue
+        try:
+            return p.chromium.launch_persistent_context(channel="chrome", **common)
+        except Exception:
+            continue
+
+    # 3) Last resort: whatever bundled Chromium exists (may still lack libs, but
+    #    let it raise the real error for the caller's actionable message).
+    return p.chromium.launch_persistent_context(**common)
+
+
 def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
     """Harvest fresh session data from gemini.google.com using Playwright.
 
@@ -3126,24 +3181,10 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch_persistent_context(
-                user_data_dir=pw_profile,
-                channel="chrome",
-                headless=headless,
-                ignore_default_args=["--enable-automation"],
-                args=[
-                    "--no-sandbox",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                    "--no-default-browser-check",
-                ],
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-                viewport={"width": 1400, "height": 900},
-                timeout=60000,
-            )
+            browser = _launch_harvest_browser(p, pw_profile, headless)
 
             page = browser.pages[0] if browser.pages else browser.new_page()
-            
+
             intercepted = []
 
             def _handle_req(request):
@@ -3290,6 +3331,18 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
         ok(f"Harvested Gemini tokens → {out_path}")
         ok("gemini-web provider updated — next message will use the selected chat.")
     except Exception as e:
+        # Never swallow silently — a bare server showed "nothing happened".
+        low = str(e).lower()
+        err(f"Gemini harvest failed: {str(e).splitlines()[0][:160] if str(e) else repr(e)}")
+        if "executable doesn't exist" in low or "install" in low or "distribution" in low or "shared librar" in low:
+            err("  Fix: run  playwright install --with-deps chrome  "
+                "(installing Google Chrome pulls the system libs a bare box is missing).")
+        elif "space" in low:
+            err("  Fix: free disk space in ~/.dulus and ~/.cache, then retry.")
+        elif "permission" in low or "writable" in low or "read-only" in low:
+            err("  Fix: ~/.dulus isn't writable — set DULUS_CONFIG_DIR to a writable path.")
+        else:
+            err("  Fix: ensure a browser is available (playwright install --with-deps chromium) and retry /harvest-gemini.")
         return True
 
 

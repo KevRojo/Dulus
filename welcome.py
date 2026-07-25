@@ -523,11 +523,12 @@ def run_welcome_wizard(config: dict) -> dict:
     else:
         _setup_standard_provider(config, provider, default_model, needs_key)
 
-    # Free local AI (Ollama + Qwen). Replaces the old browser web-harvest pitch,
-    # which needed Playwright and spammed "playwright not found" when missing.
-    # The browser /harvest flow still exists on demand — it just isn't the
-    # default first-run path anymore.
-    _setup_local_ai(config)
+    # Free local AI (Ollama + Qwen) — only pitch it when the user did NOT already
+    # pick a free, self-connecting provider. gemini-web is free and auto-connects,
+    # so stacking a local-model download prompt on top of it is just confusing
+    # noise (and pulls Ollama into a flow that doesn't need it).
+    if provider != "gemini-web":
+        _setup_local_ai(config)
 
     # MemPalace initialization
     spinner = BirdSpinner("Setting up your memory palace...")
