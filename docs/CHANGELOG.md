@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.35] - 2026-07-25
+
+### Fixed
+- **The Gemini harvest now works on a bare server, and never fails in silence.**
+  With gemini-web the default, a fresh Ubuntu box couldn't connect: the harvester
+  launched with `channel="chrome"`, which needs Google Chrome installed, and a
+  server doesn't have it — so it died and the catch-all `except` swallowed the
+  error, leaving "nothing happened" on screen. Two fixes: (1) if Google Chrome
+  is missing, the harvester now installs it with `playwright install --with-deps
+  chrome` and retries — **Chrome specifically**, because installing plain Chromium
+  leaves out the system libraries (`libnss3`/`libatk`/`libgbm`/…) a bare box needs,
+  while the google-chrome package pulls them in as dependencies. (2) The harvest
+  no longer returns silently on failure — it prints the real error and the exact
+  command to fix it. Also adds `--disable-dev-shm-usage` so containers with a
+  small `/dev/shm` don't crash Chrome.
+
+### Changed
+- **The first-run wizard stops pitching a local-model download when you pick
+  Gemini Web.** Choosing the free, self-connecting gemini-web no longer drops you
+  into the Ollama/Qwen local-AI setup right afterward — that prompt only shows for
+  provider choices that actually benefit from it.
+
 ## [3.10.34] - 2026-07-25
 
 ### Changed
