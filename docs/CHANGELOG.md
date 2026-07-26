@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.37] - 2026-07-25
+
+### Fixed
+- **`pip install dulus` failed on a fresh Ubuntu 24.04 (and any pip < 24.1) with
+  "Could not find a version that satisfies the requirement dulus (from versions:
+  none)".** Every recent wheel was built with `setuptools>=77`, which implements
+  PEP 639 and stamps the package with **Metadata-Version 2.4**. pip 24.0 — what
+  ships on Ubuntu 24.04 LTS and many current distros — cannot parse Metadata 2.4
+  and **silently skips the distribution**, so pip saw zero installable versions.
+  The build now pins `setuptools>=61,<77` and uses the legacy `license = {text=…}`
+  form, which keeps Metadata-Version at **2.2** — readable by old pip. Verified:
+  the 3.10.37 wheel reports `Metadata-Version: 2.2`. Nothing else changed; this
+  is purely a packaging-metadata fix so the install works everywhere.
+
 ## [3.10.36] - 2026-07-25
 
 ### Added
