@@ -7823,42 +7823,95 @@ def cmd_wake(args: str, state, config) -> bool:
             err(f"Voice deps missing: {reason}")
             return True
         print(clr("  🎙  Calibrating mic — speak normally for 5 seconds…", "cyan"))
-        print(clr("  Press Ctrl+C when done.\n", "dim"))
         try:
             import sounddevice as sd
             import numpy as np
-            _chunk = int(16000 * 0.3)
-            _bars = " ▁▂▃▄▅▆▇█"
-            _max_rms = 0.0
-            with sd.InputStream(
-                samplerate=16000, channels=1, dtype="int16",
-                blocksize=_chunk,
-                device=config.get("voice_device_index", config.get("_voice_device_index")),
-            ) as stream:
-                import time as _time
-                _t0 = _time.monotonic()
-                while _time.monotonic() - _t0 < 5.0:
-                    pcm, _ = stream.read(_chunk)
-                    arr = np.frombuffer(pcm.tobytes(), dtype=np.int16).astype(np.float32)
-                    if arr.size:
-                        rms = float(np.sqrt(np.mean(arr ** 2))) / 32768.0
-                        _max_rms = max(_max_rms, rms)
-                        lvl = min(int(rms * 8 / 0.08), 8)
-                        bar = _bars[lvl]
-                        print(f"\r  RMS: {rms:.4f}  {bar}  (max {_max_rms:.4f})", end="", flush=True)
-                    _time.sleep(0.05)
-            print()
-            print(clr(f"\n  Max RMS detected: {_max_rms:.4f}", "cyan", "bold"))
-            rec = _max_rms * 0.7
-            if rec < 0.005:
-                rec = 0.010
-            info(f"  Recommended threshold: ~{rec:.3f}")
-            info(f"  Current threshold:     {config.get('wake_threshold', 0.020)}")
-            info("  Use '/wake threshold <n>' to adjust.")
-        except KeyboardInterrupt:
-            print()
+            import threading, time as _time
         except Exception as e:
-            err(f"Calibration failed: {e}")
+            err(f"Calibration failed to import audio deps: {e}")
+            return True
+
+        _dev = config.get("voice_device_index", config.get("_voice_device_index"))
+        _bars = " ▁▂▃▄▅▆▇█"
+        _res = {"max_rms": 0.0, "err": None}
+        _stop = threading.Event()
+
+        def _sample():
+            # ALL PortAudio lives HERE, off the main thread — on macOS even
+            # sd.query_devices() opens the AudioUnit and can hang, so the REPL
+            # thread must never touch audio. Using the device's NATIVE samplerate
+            # avoids the CoreAudio format rejection (the AUHAL error) at the root;
+            # forcing 16000 on a 44.1/48k mic is what triggered it.
+            try:
+                try:
+                    _info = sd.query_devices(_dev, "input") if _dev is not None else sd.query_devices(kind="input")
+                    sr = int(_info.get("default_samplerate") or 44100)
+                except Exception:
+                    sr = 44100
+                chunk = max(1, int(sr * 0.3))
+                with sd.InputStream(samplerate=sr, channels=1, dtype="int16",
+                                    blocksize=chunk, device=_dev) as stream:
+                    _t0 = _time.monotonic()
+                    while _time.monotonic() - _t0 < 5.0 and not _stop.is_set():
+                        pcm, _ = stream.read(chunk)
+                        arr = np.frombuffer(pcm.tobytes(), dtype=np.int16).astype(np.float32)
+                        if arr.size:
+                            rms = float(np.sqrt(np.mean(arr ** 2))) / 32768.0
+                            _res["max_rms"] = max(_res["max_rms"], rms)
+                            lvl = min(int(rms * 8 / 0.08), 8)
+                            print(f"\r  RMS: {rms:.4f}  {_bars[lvl]}  (max {_res['max_rms']:.4f})", end="", flush=True)
+            except Exception as e:
+                _res["err"] = e
+
+        # Silence PortAudio's CoreAudio/AUHAL noise: it's printed from C straight
+        # to fd 2, so a Python redirect can't catch it — we dup fd 2 to devnull.
+        # Done on the MAIN thread and ALWAYS restored in `finally` (even if the
+        # audio thread hangs and is abandoned), so a stuck device can never leave
+        # the process without a working stderr.
+        import os as _os
+        _old_fd2 = None
+        try:
+            _old_fd2 = _os.dup(2)
+            _dn = _os.open(_os.devnull, _os.O_WRONLY)
+            _os.dup2(_dn, 2); _os.close(_dn)
+        except Exception:
+            _old_fd2 = None
+
+        # Run the BLOCKING mic read off the main thread with a hard timeout, so a
+        # hung/failed audio device can never freeze the REPL. Worst case the
+        # command returns after the timeout with a clear error; the daemon thread
+        # is abandoned rather than blocking your prompt.
+        _th = threading.Thread(target=_sample, daemon=True)
+        _th.start()
+        try:
+            _th.join(timeout=8.0)  # 5s capture + 3s slack for open/close
+        except KeyboardInterrupt:
+            _stop.set()
+        finally:
+            if _old_fd2 is not None:
+                try:
+                    _os.dup2(_old_fd2, 2); _os.close(_old_fd2)
+                except Exception:
+                    pass
+        print()
+        if _th.is_alive():
+            _stop.set()
+            err("  Mic calibration timed out — the audio device didn't respond. "
+                "Check your input device and macOS mic permissions, then retry.")
+            return True
+        if _res["err"] is not None:
+            err(f"  Calibration failed opening the mic: {_res['err']}")
+            info("  On macOS this usually means the device is busy or mic permission "
+                 "is off (System Settings → Privacy → Microphone).")
+            return True
+        _max_rms = _res["max_rms"]
+        print(clr(f"\n  Max RMS detected: {_max_rms:.4f}", "cyan", "bold"))
+        rec = _max_rms * 0.7
+        if rec < 0.005:
+            rec = 0.010
+        info(f"  Recommended threshold: ~{rec:.3f}")
+        info(f"  Current threshold:     {config.get('wake_threshold', 0.020)}")
+        info("  Use '/wake threshold <n>' to adjust.")
         return True
 
     # ── /wake test ──
