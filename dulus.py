@@ -4864,7 +4864,10 @@ def _print_background_notifications(state=None):
                 _print_background_notifications._seen.add(task.id)
                 new_found = True
                 if state:
-                    state.messages.append({"role": "system", "content": f"System Notification: Background agent '{task.name}' {task.status}. Use CheckAgentResult to read the output."})
+                    # Delivered as a USER message (not system) so it flows through
+                    # the normal turn cycle and can never collide with the prompt.
+                    # Picked up on the main thread — never fired from the sentinel.
+                    state.messages.append({"role": "user", "content": f"[Background agent '{task.name}' {task.status}. Use CheckAgentResult to read its output and report back to me.]"})
 
     # ── Offloaded Tmux Jobs ────────────────────────────────────────────────
     try:
@@ -4933,13 +4936,15 @@ def _print_background_notifications(state=None):
                             log_path = jobs_dir / f"{job_id}.log"
                             last_log = jobs_dir / "last_background_output.txt"
                             msg = (
-                                f"System Notification: Offloaded tool '{job['tool_name']}' FINISHED (Job: {job_id}).\n"
-                                f"IMPORTANT: The full output is saved at `{last_log}`. "
-                                f"If the results below appear truncated, use the `SearchLastOutput` or `Read` tool on that file to see everything. "
-                                f"DO NOT run '{job['tool_name']}' again."
+                                f"[Background job: offloaded tool '{job['tool_name']}' just finished (Job: {job_id}).\n"
+                                f"Its full output is saved at `{last_log}`. "
+                                f"If what you see is truncated, use the `SearchLastOutput` or `Read` tool on that file to read everything. "
+                                f"Please review it and report back to me. Do NOT run '{job['tool_name']}' again.]"
                             )
                             if job.get("error"): msg += f"\nERROR: {job['error']}"
-                            state.messages.append({"role": "system", "content": msg})
+                            # USER role: arrives as if I sent it, so it runs as a
+                            # normal turn and never ruptures the REPL prompt.
+                            state.messages.append({"role": "user", "content": msg})
 
                         try:
                             if 'log_path' in locals() and log_path.exists():
@@ -5156,30 +5161,20 @@ def _job_sentinel_loop(config, state):
     """
     while True:
         try:
-            # Cooldown guard: don't interrupt an active conversation
+            # Cooldown guard: only act when the chat has been quiet a while, so
+            # we never touch a conversation the user is actively in.
             idle_seconds = time.time() - config.get("_last_interaction_time", 0)
-            if idle_seconds < 10:
-                pass  # too soon; wait for quiet period
-            elif _print_background_notifications(state):
-                cb = config.get("_run_query_callback")
-                if cb:
-                    # Grace period: if the user sent a message right when the
-                    # job completed, abort to prevent output reordering.
-                    time.sleep(0.5)
-                    if time.time() - config.get("_last_interaction_time", 0) < 5:
-                        continue
-                    # Wait until any active run_query finishes before firing
-                    # so background output doesn't collide with active streaming
-                    lock = config.get("_query_lock")
-                    if lock:
-                        with lock:
-                            config["_last_interaction_time"] = time.time()
-                            cb("(System Automated Event): One or more background jobs have finished. "
-                               "Please review the results and report back to the user.")
-                    else:
-                        config["_last_interaction_time"] = time.time()
-                        cb("(System Automated Event): One or more background jobs have finished. "
-                           "Please review the results and report back to the user.")
+            if idle_seconds >= 10:
+                # Inject any finished-job notice into the conversation as a USER
+                # message (thread-safe list append). We DELIBERATELY do NOT fire
+                # run_query from this thread anymore: doing so ran a turn while the
+                # main thread was blocked in the prompt_toolkit prompt, writing
+                # over the live prompt and discarding half-typed input — the REPL
+                # "rupture". Now the notice just waits in the conversation as if the
+                # user had typed it; it's actually processed on the MAIN thread —
+                # at the REPL loop top right after a turn ends, or on the user's
+                # next message — so it can never collide with the prompt.
+                _print_background_notifications(state)
         except Exception:
             pass
         time.sleep(2)
@@ -12034,19 +12029,13 @@ def repl(config: dict, initial_prompt: str | None = None):
         # If any finished job was drained here (before the sentinel thread saw it),
         # fire the run_query callback ourselves so the agent wakes up just like
         # it would on a sentinel-driven [Background Event Triggered].
-        _new_bg = _print_background_notifications(state)
-        if _new_bg:
-            _cb = config.get("_run_query_callback")
-            # Cooldown guard: don't fire a background event immediately after
-            # the user just finished a turn. If <10s since last activity, the
-            # notification was already injected into state.messages above, so
-            # the model will see it on the user's next message.
-            if _cb and time.time() - config.get("_last_interaction_time", 0) >= 10:
-                try:
-                    _cb("(System Automated Event): One or more background jobs have finished. "
-                        "Please review the results and report back to the user.")
-                except Exception:
-                    pass
+        # Inject any finished-job notices into the conversation as USER messages
+        # (main thread — safe). We no longer fire a background run_query here (or
+        # from the sentinel thread): that ran a turn while the prompt was live and
+        # ruptured the REPL. The notice now simply waits in the conversation like a
+        # message you typed and is answered on your next turn — never colliding
+        # with the prompt, never stealing half-typed input.
+        _print_background_notifications(state)
 
         # ── Wake-word listener lifecycle ──
         global _wake_listener
