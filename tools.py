@@ -2220,20 +2220,24 @@ def execute_tool(
         return True  # headless: allow everything
 
     # --- permission gate ---
+    # NOTE: read every arg with .get(), never inputs[key]. A malformed tool call
+    # (model omits a "required" arg, or an offloaded --run-tool job with bad
+    # params) used to KeyError HERE and crash the whole process unhandled — the
+    # tool itself will report the missing arg gracefully further down.
     if name == "Write":
-        if not _check(f"Write to {inputs['file_path']}"):
+        if not _check(f"Write to {inputs.get('file_path', '<unknown>')}"):
             return "Denied: user rejected write operation"
     elif name == "Edit":
         fp = inputs.get("file_path", inputs.get("filePath", "<unknown>"))
         if not _check(f"Edit {fp}"):
             return "Denied: user rejected edit operation"
     elif name == "Bash":
-        cmd = inputs["command"]
+        cmd = inputs.get("command", "")
         if permission_mode != "accept-all" and not _is_safe_bash(cmd):
             if not _check(f"Bash: {cmd}"):
                 return "Denied: user rejected bash command"
     elif name == "NotebookEdit":
-        if not _check(f"Edit notebook {inputs['notebook_path']}"):
+        if not _check(f"Edit notebook {inputs.get('notebook_path', '<unknown>')}"):
             return "Denied: user rejected notebook edit operation"
 
     return _registry_execute(name, inputs, cfg, max_output=cfg.get("max_tool_output", 2500))
