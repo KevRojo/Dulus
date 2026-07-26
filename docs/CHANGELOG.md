@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.39] - 2026-07-25
+
+### Fixed
+- **A finished background job no longer ruptures the REPL.** When an offloaded
+  Tmux job (or a background sub-agent) completed, the job sentinel woke the agent
+  by calling `run_query()` **from its own thread** — while the main thread was
+  blocked in the prompt. That ran a whole turn *over* your live prompt,
+  overwriting the input line and eating half-typed text, so a completed job felt
+  like it hijacked the session. Background notifications are now injected as
+  role `user` messages and delivered **only on the main thread**: the notice
+  waits in the conversation like something you typed and is answered on your next
+  turn, so it can never collide with the prompt or steal input. (No capability
+  was removed — TmuxOffload still offloads any tool.)
+
 ## [3.10.38] - 2026-07-25
 
 ### Fixed
