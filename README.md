@@ -5,12 +5,13 @@
 </p>
 
 <p align="center">
-  <strong>One agentic CLI. Every model. Real tools. Your machine.</strong>
+  <strong>Agentic AI for everyone. No API key. No credit card. Just <code>pip install</code>.</strong>
 </p>
 
 <p align="center">
-  Dulus is an open-source agent runtime for the terminal: provider-independent, local-first,<br>
-  extensible through MCP and arbitrary Python repositories, and built to keep working after the first prompt.
+  Dulus is an open-source agent runtime that hands you a real AI agent the moment you install it —<br>
+  talking to Gemini, Claude and GPT through their own web sessions, so you owe no one a key or a cent.<br>
+  One runtime. Every model. Your machine. The whole world invited.
 </p>
 
 <p align="center">
@@ -19,7 +20,7 @@
   <a href="https://github.com/KevRojo/Dulus/releases"><img src="https://img.shields.io/github/v/release/KevRojo/Dulus?style=flat-square&color=ff6b1f&labelColor=07070a" alt="Latest release"></a>
   <a href="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml"><img src="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml/badge.svg" alt="Quality checks"></a>
   <a href="https://github.com/KevRojo/Dulus/pkgs/container/dulus"><img src="https://img.shields.io/badge/docker-ghcr.io%2Fkevrojo%2Fdulus-ff6b1f?style=flat-square&labelColor=07070a&logo=docker" alt="Docker image"></a>
-  <img src="https://img.shields.io/badge/python-3.11%2B-ff6b1f?style=flat-square&labelColor=07070a&logo=python" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/python-3.10%2B-ff6b1f?style=flat-square&labelColor=07070a&logo=python" alt="Python 3.10+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="GPLv3 license"></a>
 </p>
 
@@ -44,6 +45,45 @@
   <a href="docs/README_RU.md">Русский</a> ·
   <a href="docs/README_AR.md">العربية</a>
 </p>
+
+---
+
+## Free frontier AI. No key, no catch.
+
+Every other AI tool starts the same way: *paste your API key, add a card, watch the meter run.* Dulus starts differently.
+
+```bash
+pip install dulus
+dulus
+```
+
+On a fresh machine that's the whole setup — Dulus boots straight into **Gemini, free, with no API key and no account.** Here's the part nobody else does:
+
+- Dulus opens Gemini in a **headless browser**, captures the **anonymous web session** (it doesn't even ask you to sign in), and then talks to Gemini's real endpoint **as if you were the one typing in the tab.**
+- No API, no billing, no quota to buy. The same frontier model — reached the way a human reaches it.
+- The same trick works for **Claude, ChatGPT, DeepSeek, Qwen, Kimi.** Dulus harvests each service's web session and speaks its protocol, so your ChatGPT Plus or Claude subscription becomes an agent backend with **one command and zero keys.**
+
+Rather use keys, local models, or your own endpoint? Dulus does that too — **34 providers** in a single runtime (cloud API, local Ollama/LM Studio, OAuth, and web-session). But the free default is the whole point: **you shouldn't need a corporation's permission to have an agent.**
+
+---
+
+## A note from the builder
+
+I'm one developer. No team, no funding, no VC deck — just me, a laptop, and a stubborn little bird from the Dominican Republic. 🇩🇴
+
+I've poured months into Dulus. Some days it feels like building the loudest thing in an empty room — like nobody's paying attention. And the honest truth: I've spent so long *building* the features that could genuinely rattle this industry that I've barely *shown* them. That changes now.
+
+Because this isn't a toy demo. Dulus already does things the funded wrappers can't:
+
+- **frontier AI with no keys** (the web-session engine above),
+- a **Round Table** where several real models argue their way to a better answer,
+- an **auto-adapter** that installs its own missing tools when it hits a wall,
+- **2,186+ MCP tools**, **100,000 skills**, memory, voice, sub-agents,
+- one runtime driving a terminal, a browser, a desktop app, and a full sandbox OS.
+
+My goal is simple and stubborn: **put a real agentic AI in the hands of anyone with a terminal — for free — while the door is still open.** If that mission means something to you, star the repo, run one command, tell one person. Help the Cigua fly. 🦅
+
+— Kevin ([@KevRojo](https://x.com/KevRojo)) · Santo Domingo 🇩🇴
 
 ---
 
