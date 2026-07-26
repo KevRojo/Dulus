@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.38] - 2026-07-25
+
+### Fixed
+- **`pip install dulus` on Python 3.10 said "from versions: none".** Every wheel
+  declared `requires-python = ">=3.11"`, so pip on a Python 3.10 box (Ubuntu
+  22.04's default, and plenty of live machines) filtered out **all 267 releases**
+  and reported none existed. The code actually runs fine on 3.10 — the only 3.11
+  feature used is `tomllib`, and both call sites already fall back to `tomli`.
+  Lowered the floor to `requires-python = ">=3.10"`, added the 3.10 classifier,
+  and added `tomli>=2.0; python_version < "3.11"` so the TOML paths work on 3.10.
+  (Combined with the 3.10.37 Metadata-2.2 fix, `pip install dulus` now works on
+  fresh Ubuntu 22.04 **and** 24.04 out of the box.)
+
 ## [3.10.37] - 2026-07-25
 
 ### Fixed
