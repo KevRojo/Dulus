@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.10.41] - 2026-07-26
+## [3.10.42] - 2026-07-26
+
+### Added
+- **FS Compass — `SmartTree` + `ResolvePath`: the agent stops getting lost in
+  the OneDrive maze.** On Windows, OneDrive silently redirects Desktop /
+  Documents / Downloads under paths like `C:\Users\you\OneDrive\Desktop`, and a
+  model doing blind `dir`/`ls` hops burns 5–10 turns trying to find them. Two new
+  read-only tools fix that. **`ResolvePath`** turns human-speak into a real
+  absolute path in one call — `"onedrive desktop my-project"` → the actual
+  folder — by reading the Windows registry's "User Shell Folders" key (the
+  single source of truth for where OneDrive actually put things) and then
+  fuzzy-walking the tree. **`SmartTree`** prints a clean, depth-limited directory
+  map with those known folders pre-resolved and noise dirs (`node_modules`,
+  `.git`, caches, `AppData`, `$RECYCLE.BIN`) pruned. Both are stdlib-only, safe
+  to run concurrently, and degrade gracefully off Windows (XDG-ish fallbacks).
+  Registration never blocks boot — if anything goes wrong loading it, Dulus
+  starts anyway. Fewer wasted turns, fewer "I can't find your file." 🦅
 
 ### Fixed
 - **`/wake calibrate` no longer freezes the REPL on macOS.** The mic calibration

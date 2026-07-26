@@ -2414,6 +2414,13 @@ try:
 except ImportError:
     _tmux_count = 0
 
+# ── FS Compass (SmartTree + ResolvePath — OneDrive-aware navigation) ─────────
+try:
+    from fs_compass import register_fs_compass
+    register_fs_compass()
+except Exception:
+    pass  # never block boot over a nav helper
+
 # ── Memory tools (MemorySave, MemoryDelete, MemorySearch, MemoryList) ────────
 # Defined in memory/tools.py; importing registers them automatically.
 import memory.tools as _memory_tools  # noqa: F401
