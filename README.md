@@ -595,6 +595,10 @@ If Dulus saves you tokens, time, or sanity:
 BTC: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
 ```
 
+## Thanks
+
+Real crash reports make Dulus tougher. Thanks to **Eddy**, whose report surfaced the unhandled `KeyError: 'command'` fixed in v3.10.40 — a malformed tool call can no longer take the whole process down.
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%">
 </p>
