@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.40] - 2026-07-26
+
+### Fixed
+- **A malformed tool call no longer crashes the whole process.** The permission
+  gate read `inputs['command']` (and `['file_path']`, `['notebook_path']`)
+  directly, so if a `Bash`/`Write`/`NotebookEdit` call arrived without its
+  "required" argument — a model omitting it, or an offloaded `--run-tool` job
+  with bad params — the resulting `KeyError` propagated **unhandled** all the way
+  to `main()` and killed Dulus (caught in the wild as `KeyError: 'command'` via
+  the excepthook). Every arg is now read with `.get()`; a missing argument is
+  reported gracefully by the tool instead of taking the process down.
+
 ## [3.10.39] - 2026-07-25
 
 ### Fixed
