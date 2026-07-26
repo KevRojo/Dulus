@@ -67,6 +67,27 @@ Rather use keys, local models, or your own endpoint? Dulus does that too — **3
 
 ---
 
+## New — Lookback: keep 2,000 turns, pay for 20
+
+> 🧪 Fresh out of the private build. I'd love for you to try it and tell me how it feels.
+
+Long agent sessions bleed tokens: every turn replays the *entire* history to the model. **Lookback** splits what the model *sees* from what you *keep* — the API gets a sliding window of only the last N user turns, while the full conversation stays saved locally. That local archive is **loopback**: re-open or search it anytime with `/loopback`, and a gold `short_memory` rides alongside so the model never loses the thread.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/lookback_two_windows.png" alt="Lookback — the model sees a small window while the full archive stays local (loopback)" width="100%">
+</p>
+
+The clever part: the window is **anchored**, so the API prefix stays stable between jumps — a naively sliding window rewrites the prefix every turn, busts the provider's prompt cache, and costs *more* than it saves. Three months on my own machine, this discipline bought: **5.9B tokens through Claude · 98.8% cache hit rate · on a single $20 plan.**
+
+```bash
+/lookback on                                # send only the recent window to the API
+/loopback search "that thing we decided"    # pull anything back from the full archive
+```
+
+Try it and hit me with feedback — it's the token trick I'm proudest of.
+
+---
+
 ## A note from the builder
 
 I'm one developer. No team, no funding, no VC deck — just me, a laptop, and a stubborn little bird from the Dominican Republic. 🇩🇴

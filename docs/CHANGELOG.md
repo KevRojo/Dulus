@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.43] - 2026-07-26
+
+### Added
+- **Lookback — send the model a small window while keeping the full history
+  local.** Long sessions bleed tokens: every turn replays the *entire*
+  conversation to the provider. Lookback splits what the model **sees** from
+  what you **keep**. With `/lookback on` (or `/lookback 20`), only the last N
+  user turns go to the API; the full conversation stays saved locally — that
+  archive is **loopback**, inspectable/searchable anytime with `/loopback
+  show|search|head|status`. The window only ever cuts on a **user-turn
+  boundary**, so an assistant `tool_call` is never separated from its
+  `tool_result` (providers reject broken chains). A gold `short_memory` in the
+  system prompt keeps the essential past beside the model. The window is
+  **anchored** with hysteresis (re-anchor only every ~N/4 turns) so the API
+  prefix stays append-only between jumps and provider **prompt caches keep
+  hitting** — a naively sliding window rewrites the prefix every call and costs
+  more than it saves. The agent also gets a native **`Loopback` tool**
+  (`action=status|show|head|search`) so it retrieves hidden history itself
+  instead of asking you to run a slash command. Off by default; `/lookback`
+  shows live status.
+
 ## [3.10.42] - 2026-07-26
 
 ### Added

@@ -2832,6 +2832,100 @@ register_tool(ToolDef(
 ))
 
 
+# ── Loopback tool (agent-owned full-archive retrieve under lookback) ───────
+# Lookback trims what the model *sees* each turn. Loopback is how the agent
+# itself re-opens the full local archive without asking the user to run a
+# slash command. Backed by lookback.py + config["_state"].messages.
+
+def _loopback_tool(params: dict, config: dict) -> str:
+    """Inspect / search the full live conversation archive."""
+    from lookback import (
+        format_loopback_search,
+        format_loopback_slice,
+        format_loopback_status,
+        get_archive_from_config,
+    )
+
+    action = str(params.get("action") or "status").strip().lower()
+    query = params.get("query") or ""
+    try:
+        limit = int(params.get("limit") or 0) or None
+    except (TypeError, ValueError):
+        limit = None
+
+    archive = get_archive_from_config(config)
+    if not archive and action != "status":
+        return (
+            "Loopback archive unavailable: config['_state'] is not bound "
+            "(agent must set config['_state'] = AgentState before tools run). "
+            f"action={action!r}"
+        )
+
+    if action in ("", "status", "stat"):
+        return format_loopback_status(archive, config)
+
+    if action in ("show", "tail", "last"):
+        return format_loopback_slice(archive, which="show", limit=limit or 30)
+
+    if action in ("head", "first"):
+        return format_loopback_slice(archive, which="head", limit=limit or 20)
+
+    if action in ("search", "find", "grep"):
+        if not str(query).strip():
+            return "Error: Loopback search requires query=..."
+        return format_loopback_search(archive, str(query), limit=limit or 20)
+
+    return (
+        "Error: unknown Loopback action. "
+        "Use action=status|show|head|search (query required for search)."
+    )
+
+
+_LOOPBACK_SCHEMA = {
+    "name": "Loopback",
+    "description": (
+        "Retrieve the FULL local conversation archive (loopback) that lookback "
+        "may have hidden from the present API window. YOU own this tool — do "
+        "NOT ask the user to run /loopback. Use when you need a fact, decision, "
+        "path, or earlier message that is outside the current present window. "
+        "Actions: status (archive + window meta), show (last N msgs), head "
+        "(first N msgs), search (token search over full archive)."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["status", "show", "head", "search"],
+                "description": (
+                    "status=archive/window meta; show=last N messages; "
+                    "head=first N messages; search=token search (needs query)"
+                ),
+            },
+            "query": {
+                "type": "string",
+                "description": "Search query (required for action=search). Case-insensitive tokens ANDed.",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Max messages/hits to return (show default 30, head 20, search 20).",
+            },
+        },
+        "required": ["action"],
+    },
+}
+
+TOOL_SCHEMAS.append(_LOOPBACK_SCHEMA)
+
+register_tool(ToolDef(
+    name="Loopback",
+    schema=_LOOPBACK_SCHEMA,
+    func=_loopback_tool,
+    read_only=True,
+    concurrent_safe=True,
+))
+
+
 # ── Git Tools ─────────────────────────────────────────────────────────────
 
 _GIT_DIFF_SCHEMA = {
