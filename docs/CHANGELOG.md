@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.41] - 2026-07-26
+
+### Fixed
+- **`/wake calibrate` no longer freezes the REPL on macOS.** The mic calibration
+  forced `samplerate=16000`; when the device's native rate is 44.1/48 kHz (every
+  Mac), CoreAudio rejects the format — the `||PaMacCore (AUHAL)|| Error on line
+  2523` — and leaves `stream.read()` blocking forever on the main thread, hanging
+  the whole prompt. Now it opens at the device's **native samplerate**, runs all
+  PortAudio (even `sd.query_devices()`, which also opens the AudioUnit) in a
+  daemon thread with an **8-second hard timeout**, and reports a clear error
+  (busy device / mic permission) instead of locking up. The cosmetic CoreAudio
+  diagnostics PortAudio prints from C are also suppressed during capture.
+
 ## [3.10.40] - 2026-07-26
 
 ### Fixed
