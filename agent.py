@@ -256,6 +256,27 @@ def run(
             "tool_calls": assistant_turn.tool_calls,
         })
 
+        # Token accounting. Most providers only emit the usage chunk on the
+        # FINAL (text) response — on intermediate tool-call responses they send
+        # no usage, so assistant_turn.in_tokens is 0 there. That made every tool
+        # turn print "+0 in / +0 out" and under-counted /cost. When the provider
+        # reports nothing, estimate the real input we sent (windowed messages +
+        # tool schemas + system) so the display and totals aren't a false zero.
+        if assistant_turn.in_tokens <= 0:
+            try:
+                from compaction import estimate_tokens
+                _est = estimate_tokens(_api_source, model=config.get("model", ""), config=config)
+                try:
+                    import json as _json
+                    from tool_registry import get_all_tools
+                    _est += len(_json.dumps([t.schema for t in get_all_tools()])) // 4
+                except Exception:
+                    pass
+                if _est > 0:
+                    assistant_turn.in_tokens = _est  # so TurnDone + the toolbar see it too
+            except Exception:
+                pass
+
         state.total_input_tokens  += assistant_turn.in_tokens
         state.total_output_tokens += assistant_turn.out_tokens
         c_read = getattr(assistant_turn, "cache_read_tokens", 0)
