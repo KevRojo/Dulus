@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.45"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.46"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -1871,6 +1871,8 @@ def cmd_load(args: str, state, config) -> bool:
     state.turn_count = data.get("turn_count", 0)
     state.total_input_tokens = data.get("total_input_tokens", 0)
     state.total_output_tokens = data.get("total_output_tokens", 0)
+    state.total_cache_read_tokens = data.get("total_cache_read_tokens", 0)
+    state.total_cache_creation_tokens = data.get("total_cache_creation_tokens", 0)
     ok(f"Session loaded from {path} ({len(state.messages)} messages)")
     return True
 
@@ -1895,6 +1897,8 @@ def cmd_resume(args: str, state, config) -> bool:
     state.turn_count = data.get("turn_count", 0)
     state.total_input_tokens = data.get("total_input_tokens", 0)
     state.total_output_tokens = data.get("total_output_tokens", 0)
+    state.total_cache_read_tokens = data.get("total_cache_read_tokens", 0)
+    state.total_cache_creation_tokens = data.get("total_cache_creation_tokens", 0)
     ok(f"Session loaded from {path} ({len(state.messages)} messages)")
     return True
 
@@ -4489,6 +4493,11 @@ def _build_session_data(state, session_id: str | None = None) -> dict:
         "turn_count": state.turn_count,
         "total_input_tokens": state.total_input_tokens,
         "total_output_tokens": state.total_output_tokens,
+        # Persist cache accounting too, so a saved session shows how much the
+        # provider prompt-cache saved (live /cost already shows it; this makes
+        # it survive save/load and post-hoc analysis).
+        "total_cache_read_tokens": getattr(state, "total_cache_read_tokens", 0),
+        "total_cache_creation_tokens": getattr(state, "total_cache_creation_tokens", 0),
     }
 
 
@@ -4582,6 +4591,8 @@ def cmd_cloudsave(args: str, state, config) -> bool:
         state.turn_count = data.get("turn_count", 0)
         state.total_input_tokens = data.get("total_input_tokens", 0)
         state.total_output_tokens = data.get("total_output_tokens", 0)
+        state.total_cache_read_tokens = data.get("total_cache_read_tokens", 0)
+        state.total_cache_creation_tokens = data.get("total_cache_creation_tokens", 0)
         ok(f"Session loaded from Gist ({len(state.messages)} messages).")
         return True
 
