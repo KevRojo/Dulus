@@ -11270,9 +11270,13 @@ def repl(config: dict, initial_prompt: str | None = None):
             active_flags.append("lite")
         if config.get("telegram_token") and _tg_get_chat_ids(config):
             active_flags.append("telegram")
-        if active_flags:
-            flags_str = " · ".join(clr(f, "green") for f in active_flags)
-            info(f"Active: {flags_str}")
+        flags_str = " · ".join(clr(f, "green") for f in active_flags) if active_flags else ""
+        # MemPalace state, ALWAYS shown: green when on (like the other flags),
+        # red when off — a silently-disabled palace is impossible to miss now.
+        mp_on = bool(config.get("mem_palace", True))
+        mp_flag = clr("mem_palace", "green") if mp_on else clr("mem_palace:off", "red")
+        flags_str = (flags_str + " · " + mp_flag) if flags_str else mp_flag
+        info(f"Active: {flags_str}")
 
         # Print collected startup status (soul, training, gold mems, shell, etc.)
         # These were buffered during init so the banner stays visually clean.
