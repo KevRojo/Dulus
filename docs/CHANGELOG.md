@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.10.44] - 2026-07-26
+## [3.10.45] - 2026-07-26
+
+### Fixed
+- **A large `Edit` was silently re-billing you its full diff every turn.** `Write`
+  truncated its result diff to 80 lines; `Edit` did **not** — it returned the
+  entire unified diff of the change. On a big edit (say, replacing 6 lines with
+  260) that diff is huge, and because it stays in the conversation it was resent
+  to the model on **every** subsequent turn, quietly inflating input tokens for
+  the rest of the session. `Edit` now caps its diff to the same 80 lines as
+  `Write`. Real fix for real bills — a session that hammered a big file could
+  spend most of its input tokens re-sending Edit diffs it already applied. Also
+  surfaces MemPalace state in the boot banner (green when on, red when off).
 
 ### Added
 - **`$DULUS` community line on the boot banner.** A single line under the logo —

@@ -848,7 +848,11 @@ def _edit(file_path: str, old_string: str, new_string: str, replace_all: bool = 
             _f.write(final_content)
         filename = p.name
         diff = generate_unified_diff(old_content_final, final_content, filename)
-        return f"Changes applied to {filename}:\n\n{diff}"
+        # Truncate like _write does: a large Edit returns a large diff, and that
+        # diff stays in context and is re-billed on EVERY subsequent turn. An
+        # uncapped Edit on a big change was silently resending the whole modified
+        # region each round-trip (the cost leak). Cap it to the same 80 lines.
+        return f"Changes applied to {filename}:\n\n{maybe_truncate_diff(diff)}"
     except Exception as e:
         return f"Error: {e}"
 
