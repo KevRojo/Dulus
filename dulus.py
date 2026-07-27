@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.43"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.44"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -11237,6 +11237,15 @@ def repl(config: dict, initial_prompt: str | None = None):
         # Print logo
         for line in _DULUS_LOGO:
             print(clr(line, "cyan", "bold"))
+        print()
+
+        # $DULUS — simple community line, URL in the animation gradient.
+        try:
+            from cli_animations.ansi import gradient_text, ORANGE, CYAN
+            _dx_url = gradient_text("https://tinyurl.com/DulusDexScreener", ORANGE, CYAN)
+        except Exception:
+            _dx_url = "https://tinyurl.com/DulusDexScreener"
+        print("     " + clr("buy $dulus", "bold") + "  " + _dx_url)
         print()
 
         globals()["_DULUS_LOGO_CACHED"] = list(_DULUS_LOGO)
