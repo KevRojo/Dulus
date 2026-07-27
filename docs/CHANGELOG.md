@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.46] - 2026-07-26
+
+### Fixed
+- **Saved sessions now record prompt-cache savings.** Dulus already reads the
+  provider's cached-token count (OpenAI `prompt_tokens_details.cached_tokens`,
+  Kimi top-level `cached_tokens`, DeepSeek `prompt_cache_hit_tokens`), accumulates
+  it, and shows it live in `/cost` and per turn. But the session **save** only
+  wrote input/output totals — so a saved session lost the cache accounting and
+  post-hoc analysis showed 0 cache even when the provider was caching. `/save`
+  now persists `total_cache_read_tokens` / `total_cache_creation_tokens`, and
+  `/load` restores them.
+
 ## [3.10.45] - 2026-07-26
 
 ### Fixed
