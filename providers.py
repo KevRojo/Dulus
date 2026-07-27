@@ -5937,7 +5937,21 @@ def stream_openai_compat(
         client_kwargs["default_headers"] = {"User-Agent": "KimiCLI/1.30.0"}
     client = OpenAI(**client_kwargs)
 
-    oai_messages = [{"role": "system", "content": system}] + messages_to_openai(messages, model=model)
+    # Grok-style agentic nudge: parallel_tool_calls only ALLOWS batching — the
+    # model still decides. Grok feels fast because xAI also tells it to use tools
+    # aggressively and keep going. Mirror that so Kimi/DeepSeek/etc. actually
+    # batch independent calls. Byte-stable (cacheable); only when tools are on
+    # and parallel isn't disabled.
+    _sys = system or ""
+    if tool_schemas and not config.get("no_tools") and not config.get("disable_parallel_tools"):
+        _sys = _sys + (
+            "\n\n[Tool use] Tools are executed for real by the Dulus harness. "
+            "When several actions are INDEPENDENT (e.g. reading multiple files, "
+            "separate searches), emit them as parallel tool calls in ONE response "
+            "instead of one per turn. Keep calling tools until you can give a "
+            "complete final answer. Never simulate tool results."
+        )
+    oai_messages = [{"role": "system", "content": _sys}] + messages_to_openai(messages, model=model)
 
     _is_nvidia = detect_provider(model) == "nvidia-web"
 
@@ -6011,6 +6025,14 @@ def stream_openai_compat(
         # "auto" requires vLLM --enable-auto-tool-choice; omit if server doesn't support it
         if not config.get("disable_tool_choice"):
             kwargs["tool_choice"] = "auto"
+            # Let the model batch INDEPENDENT tool calls into ONE response. The
+            # agent loop already executes every tool_call in a turn, so without
+            # this many OpenAI-compatible servers (Kimi included) default parallel
+            # OFF and the model emits one tool per API round-trip — each round-trip
+            # resends the growing context and re-primes the cache. Batching = fewer
+            # round-trips. Opt out with /config disable_parallel_tools=1.
+            if not config.get("disable_parallel_tools"):
+                kwargs["parallel_tool_calls"] = True
     if config.get("max_tokens"):
         prov_cap = PROVIDERS.get(detect_provider(model), {}).get("max_completion_tokens")
         if _is_modelstudio:

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.49] - 2026-07-27
+
+### Fixed
+- **Parallel tool calls on OpenAI-compatible providers (Kimi, DeepSeek, …).** The
+  agent loop already executes every tool_call in a turn, but the request only set
+  `tool_choice=auto` — never `parallel_tool_calls`. Many OpenAI-compatible servers
+  default parallel OFF, so the model emitted one tool per API round-trip, and each
+  round-trip resends the growing context (and re-primes the cache). Now sends
+  `parallel_tool_calls=true` plus a Grok-style nudge so the model batches
+  INDEPENDENT actions into one response. Opt out with
+  `/config disable_parallel_tools=1`.
+
 ## [3.10.48] - 2026-07-27
 
 ### Fixed
