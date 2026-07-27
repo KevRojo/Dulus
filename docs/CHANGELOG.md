@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.44] - 2026-07-26
+
+### Added
+- **`$DULUS` community line on the boot banner.** A single line under the logo —
+  `buy $dulus` plus the link, with the URL rendered in the Dulus animation
+  gradient. No pitch, no wall of text; one line, easy to ignore. The `/buy-dulus`
+  command (added in 3.10.43) still opens the same link on demand.
+
 ## [3.10.43] - 2026-07-26
 
 ### Added
