@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.50"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.51"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -5401,16 +5401,27 @@ def _job_sentinel_loop(config, state):
             # we never touch a conversation the user is actively in.
             idle_seconds = time.time() - config.get("_last_interaction_time", 0)
             if idle_seconds >= 10:
-                # Inject any finished-job notice into the conversation as a USER
-                # message (thread-safe list append). We DELIBERATELY do NOT fire
-                # run_query from this thread anymore: doing so ran a turn while the
-                # main thread was blocked in the prompt_toolkit prompt, writing
-                # over the live prompt and discarding half-typed input — the REPL
-                # "rupture". Now the notice just waits in the conversation as if the
-                # user had typed it; it's actually processed on the MAIN thread —
-                # at the REPL loop top right after a turn ends, or on the user's
-                # next message — so it can never collide with the prompt.
-                _print_background_notifications(state)
+                # Inject any finished-job notice as a USER message, then — if a
+                # FRESH completion was claimed — WAKE the agent via
+                # _run_query_callback (= _enqueue_or_run), the SAME safe path
+                # Reminders and the proactive watcher already use here. It enqueues
+                # if a turn is in flight, otherwise runs a background turn whose
+                # output flushes through safe_print_notification → run_in_terminal,
+                # printing ABOVE the live prompt without corrupting it or eating
+                # half-typed input. This is what an earlier build lacked: the notice
+                # just sat in the conversation until the user's NEXT message, which
+                # defeated the point of offloading. Now TmuxOffload notifications
+                # arrive AUTONOMOUSLY the moment a job finishes.
+                if _print_background_notifications(state):
+                    cb = config.get("_run_query_callback")
+                    if cb:
+                        cb(
+                            "(System Automated Event) One or more background jobs just "
+                            "completed; their completion notices were added to the "
+                            "conversation above. Review them now (use ReadJob or Read "
+                            "on the saved output file if you need the full text) and "
+                            "report the results to me."
+                        )
         except Exception:
             pass
         time.sleep(2)

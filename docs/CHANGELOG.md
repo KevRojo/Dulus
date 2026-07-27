@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.51] - 2026-07-27
+
+### Fixed
+- **Background job (TmuxOffload) notifications now arrive autonomously.** The job
+  sentinel injected a finished-job notice into the conversation but never woke the
+  agent — so the notice just sat there until your *next* message, defeating the
+  point of offloading. It now wakes the agent via the same safe path Reminders and
+  the proactive watcher use (`_enqueue_or_run` → `run_in_terminal`), which prints
+  above the live prompt without corrupting it or eating half-typed input. When a
+  job finishes and the chat has been idle ~10s, Dulus reviews and reports back on
+  its own.
+
 ## [3.10.50] - 2026-07-27
 
 ### Fixed
