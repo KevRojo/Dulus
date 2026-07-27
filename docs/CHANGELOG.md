@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.48] - 2026-07-27
+
+### Fixed
+- **The `/menu` quick popup no longer takes over the whole terminal.** It
+  rendered as a full-screen panel (everything pushed to the top) with a flickery
+  continuous refresh. Now it's a compact box at the cursor (`screen=False`,
+  `expand=False`, `transient=True`) that redraws only on keypress.
+
 ## [3.10.47] - 2026-07-27
 
 ### Added
