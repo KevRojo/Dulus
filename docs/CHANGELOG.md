@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.50] - 2026-07-27
+
+### Fixed
+- **Tool turns no longer report `+0 in / +0 out`.** Most providers only emit the
+  streaming usage chunk on the FINAL text response — intermediate tool-call
+  responses carry no usage, so `in_tokens` was 0 there, printing `+0` per tool
+  turn and under-counting `/cost`. When the provider reports nothing, Dulus now
+  estimates the real input it sent (windowed messages + tool schemas + system).
+  Cache hits are still shown separately; real reported usage is never
+  double-counted.
+
 ## [3.10.49] - 2026-07-27
 
 ### Fixed
