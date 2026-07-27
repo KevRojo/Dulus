@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.47] - 2026-07-27
+
+### Added
+- **Kimi membership login — `/login kimi` (no API key).** Device-OAuth against
+  auth.kimi.com (the official Kimi Code CLI flow); reuses `~/.kimi-code`
+  credentials if you've logged in there. After login, `kimi-oauth/*` models
+  (`kimi-oauth/k3`, `kimi-oauth/k3-256k`, `kimi-oauth/kimi-for-coding`) run on
+  your Kimi membership instead of API credits. Aliases: `/login-kimi`,
+  `/kimi-login`.
+- **`/effort [low|high|max]`** — reasoning effort for Kimi `k3` / `k3-256k`
+  (default high, per Kimi's docs), with a Claude-Code-style animated slider.
+  Shown in the toolbar (`⚡high`). `kimi-for-coding` uses `/thinking` instead.
+- **`/menu`** and **double-tap ← ←** — a quick popup menu (effort / thinking /
+  Kimi model switch / …). `/menu` is the reliable path when a terminal swallows
+  the key sequence.
+
+### Fixed
+- **Correct Kimi model IDs.** `kimi-code` / `kimi-oauth` now use the real ids
+  `k3`, `k3-256k`, `kimi-for-coding` (the old `kimi-k3`/`kimi-k2.6`/… don't exist
+  on api.kimi.com, so selecting them failed).
+- Kimi now sends `reasoning_effort` for `k3`/`k3-256k`; `/model` heals a doubled
+  provider prefix (`kimi-oauth/kimi-oauth/…`).
+
 ## [3.10.46] - 2026-07-26
 
 ### Fixed

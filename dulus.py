@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.46"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.47"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -1089,6 +1089,11 @@ def cmd_model(args: str, _state, config) -> bool:
             left, right = m.split(":", 1)
             if left in PROVIDERS:
                 m = f"{left}/{right}"
+        # Heal a doubled provider prefix (e.g. 'kimi-oauth/kimi-oauth/k3').
+        _seg = m.split("/")
+        while len(_seg) >= 2 and _seg[0] == _seg[1] and _seg[0] in PROVIDERS:
+            _seg.pop(1)
+        m = "/".join(_seg)
         config["model"] = m
         pname = detect_provider(m)
         ok(f"Model set to {m}  (provider: {pname})")
@@ -2574,6 +2579,57 @@ def cmd_max_fix(args: str, _state, config) -> bool:
     except ValueError:
         err(f"Invalid number: {args.strip()!r}")
     return True
+
+
+def cmd_menu(_args: str, state, config) -> bool:
+    """Open the quick menu (same popup as double-tapping ← ←) and run the pick."""
+    try:
+        from dulus_quick_menu import show_quick_menu
+    except Exception as e:
+        err(f"Quick menu unavailable: {e}")
+        return True
+    choice = show_quick_menu()
+    if not choice:
+        return True
+    body = choice[1:] if choice.startswith("/") else choice
+    parts = body.split(None, 1)
+    sub = parts[0].lower()
+    sargs = parts[1] if len(parts) > 1 else ""
+    handler = COMMANDS.get(sub)
+    if handler:
+        return handler(sargs, state, config)
+    info(f"Selected: {choice}")
+    return True
+
+
+def cmd_effort(args: str, _state, config) -> bool:
+    """Set reasoning effort for models that accept it (Kimi k3 / k3-256k).
+
+    /effort              — show current effort (Claude-Code-style slider)
+    /effort low|high|max — set it
+    """
+    from config import save_config
+    valid = ("low", "high", "max")
+    arg = (args or "").strip().lower()
+    if arg:
+        if arg not in valid:
+            err(f"Usage: /effort [low|high|max]  (got {arg!r})")
+            return True
+        config["reasoning_effort"] = arg
+        save_config(config)
+        ok(f"Reasoning effort set to {arg}")
+    cur = str(config.get("reasoning_effort", "high")).lower()
+    if cur not in valid:
+        cur = "high"
+    try:
+        from cli_animations.effort_slider import render_effort_slider
+        idx = {"low": 1, "high": 3, "max": 4}.get(cur, 3)
+        render_effort_slider(idx, label="Reasoning effort")
+    except Exception:
+        info(f"Reasoning effort: {cur}")
+    info("Applies to Kimi k3 / k3-256k. kimi-for-coding uses /thinking (on/off).")
+    return True
+
 
 def cmd_thinking(_args: str, _state, config) -> bool:
     """Set or toggle extended thinking.
@@ -9033,6 +9089,30 @@ def cmd_login(args: str, _state, config) -> bool:
         ))
         return True
 
+    # /login kimi — Kimi membership via the official Kimi Code CLI device OAuth.
+    # Reuses ~/.kimi-code credentials when present; otherwise opens auth.kimi.com.
+    if sub.split(" ")[0] in ("kimi", "kimi-oauth", "moonshot-oauth"):
+        from providers import _kimi_oauth_login, _kimi_oauth_get_token
+        force = "force" in (args or "").lower()
+        if not force:
+            tok = _kimi_oauth_get_token(config)
+            if tok:
+                print(clr("✅ Kimi OAuth session already active (Kimi membership, no API key).", "green"))
+                print(clr("kimi-oauth/* models use your Kimi membership automatically. Use `/login kimi force` to re-login.", "green"))
+                return True
+        print(clr("Starting Kimi membership login (device OAuth via auth.kimi.com)…", "cyan"))
+        print(clr("A browser will open — approve the shown device code with your Kimi account.", "cyan"))
+        try:
+            token = _kimi_oauth_login(config, notify=lambda m: print(clr(m, "cyan")))
+        except Exception as e:
+            token = None
+            print(clr(f"Kimi login error: {e}", "red"))
+        if token:
+            print(clr("✅ Logged in. Try `/model kimi-oauth/k3` — runs on your Kimi membership (no API key).", "green"))
+            return True
+        print(clr("Could not authenticate Kimi. Re-run `/login kimi` (or `/login kimi force`).", "yellow"))
+        return True
+
     if sub in ("grok", "xai", "x", "grok-oauth", ""):
         from providers import (
             _load_grok_build_session_token, _xai_oauth_login,
@@ -9107,6 +9187,12 @@ def cmd_login_chatgpt(args: str, _state, config) -> bool:
     """Alias for `/login chatgpt` so `/login-chatgpt`, `/chatgpt-login`, `/login-codex`
     route to the ChatGPT/Codex OAuth flow (forwarding any extra args like `force`)."""
     return cmd_login(("chatgpt " + (args or "")).strip(), _state, config)
+
+
+def cmd_login_kimi(args: str, _state, config) -> bool:
+    """Alias for `/login kimi` so `/login-kimi` / `/kimi-login` route to the Kimi
+    membership device-OAuth flow (forwarding any extra args like `force`)."""
+    return cmd_login(("kimi " + (args or "")).strip(), _state, config)
 
 
 def cmd_profile(args: str, state, config) -> bool:
@@ -10580,6 +10666,8 @@ COMMANDS = {
     "verbose":     cmd_verbose,
     "max_fix":     cmd_max_fix,
     "thinking":    cmd_thinking,
+    "menu":        cmd_menu,
+    "effort":      cmd_effort,
     "animations":  cmd_animations,
     "animation":   cmd_animations,
     "soul":        cmd_soul,
@@ -10620,6 +10708,8 @@ COMMANDS = {
     "claude-login":     cmd_login_claude,
     "login-chatgpt":    cmd_login_chatgpt,
     "chatgpt-login":    cmd_login_chatgpt,
+    "login-kimi":       cmd_login_kimi,
+    "kimi-login":       cmd_login_kimi,
     "login-codex":      cmd_login_chatgpt,
     "codex-login":      cmd_login_chatgpt,
     "login-grok":       cmd_login,
@@ -10968,6 +11058,15 @@ def repl(config: dict, initial_prompt: str | None = None):
         model = config.get("model", "")
         if model:
             parts.append(clr(f"🧠 {model}", "gray", "bold"))
+
+        # Reasoning effort — only for models that use it (Kimi k3/k3-256k).
+        try:
+            _w = model.split("/")[-1].lower()
+            if _w.startswith("k3"):
+                _e = str(config.get("reasoning_effort", "high")).lower() or "high"
+                parts.append(clr(f"⚡{_e}", "yellow" if _e == "max" else "gray"))
+        except Exception:
+            pass
 
         # CWD — gray
         try:
