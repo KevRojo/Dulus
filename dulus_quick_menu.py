@@ -128,13 +128,17 @@ def _is_double_tap() -> bool:
 
 # ── Menu rendering ───────────────────────────────────────────────────────────
 def _render_menu_rich(options: list[_OPTION], selected: int, console: Any) -> Any:
-    """Build a rich Panel for the live menu."""
-    from rich.align import Align
+    """Build a compact rich Panel for the live menu.
+
+    Sized to content (expand=False) and NOT vertically centered, so it renders
+    as a small box right at the cursor (bottom of the screen, next to the
+    prompt) instead of a full-screen panel that pushes everything to the top.
+    """
     from rich.panel import Panel
     from rich.table import Table
     from rich.text import Text
 
-    table = Table(show_header=False, box=None, padding=(0, 2))
+    table = Table(show_header=False, box=None, padding=(0, 1))
     for i, (label, _value) in enumerate(options):
         if i == selected:
             table.add_row(Text(f"▶  {label}", style="bold cyan on grey19"))
@@ -142,11 +146,12 @@ def _render_menu_rich(options: list[_OPTION], selected: int, console: Any) -> An
             table.add_row(Text(f"   {label}", style="white"))
 
     return Panel(
-        Align.center(table, vertical="middle"),
-        title="[bold magenta]⚡  DULUS QUICK MENU  ⚡[/]",
-        subtitle="[dim]↑↓ move  ·  Enter pick  ·  Esc / Q cancel  ·  ←← summoned me[/dim]",
+        table,
+        title="[bold magenta]⚡ DULUS QUICK MENU ⚡[/]",
+        subtitle="[dim]↑↓ move · Enter pick · Esc/Q cancel[/dim]",
         border_style="cyan",
-        padding=(1, 3),
+        padding=(0, 2),
+        expand=False,
     )
 
 
@@ -160,10 +165,12 @@ def _show_with_rich() -> Optional[str]:
     try:
         with Live(
             _render_menu_rich(_OPTIONS, selected, console),
-            screen=True,
-            refresh_per_second=12,
+            screen=False,        # inline at the cursor (bottom), not full-screen
+            transient=True,      # erase the menu cleanly when a pick is made
+            auto_refresh=False,  # NO continuous refresh — only redraw on keypress
             console=console,
         ) as live:
+            live.refresh()  # initial draw
             while True:
                 key = _read_raw_key()
                 if key == "up":
@@ -174,7 +181,7 @@ def _show_with_rich() -> Optional[str]:
                     return _OPTIONS[selected][1]
                 elif key in ("esc", "q"):
                     return None
-                live.update(_render_menu_rich(_OPTIONS, selected, console))
+                live.update(_render_menu_rich(_OPTIONS, selected, console), refresh=True)
     except Exception:
         # If rich Live fails (e.g. weird terminal), fall back to plain text.
         return _show_fallback()
