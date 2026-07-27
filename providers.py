@@ -538,9 +538,22 @@ PROVIDERS: dict[str, dict] = {
         "type":       "openai",
         "api_key_env": "KIMI_CODE_API_KEY",
         "base_url":   "https://api.kimi.com/coding/v1",
-        "context_limit": 256000,
+        "context_limit": 1_000_000,
+        # Official Kimi Code model IDs (kimi.com/code/docs → Model Configuration):
+        #   k3 (up to 1M), k3-256k, kimi-for-coding (K2.7 Code, 256k).
         "models": [
-            "kimi-for-coding", "kimi-k2.6", "kimi-k2.5", "kimi-latest",
+            "k3", "k3-256k", "kimi-for-coding",
+        ],
+    },
+    # Kimi membership OAuth (`/login kimi`) — same api.kimi.com/coding/v1 endpoint
+    # as kimi-code, but bills against the user's Kimi membership (no API key).
+    "kimi-oauth": {
+        "type":       "kimi-oauth",
+        "api_key_env": None,
+        "base_url":   "https://api.kimi.com/coding/v1",
+        "context_limit": 1_000_000,
+        "models": [
+            "k3", "k3-256k", "kimi-for-coding",
         ],
     },
     "qwen": {
@@ -5960,12 +5973,22 @@ def stream_openai_compat(
         h in (base_url or "")
         for h in ("api.moonshot.ai", "api.kimi.com")
     )
-    if _is_native_kimi_host and detect_provider(model) in ("kimi", "moonshot", "kimi-code"):
-        if not kwargs.get("extra_body"): kwargs["extra_body"] = {}
-        # Kimi expects an object: {"type": "enabled" | "disabled"}
-        mode = "enabled" if config.get("thinking", False) else "disabled"
-        kwargs["extra_body"]["thinking"] = {"type": mode}
-    
+    if _is_native_kimi_host:
+        # Gate on the host (reliable) — by here `model` is the bare wire name.
+        # Two families per Kimi's docs (kimi.com/code/docs → Model Configuration):
+        #   k3 / k3-256k     → reasoning_effort: low | high | max  (default high)
+        #   kimi-for-coding  → thinking {type: enabled|disabled}
+        #   moonshot-v1-*    → thinking (same as before)
+        _wire = str(model or "").lower()
+        if _wire.startswith("k3"):
+            _eff = str(config.get("reasoning_effort", "high")).strip().lower()
+            kwargs["reasoning_effort"] = _eff if _eff in ("low", "high", "max") else "high"
+        else:
+            if not kwargs.get("extra_body"): kwargs["extra_body"] = {}
+            # Kimi expects an object: {"type": "enabled" | "disabled"}
+            mode = "enabled" if config.get("thinking", False) else "disabled"
+            kwargs["extra_body"]["thinking"] = {"type": mode}
+
     # DeepSeek reasoning control (reasoning_effort for thinking models)
     if detect_provider(model) == "deepseek":
         if config.get("thinking", False):
@@ -6811,6 +6834,258 @@ def stream_ollama(
     yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking)
 
 
+# ── Kimi Code OAuth (Kimi membership login — NO API key) ──────────────────
+# Device-Authorization flow ported from the official open-source Kimi Code CLI
+# (MoonshotAI/kimi-code, packages/oauth — TypeScript). Three POSTs, all
+# form-encoded against auth.kimi.com:
+#   1. /api/oauth/device_authorization      → user_code + device_code + verify URL
+#   2. /api/oauth/token (grant=device_code) → poll until the user approves
+#   3. /api/oauth/token (grant=refresh_token) → refresh on expiry
+# The access token authenticates the SAME api.kimi.com/coding/v1 endpoint the
+# kimi-code API-key provider uses — usage bills against the user's Kimi
+# membership, not platform API credits. Reuses the official CLI's credential
+# file (~/.kimi-code/credentials/kimi-code.json) when present — one login, both.
+KIMI_OAUTH_HOST           = "https://auth.kimi.com"
+KIMI_OAUTH_CLIENT_ID      = "17e5f671-d194-4dfb-9706-5516cb48c098"  # official Kimi Code CLI client
+KIMI_OAUTH_DEVICE_URL     = f"{KIMI_OAUTH_HOST}/api/oauth/device_authorization"
+KIMI_OAUTH_TOKEN_URL      = f"{KIMI_OAUTH_HOST}/api/oauth/token"
+KIMI_OAUTH_DEVICE_GRANT   = "urn:ietf:params:oauth:grant-type:device_code"
+KIMI_OAUTH_API_BASE_URL   = "https://api.kimi.com/coding/v1"
+KIMI_OAUTH_UA             = "KimiCLI/1.30.0"  # same UA the kimi-code API whitelists
+
+
+def _kimi_oauth_store_path():
+    return _oauth_store_path("kimi_oauth.json")
+
+
+def _kimi_oauth_load_store() -> dict:
+    return _oauth_load_store(_kimi_oauth_store_path())
+
+
+def _kimi_oauth_save_store(data: dict) -> None:
+    _oauth_save_store(_kimi_oauth_store_path(), data)
+
+
+def _kimi_device_headers() -> dict:
+    """X-Msh-* device identity headers the official CLI sends on OAuth calls.
+
+    The device id is a random UUID persisted next to the Dulus auth stores so
+    the host sees a stable device across logins/refreshes."""
+    import platform
+    import uuid
+
+    id_path = _oauth_store_path("kimi_device_id")
+    device_id = ""
+    try:
+        device_id = id_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        pass
+    if not device_id:
+        device_id = str(uuid.uuid4())
+        try:
+            id_path.write_text(device_id, encoding="utf-8")
+        except OSError:
+            pass
+    model = f"{platform.system()} {platform.release()} {platform.machine()}".strip()
+    return {
+        "User-Agent": KIMI_OAUTH_UA,
+        "X-Msh-Platform": "kimi_code_cli",
+        "X-Msh-Version": KIMI_OAUTH_UA.split("/")[-1],
+        "X-Msh-Device-Name": platform.node() or "unknown",
+        "X-Msh-Device-Model": model or "unknown",
+        "X-Msh-Os-Version": platform.release() or "unknown",
+        "X-Msh-Device-Id": device_id,
+    }
+
+
+def _kimi_oauth_load_cli_credentials() -> dict:
+    """Load the official Kimi Code CLI credential file, if present.
+
+    Same snake_case wire format the TypeScript CLI writes to
+    ~/.kimi-code/credentials/kimi-code.json — so logging in via the official
+    CLI (or via Dulus) is a single sign-on for both."""
+    import json
+    import pathlib
+
+    path = pathlib.Path.home() / ".kimi-code" / "credentials" / "kimi-code.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _kimi_oauth_refresh(refresh_token: str) -> dict | None:
+    """Exchange a refresh_token for a fresh access token (official CLI's
+    /api/oauth/token grant=refresh_token). Returns the updated store or None.
+    401/403/invalid_grant (revoked) and network errors all land on None — the
+    caller then prompts a fresh /login kimi."""
+    import time
+    import requests as _req
+
+    try:
+        r = _req.post(KIMI_OAUTH_TOKEN_URL, data={
+            "client_id": KIMI_OAUTH_CLIENT_ID,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }, headers={**_kimi_device_headers(),
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json"}, timeout=30)
+        body = r.json() if r.content else {}
+    except Exception:
+        return None
+    if r.status_code != 200 or not isinstance(body, dict) or not body.get("access_token"):
+        return None
+    store = _kimi_oauth_load_store()
+    store.update({
+        "access_token": body["access_token"],
+        "refresh_token": body.get("refresh_token") or refresh_token,
+        "obtained_at": time.time(),
+        "expires_at": _oauth_expires_at(body),
+    })
+    _kimi_oauth_save_store(store)
+    return store
+
+
+def _kimi_oauth_login(config: dict, notify=print) -> str | None:
+    """Kimi membership OAuth login (device flow — no API key). Opens the
+    verification URL in the browser; the user approves the shown device code
+    and we poll auth.kimi.com until approved. Returns the access token or None."""
+    import time
+    import webbrowser
+    import requests as _req
+
+    headers = {**_kimi_device_headers(),
+               "Content-Type": "application/x-www-form-urlencoded",
+               "Accept": "application/json"}
+    try:
+        r = _req.post(KIMI_OAUTH_DEVICE_URL,
+                      data={"client_id": KIMI_OAUTH_CLIENT_ID},
+                      headers=headers, timeout=30)
+        data = r.json() if r.content else {}
+    except Exception as e:
+        notify(f"[kimi] Device authorization request failed: {e}")
+        return None
+    if r.status_code != 200 or not isinstance(data, dict):
+        notify(f"[kimi] Device authorization failed (HTTP {r.status_code}).")
+        return None
+
+    user_code = (data.get("user_code") or "").strip()
+    device_code = (data.get("device_code") or "").strip()
+    verify_url = (data.get("verification_uri_complete")
+                  or data.get("verification_uri") or "").strip()
+    if not user_code or not device_code or not verify_url:
+        notify("[kimi] Device authorization response incomplete (missing code/URL).")
+        return None
+    try:
+        interval = max(1, int(float(data.get("interval") or 5)))
+        expires_in = max(30, int(float(data.get("expires_in") or 600)))
+    except (TypeError, ValueError):
+        interval, expires_in = 5, 600
+
+    notify("[kimi] Opening your browser to log in to your Kimi membership…")
+    notify(f"[kimi] If it doesn't open, go to:\n{verify_url}")
+    notify(f"[kimi] Your device code: {user_code}")
+    try:
+        webbrowser.open(verify_url)
+    except Exception:
+        pass
+    notify("[kimi] Waiting for approval… (Ctrl+C to cancel)")
+
+    deadline = time.time() + expires_in
+    try:
+        while time.time() < deadline:
+            time.sleep(interval)
+            try:
+                r = _req.post(KIMI_OAUTH_TOKEN_URL, data={
+                    "client_id": KIMI_OAUTH_CLIENT_ID,
+                    "device_code": device_code,
+                    "grant_type": KIMI_OAUTH_DEVICE_GRANT,
+                }, headers=headers, timeout=30)
+                body = r.json() if r.content else {}
+            except Exception:
+                continue  # transient network hiccup — keep polling until deadline
+            if r.status_code == 200 and isinstance(body, dict) and body.get("access_token"):
+                store = {
+                    "access_token": body["access_token"],
+                    "refresh_token": body.get("refresh_token") or "",
+                    "scope": body.get("scope") or "",
+                    "token_type": body.get("token_type") or "Bearer",
+                    "obtained_at": time.time(),
+                    "expires_at": _oauth_expires_at(body),
+                }
+                _kimi_oauth_save_store(store)
+                notify("[kimi] Logged in. kimi-oauth/* models ready (Kimi membership, no API key).")
+                return store["access_token"]
+            err = (body.get("error") or "") if isinstance(body, dict) else ""
+            if err in ("authorization_pending", "slow_down"):
+                if err == "slow_down":
+                    interval += 5  # server asked us to back off
+                continue
+            if err == "expired_token":
+                notify("[kimi] Device code expired. Re-run /login kimi.")
+                return None
+            if err == "access_denied":
+                notify("[kimi] Authorization denied.")
+                return None
+            if r.status_code >= 500:
+                continue  # server-side wobble — keep polling until deadline
+            notify(f"[kimi] Polling failed: {err or f'HTTP {r.status_code}'}")
+            return None
+    except KeyboardInterrupt:
+        notify("[kimi] Login cancelled.")
+        return None
+    notify("[kimi] Login timed out waiting for approval. Re-run /login kimi.")
+    return None
+
+
+def _kimi_oauth_get_token(config: dict) -> str:
+    """Return a valid Kimi OAuth access token, refreshing on expiry.
+
+    Sources, in order:
+      1. Dulus-native store (~/.dulus/kimi_oauth.json) from /login kimi.
+      2. Official Kimi Code CLI credentials (~/.kimi-code/credentials/kimi-code.json).
+    Returns "" when no session exists — the caller should prompt /login kimi."""
+    store = _kimi_oauth_load_store()
+    if store.get("access_token"):
+        if not _is_token_expired(store):
+            return store["access_token"]
+        if store.get("refresh_token"):
+            refreshed = _kimi_oauth_refresh(store["refresh_token"])
+            if refreshed and refreshed.get("access_token"):
+                return refreshed["access_token"]
+
+    cli = _kimi_oauth_load_cli_credentials()
+    if cli.get("access_token"):
+        if not _is_token_expired(cli):
+            _kimi_oauth_save_store({**cli, "source": "kimi-code-cli"})
+            return cli["access_token"]
+        if cli.get("refresh_token"):
+            refreshed = _kimi_oauth_refresh(cli["refresh_token"])
+            if refreshed and refreshed.get("access_token"):
+                return refreshed["access_token"]
+    return ""  # no session anywhere — needs /login kimi
+
+
+def stream_kimi_oauth(
+    model: str,
+    system: str,
+    messages: list,
+    tool_schemas: list,
+    config: dict,
+) -> Generator:
+    """Stream Kimi from api.kimi.com/coding/v1 using the membership OAuth token
+    (/login kimi). Same OpenAI-compatible endpoint as the kimi-code API-key
+    provider — usage bills against the Kimi membership, not API credits."""
+    token = _kimi_oauth_get_token(config)
+    if not token:
+        yield TextChunk("[kimi] No Kimi OAuth session (or it expired). Run `/login kimi` "
+                        "to sign in with your Kimi membership — no API key needed.")
+        return
+    yield from stream_openai_compat(token, KIMI_OAUTH_API_BASE_URL, model, system,
+                                    messages, tool_schemas, config)
+
+
 def stream(
     model: str,
     system: str,
@@ -6839,6 +7114,10 @@ def stream(
         elif prov["type"] == "claude_code":
             cookies_file = _web_auth_path(config, "claude_web_cookies", "claude_cookies.json")
             yield from stream_claude_code(cookies_file, model_name, system, messages, tool_schemas, config)
+        elif prov["type"] == "kimi-oauth":
+            # Kimi membership OAuth (`/login kimi` or ~/.kimi-code credentials)
+            # → api.kimi.com/coding/v1 (same endpoint as kimi-code API key).
+            yield from stream_kimi_oauth(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "kimi_web":
             auth_file = _web_auth_path(config, "kimi_web_auth_path", "kimi_consumer.json")
             yield from stream_kimi_web(auth_file, model_name, system, messages, tool_schemas, config)
