@@ -160,6 +160,11 @@ def run(
         config["_governance_obj"] = governance.from_config(config)
     _gov = config["_governance_obj"]
 
+    # Bounded retry for empty/stalled turns: a reasoning model (grok-4.5, k3,
+    # DeepSeek) can emit only its <thinking> and end the stream — often on
+    # finish_reason="length" (truncated) — before any answer or tool call.
+    _empty_retries = 0
+    _MAX_EMPTY_RETRIES = 3
     while True:
         if cancel_check and cancel_check():
             return
@@ -310,7 +315,36 @@ def run(
                 break
 
         if not assistant_turn.tool_calls:
-            break   # No tools → conversation turn complete
+            # A turn with real text is a genuine final answer — end here.
+            # But NO text AND NO tool calls is a STALL, not a completion: the
+            # model emitted only reasoning and the stream ended (often
+            # finish_reason="length", i.e. truncated) before answering or
+            # calling a tool. Breaking here is exactly what makes the agent
+            # "suddenly stop" mid-task. Nudge it to actually act, bounded by a
+            # retry cap so a persistently-empty model can't loop forever.
+            if (assistant_turn.text or "").strip():
+                break   # real final answer
+            _empty_retries += 1
+            if _empty_retries > _MAX_EMPTY_RETRIES:
+                yield TextChunk(
+                    "\n⚠️  The model returned only reasoning with no answer or "
+                    "tool call repeatedly (usually truncated thinking — try a "
+                    "higher max_tokens or lower reasoning effort). Stopping.\n"
+                )
+                break
+            _fr = getattr(assistant_turn, "finish_reason", "") or ""
+            state.messages.append({
+                "role": "user",
+                "content": (
+                    "(You produced only reasoning — no answer and no tool call"
+                    + (" and your message was cut off by the token limit"
+                       if _fr == "length" else "")
+                    + ". Continue now: call the next tool or give your final "
+                    "answer.)"
+                ),
+            })
+            continue
+        _empty_retries = 0  # a real tool-executing turn — reset the stall streak
 
         # ── Execute tools ────────────────────────────────────────────────
         for tc in assistant_turn.tool_calls:
