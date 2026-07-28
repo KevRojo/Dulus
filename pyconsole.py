@@ -115,7 +115,7 @@ def _safe_repr(v: object) -> str:
 def _worker_main() -> None:
     """Run the persistent kernel loop. One JSON request per line on stdin; one
     JSON response per line on the real stdout. exec state lives in `ns`."""
-    real_out = sys.__stdout__
+    real_out = sys.__stdout__ or sys.stdout
 
     def send(obj: dict) -> None:
         real_out.write(json.dumps(obj) + "\n")
@@ -150,8 +150,11 @@ def _worker_main() -> None:
             # REPL nicety: if the last statement is a bare expression, eval it
             # separately so its value can be echoed like an interactive prompt.
             last_expr = None
-            if block.body and isinstance(block.body[-1], ast.Expr):
-                last_expr = ast.Expression(block.body.pop().value)
+            if block.body:
+                last_node = block.body[-1]
+                if isinstance(last_node, ast.Expr):
+                    block.body.pop()
+                    last_expr = ast.Expression(last_node.value)
             if block.body:
                 exec(compile(block, "<pyconsole>", "exec"), ns)
             if last_expr is not None:
