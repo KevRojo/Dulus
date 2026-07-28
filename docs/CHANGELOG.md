@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.52] - 2026-07-28
+
+### Fixed
+- **TmuxOffload no longer leaks tmux sessions on Windows.** Windows tmux panes
+  default to PowerShell, which doesn't understand the bash `&&`/`||`/`;` in the
+  old send-keys cleanup one-liner, so the trailing `tmux kill-session` never ran
+  — finished jobs left an idle PowerShell session lingering, accumulating with
+  every offload. The session is now created *with* a `.cmd` wrapper as its main
+  process (`tmux new-session -d -s NAME cmd.exe /c wrapper.cmd`); the wrapper runs
+  the tool then unconditionally runs `kill-session` and exits, so the pane dies
+  cleanly, with `remain-on-exit` forced off as a belt. Verified on Windows
+  (tmux 3.3.6). Linux/macOS unchanged.
+
 ## [3.10.51] - 2026-07-27
 
 ### Fixed
