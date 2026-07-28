@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.53] - 2026-07-28
+
+### Added
+- **`Python` console tool — a persistent REPL kernel used as working memory
+  outside the context window.** Its namespace persists across tool calls, so the
+  agent can scan a large structure once into a variable and query it across turns
+  while only small slices ever enter the conversation — the bulk lives in the
+  kernel's heap and is never re-read or re-transmitted. Runs in an isolated
+  subprocess kernel (this module doubles as the worker via `--pykernel-worker`),
+  so an infinite loop or crash kills the kernel, never Dulus; the parent enforces
+  a wall-clock timeout and auto-restarts a dead/killed kernel. Output is capped at
+  the source by characters (not just lines) with a bounded `reprlib` echo, so one
+  enormous line or a huge `repr()` can't flood the context and get re-billed every
+  turn. `input()` is neutralised, tracebacks are trimmed to the caller's frames,
+  and trailing bare expressions echo like a REPL. See
+  [docs/python-console.md](python-console.md).
+
 ## [3.10.52] - 2026-07-28
 
 ### Fixed

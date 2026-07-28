@@ -67,6 +67,20 @@ Rather use keys, local models, or your own endpoint? Dulus does that too — **3
 
 ---
 
+## New — Python console: a live heap that costs no tokens
+
+> 🧪 Fresh out of the private build. Try it and tell me how it feels.
+
+When an agent explores a big thing — a directory tree, a parsed file, an API dump — the result normally lands in the conversation and gets **re-sent every turn** for the rest of the session. The new **`Python` console** is a persistent REPL whose variables *survive across calls*: scan once into a variable, then filter and aggregate it across turns while the model only ever prints the small slice it needs. The data lives in the kernel's heap, not the chat — so you never pay tokens to re-read or re-transmit it. **Working memory outside the context window.**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/pyc_heap.svg" alt="The data lives in the kernel heap; only a thin slice reaches the model" width="100%">
+</p>
+
+Real run: **101,619 files** scanned into a variable, then queried three ways across separate calls — the context only ever saw a number, an 8-line slice, and a one-line summary. Roughly **1.5–2M tokens that never touched the conversation.** It runs in an isolated subprocess kernel (an infinite loop kills the kernel, never Dulus) and caps output at the *source* so one giant line can't flood the context. **Full write-up → [The model's second brain](docs/python-console.md).**
+
+---
+
 ## New — Lookback: keep 2,000 turns, pay for 20
 
 > 🧪 Fresh out of the private build. I'd love for you to try it and tell me how it feels.
