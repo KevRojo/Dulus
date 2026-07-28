@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.54] - 2026-07-28
+
+### Fixed
+- **Agent no longer stops mid-task after a reasoning model "thinks" without
+  acting.** Reasoning models (Grok, Kimi k3, DeepSeek) can emit only their
+  `<thinking>` and end the stream — often truncated on `finish_reason="length"`
+  — before any answer or tool call. The loop treated an empty `tool_calls` list
+  as a completed turn and broke silently. Now a turn with no text *and* no tool
+  call is detected as a stall and the model is nudged to continue (call the next
+  tool or give its answer), bounded by a retry cap; a turn with real text is
+  still a normal final answer.
+
 ## [3.10.53] - 2026-07-28
 
 ### Added
