@@ -2431,6 +2431,13 @@ import memory.tools as _memory_tools  # noqa: F401
 from memory.offload import register_offload_tool
 register_offload_tool()
 
+# ── Python console (persistent REPL kernel — working memory outside context) ──
+try:
+    from pyconsole import register_python_console
+    register_python_console()
+except Exception:
+    pass  # never block boot over the Python console tool
+
 
 
 # ── Multi-agent tools (Agent, SendMessage, CheckAgentResult, ListAgentTasks, ListAgentTypes) ──

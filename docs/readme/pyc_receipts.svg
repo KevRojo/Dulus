@@ -1,0 +1,45 @@
+<svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0b12"/>
+      <stop offset="1" stop-color="#12101a"/>
+    </linearGradient>
+    <linearGradient id="hot" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#fbbf24"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <text x="80" y="100" fill="#ffffff" font-size="52" font-weight="700">One scan. 100k files. A handful of tokens.</text>
+  <text x="80" y="152" fill="#8b8b9a" font-size="26">A real run on my own machine — and what the context actually paid for.</text>
+
+  <!-- big hero number -->
+  <text x="80" y="330" fill="url(#hot)" font-size="150" font-weight="800">101,619</text>
+  <text x="86" y="384" fill="#c9c9d4" font-size="28">files walked into a variable — once. Held in the heap, not the chat.</text>
+
+  <!-- three query chips -->
+  <text x="80" y="470" fill="#8b8b9a" font-size="22" font-weight="600">Then three separate calls, over the data already in memory — no re-scan, no re-send:</text>
+
+  <rect x="80" y="500" width="450" height="150" rx="16" fill="#141420" stroke="#2c2c3a" stroke-width="2"/>
+  <text x="105" y="552" fill="#fbbf24" font-size="24" font-weight="700" font-family="'Consolas','Courier New',monospace">filter 'army'</text>
+  <text x="105" y="600" fill="#c9c9d4" font-size="22">what the context saw:</text>
+  <text x="105" y="632" fill="#ffffff" font-size="26" font-weight="700">8 lines</text>
+
+  <rect x="575" y="500" width="450" height="150" rx="16" fill="#141420" stroke="#2c2c3a" stroke-width="2"/>
+  <text x="600" y="552" fill="#fbbf24" font-size="24" font-weight="700" font-family="'Consolas','Courier New',monospace">ext histogram</text>
+  <text x="600" y="600" fill="#c9c9d4" font-size="22">what the context saw:</text>
+  <text x="600" y="632" fill="#ffffff" font-size="26" font-weight="700">10 lines</text>
+
+  <rect x="1070" y="500" width="450" height="150" rx="16" fill="#141420" stroke="#2c2c3a" stroke-width="2"/>
+  <text x="1095" y="552" fill="#fbbf24" font-size="24" font-weight="700" font-family="'Consolas','Courier New',monospace">Σ .py size</text>
+  <text x="1095" y="600" fill="#c9c9d4" font-size="22">what the context saw:</text>
+  <text x="1095" y="632" fill="#ffffff" font-size="26" font-weight="700">1 string</text>
+
+  <!-- payoff banner -->
+  <rect x="80" y="700" width="1440" height="110" rx="16" fill="#171520" stroke="#f97316" stroke-width="2"/>
+  <text x="800" y="752" fill="#fbbf24" font-size="34" font-weight="800" text-anchor="middle">≈ 1.5–2 million tokens that never touched the context</text>
+  <text x="800" y="790" fill="#9a9aa8" font-size="22" text-anchor="middle">~7 MB of paths, held in the kernel heap — you paid for the questions and the slices, never the haystack</text>
+
+  <text x="80" y="858" fill="#5a5a6a" font-size="22">Dulus · Python console  🦅🇩🇴</text>
+</svg>

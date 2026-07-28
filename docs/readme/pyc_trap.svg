@@ -1,0 +1,73 @@
+<svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0b12"/>
+      <stop offset="1" stop-color="#12101a"/>
+    </linearGradient>
+    <linearGradient id="hot" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#fbbf24"/>
+    </linearGradient>
+    <marker id="ah2" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6a6a78"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <text x="80" y="100" fill="#ffffff" font-size="52" font-weight="700">A line cap isn't a cost cap</text>
+  <text x="80" y="152" fill="#8b8b9a" font-size="26">One giant line slips past a line limit — then rides your context, re-billed every single turn.</text>
+
+  <!-- shared input chip -->
+  <rect x="80" y="210" width="470" height="64" rx="10" fill="#1c1c28" stroke="#3a3a4a" stroke-width="2"/>
+  <text x="104" y="250" fill="#c9c9d4" font-size="24" font-family="'Consolas','Courier New',monospace">print('x' * 10_000_000)</text>
+
+  <!-- LANE A: BAD -->
+  <text x="80" y="360" fill="#ef4444" font-size="30" font-weight="700">✗  80-line cap only</text>
+  <line x1="560" y1="342" x2="700" y2="342" stroke="#6a6a78" stroke-width="3" marker-end="url(#ah2)"/>
+  <text x="630" y="330" fill="#8b8b9a" font-size="19" text-anchor="middle">one 10 MB line</text>
+
+  <!-- bloated context box -->
+  <rect x="720" y="300" width="250" height="150" rx="12" fill="#2a0f12" stroke="#ef4444" stroke-width="2"/>
+  <text x="845" y="352" fill="#ef4444" font-size="22" text-anchor="middle" font-weight="700">CONTEXT</text>
+  <text x="845" y="388" fill="#f0a0a0" font-size="40" text-anchor="middle" font-weight="700">10 MB</text>
+  <text x="845" y="424" fill="#a06060" font-size="18" text-anchor="middle">passed the line cap</text>
+
+  <!-- re-sent every turn: growing red bars -->
+  <text x="1010" y="316" fill="#ef4444" font-size="20" font-weight="600">re-sent every turn ↻</text>
+  <g fill="#ef4444" opacity="0.85">
+    <rect x="1010" y="400" width="46" height="40" rx="4"/>
+    <rect x="1066" y="386" width="46" height="54" rx="4"/>
+    <rect x="1122" y="368" width="46" height="72" rx="4"/>
+    <rect x="1178" y="346" width="46" height="94" rx="4"/>
+    <rect x="1234" y="330" width="46" height="110" rx="4"/>
+    <rect x="1290" y="360" width="46" height="80" rx="4" opacity="0.5"/>
+    <rect x="1346" y="360" width="46" height="80" rx="4" opacity="0.3"/>
+  </g>
+  <text x="1200" y="470" fill="#a06060" font-size="19" text-anchor="middle">the bill grows with the session</text>
+
+  <!-- divider -->
+  <line x1="80" y1="520" x2="1520" y2="520" stroke="#26263a" stroke-width="1.5"/>
+
+  <!-- LANE B: GOOD -->
+  <text x="80" y="600" fill="#fbbf24" font-size="30" font-weight="700">✓  char cap at source + reprlib</text>
+  <line x1="600" y1="582" x2="700" y2="582" stroke="#6a6a78" stroke-width="3" marker-end="url(#ah2)"/>
+  <text x="650" y="570" fill="#8b8b9a" font-size="19" text-anchor="middle">capped before it leaves the kernel</text>
+
+  <!-- tiny context box -->
+  <rect x="720" y="556" width="250" height="90" rx="12" fill="#171520" stroke="#f97316" stroke-width="2"/>
+  <text x="845" y="596" fill="#f97316" font-size="22" text-anchor="middle" font-weight="700">CONTEXT</text>
+  <text x="845" y="628" fill="#fbbf24" font-size="26" text-anchor="middle" font-weight="700">1.3k chars</text>
+
+  <!-- one small bar -->
+  <text x="1010" y="576" fill="#fbbf24" font-size="20" font-weight="600">flat, forever</text>
+  <g fill="url(#hot)">
+    <rect x="1010" y="606" width="46" height="40" rx="4"/>
+    <rect x="1066" y="606" width="46" height="40" rx="4" opacity="0.4"/>
+    <rect x="1122" y="606" width="46" height="40" rx="4" opacity="0.25"/>
+  </g>
+  <text x="1150" y="636" fill="#8a7a4a" font-size="19">a thumbnail — same size every turn</text>
+
+  <!-- caption -->
+  <text x="80" y="812" fill="#c9c9d4" font-size="30" font-weight="700">Cap at the source, or you're just moving the bill — not cutting it.</text>
+  <text x="80" y="858" fill="#5a5a6a" font-size="22">Dulus · Python console  🦅🇩🇴</text>
+</svg>

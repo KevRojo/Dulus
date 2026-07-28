@@ -1,0 +1,71 @@
+<svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0b12"/>
+      <stop offset="1" stop-color="#12101a"/>
+    </linearGradient>
+    <linearGradient id="hot" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#fbbf24"/>
+    </linearGradient>
+    <marker id="ah" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#fbbf24"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <text x="80" y="100" fill="#ffffff" font-size="52" font-weight="700">Working memory, off-context</text>
+  <text x="80" y="152" fill="#8b8b9a" font-size="26">The data lives in the kernel heap. Only a thin slice ever reaches the model — and only that slice costs tokens.</text>
+
+  <!-- LEFT: kernel heap (big, free) -->
+  <rect x="80" y="220" width="620" height="540" rx="16" fill="#141420" stroke="#2c2c3a" stroke-width="2"/>
+  <text x="112" y="278" fill="#fbbf24" font-size="30" font-weight="700">KERNEL HEAP</text>
+  <text x="112" y="312" fill="#8b8b9a" font-size="21">off-context · $0 to keep · never re-sent</text>
+
+  <!-- dense grid of "files" -->
+  <g fill="#2a2a3a">
+    <!-- 14 cols x 7 rows -->
+    <g>
+      <rect x="112" y="350" width="26" height="26" rx="3"/><rect x="150" y="350" width="26" height="26" rx="3"/><rect x="188" y="350" width="26" height="26" rx="3"/><rect x="226" y="350" width="26" height="26" rx="3"/><rect x="264" y="350" width="26" height="26" rx="3"/><rect x="302" y="350" width="26" height="26" rx="3"/><rect x="340" y="350" width="26" height="26" rx="3"/><rect x="378" y="350" width="26" height="26" rx="3"/><rect x="416" y="350" width="26" height="26" rx="3"/><rect x="454" y="350" width="26" height="26" rx="3"/><rect x="492" y="350" width="26" height="26" rx="3"/><rect x="530" y="350" width="26" height="26" rx="3"/><rect x="568" y="350" width="26" height="26" rx="3"/><rect x="606" y="350" width="26" height="26" rx="3"/>
+    </g>
+    <g transform="translate(0,38)">
+      <rect x="112" y="350" width="26" height="26" rx="3"/><rect x="150" y="350" width="26" height="26" rx="3"/><rect x="188" y="350" width="26" height="26" rx="3"/><rect x="226" y="350" width="26" height="26" rx="3"/><rect x="264" y="350" width="26" height="26" rx="3"/><rect x="302" y="350" width="26" height="26" rx="3"/><rect x="340" y="350" width="26" height="26" rx="3"/><rect x="378" y="350" width="26" height="26" rx="3"/><rect x="416" y="350" width="26" height="26" rx="3"/><rect x="454" y="350" width="26" height="26" rx="3"/><rect x="492" y="350" width="26" height="26" rx="3"/><rect x="530" y="350" width="26" height="26" rx="3"/><rect x="568" y="350" width="26" height="26" rx="3"/><rect x="606" y="350" width="26" height="26" rx="3"/>
+    </g>
+    <g transform="translate(0,76)">
+      <rect x="112" y="350" width="26" height="26" rx="3"/><rect x="150" y="350" width="26" height="26" rx="3"/><rect x="188" y="350" width="26" height="26" rx="3"/><rect x="226" y="350" width="26" height="26" rx="3"/><rect x="264" y="350" width="26" height="26" rx="3"/><rect x="302" y="350" width="26" height="26" rx="3"/><rect x="340" y="350" width="26" height="26" rx="3"/><rect x="378" y="350" width="26" height="26" rx="3"/><rect x="416" y="350" width="26" height="26" rx="3"/><rect x="454" y="350" width="26" height="26" rx="3"/><rect x="492" y="350" width="26" height="26" rx="3"/><rect x="530" y="350" width="26" height="26" rx="3"/><rect x="568" y="350" width="26" height="26" rx="3"/><rect x="606" y="350" width="26" height="26" rx="3"/>
+    </g>
+    <g transform="translate(0,114)">
+      <rect x="112" y="350" width="26" height="26" rx="3"/><rect x="150" y="350" width="26" height="26" rx="3"/><rect x="188" y="350" width="26" height="26" rx="3"/><rect x="226" y="350" width="26" height="26" rx="3"/><rect x="264" y="350" width="26" height="26" rx="3"/><rect x="302" y="350" width="26" height="26" rx="3"/><rect x="340" y="350" width="26" height="26" rx="3"/><rect x="378" y="350" width="26" height="26" rx="3"/><rect x="416" y="350" width="26" height="26" rx="3"/><rect x="454" y="350" width="26" height="26" rx="3"/><rect x="492" y="350" width="26" height="26" rx="3"/><rect x="530" y="350" width="26" height="26" rx="3"/><rect x="568" y="350" width="26" height="26" rx="3"/><rect x="606" y="350" width="26" height="26" rx="3"/>
+    </g>
+  </g>
+  <!-- a few "hot" files highlighted -->
+  <g fill="url(#hot)">
+    <rect x="188" y="388" width="26" height="26" rx="3"/><rect x="454" y="464" width="26" height="26" rx="3"/><rect x="302" y="426" width="26" height="26" rx="3"/>
+  </g>
+
+  <text x="112" y="560" fill="#c9c9d4" font-size="24" font-family="'Consolas','Courier New',monospace">paths = [ … 101,619 files … ]</text>
+  <text x="112" y="612" fill="#6a6a78" font-size="21">stays alive across every call · filter it, count it, aggregate it —</text>
+  <text x="112" y="640" fill="#6a6a78" font-size="21">without ever re-scanning or re-sending it</text>
+
+  <!-- ARROW: only a slice crosses -->
+  <line x1="700" y1="430" x2="890" y2="360" stroke="url(#hot)" stroke-width="5" marker-end="url(#ah)"/>
+  <text x="795" y="405" fill="#fbbf24" font-size="20" text-anchor="middle" font-weight="600">only a slice</text>
+
+  <!-- RIGHT TOP: context window (small, metered) -->
+  <rect x="900" y="230" width="620" height="270" rx="16" fill="#171520" stroke="#f97316" stroke-width="2"/>
+  <text x="932" y="286" fill="#f97316" font-size="30" font-weight="700">CONTEXT WINDOW</text>
+  <text x="932" y="318" fill="#f59e0b" font-size="21">re-sent every turn — you pay for all of it</text>
+  <text x="932" y="378" fill="#c9c9d4" font-size="23" font-family="'Consolas','Courier New',monospace">=&gt; 101619</text>
+  <text x="932" y="418" fill="#c9c9d4" font-size="23" font-family="'Consolas','Courier New',monospace">=&gt; ['army_api.py', … ]  (8)</text>
+  <text x="932" y="458" fill="#6a6a78" font-size="20">a thumbnail — never the haystack</text>
+
+  <!-- arrow down to model -->
+  <line x1="1210" y1="500" x2="1210" y2="556" stroke="#8b5cf6" stroke-width="3" marker-end="url(#ah)" opacity="0.9"/>
+
+  <!-- RIGHT BOTTOM: the model -->
+  <rect x="900" y="560" width="620" height="200" rx="16" fill="#1d1526" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="1210" y="645" fill="#c4b5fd" font-size="32" font-weight="700" text-anchor="middle">the model</text>
+  <text x="1210" y="690" fill="#8b7bb0" font-size="22" text-anchor="middle">reads a thumbnail, reasons over the whole</text>
+
+  <text x="80" y="858" fill="#5a5a6a" font-size="22">Dulus · Python console  🦅🇩🇴</text>
+</svg>
