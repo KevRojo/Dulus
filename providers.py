@@ -5134,12 +5134,18 @@ def messages_to_openai(messages: list, ollama_native_images: bool = False, model
             if tcs:
                 msg["tool_calls"] = []
                 for tc in tcs:
+                    # Prefer the exact bytes the model originally streamed. Re-serializing
+                    # the parsed dict can reorder keys / change separators and invalidate
+                    # the provider's prefix cache for every subsequent turn.
+                    raw = tc.get("arguments_raw")
+                    if not isinstance(raw, str) or not raw:
+                        raw = json.dumps(tc.get("input") or {}, ensure_ascii=False)
                     tc_msg = {
                         "id":   tc["id"],
                         "type": "function",
                         "function": {
                             "name":      tc["name"],
-                            "arguments": json.dumps(tc["input"], ensure_ascii=False),
+                            "arguments": raw,
                         },
                     }
                     # Pass through provider-specific fields (e.g. Gemini thought_signature)
@@ -5660,15 +5666,27 @@ def _oai_uses_completion_tokens(model: str) -> bool:
 
 
 def _finalize_tool_calls(tool_buf: dict, include_extra: bool = False) -> list:
-    """Convert buffered OpenAI-style tool deltas into final tool_call dicts."""
+    """Convert buffered OpenAI-style tool deltas into final tool_call dicts.
+
+    Also keeps ``arguments_raw`` — the exact JSON string the model streamed.
+    Re-dumping ``input`` via json.dumps() on replay can change key order /
+    whitespace and bust provider prompt caches on the next turn (xAI/OpenAI
+    prefix cache is byte-sensitive on earlier messages).
+    """
     tool_calls = []
     for idx in sorted(tool_buf):
         v = tool_buf[idx]
+        raw_args = v.get("args") or ""
         try:
-            inp = json.loads(v["args"]) if v["args"] else {}
+            inp = json.loads(raw_args) if raw_args else {}
         except json.JSONDecodeError:
-            inp = {"_raw": v["args"]}
-        tc_entry = {"id": v["id"] or f"call_{idx}", "name": v["name"], "input": inp}
+            inp = {"_raw": raw_args}
+        tc_entry = {
+            "id": v["id"] or f"call_{idx}",
+            "name": v["name"],
+            "input": inp,
+            "arguments_raw": raw_args,
+        }
         if include_extra and v.get("extra_content"):
             tc_entry["extra_content"] = v["extra_content"]
         tool_calls.append(tc_entry)
