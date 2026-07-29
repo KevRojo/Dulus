@@ -334,9 +334,11 @@ def build_system_prompt(config: dict | None = None) -> str:
     try:
         skills_dump = Path.home() / ".dulus" / "skills_catalog.txt"
         if skills_dump.exists():
-            sz_kb = skills_dump.stat().st_size // 1024
+            # Do NOT embed file size/mtime — that changes on every catalog
+            # refresh and would bust the entire system-prompt prefix cache
+            # (xAI/OpenAI/Anthropic all key on exact bytes).
             prompt += (
-                f"\n# Skills catalog: {skills_dump} ({sz_kb} KB, tab-separated "
+                f"\n# Skills catalog: {skills_dump} (tab-separated "
                 "source\\tid\\tdescription). Before writing custom code or "
                 "saying 'I can't do that', Grep this file for the topic — "
                 "there's often an awesome/composio/local skill that fits. "

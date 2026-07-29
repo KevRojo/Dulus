@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.55] - 2026-07-29
+
+### Fixed
+- **Prompt cache no longer busts on every tool turn.** Replaying tool-call
+  history re-serialized each call's arguments with `json.dumps()`, which can
+  reorder keys / change spacing versus the bytes the model streamed. Providers
+  key prompt caching on the exact bytes of earlier messages, so this invalidated
+  the cache every tool turn (full re-cache at write price — worst on Grok/Kimi/
+  DeepSeek). `_finalize_tool_calls` now keeps `arguments_raw` and
+  `messages_to_openai` replays it byte-for-byte, keeping the prefix stable.
+- **System-prompt cache no longer busts on skills-catalog refresh.** The skills
+  catalog line embedded the file's KB size, a number that changed whenever the
+  catalog was rebuilt, invalidating the system-prompt prefix. Removed.
+
 ## [3.10.54] - 2026-07-28
 
 ### Fixed
