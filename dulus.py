@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.55"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.56"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -2602,18 +2602,42 @@ def cmd_menu(_args: str, state, config) -> bool:
     return True
 
 
+def _model_uses_gpt56_effort(model: str | None) -> bool:
+    """Return whether *model* is one of the GPT-5.6 OAuth effort tiers."""
+    wire = str(model or "").strip().lower()
+    # The selected model can be stored as `chatgpt-oauth/gpt-5.6-sol` or,
+    # while migrating older configs, `chatgpt-oauth/chatgpt/gpt-5.6-sol`.
+    # The wire model is always the final path segment.
+    if "/" in wire:
+        wire = wire.rsplit("/", 1)[-1]
+    for prefix in ("chatgpt-", "codex-"):
+        if wire.startswith(prefix):
+            wire = wire[len(prefix):]
+            break
+    return wire == "gpt-5.6" or wire.startswith("gpt-5.6-")
+
+
 def cmd_effort(args: str, _state, config) -> bool:
-    """Set reasoning effort for models that accept it (Kimi k3 / k3-256k).
+    """Set reasoning effort for models that accept it.
 
     /effort              — show current effort (Claude-Code-style slider)
-    /effort low|high|max — set it
+    /effort low|high|max — set it (Kimi k3 / k3-256k)
+    /effort minimal|medium|ultra — extra GPT-5.6 OAuth levels
+
+    kimi-for-coding (K2.7 Code) uses on/off thinking instead → /thinking.
     """
     from config import save_config
-    valid = ("low", "high", "max")
+    is_gpt56 = _model_uses_gpt56_effort(config.get("model"))
+    valid = (
+        ("minimal", "low", "medium", "high", "max", "ultra")
+        if is_gpt56
+        else ("low", "high", "max")
+    )
     arg = (args or "").strip().lower()
     if arg:
         if arg not in valid:
-            err(f"Usage: /effort [low|high|max]  (got {arg!r})")
+            choices = "|".join(valid)
+            err(f"Usage: /effort [{choices}]  (got {arg!r})")
             return True
         config["reasoning_effort"] = arg
         save_config(config)
@@ -2623,11 +2647,17 @@ def cmd_effort(args: str, _state, config) -> bool:
         cur = "high"
     try:
         from cli_animations.effort_slider import render_effort_slider
-        idx = {"low": 1, "high": 3, "max": 4}.get(cur, 3)
+        idx = {
+            "minimal": 0, "low": 1, "medium": 2, "high": 3,
+            "max": 4, "ultra": 4,
+        }.get(cur, 3)
         render_effort_slider(idx, label="Reasoning effort")
     except Exception:
         info(f"Reasoning effort: {cur}")
-    info("Applies to Kimi k3 / k3-256k. kimi-for-coding uses /thinking (on/off).")
+    if is_gpt56:
+        info("Applies to GPT-5.6 Sol/Terra/Luna via ChatGPT OAuth.")
+    else:
+        info("Applies to Kimi k3 / k3-256k. kimi-for-coding uses /thinking (on/off).")
     return True
 
 
@@ -9089,7 +9119,7 @@ def cmd_login(args: str, _state, config) -> bool:
             print(clr(f"ChatGPT login error: {e}", "red"))
         if token:
             print(clr(
-                "✅ Logged in. Try `/model chatgpt/gpt-5.4` — runs on your ChatGPT plan (no API key).",
+                "✅ Logged in. Try `/model chatgpt/gpt-5.6-sol` (or `/model chatgpt/gpt-5.6-terra`) — runs on your ChatGPT plan (no API key).",
                 "green",
             ))
             return True
@@ -11073,9 +11103,9 @@ def repl(config: dict, initial_prompt: str | None = None):
         # Reasoning effort — only for models that use it (Kimi k3/k3-256k).
         try:
             _w = model.split("/")[-1].lower()
-            if _w.startswith("k3"):
+            if _w.startswith("k3") or _model_uses_gpt56_effort(model):
                 _e = str(config.get("reasoning_effort", "high")).lower() or "high"
-                parts.append(clr(f"⚡{_e}", "yellow" if _e == "max" else "gray"))
+                parts.append(clr(f"⚡{_e}", "yellow" if _e in ("max", "ultra") else "gray"))
         except Exception:
             pass
 

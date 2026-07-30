@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.56] - 2026-07-29
+
+### Added
+- **GPT-5.6 family via ChatGPT OAuth (no API key):** Sol, Sol Pro, Terra, and
+  Luna, routed through the `chatgpt-oauth` provider. Select with
+  `/model chatgpt/gpt-5.6-sol` (or `-terra` / `-luna`) after `/login chatgpt`.
+- **Reasoning-effort tiers for the GPT-5.6 family** — `/effort minimal|low|
+  medium|high|max|ultra` (Kimi k3 keeps low/high/max) — with toolbar indicator
+  and quick-menu entries.
+
 ## [3.10.55] - 2026-07-29
 
 ### Fixed
