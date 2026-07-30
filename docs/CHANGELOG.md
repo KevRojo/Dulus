@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.57] - 2026-07-29
+
+### Changed
+- **Internal: model custom-parameter registry (`model_params.py`).** Per-model
+  settings — reasoning-effort levels, toolbar "hot" highlight levels, and
+  quick-menu entries — are now declared once and read by `cmd_effort`, the REPL
+  toolbar, `/effort` tab-completion (`_CMD_META`), and the quick menu (`/menu`).
+  Behavior is unchanged; adding a model with custom params is now one registry
+  entry instead of edits across five files.
+
 ## [3.10.56] - 2026-07-29
 
 ### Added

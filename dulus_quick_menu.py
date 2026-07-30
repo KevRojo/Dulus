@@ -35,19 +35,18 @@ except Exception:  # pragma: no cover
 
 # ── Menu data ────────────────────────────────────────────────────────────────
 _OPTION = Tuple[str, Optional[str]]
-_OPTIONS: list[_OPTION] = [
-    # ── Kimi / reasoning cluster (top — the fast path this menu is for) ──
+# Static param toggles (top — the fast path this menu is for).
+_OPTIONS_TOP: list[_OPTION] = [
+    # ── Reasoning cluster ──
     ("⚡  Effort → high", "/effort high"),
     ("🦅  Effort → max", "/effort max"),
     ("🚀  Effort → ultra", "/effort ultra"),
     ("·   Effort → low", "/effort low"),
     ("💭  Thinking (on/off)", "/thinking"),
-    ("🌙  Kimi K3  (oauth, 1M)", "/model kimi-oauth/k3"),
-    ("🌙  Kimi K3-256k (oauth)", "/model kimi-oauth/k3-256k"),
-    ("☀️  GPT-5.6 Sol  (oauth)", "/model chatgpt-oauth/gpt-5.6-sol"),
-    ("⭐  GPT-5.6 Sol Pro  (oauth)", "/model chatgpt-oauth/gpt-5.6-sol-pro"),
-    ("🌍  GPT-5.6 Terra  (oauth)", "/model chatgpt-oauth/gpt-5.6-terra"),
-    ("🌙  GPT-5.6 Luna  (oauth)", "/model chatgpt-oauth/gpt-5.6-luna"),
+]
+
+# Static general commands (bottom).
+_OPTIONS_BOTTOM: list[_OPTION] = [
     # ── general ──
     ("🤖  /model", "/model"),
     ("🔥  /help", "/help"),
@@ -60,6 +59,15 @@ _OPTIONS: list[_OPTION] = [
     ("⚡  /roundtable", "/roundtable"),
     ("🚪  Exit menu", None),
 ]
+
+# Model options are AUTO-INJECTED from the model_params registry — declare a
+# family there and its models appear here (and in /effort, the toolbar, and Tab
+# completion) with zero edits to this file. That's the whole point.
+try:
+    from model_params import menu_model_options as _menu_model_options
+    _OPTIONS: list[_OPTION] = _OPTIONS_TOP + list(_menu_model_options()) + _OPTIONS_BOTTOM
+except Exception:
+    _OPTIONS = _OPTIONS_TOP + _OPTIONS_BOTTOM
 
 _DOUBLE_TAP_WINDOW = 1.0  # seconds between two ← to count as a double-tap
 _LEFT_TIMES: list[float] = []
