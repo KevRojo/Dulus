@@ -798,9 +798,12 @@ PROVIDERS: dict[str, dict] = {
         "base_url":   "https://chatgpt.com/backend-api/codex",
         "context_limit": 200000,
         "models": [
-            "chatgpt/gpt-5.5", "chatgpt/gpt-5.4", "chatgpt/gpt-5.4-mini",
-            "chatgpt/gpt-5.1-codex", "chatgpt/gpt-5.1-codex-mini",
-            "chatgpt/codex-mini-latest", "chatgpt/o3", "chatgpt/o4-mini",
+            # Keep model IDs bare. The picker adds `chatgpt-oauth/`; embedding
+            # `chatgpt/` here produced malformed `chatgpt-oauth/chatgpt/...`.
+            "gpt-5.6-sol", "gpt-5.6-sol-pro", "gpt-5.6-terra", "gpt-5.6-luna",
+            "gpt-5.5", "gpt-5.4", "gpt-5.4-mini",
+            "gpt-5.1-codex", "gpt-5.1-codex-mini",
+            "codex-mini-latest", "o3", "o4-mini",
         ],
     },
     "xiaomi": {
@@ -865,6 +868,7 @@ _PREFIXES = [
     ("chatgpt-",      "chatgpt-oauth"),
     ("codex/",        "chatgpt-oauth"),
     ("codex-",        "chatgpt-oauth"),
+    ("gpt-5.6",       "chatgpt-oauth"),
     ("gpt-5.5",       "chatgpt-oauth"),
     ("gpt-5.4",       "chatgpt-oauth"),
     ("gpt-5.1-codex", "chatgpt-oauth"),
@@ -1915,7 +1919,7 @@ CHATGPT_OAUTH_REDIRECT_URI  = "http://localhost:1455/auth/callback"
 CHATGPT_OAUTH_SCOPE         = "openid profile email offline_access"
 CHATGPT_OAUTH_BASE_URL      = "https://chatgpt.com/backend-api/codex"
 CHATGPT_OAUTH_ORIGINATOR    = "codex_cli_rs"
-CHATGPT_OAUTH_CLIENT_VER    = "0.139.0"  # matches a recent Codex CLI release
+CHATGPT_OAUTH_CLIENT_VER    = "0.144.0"  # client version for the current model set
 CHATGPT_OAUTH_USER_AGENT    = f"codex_cli_rs/{CHATGPT_OAUTH_CLIENT_VER}"
 # Local loopback capture (Codex CLI default port). If 1455 is busy we fall
 # back to paste-the-callback-URL mode, same as Claude/Z.ai.
@@ -2378,7 +2382,7 @@ def _chatgpt_parse_reasoning_suffix(model: str) -> tuple[str, str | None]:
             m = m[len(prefix):]
             break
     effort = None
-    for suffix in ("-xhigh", "-high", "-medium", "-low", "-minimal"):
+    for suffix in ("-ultra", "-xhigh", "-max", "-high", "-medium", "-low", "-minimal"):
         if m.lower().endswith(suffix):
             effort = suffix.lstrip("-")
             m = m[: -len(suffix)]

@@ -39,10 +39,15 @@ _OPTIONS: list[_OPTION] = [
     # ── Kimi / reasoning cluster (top — the fast path this menu is for) ──
     ("⚡  Effort → high", "/effort high"),
     ("🦅  Effort → max", "/effort max"),
+    ("🚀  Effort → ultra", "/effort ultra"),
     ("·   Effort → low", "/effort low"),
     ("💭  Thinking (on/off)", "/thinking"),
     ("🌙  Kimi K3  (oauth, 1M)", "/model kimi-oauth/k3"),
     ("🌙  Kimi K3-256k (oauth)", "/model kimi-oauth/k3-256k"),
+    ("☀️  GPT-5.6 Sol  (oauth)", "/model chatgpt-oauth/gpt-5.6-sol"),
+    ("⭐  GPT-5.6 Sol Pro  (oauth)", "/model chatgpt-oauth/gpt-5.6-sol-pro"),
+    ("🌍  GPT-5.6 Terra  (oauth)", "/model chatgpt-oauth/gpt-5.6-terra"),
+    ("🌙  GPT-5.6 Luna  (oauth)", "/model chatgpt-oauth/gpt-5.6-luna"),
     # ── general ──
     ("🤖  /model", "/model"),
     ("🔥  /help", "/help"),
