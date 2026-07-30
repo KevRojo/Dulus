@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.56"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.57"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -2602,21 +2602,6 @@ def cmd_menu(_args: str, state, config) -> bool:
     return True
 
 
-def _model_uses_gpt56_effort(model: str | None) -> bool:
-    """Return whether *model* is one of the GPT-5.6 OAuth effort tiers."""
-    wire = str(model or "").strip().lower()
-    # The selected model can be stored as `chatgpt-oauth/gpt-5.6-sol` or,
-    # while migrating older configs, `chatgpt-oauth/chatgpt/gpt-5.6-sol`.
-    # The wire model is always the final path segment.
-    if "/" in wire:
-        wire = wire.rsplit("/", 1)[-1]
-    for prefix in ("chatgpt-", "codex-"):
-        if wire.startswith(prefix):
-            wire = wire[len(prefix):]
-            break
-    return wire == "gpt-5.6" or wire.startswith("gpt-5.6-")
-
-
 def cmd_effort(args: str, _state, config) -> bool:
     """Set reasoning effort for models that accept it.
 
@@ -2624,15 +2609,13 @@ def cmd_effort(args: str, _state, config) -> bool:
     /effort low|high|max — set it (Kimi k3 / k3-256k)
     /effort minimal|medium|ultra — extra GPT-5.6 OAuth levels
 
+    Valid levels are model-aware — declared once in model_params.MODEL_FAMILIES.
     kimi-for-coding (K2.7 Code) uses on/off thinking instead → /thinking.
     """
     from config import save_config
-    is_gpt56 = _model_uses_gpt56_effort(config.get("model"))
-    valid = (
-        ("minimal", "low", "medium", "high", "max", "ultra")
-        if is_gpt56
-        else ("low", "high", "max")
-    )
+    from model_params import effort_levels, effort_slider_idx, effort_applies
+    model = config.get("model")
+    valid = tuple(effort_levels(model))
     arg = (args or "").strip().lower()
     if arg:
         if arg not in valid:
@@ -2647,17 +2630,10 @@ def cmd_effort(args: str, _state, config) -> bool:
         cur = "high"
     try:
         from cli_animations.effort_slider import render_effort_slider
-        idx = {
-            "minimal": 0, "low": 1, "medium": 2, "high": 3,
-            "max": 4, "ultra": 4,
-        }.get(cur, 3)
-        render_effort_slider(idx, label="Reasoning effort")
+        render_effort_slider(effort_slider_idx(cur), label="Reasoning effort")
     except Exception:
         info(f"Reasoning effort: {cur}")
-    if is_gpt56:
-        info("Applies to GPT-5.6 Sol/Terra/Luna via ChatGPT OAuth.")
-    else:
-        info("Applies to Kimi k3 / k3-256k. kimi-for-coding uses /thinking (on/off).")
+    info(f"Applies to {effort_applies(model)}")
     return True
 
 
@@ -10866,6 +10842,11 @@ def handle_slash(line: str, state, config) -> Union[bool, tuple]:
 # ── Input history setup ────────────────────────────────────────────────────
 
 # Descriptions and subcommands for each slash command (used by Tab completion)
+try:
+    from model_params import all_effort_levels as _mp_all_effort_levels
+    _EFFORT_SUBS = _mp_all_effort_levels()
+except Exception:
+    _EFFORT_SUBS = ["minimal", "low", "medium", "high", "max", "ultra"]
 _CMD_META: dict[str, tuple[str, list[str]]] = {
     "help":        ("Show help",                          []),
     "clear":       ("Clear conversation history",         []),
@@ -10879,7 +10860,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "verbose":     ("Toggle verbose output",              []),
     "git":         ("Toggle Git status injection",        []),
     "thinking":    ("Set extended-thinking level",        ["off", "min", "med", "max", "raw", "normal", "0", "1", "2", "3", "4"]),
-    "effort":      ("Reasoning effort for Kimi k3 / GPT-5.6 OAuth", ["minimal", "low", "medium", "high", "max", "ultra"]),
+    "effort":      ("Reasoning effort (model-aware — Kimi k3 / GPT-5.6 OAuth)", _EFFORT_SUBS),
     "animations":  ("Run the Dulus CLI visual showcase",   ["all", "banners", "effort", "spinners", "progress", "effects", "status"]),
     "soul":        ("List/switch active soul identity",   ["chill", "forensic"]),
     "lang":        ("Switch reply language (en, es, zh, pt-br, ja, …)", ["en", "es", "zh", "zh-tw", "pt-br", "ja", "ko", "fr", "de", "ar"]),
@@ -11103,10 +11084,10 @@ def repl(config: dict, initial_prompt: str | None = None):
 
         # Reasoning effort — only for models that use it (Kimi k3/k3-256k).
         try:
-            _w = model.split("/")[-1].lower()
-            if _w.startswith("k3") or _model_uses_gpt56_effort(model):
+            from model_params import has_effort, effort_hot
+            if has_effort(model):
                 _e = str(config.get("reasoning_effort", "high")).lower() or "high"
-                parts.append(clr(f"⚡{_e}", "yellow" if _e in ("max", "ultra") else "gray"))
+                parts.append(clr(f"⚡{_e}", "yellow" if _e in effort_hot(model) else "gray"))
         except Exception:
             pass
 
