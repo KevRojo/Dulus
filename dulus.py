@@ -10879,6 +10879,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "verbose":     ("Toggle verbose output",              []),
     "git":         ("Toggle Git status injection",        []),
     "thinking":    ("Set extended-thinking level",        ["off", "min", "med", "max", "raw", "normal", "0", "1", "2", "3", "4"]),
+    "effort":      ("Reasoning effort for Kimi k3 / GPT-5.6 OAuth", ["minimal", "low", "medium", "high", "max", "ultra"]),
     "animations":  ("Run the Dulus CLI visual showcase",   ["all", "banners", "effort", "spinners", "progress", "effects", "status"]),
     "soul":        ("List/switch active soul identity",   ["chill", "forensic"]),
     "lang":        ("Switch reply language (en, es, zh, pt-br, ja, …)", ["en", "es", "zh", "zh-tw", "pt-br", "ja", "ko", "fr", "de", "ar"]),
