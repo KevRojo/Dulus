@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.58] - 2026-07-31
+
+### Added
+- **`/vim`** — toggle vi keybindings on the REPL input line (`on`/`off`/`status`,
+  persists across sessions). Powered by prompt_toolkit's VI editing mode.
+- **`/edit <path>`** — open a file in your real terminal editor (`$VISUAL`/
+  `$EDITOR`, falling back to nvim → vim → nano; notepad on Windows); blocks until
+  you close it, then returns to Dulus. No path opens a scratch buffer.
+
 ## [3.10.57] - 2026-07-29
 
 ### Changed
