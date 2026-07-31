@@ -29,6 +29,7 @@ try:
     from prompt_toolkit.keys import Keys
     from prompt_toolkit.patch_stdout import patch_stdout
     from prompt_toolkit.styles import Style
+    from prompt_toolkit.enums import EditingMode
     HAS_PROMPT_TOOLKIT = True
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
@@ -356,6 +357,18 @@ def _build_session(history_path: Optional[Path]):
         
         return ANSI(text) if text else ""
 
+    # ── VIM mode ──────────────────────────────────────────────────────────
+    # Power-user editing on the input line (hjkl, dd, cw, /search…). Opt-in via
+    # config `vim_mode: true` (toggle live with /vim). Defaults to emacs so we
+    # never surprise a user who's never touched vi.
+    _editing_mode = EditingMode.EMACS
+    try:
+        from config import load_config as _load_cfg
+        if _load_cfg().get("vim_mode", False):
+            _editing_mode = EditingMode.VI
+    except Exception:
+        pass
+
     return PromptSession(
         history=history,
         completer=completer,
@@ -366,6 +379,7 @@ def _build_session(history_path: Optional[Path]):
         style=style,
         key_bindings=kb,
         bottom_toolbar=_bottom_toolbar,
+        editing_mode=_editing_mode,
     )
 
 

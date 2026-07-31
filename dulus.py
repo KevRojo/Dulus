@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.57"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.58"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -885,6 +885,8 @@ _HELP_PAGES = [
         ("/cwd [path]",  "Show or change working directory"),
         ("/copy [file]", "Copy last response (or file) to clipboard"),
         ("/shell [cmd|on|off]", "Shell mode toggle or one-shot command"),
+        ("/vim [on|off]", "Toggle VIM keybindings on the input line"),
+        ("/edit <path>", "Open a file in your real editor (VIM/nano/$EDITOR)"),
         ("/update [now|on|off]", "Self-update Dulus from PyPI (auto-check at startup)"),
         ("/exit /quit",  "Exit Dulus"),
     ]),
@@ -9758,6 +9760,122 @@ def cmd_copy(args: str, state, config) -> bool:
     return True
 
 
+def cmd_vim(args: str, state, config) -> bool:
+    """Toggle VIM keybindings on the REPL input line.
+
+    /vim            - toggle VIM editing mode on/off
+    /vim on|off     - set it explicitly
+    /vim status     - show the current mode
+
+    When ON, the input line uses vi keybindings (ESC for normal mode, then
+    hjkl / w / b / dd / cw / /search, etc.). Persists across sessions.
+    """
+    sub = (args or "").strip().lower()
+
+    if sub == "status":
+        info(f"VIM mode: {'ON' if config.get('vim_mode', False) else 'OFF'}")
+        return True
+
+    if sub in ("on", "enable"):
+        config["vim_mode"] = True
+    elif sub in ("off", "disable"):
+        config["vim_mode"] = False
+    else:  # toggle
+        config["vim_mode"] = not config.get("vim_mode", False)
+
+    try:
+        from config import save_config
+        save_config(config)
+    except Exception:
+        pass
+
+    # Rebuild the prompt session so the new editing mode takes effect now.
+    try:
+        import input as _input_mod
+        if hasattr(_input_mod, "reset_session"):
+            _input_mod.reset_session()
+    except Exception:
+        pass
+
+    state_on = config.get("vim_mode", False)
+    ok(f"VIM mode: {'ON 🅥' if state_on else 'OFF'}")
+    if state_on:
+        info("  ESC → normal mode, then hjkl/w/b/dd/cw//search. i/a → back to insert.")
+    return True
+
+
+def cmd_edit(args: str, state, config) -> bool:
+    """Open a file in your real terminal editor (VIM/nvim/nano/$EDITOR).
+
+    /edit <path>    - open the file for editing, then return to Dulus
+    /edit           - open a scratch buffer
+
+    Honors $VISUAL / $EDITOR; falls back to nvim → vim → nano → notepad.
+    Blocks until you close the editor — perfect for tweaking a file Dulus
+    just wrote without leaving the REPL.
+    """
+    import os as _os
+    import shutil as _shutil
+    import subprocess as _subprocess
+    import tempfile as _tempfile
+
+    target = (args or "").strip().strip('"').strip("'")
+
+    # Resolve which editor to launch.
+    editor = _os.environ.get("VISUAL") or _os.environ.get("EDITOR")
+    if not editor:
+        for cand in ("nvim", "vim", "vi", "nano", "micro"):
+            if _shutil.which(cand):
+                editor = cand
+                break
+    if not editor:
+        editor = "notepad" if _os.name == "nt" else "vi"
+
+    # No path → scratch file in temp.
+    scratch = False
+    if not target:
+        fd, target = _tempfile.mkstemp(prefix="dulus-scratch-", suffix=".md")
+        _os.close(fd)
+        scratch = True
+    else:
+        target = _os.path.expanduser(target)
+        # Create parent dirs + touch the file if it doesn't exist yet.
+        try:
+            parent = _os.path.dirname(_os.path.abspath(target))
+            if parent and not _os.path.isdir(parent):
+                _os.makedirs(parent, exist_ok=True)
+            if not _os.path.exists(target):
+                open(target, "a", encoding="utf-8").close()
+        except Exception as e:
+            err(f"Can't prepare '{target}': {e}")
+            return True
+
+    info(f"Opening {target} in {editor} …  (save & quit to return)")
+    try:
+        # shell=False, pass as list so paths with spaces work; editor may be a
+        # bare name resolved via PATH.
+        cmd = editor.split() + [target]
+        _subprocess.run(cmd)
+    except FileNotFoundError:
+        err(f"Editor '{editor}' not found. Set $EDITOR or install nvim/vim/nano.")
+        return True
+    except Exception as e:
+        err(f"Editor error: {e}")
+        return True
+
+    # Report result.
+    try:
+        content = open(target, "r", encoding="utf-8", errors="replace").read()
+        lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
+        if scratch:
+            ok(f"Scratch buffer closed ({lines} lines). File: {target}")
+        else:
+            ok(f"Saved {target} ({lines} lines).")
+    except Exception:
+        ok("Editor closed.")
+    return True
+
+
 def cmd_shell(args: str, state, config) -> bool:
     """Toggle or use shell mode for direct command execution.
 
@@ -10785,6 +10903,8 @@ COMMANDS = {
     "import":      cmd_import,
     "copy":        cmd_copy,
     "shell":       cmd_shell,
+    "vim":         cmd_vim,
+    "edit":        cmd_edit,
     "status":      cmd_status,
     "doctor":      cmd_doctor,
     "exit":        cmd_exit,
@@ -10926,6 +11046,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "import":      ("Import from file or session",          []),
     "copy":        ("Copy last response or file to clipboard", ["file"]),
     "shell":       ("Toggle shell mode or run command",     ["on", "off"]),
+    "vim":         ("Toggle VIM keybindings on the input line", ["on", "off", "status"]),
+    "edit":        ("Open a file in your real editor (VIM/nano/$EDITOR)", []),
     "status":      ("Show session status and model info",   []),
     "doctor":      ("Diagnose installation health",         []),
     "exit":        ("Exit dulus",              []),
