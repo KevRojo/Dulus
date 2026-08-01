@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.59] - 2026-08-01
+
+### Fixed
+- **webbridge: visible browser tab now stays in sync with logical state.** Tab
+  switch/open/close now call `bring_to_front()` and commit the active-tab state
+  only after the tab is truly foregrounded (with rollback on failure), so
+  screenshots and interactions target the tab the agent thinks is active. Also:
+  closed pages are pruned from the registry, new tabs get collision-free IDs,
+  closing the active tab focuses a deterministic survivor, and `list_tabs`
+  prunes stale pages. Covered by `tests/test_webbridge_tabs.py`.
+
 ## [3.10.58] - 2026-07-31
 
 ### Added

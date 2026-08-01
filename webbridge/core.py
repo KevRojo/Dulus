@@ -566,70 +566,129 @@ class DulusWebBridge:
 
     # ── Tab management ────────────────────────────────────────────────────────
 
-    async def new_tab(self, url: str = "about:blank") -> dict[str, Any]:
-        """Open a new browser tab and navigate to *url*."""
+    def _prune_closed_tabs(self) -> None:
+        """Remove closed Playwright pages from the logical tab registry."""
+        for tab_id, page in list(self._tabs.items()):
+            try:
+                closed = page.is_closed()
+            except Exception:
+                closed = True
+            if closed:
+                self._tabs.pop(tab_id, None)
+        if self._active_tab_id not in self._tabs:
+            self._active_tab_id = next(reversed(self._tabs), "default")
+
+    def _next_tab_id(self) -> str:
+        """Return a collision-free tab id even after tabs have been closed."""
+        index = 1
+        while f"tab_{index}" in self._tabs:
+            index += 1
+        return f"tab_{index}"
+
+    async def _activate_tab(self, tab_id: str) -> dict[str, Any]:
+        """Bring a tab visibly to the foreground, then commit logical state."""
+        self._prune_closed_tabs()
+        page = self._tabs.get(tab_id)
+        if page is None:
+            return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+
+        previous_tab_id = self._active_tab_id
         try:
-            await self._ensure_browser()
-            page = await self._context.new_page()
-            tab_id = f"tab_{len(self._tabs) + 1}"
-            self._tabs[tab_id] = page
+            await page.bring_to_front()
+            await asyncio.sleep(0)
+            if page.is_closed():
+                raise RuntimeError(f"Tab '{tab_id}' closed while being activated")
             self._active_tab_id = tab_id
-            if url and url != "about:blank":
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                await asyncio.sleep(0.5)
             return {
                 "ok": True,
                 "tab_id": tab_id,
                 "url": page.url,
                 "title": await page.title(),
                 "active": True,
+                "foregrounded": True,
             }
         except Exception as exc:
+            if previous_tab_id in self._tabs:
+                self._active_tab_id = previous_tab_id
+            return {
+                "ok": False,
+                "error": f"Could not foreground tab '{tab_id}': {exc}",
+                "active_tab": self._active_tab_id,
+            }
+
+    async def new_tab(self, url: str = "about:blank") -> dict[str, Any]:
+        """Open a new browser tab, navigate, and visibly focus it."""
+        page = None
+        tab_id = None
+        try:
+            await self._ensure_browser()
+            self._prune_closed_tabs()
+            page = await self._context.new_page()
+            tab_id = self._next_tab_id()
+            self._tabs[tab_id] = page
+            if url and url != "about:blank":
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await asyncio.sleep(0.5)
+            result = await self._activate_tab(tab_id)
+            if not result.get("ok"):
+                self._tabs.pop(tab_id, None)
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+            return result
+        except Exception as exc:
+            if tab_id:
+                self._tabs.pop(tab_id, None)
+            if page is not None:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
             return {"ok": False, "error": str(exc)}
 
     async def switch_tab(self, tab_id: str) -> dict[str, Any]:
-        """Switch the active tab to *tab_id*."""
-        if tab_id not in self._tabs:
-            return {"ok": False, "error": f"Tab '{tab_id}' not found"}
-        self._active_tab_id = tab_id
-        page = self._tabs[tab_id]
-        return {
-            "ok": True,
-            "tab_id": tab_id,
-            "url": page.url,
-            "title": await page.title(),
-        }
+        """Switch both logical state and the visible Chromium tab."""
+        return await self._activate_tab(tab_id)
 
     async def close_tab(self, tab_id: str) -> dict[str, Any]:
-        """Close tab *tab_id* and remove it from the tab list."""
+        """Close a tab and visibly focus a deterministic survivor."""
+        self._prune_closed_tabs()
         if tab_id not in self._tabs:
             return {"ok": False, "error": f"Tab '{tab_id}' not found"}
+        was_active = self._active_tab_id == tab_id
         page = self._tabs.pop(tab_id)
         try:
             await page.close()
         except Exception:
             pass
-        # If we closed the active tab, switch to another one
-        if self._active_tab_id == tab_id:
-            if self._tabs:
-                self._active_tab_id = next(iter(self._tabs.keys()))
-            else:
-                self._active_tab_id = "default"
-                # Create a default tab so the browser doesn't break
-                try:
-                    new_page = await self._context.new_page()
-                    self._tabs["default"] = new_page
-                except Exception:
-                    pass
+
+        foregrounded = False
+        if was_active and self._tabs:
+            fallback_tab_id = next(reversed(self._tabs))
+            activation = await self._activate_tab(fallback_tab_id)
+            if not activation.get("ok"):
+                return {
+                    "ok": False,
+                    "error": activation["error"],
+                    "closed_tab": tab_id,
+                    "active_tab": self._active_tab_id,
+                }
+            foregrounded = True
+        elif not self._tabs:
+            self._active_tab_id = "default"
+
         return {
             "ok": True,
-            "closed": tab_id,
+            "closed_tab": tab_id,
             "active_tab": self._active_tab_id,
-            "remaining_tabs": list(self._tabs.keys()),
+            "foregrounded": foregrounded,
         }
 
     async def list_tabs(self) -> dict[str, Any]:
-        """List all open tabs with their IDs and URLs."""
+        """List all open tabs after pruning stale Playwright pages."""
+        await self._ensure_browser()
+        self._prune_closed_tabs()
         tabs = []
         for tab_id, page in self._tabs.items():
             try:
