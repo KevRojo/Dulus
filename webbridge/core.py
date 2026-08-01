@@ -5,7 +5,10 @@ import asyncio
 import base64
 import concurrent.futures
 import os
+import socket
+import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -65,8 +68,13 @@ class DulusWebBridge:
 
     # Dedicated worker thread + event loop
     _worker_thread: Optional[threading.Thread] = None
-    _worker_loop: Any = None
+    _worker_loop: Optional[asyncio.AbstractEventLoop] = None
     _worker_ready = threading.Event()
+
+    # Detached browser process we launched ourselves (survives Dulus Ctrl+C)
+    _browser_process: Optional[subprocess.Popen] = None
+    _cdp_port: int = 0
+    _owns_browser_process: bool = False
 
     def __new__(cls) -> "DulusWebBridge":
         if cls._instance is None:
@@ -119,37 +127,77 @@ class DulusWebBridge:
         """Return the lock file path for cross-process browser detection."""
         return self._get_profile_dir() / ".dulus_bridge_lock"
 
+    @staticmethod
+    def _pid_exists(pid: int | None) -> bool:
+        """Return True when *pid* appears to be alive."""
+        if not pid:
+            return False
+        try:
+            if os.name == "nt":
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                handle = kernel32.OpenProcess(1, False, int(pid))
+                if handle:
+                    kernel32.CloseHandle(handle)
+                    return True
+                return False
+            os.kill(int(pid), 0)
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _cdp_port_open(cdp_endpoint: str | None) -> bool:
+        """Return True if a saved CDP endpoint is accepting connections."""
+        if not cdp_endpoint:
+            return False
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(cdp_endpoint)
+            host = parsed.hostname or "127.0.0.1"
+            port = parsed.port
+            if not port:
+                return False
+            with socket.create_connection((host, port), timeout=0.5):
+                return True
+        except Exception:
+            return False
+
     def _read_lock_info(self) -> dict | None:
-        """Read lock file to find existing browser's CDP endpoint."""
+        """Read lock file to find an existing browser's CDP endpoint."""
         lock_file = self._get_lock_file()
         if not lock_file.exists():
             return None
         try:
             import json
             data = json.loads(lock_file.read_text())
-            # Verify PID is still alive
-            pid = data.get("pid")
-            if pid and os.name == "nt":
-                import ctypes
-                kernel32 = ctypes.windll.kernel32
-                handle = kernel32.OpenProcess(1, False, pid)
-                if handle:
-                    kernel32.CloseHandle(handle)
-                    return data
-                else:
-                    # Process dead, stale lock
-                    lock_file.unlink(missing_ok=True)
-                    return None
-            return data
+
+            # New locks store the real Chromium PID. Older locks stored the
+            # Dulus PID, so prefer browser_pid but tolerate pid for migration.
+            browser_pid = data.get("browser_pid") or data.get("pid")
+            cdp_endpoint = data.get("cdp_endpoint")
+            if self._pid_exists(browser_pid) and self._cdp_port_open(cdp_endpoint):
+                return data
+
+            # Process or debug endpoint is gone: remove the stale lock so the
+            # next call can start a fresh browser/profile cleanly.
+            lock_file.unlink(missing_ok=True)
+            return None
         except Exception:
             return None
 
-    def _write_lock_info(self, cdp_endpoint: str | None = None) -> None:
+    def _write_lock_info(
+        self,
+        cdp_endpoint: str | None = None,
+        browser_pid: int | None = None,
+    ) -> None:
         """Write lock file with current browser info."""
         import json
         lock_file = self._get_lock_file()
         data = {
-            "pid": os.getpid(),
+            "pid": browser_pid,
+            "browser_pid": browser_pid,
+            "dulus_pid": os.getpid(),
             "cdp_endpoint": cdp_endpoint,
         }
         lock_file.write_text(json.dumps(data))
@@ -158,79 +206,198 @@ class DulusWebBridge:
         """Remove lock file on clean shutdown."""
         self._get_lock_file().unlink(missing_ok=True)
 
+    @staticmethod
+    def _find_free_port() -> int:
+        """Return an available TCP port on localhost."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+    async def _launch_detached_browser(
+        self, profile_dir: Path, headless: bool = False
+    ) -> None:
+        """Launch Chrome in its own process group and connect via CDP.
+
+        Detaching the browser process keeps it alive when the user presses
+        Ctrl+C in Dulus's terminal, because SIGINT is not propagated to a
+        different Windows process group / POSIX session.
+        """
+        port = self._find_free_port()
+        exe = self._playwright.chromium.executable_path
+        if not exe or not Path(exe).exists():
+            raise RuntimeError(f"Chromium executable not found: {exe}")
+
+        cmd = [
+            str(exe),
+            f"--remote-debugging-port={port}",
+            f"--user-data-dir={profile_dir}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--start-maximized",        # open fullscreen
+            "--window-size=1920,1080",  # fallback for monitors that need explicit size
+        ]
+        if headless:
+            cmd.append("--headless=new")
+
+        popen_kwargs: dict[str, Any] = {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        }
+        breakaway_flag = 0
+        if os.name == "nt":
+            creationflags = (
+                subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+            )
+            # If Dulus is running inside a parent job object, Ctrl+C/cancel can
+            # tear down children in that job. Break away when Windows allows it
+            # so the visible browser is not part of the terminal's lifecycle.
+            breakaway_flag = getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0)
+            creationflags |= breakaway_flag
+            popen_kwargs["creationflags"] = creationflags
+        else:
+            popen_kwargs["start_new_session"] = True
+        popen_kwargs["close_fds"] = True
+
+        try:
+            proc = subprocess.Popen(cmd, **popen_kwargs)
+        except OSError:
+            if os.name != "nt" or not breakaway_flag:
+                raise
+            popen_kwargs["creationflags"] = (
+                popen_kwargs["creationflags"] & ~breakaway_flag
+            )
+            proc = subprocess.Popen(cmd, **popen_kwargs)
+        self._browser_process = proc
+        self._cdp_port = port
+        self._owns_browser_process = True
+
+        # Wait for the debug port to accept connections
+        deadline = time.time() + 20
+        reached = False
+        last_err: Optional[Exception] = None
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                raise RuntimeError(
+                    f"Chromium exited early (code {proc.returncode})"
+                )
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                    reached = True
+                    break
+            except Exception as exc:
+                last_err = exc
+                await asyncio.sleep(0.2)
+
+        if not reached:
+            raise RuntimeError(
+                f"Chromium debug port {port} did not open: {last_err}"
+            )
+
+        browser = await self._playwright.chromium.connect_over_cdp(
+            f"http://127.0.0.1:{port}"
+        )
+        self._browser = browser
+
+        # Reuse the default persistent context created by Chrome
+        context = (
+            browser.contexts[0]
+            if browser.contexts
+            else await browser.new_context(no_viewport=True)
+        )
+        self._context = context
+
+        pages = context.pages
+        default_page = pages[0] if pages else await context.new_page()
+        # Don't force a fixed viewport — let the window use its maximized size
+        self._tabs["default"] = default_page
+        self._active_tab_id = "default"
+
+        self._write_lock_info(
+            cdp_endpoint=f"http://127.0.0.1:{port}",
+            browser_pid=proc.pid,
+        )
+
+    async def _connect_existing_browser(self, cdp_endpoint: str) -> bool:
+        """Connect to an already-running detached Chromium instance."""
+        try:
+            browser = await self._playwright.chromium.connect_over_cdp(cdp_endpoint)
+            self._browser = browser
+            context = (
+                browser.contexts[0]
+                if browser.contexts
+                else await browser.new_context(no_viewport=True)
+            )
+            self._context = context
+
+            pages = context.pages
+            default_page = pages[0] if pages else await context.new_page()
+            self._tabs.clear()
+            self._tabs["default"] = default_page
+            for idx, page in enumerate(pages[1:], 1):
+                self._tabs[f"tab_{idx}"] = page
+            self._active_tab_id = "default"
+            self._browser_process = None
+            self._cdp_port = 0
+            self._owns_browser_process = False
+            return True
+        except Exception:
+            self._context = None
+            self._browser = None
+            self._tabs.clear()
+            self._active_tab_id = "default"
+            return False
+
     async def _ensure_browser(self, headless: bool = False) -> None:
         """Launch browser + page if not already open.
-        
-        Uses persistent context so cookies, localStorage, and session
-        data survive across tool calls and Dulus restarts.
-        
-        Strategy:
-        1. Check if WE already have a live browser (same process)
-        2. Check if ANOTHER process has a browser running (cross-process)
-        3. Launch new browser if none exists
+
+        Uses a detached Chrome process so the browser survives Dulus Ctrl+C.
+        Cookies / localStorage survive because we reuse the same profile dir.
         """
         # 1. Same-process singleton check
         if self._browser is not None and self._tabs:
             try:
                 page = self._active_page
-                if page:
+                if page and self._browser.is_connected():
                     await page.evaluate("1 + 1")
                     return
             except Exception:
-                self._context = None
-                self._browser = None
-                self._tabs.clear()
-                self._active_tab_id = "default"
-                self._playwright = None
+                pass
+            self._context = None
+            self._browser = None
+            self._browser_process = None
+            self._cdp_port = 0
+            self._owns_browser_process = False
+            self._tabs.clear()
+            self._active_tab_id = "default"
+            self._playwright = None
 
         self._ensure_playwright()
         from playwright.async_api import async_playwright
 
-        # 2. Cross-process check: is another Dulus tool call holding the browser?
+        # 2. Cross-process check: reuse a detached browser if it survived a
+        # prior Ctrl+C/process restart.
         lock_info = self._read_lock_info()
-        if lock_info and lock_info.get("pid") != os.getpid():
-            # Another process has the browser. We can't share via CDP easily
-            # without knowing the WS endpoint, so for now we launch a new one
-            # with a SEPARATE profile directory to avoid "profile in use" crash.
-            # TODO: Use CDP to connect to existing browser for true sharing.
-            pass  # Fall through to launch with unique profile
 
         self._playwright = await async_playwright().start()
-        
+
+        if lock_info and lock_info.get("cdp_endpoint"):
+            if await self._connect_existing_browser(lock_info["cdp_endpoint"]):
+                return
+            self._clear_lock()
+
         profile_dir = self._get_profile_dir()
-        
+
         # If another process might be using the profile, use a unique subdir
-        if lock_info and lock_info.get("pid") != os.getpid():
-            import time
+        lock_owner = lock_info.get("dulus_pid") if lock_info else None
+        if lock_owner and lock_owner != os.getpid():
             profile_dir = profile_dir / f"instance_{os.getpid()}_{int(time.time())}"
             profile_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Use persistent context for cookies + localStorage survival
-        context = await self._playwright.chromium.launch_persistent_context(
-            user_data_dir=str(profile_dir),
-            headless=headless,
-            viewport={"width": 1280, "height": 720},
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-            ],
-        )
-        
-        self._context = context
-        self._browser = context.browser
-        pages = context.pages
-        default_page = pages[0] if pages else await context.new_page()
-        self._tabs["default"] = default_page
-        self._active_tab_id = "default"
-        
-        # Write lock so other processes know we're running
-        self._write_lock_info()
+
+        await self._launch_detached_browser(profile_dir, headless=headless)
 
     # ── Worker thread management ──────────────────────────────────────────────
 
@@ -260,12 +427,12 @@ class DulusWebBridge:
         keep the browser alive across tool calls.
         """
         self._ensure_worker()
-        future = asyncio.run_coroutine_threadsafe(coro, self._worker_loop)
+        future = asyncio.run_coroutine_threadsafe(coro, self._worker_loop)  # type: ignore[arg-type,index]
         return future.result(timeout=120)
 
     # ── Public async API ──────────────────────────────────────────────────────
 
-    async def navigate(self, url: str, headless: bool = False, tab_id: Optional[str] = None) -> dict[str, Any]:
+    async def navigate(self, url: str, headless: bool = False, tab_id: Optional[str] = None) -> dict[str, Any]:  # type: ignore[arg-type,index]
         """Navigate to *url* and return page metadata."""
         try:
             await self._ensure_browser(headless=headless)
@@ -400,13 +567,13 @@ class DulusWebBridge:
                     break
 
                 tag_name = tag.name or ""
-                text = (  # type: ignore[union-attr]
+                text = (
                     tag.get_text(strip=True)
                     or tag.get("value", "")
                     or tag.get("placeholder", "")
                     or tag.get("aria-label", "")
                     or tag.get("title", "")
-                )[:60]
+                )[:60]  # type: ignore[arg-type,index]
 
                 selector = self._build_selector(tag, soup, tag_name)
                 if not selector:
@@ -518,13 +685,30 @@ class DulusWebBridge:
                 except Exception:
                     pass  # Already dead, ignore
                 self._context = None
+            if self._browser:
+                try:
+                    await self._browser.close()
+                except Exception:
+                    pass  # Already dead, ignore
+                self._browser = None
             if self._playwright:
                 try:
                     await self._playwright.stop()
                 except Exception:
                     pass  # Already dead, ignore
                 self._playwright = None
-            self._browser = None
+            if self._browser_process and self._owns_browser_process:
+                try:
+                    self._browser_process.terminate()
+                    self._browser_process.wait(timeout=5)
+                except Exception:
+                    try:
+                        self._browser_process.kill()
+                    except Exception:
+                        pass
+                self._browser_process = None
+                self._cdp_port = 0
+                self._owns_browser_process = False
             self._clear_lock()
             return {"ok": True, "status": "closed"}
         except Exception as exc:
@@ -534,6 +718,14 @@ class DulusWebBridge:
             self._playwright = None
             self._tabs.clear()
             self._active_tab_id = "default"
+            if self._browser_process and self._owns_browser_process:
+                try:
+                    self._browser_process.kill()
+                except Exception:
+                    pass
+            self._browser_process = None
+            self._cdp_port = 0
+            self._owns_browser_process = False
             self._clear_lock()
             return {"ok": True, "status": "closed_forced", "note": str(exc)}
 

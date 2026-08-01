@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.60] - 2026-08-01
+
+### Added / Changed
+- **webbridge: persistent, detached, reconnectable browser.** The bridge now
+  launches a detached Chromium (survives Dulus exit/Ctrl+C) with a persistent
+  profile (cookies + sessions persist), and reconnects to an existing browser
+  across processes via a CDP endpoint recorded in a lock file — with PID/port
+  liveness checks and stale-lock cleanup. New helpers: `_launch_detached_browser`,
+  `_connect_existing_browser`, `_cdp_port_open`, `_find_free_port`, `_pid_exists`.
+  Ported wholesale from the private build (webbridge/tools.py and __init__.py
+  were already in sync).
+
 ## [3.10.59] - 2026-08-01
 
 ### Fixed
