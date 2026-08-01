@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.58"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.59"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -10725,8 +10725,8 @@ def cmd_webbridge(args: str, state, config) -> bool:
             result = bridge.close_tab_sync(tab_id)
             if result.get("ok"):
                 ok(f"Closed: {tab_id}")
-                info(f"Active tab: {result.get('active_tab')}")
-                info(f"Remaining: {', '.join(result.get('remaining_tabs', []))}")
+                _focused = " · focused ✓" if result.get("foregrounded") else ""
+                info(f"Active tab: {result.get('active_tab')}{_focused}")
             else:
                 err(f"closetab failed: {result.get('error')}")
         except Exception as e:
