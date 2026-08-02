@@ -251,6 +251,7 @@ Dulus does not make model choice an architectural decision. Switch providers dur
 | **Direct cloud APIs** | Anthropic · OpenAI · Gemini · DeepSeek · Kimi · Qwen · Zhipu · MiniMax · NVIDIA |
 | **Unified gateway** | 100+ LiteLLM backends including OpenRouter, Groq, Together, Bedrock, Vertex AI, xAI, and Mistral |
 | **Local** | Ollama · LM Studio · vLLM · any OpenAI-compatible endpoint |
+| **Edge / on-device** | `edge/*` — small models on your phone or in Termux via llama.cpp / Ollama |
 | **Browser-backed** | Supported authenticated sessions for Claude, Gemini, Kimi, Qwen, and DeepSeek |
 | **Free tier** | 14 models through NVIDIA NIM with automatic fallback |
 
@@ -268,6 +269,23 @@ Dulus does not make model choice an architectural decision. Switch providers dur
 </p>
 
 When one NVIDIA model reaches its free-tier ceiling, the provider can fall through the configured chain instead of killing the session.
+
+### On the edge — your phone, Termux, on-device
+
+The `edge` provider runs a small model **locally**, with no per-token cost and no cloud round-trip. It's backend-agnostic: point it at any OpenAI-compatible server on `127.0.0.1` and it just works.
+
+```bash
+# The path that works today — llama.cpp on a laptop, a VM, or Termux on Android
+llama-server -m gemma-3-1b-it-Q4_K_M.gguf --port 8080
+dulus --model edge/gemma-3-1b
+
+# Already running Ollama? Point edge at it instead
+dulus --config edge_base_url=http://127.0.0.1:11434/v1
+```
+
+Override the host/port for a phone on your LAN with `DULUS_EDGE_BASE_URL` or `/config edge_base_url=...`. A full **Termux install walkthrough** lives in [`docs/termux-edge.md`](docs/termux-edge.md).
+
+> **Gemma Nano on-device (APK) — work in progress.** A native Android bridge that runs Gemma directly on the phone's NPU via AICore (zero download, hardware-accelerated) is being built and will take time to ship. Until then, `edge/*` gets you fully local models on the same phone through llama.cpp in Termux — no APK required.
 
 ---
 
