@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.61] - 2026-08-02
+
+### Added
+- **`edge` provider — local / on-device small models.** A backend-agnostic
+  OpenAI-compatible route (`type: openai`, `127.0.0.1:8080/v1`) for running a
+  model on-device with no per-token cost. Works today with llama.cpp's
+  `llama-server` or Ollama — including **Termux on Android**. Model ids route
+  via `edge/*`, `gemini-nano`, `gemma-3n`, `gemma-4` (these win over cloud
+  Gemini and local Ollama); arbitrary GGUFs are reachable with the explicit
+  `edge/<name>` prefix. Host/port overridable via `DULUS_EDGE_BASE_URL` env or
+  `/config edge_base_url=...`. On-device models priced at `$0` in `COSTS`.
+- README: new **"On the edge"** section + a Termux quickstart; the on-device
+  **Gemma Nano APK (AICore/NPU)** is documented as work-in-progress.
+
 ## [3.10.60] - 2026-08-01
 
 ### Added / Changed

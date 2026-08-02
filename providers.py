@@ -711,6 +711,32 @@ PROVIDERS: dict[str, dict] = {
         "context_limit": 128000,
         "models": [],   # dynamic, depends on loaded model
     },
+    "edge": {
+        # Local / on-device small models over an OpenAI-compatible endpoint. The
+        # provider is backend-agnostic — ANY server that speaks OpenAI on
+        # 127.0.0.1 works. Three ways to feed it, easiest first:
+        #   • llama.cpp:  llama-server -m gemma-3-1b-it-Q4_K_M.gguf --port 8080
+        #                 (works today, runs anywhere: desktop, VM, Termux/phone)
+        #   • Ollama:     ollama serve
+        #                 (then /config edge_base_url=http://127.0.0.1:11434/v1)
+        #   • Dulus Edge Bridge APK — on-device Gemma on Android via AICore
+        #     (NPU-accelerated, zero-download). WORK IN PROGRESS: the Android
+        #     build takes time; llama.cpp/Ollama is the path that ships now.
+        # The requested model name is just a label — llama-server serves whatever
+        # weights you loaded with -m. Override host/port (Termux, a phone on your
+        # LAN) with DULUS_EDGE_BASE_URL or `/config edge_base_url=http://HOST:PORT/v1`.
+        "type":        "openai",
+        "api_key_env": None,
+        "base_url":    "http://127.0.0.1:8080/v1",
+        "api_key":     "dulus-edge",
+        "context_limit": 32000,
+        "models": [
+            # llama.cpp / Ollama GGUFs — the path that works today.
+            "gemma-3n-e4b", "gemma-3n-e2b",
+            # Dulus Edge Bridge APK (on-device Android) — WIP.
+            "gemma-4-e4b", "gemma-4-e2b", "gemini-nano",
+        ],
+    },
     "claude-web": {
         "type":       "claude_web",
         "api_key_env": None,
@@ -857,6 +883,12 @@ COSTS = {
     "gcloud/gemini-2.5-pro":    (1.25, 10.0),
     "gcloud/gemini-2.0-flash":  (0.075, 0.3),
     "gcloud/gemini-1.5-pro":    (1.25, 5.0),
+    # Edge / local (llama.cpp, Ollama, on-device APK) — no per-token cost.
+    "gemma-3n-e4b":             (0.0, 0.0),
+    "gemma-3n-e2b":             (0.0, 0.0),
+    "gemma-4-e4b":              (0.0, 0.0),
+    "gemma-4-e2b":              (0.0, 0.0),
+    "gemini-nano":              (0.0, 0.0),
 }
 
 # Auto-detection: prefix → provider name
@@ -879,6 +911,14 @@ _PREFIXES = [
     ("gpt-",          "openai"),
     ("o1",            "openai"),
     ("o3",            "openai"),
+    # Edge / local small models over an OpenAI-compatible server (llama.cpp
+    # `llama-server`, Ollama, or the WIP Dulus Edge Bridge APK). MUST precede the
+    # gemini-/gemma cloud+ollama rules below so these win. Arbitrary GGUFs are
+    # reachable with the explicit `edge/<name>` prefix.
+    ("edge/",         "edge"),
+    ("gemini-nano",   "edge"),
+    ("gemma-3n",      "edge"),
+    ("gemma-4",       "edge"),
     ("gemini-",       "gemini"),
     ("kimi-code/",    "kimi-code"),
     ("kimi-for-coding", "kimi-code"),
@@ -7250,6 +7290,16 @@ def stream(
                 # vLLM accepts any key; send a placeholder if none configured.
                 if not api_key:
                     api_key = "amd-dev-cloud"
+            elif provider_name == "edge":
+                # Edge / local models over an OpenAI-compatible server (llama.cpp
+                # `llama-server`, Ollama, or the on-device Android APK). Port is
+                # configurable so it can dodge conflicts on Termux / point at a
+                # phone on the LAN without editing the registry.
+                base_url = (config.get("edge_base_url")
+                            or _os.environ.get("DULUS_EDGE_BASE_URL", "")).rstrip("/") \
+                           or prov.get("base_url", "http://127.0.0.1:8080/v1")
+                if not api_key:
+                    api_key = "dulus-edge"
             else:
                 base_url = prov.get("base_url", "https://api.openai.com/v1")
             yield from stream_openai_compat(
