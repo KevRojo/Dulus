@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.62] - 2026-08-02
+
+### Fixed
+- **Sentry: handled errors surfaced via `err()` are now captured.** The
+  excepthook integration only reports *uncaught* exceptions, but nearly every
+  failure in the interactive agent is caught and shown through `common.err()`,
+  so almost nothing reached Sentry. `err()` now forwards the in-flight exception
+  (full traceback) as a handled event when it runs inside active exception
+  handling; calls with no live exception send nothing. No-op when sentry-sdk is
+  absent or uninitialised, so `DULUS_NO_SENTRY` / empty DSN stay honoured. One
+  central hook — the ~285 existing catch sites that call `err()` now report
+  without being modified.
+
 ## [3.10.61] - 2026-08-02
 
 ### Added

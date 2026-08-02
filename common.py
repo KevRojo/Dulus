@@ -165,6 +165,20 @@ def warn(msg: str):
 
 
 def err(msg: str):
+    # Sentry auto-captures only UNCAUGHT exceptions (via the excepthook). Almost
+    # every failure in an interactive agent is caught and surfaced right here
+    # through err(), so those never reach Sentry — which is why the dashboard
+    # sees so few. When err() runs *inside* active exception handling, forward
+    # that live exception (with full traceback) as a HANDLED event. err() calls
+    # with no exception in flight (validation, intentional messages) send
+    # nothing. No-op if sentry-sdk is absent or was never initialised (no bound
+    # client), so DULUS_NO_SENTRY / missing DSN are honoured automatically.
+    try:
+        if sys.exc_info()[0] is not None:
+            import sentry_sdk as _sentry
+            _sentry.capture_exception()
+    except Exception:
+        pass
     if _toast is not None:
         try:
             _toast(str(msg), kind="error", stream=sys.stderr)
