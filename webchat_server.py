@@ -494,6 +494,28 @@ def _run_agent_mirror(user_message: str, cancel_check=None) -> Generator:
     state = STATE
     user_input = sanitize_text(user_message)
 
+    # ── Dulus Bar (Dynamic Island) — live status for single-agent surfaces ──
+    # WebChat and the desktop GUI both run through this mirror; the Round Table
+    # uses _run_agent_for_roundtable and is intentionally left out. Lazy-start
+    # is idempotent. Optional: not enabled / no island / no dulus-bar → no-op.
+    try:
+        import dulus_bar_client as _bar
+        if _bar.enabled(cfg):
+            _bmodel = cfg.get("model", "")
+            _bar.get().start(model=_bmodel, session_id=cfg.get("_session_id"))
+            _bctx = ""
+            try:
+                from compaction import estimate_tokens, get_context_limit
+                _bused = estimate_tokens(state.messages, _bmodel, cfg, fast=True)
+                _blimit = get_context_limit(_bmodel) or 128000
+                _bpct = (_bused * 100 / _blimit) if _blimit else 0
+                _bctx = f"{_bpct:.1f}%" if _bpct < 1 else f"{int(_bpct)}%"
+            except Exception:
+                pass
+            _bar.get().status(model=_bmodel, ctx=_bctx)
+    except Exception:
+        pass
+
     _skill_body = cfg.pop("_skill_inject", "")
     if _skill_body:
         user_input = (
@@ -557,7 +579,7 @@ def _run_agent_mirror(user_message: str, cancel_check=None) -> Generator:
         pass
 
 
-def _event_to_dict(event) -> "dict | tuple | None":
+def _event_to_dict(event, bar_ok: bool = True) -> "dict | tuple | None":
     if isinstance(event, TextChunk):
         return {"type": "text", "text": event.text}
     elif isinstance(event, ThinkingChunk):
@@ -578,6 +600,30 @@ def _event_to_dict(event) -> "dict | tuple | None":
         pid = str(uuid.uuid4())
         evt = threading.Event()
         _PENDING_PERMISSIONS[pid] = (event, evt)
+        # Dulus Bar: mirror the prompt to the island and let an Allow/Deny click
+        # there resolve it (single-agent only — bar_ok=False for Round Table).
+        try:
+            import dulus_bar_client as _bar
+            if bar_ok and _bar.enabled(CONFIG):
+                _bar.get().start(model=(CONFIG or {}).get("model", ""))
+                _bar.get().tool_request(
+                    (event.description or "tool").split()[0], event.description or ""
+                )
+
+                def _island_resolve(approved, _sid, _evt=evt, _ev=event, _pid=pid):
+                    if _evt.is_set():
+                        return
+                    _ev.granted = bool(approved)
+                    _PENDING_PERMISSIONS.pop(_pid, None)
+                    try:
+                        _bar.get().tool_result(bool(approved))
+                    except Exception:
+                        pass
+                    _evt.set()
+
+                _bar.get().on_decision(_island_resolve)
+        except Exception:
+            pass
         payload = {"type": "permission", "id": pid, "description": event.description}
         return payload, evt
     return None
@@ -654,7 +700,7 @@ def _run_agent_for_roundtable(agent: RoundtableAgent, user_msg: str, history: li
                 stopped = True
                 q.put({"agent": agent.id, "type": "agent_stopped"})
                 break
-            result = _event_to_dict(event)
+            result = _event_to_dict(event, bar_ok=False)  # Round Table: never emit to the island
             if result is None:
                 continue
             if isinstance(result, tuple):

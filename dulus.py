@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.62"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.63"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -833,8 +833,95 @@ def ask_permission_interactive(desc: str, config: dict) -> bool:
         else:
             ok("  Permission mode set to accept-all for this session.")
         return True
-    
+
     return text in ("y", "yes")
+
+
+def _interp_permission(text: str, config: dict) -> bool:
+    """Interpret a y/N/a permission answer (accept-all persists for the session)."""
+    t = (text or "").strip().lower()
+    if t in ("a", "accept all", "accept-all"):
+        config["permission_mode"] = "accept-all"
+        ok("  Permission mode set to accept-all for this session.")
+        return True
+    return t in ("y", "yes")
+
+
+def _permission_with_bar(desc: str, config: dict) -> bool:
+    """Ask for tool permission, accepting an answer from EITHER the terminal or
+    the Dulus Bar island — whichever comes first. Falls back to the plain
+    blocking prompt when the island isn't in play (or on any trouble)."""
+    try:
+        import dulus_bar_client as _bar
+        # Telegram turns have no local keyboard — keep the original path.
+        if _is_in_tg_turn(config) or not _bar.enabled(config):
+            return ask_permission_interactive(desc, config)
+        bar = _bar.get()
+    except Exception:
+        return ask_permission_interactive(desc, config)
+
+    import threading as _th
+    st = {"granted": None, "src": None}
+    answered = _th.Event()
+
+    def _on_island(approved, _sid):
+        if not answered.is_set():
+            st["granted"] = bool(approved)
+            st["src"] = "island"
+            answered.set()
+
+    bar.on_decision(_on_island)
+    try:
+        bar.tool_request((desc or "tool").split()[0] if desc else "tool", desc or "")
+    except Exception:
+        pass
+
+    try:
+        sys.stdout.write(f"  Allow: {desc}  [y/N/a]  (or click Dulus Bar) ")
+        sys.stdout.flush()
+        if os.name == "nt":
+            import msvcrt
+            buf = ""
+            while not answered.is_set():
+                if msvcrt.kbhit():
+                    ch = msvcrt.getwch()
+                    if ch in ("\r", "\n"):
+                        st["granted"] = _interp_permission(buf, config); st["src"] = "terminal"; answered.set()
+                    elif ch == "\x03":
+                        st["granted"] = False; st["src"] = "terminal"; answered.set()
+                    else:
+                        buf += ch
+                        sys.stdout.write(ch); sys.stdout.flush()
+                        if buf.strip().lower() in ("y", "n", "a"):
+                            st["granted"] = _interp_permission(buf, config); st["src"] = "terminal"; answered.set()
+                else:
+                    answered.wait(0.05)
+        else:
+            import select
+            while not answered.is_set():
+                r, _, _ = select.select([sys.stdin], [], [], 0.05)
+                if r:
+                    st["granted"] = _interp_permission(sys.stdin.readline(), config); st["src"] = "terminal"; answered.set()
+        sys.stdout.write("\n"); sys.stdout.flush()
+    except Exception:
+        try:
+            bar._decision_cbs.remove(_on_island)
+        except Exception:
+            pass
+        return ask_permission_interactive(desc, config)
+
+    granted = bool(st["granted"])
+    try:
+        bar._decision_cbs.remove(_on_island)
+    except Exception:
+        pass
+    try:
+        bar.tool_result(granted)
+    except Exception:
+        pass
+    if st["src"] == "island":
+        ok(f"  {'✅ Allowed' if granted else '⛔ Denied'} from Dulus Bar")
+    return granted
 
 
 # ── Slash commands ─────────────────────────────────────────────────────────
@@ -11421,6 +11508,21 @@ def repl(config: dict, initial_prompt: str | None = None):
     import checkpoint as ckpt
     session_id = uuid.uuid4().hex[:8]
     config["_session_id"] = session_id
+
+    # ── Dulus Bar (Dynamic Island) — optional native status bridge ──────────
+    # When launched by the island (DULUS_BAR=1), with /config dulus_bar=1, or
+    # simply when `pip install dulus-bar` is present, Dulus streams live status
+    # to the floating island over its websocket and opens it out of the box.
+    # Fully optional: no island / no `dulus-bar` / not enabled → silent no-op.
+    try:
+        import dulus_bar_client as _bar
+        if _bar.enabled(config) and _bar.get().start(
+            model=config.get("model", ""), session_id=session_id
+        ):
+            startup_status_msgs.append(clr("  🏝️  Dulus Bar: streaming to island", "cyan"))
+    except Exception:
+        pass
+
     ckpt.set_session(session_id)
     ckpt.cleanup_old_sessions()
     # Initial snapshot: capture the "blank slate" before any prompts
@@ -12023,7 +12125,7 @@ def repl(config: dict, initial_prompt: str | None = None):
                         elif isinstance(event, PermissionRequest):
                             _stop_tool_spinner()
                             flush_response()
-                            event.granted = ask_permission_interactive(event.description, config)
+                            event.granted = _permission_with_bar(event.description, config)
                             # Live will restart automatically on next TextChunk
 
                         elif isinstance(event, ToolEnd):
@@ -12656,6 +12758,11 @@ def repl(config: dict, initial_prompt: str | None = None):
                 _pct = int(_pct_f)
                 _ctx_color = "green" if _pct < 60 else ("yellow" if _pct < 85 else "red")
                 ctx_tag = clr(f"[{_pct_str}%] ", _ctx_color, "bold")
+                try:
+                    import dulus_bar_client as _bar
+                    _bar.get().status(model=_model, ctx=f"{_pct_str}%")
+                except Exception:
+                    pass
             except Exception:
                 pass
             prompt = _rl_safe(clr(f"\n[{cwd_short}] ", "dim") + ctx_tag + clr("» ", "cyan", "bold"))
