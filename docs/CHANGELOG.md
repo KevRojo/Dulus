@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.63] - 2026-08-03
+
+### Added
+- **Dulus Bar integration — the floating "Dynamic Island".** New optional
+  `dulus_bar_client.py`: a defensive websocket client that streams live status
+  (session, model, ctx) to the [Dulus Bar](https://pypi.org/project/dulus-bar/)
+  island over `ws://127.0.0.1:17372` and forwards Allow/Deny decisions back.
+  Default-on when the `dulus-bar` package is installed (and GUI-capable); it
+  auto-launches the island so Dulus opens with it out of the box. Off switch:
+  `DULUS_BAR=0` / `/config dulus_bar=0`.
+- Hooks in **CLI, WebChat, and the desktop GUI**: startup + per-turn
+  `status(model, ctx)`, and tool permissions mirrored to the island with
+  `Allow/Deny` (`_permission_with_bar` polls the keyboard and the island
+  concurrently; WebChat/GUI resolve the pending permission on a click). The
+  **Round Table is intentionally excluded** (`bar_ok=False`).
+- New optional extra `dulus[bar]` (pulls `dulus-bar`). Fully optional — a silent
+  no-op when the package/island isn't present.
+
 ## [3.10.62] - 2026-08-02
 
 ### Fixed
