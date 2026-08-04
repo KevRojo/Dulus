@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.64] - 2026-08-04
+
+### Changed
+- **Dulus Bar is now ON by default.** `dulus-bar` is a regular dependency, so
+  `pip install dulus` opens with the floating island out of the box (it's just a
+  library dep — pip pulls it and its PyQt6 at install time; the `dulus` wheel
+  stays tiny, nothing is bundled). Still a silent no-op on headless/no-display
+  boxes (Docker, servers, CI) — it never imports Qt without a screen.
+- Startup now prints how to turn the island **off** the moment it comes on:
+  `DULUS_BAR=0` or `/config dulus_bar=0`.
+
+### Fixed
+- Type-check (pyright) errors introduced with the bar bridge in 3.10.63:
+  a loosely-typed permission dict in `dulus.py` and the websocket handle /
+  incoming-frame types in `dulus_bar_client.py`. CI `quality` is green again.
+
 ## [3.10.63] - 2026-08-03
 
 ### Added
