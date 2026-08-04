@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "3.10.63"
+version = "3.10.64"
 description = "Provider-independent agent runtime for the terminal — cloud and local models, real tools, MCP, plugins, memory, sub-agents, and Dulus OS."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -65,6 +65,13 @@ dependencies = [
     # lightweight; Tesseract binary must be installed separately (see README).
     # Pillow already listed above — no duplicate needed.
     "pytesseract>=0.3.10",
+    # Dulus Bar — the floating "Dynamic Island" (live model/ctx + Allow/Deny).
+    # A normal library dep: pip pulls it (and its PyQt6) at install time; the
+    # dulus wheel stays tiny — nothing is bundled. On by default so Dulus opens
+    # with the island out of the box; a silent no-op on headless/no-display
+    # boxes (Docker, servers, CI) since it never imports Qt without a screen.
+    # Off switch for anyone who dislikes it: DULUS_BAR=0 or /config dulus_bar=0.
+    "dulus-bar>=0.3.2",
 ]
 
 # mempalace pulls chromadb (26 transitive deps incl. numpy + onnxruntime),
@@ -84,9 +91,6 @@ dev = [
 memory = ["mempalace>=3.3.4"]
 voice = ["sounddevice", "pyttsx3", "elevenlabs>=1.0.0"]
 webbridge = ["playwright>=1.40.0"]
-# Dulus Bar — the floating "Dynamic Island" that shows the active model + context
-# and forwards Allow/Deny. Optional: the bridge is a silent no-op without it.
-bar = ["dulus-bar>=0.3.2"]
 # LiteLLM unified gateway — one provider entry, 100+ backends (OpenRouter,
 # Groq, Together, Bedrock, Vertex, Cohere, Perplexity, xAI, Mistral, …).
 # Optional because it pulls a sizeable transitive dep tree (tokenizers,

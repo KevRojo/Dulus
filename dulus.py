@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.63"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.64"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -861,7 +861,7 @@ def _permission_with_bar(desc: str, config: dict) -> bool:
         return ask_permission_interactive(desc, config)
 
     import threading as _th
-    st = {"granted": None, "src": None}
+    st: dict = {"granted": None, "src": None}
     answered = _th.Event()
 
     def _on_island(approved, _sid):
@@ -11519,7 +11519,11 @@ def repl(config: dict, initial_prompt: str | None = None):
         if _bar.enabled(config) and _bar.get().start(
             model=config.get("model", ""), session_id=session_id
         ):
-            startup_status_msgs.append(clr("  🏝️  Dulus Bar: streaming to island", "cyan"))
+            # Tell people it's on AND how to turn it off — no surprises.
+            startup_status_msgs.append(
+                clr("  🏝️  Dulus Bar on", "cyan", "bold")
+                + clr("  ·  off:  DULUS_BAR=0   or   /config dulus_bar=0", "dim")
+            )
     except Exception:
         pass
 

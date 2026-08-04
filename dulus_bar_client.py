@@ -28,7 +28,7 @@ import os
 import sys
 import threading
 import uuid
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 AGENT_NAME = "Dulus"
 BAR_URL = os.environ.get("DULUS_BAR_URL", "ws://127.0.0.1:17372")
@@ -123,7 +123,7 @@ class DulusBarClient:
     def __init__(self) -> None:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
-        self._ws: object = None
+        self._ws: Any = None  # websockets connection; Any to avoid a hard dep on its types
         self._session_id = uuid.uuid4().hex[:8]
         self._model = ""
         self._decision_cbs: List[Callable[[bool, Optional[str]], None]] = []
@@ -281,7 +281,7 @@ class DulusBarClient:
                 await asyncio.sleep(_RECONNECT_DELAY)
         self._ws = None
 
-    def _on_incoming(self, raw: object) -> None:
+    def _on_incoming(self, raw: Any) -> None:
         try:
             data = json.loads(raw)
         except Exception:
