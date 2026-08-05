@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.66] - 2026-08-05
+
+### Fixed
+- **"Open agent" from the island works again.** Bumped to **dulus-bar >= 0.3.6**,
+  which now ships its agent wrappers *inside* the package. They previously lived
+  at the repo root and were excluded from the wheel, so launching an agent (or
+  Dulus) from the island's right-click menu ran `python <missing>/agent_wrapper.py`
+  — Python errored and the freshly-opened terminal closed instantly.
+
 ## [3.10.65] - 2026-08-04
 
 ### Fixed

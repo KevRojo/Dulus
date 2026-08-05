@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 5, 2026 (**v3.10.66**): **🏝️ "Open agent" from the island works now.** Right-click the island → *Open agent* → pick any CLI (or `dulus.py`) and it actually launches — the terminal used to open and close instantly because the island's agent wrappers weren't shipped in the pip package. Fixed in **dulus-bar 0.3.6** (wrappers now live inside the package) and required here. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 4, 2026 (**v3.10.65**): **🏝️ The island's approval prompts got a glow-up.** The Dulus Bar permission popup is now one clean **solid bubble** — the tool call shows **once**, truncated to a single readable line, with the agent + model up top and calm macOS-style **Allow / Deny** buttons. Readable on any backdrop (even a white desktop). Bundles **dulus-bar 0.3.5** (solid bubble + the island's right-click menu now matches the tray icon) and a smarter client that sends a tidy tool name instead of a raw chunk. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 4, 2026 (**v3.10.64**): **🏝️ The island is now ON out of the box.** [Dulus Bar](https://pypi.org/project/dulus-bar/) ships as a normal dependency, so a plain `pip install dulus` opens with the floating island — no extra to remember. It's just a library dep (pip pulls it at install; nothing is bundled into Dulus), and it stays a **silent no-op on headless boxes** — Docker, servers, and CI never even load it. Don't like it? Dulus tells you how to turn it off the second it comes on: **`DULUS_BAR=0`** or **`/config dulus_bar=0`**. 🦅🇩🇴
