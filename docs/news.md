@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 5, 2026 (**v3.10.67**): **🎙️ Wake-word calibration crash fixed.** `cmd_wake`'s audio calibration could hit an `UnboundLocalError` — a stray local `import threading` shadowed the module-level one, tripping the earlier `threading.Timer(...)`. Now clean. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 5, 2026 (**v3.10.66**): **🏝️ "Open agent" from the island works now.** Right-click the island → *Open agent* → pick any CLI (or `dulus.py`) and it actually launches — the terminal used to open and close instantly because the island's agent wrappers weren't shipped in the pip package. Fixed in **dulus-bar 0.3.6** (wrappers now live inside the package) and required here. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 4, 2026 (**v3.10.65**): **🏝️ The island's approval prompts got a glow-up.** The Dulus Bar permission popup is now one clean **solid bubble** — the tool call shows **once**, truncated to a single readable line, with the agent + model up top and calm macOS-style **Allow / Deny** buttons. Readable on any backdrop (even a white desktop). Bundles **dulus-bar 0.3.5** (solid bubble + the island's right-click menu now matches the tray icon) and a smarter client that sends a tidy tool name instead of a raw chunk. `pip install --upgrade dulus`. 🦅🇩🇴
