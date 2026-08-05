@@ -606,9 +606,7 @@ def _event_to_dict(event, bar_ok: bool = True) -> "dict | tuple | None":
             import dulus_bar_client as _bar
             if bar_ok and _bar.enabled(CONFIG):
                 _bar.get().start(model=(CONFIG or {}).get("model", ""))
-                _bar.get().tool_request(
-                    (event.description or "tool").split()[0], event.description or ""
-                )
+                _bar.get().tool_request(event.description or "tool")
 
                 def _island_resolve(approved, _sid, _evt=evt, _ev=event, _pid=pid):
                     if _evt.is_set():

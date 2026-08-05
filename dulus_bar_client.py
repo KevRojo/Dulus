@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 import threading
 import uuid
@@ -117,6 +118,30 @@ def _launch_island() -> None:
         pass
 
 
+_CALL_NAME_RE = re.compile(r"([A-Za-z_][\w.]*)\s*(.*)", re.S)
+
+
+def _clean_call(tool: str, args: str = "") -> tuple:
+    """Normalize whatever a caller passes into a tidy ``(tool_name, detail)``
+    pair. Handles a clean (name, args) pair, a single full call string like
+    ``ToolName(['x'])``, or the legacy (split-chunk, full-call) combo — and
+    never returns the same call text twice (that was the duplicated line the
+    island rendered)."""
+    tool = (tool or "").strip()
+    args = (args or "").strip()
+    # Reconstruct the fullest single call string we were handed, without dupes.
+    if args and tool and tool in args:
+        full = args                      # legacy: the name was a prefix of args
+    elif args and tool:
+        full = f"{tool} {args}"
+    else:
+        full = tool or args
+    m = _CALL_NAME_RE.match(full)
+    if not m:
+        return (full[:48] or "tool", "")
+    return (m.group(1), m.group(2).strip())
+
+
 class DulusBarClient:
     """Fire-and-forget websocket client running on its own asyncio thread."""
 
@@ -207,7 +232,8 @@ class DulusBarClient:
         self.message("", model=model, ctx=ctx)
 
     def tool_request(self, tool: str, args: str = "") -> None:
-        self._send("tool_request", {"tool": tool, "args": str(args)[:300]})
+        name, detail = _clean_call(tool, args)
+        self._send("tool_request", {"tool": name, "args": str(detail)[:300]})
 
     def tool_result(self, approved: bool) -> None:
         self._send("tool_approved" if approved else "tool_denied", {})
