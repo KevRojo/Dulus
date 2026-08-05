@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.67] - 2026-08-05
+
+### Fixed
+- `cmd_wake` (voice wake-word calibration) could raise `UnboundLocalError`
+  (F823): a local `import threading, time as _time` shadowed the module-level
+  `threading`, so the earlier `threading.Timer(...)` in the same function
+  referenced an unbound local. Keep only the local `time` import — `threading`
+  is already imported at module scope. (Surfaced by an AST audit of the codebase.)
+
 ## [3.10.66] - 2026-08-05
 
 ### Fixed

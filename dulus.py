@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.66"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.67"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -8168,7 +8168,7 @@ def cmd_wake(args: str, state, config) -> bool:
         try:
             import sounddevice as sd
             import numpy as np
-            import threading, time as _time
+            import time as _time  # threading is module-level; local import shadowed it (F823)
         except Exception as e:
             err(f"Calibration failed to import audio deps: {e}")
             return True
