@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.65] - 2026-08-04
+
+### Fixed
+- **Cleaner Dulus Bar approval prompts.** The client now sends a tidy tool NAME
+  (via `_clean_call` in `dulus_bar_client.py`) instead of a raw split-chunk of
+  the description, so the island never shows the same call twice. Requires
+  **dulus-bar >= 0.3.5**, which renders the prompt as one solid, readable bubble
+  (de-duplicated + ellipsis-truncated, agent/model title, macOS-style
+  Allow/Deny) — legible on any backdrop, including a light desktop — and gives
+  the island's right-click menu the same full set as the tray icon.
+
 ## [3.10.64] - 2026-08-04
 
 ### Changed
