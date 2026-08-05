@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.68] - 2026-08-05
+
+### Fixed
+- **Dulus Bar: ghost sessions + a stuck panel.** Requires **dulus-bar >= 0.3.7**.
+  Closing and reopening an agent no longer leaves a duplicate session in the
+  island — the server now drops a session the moment its websocket closes
+  (idle-but-live sessions are unaffected). And the expanded "active agents"
+  panel collapses when you click away; the permission toast still waits for an
+  explicit Allow/Deny.
+
 ## [3.10.67] - 2026-08-05
 
 ### Fixed

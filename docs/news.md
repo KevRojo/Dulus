@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 5, 2026 (**v3.10.68**): **🏝️ Island polish.** No more duplicate agent when you close & reopen Dulus, and the expanded agents panel now closes when you click away (permission prompts still wait for Allow/Deny). Ships **dulus-bar 0.3.7**. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 5, 2026 (**v3.10.67**): **🎙️ Wake-word calibration crash fixed.** `cmd_wake`'s audio calibration could hit an `UnboundLocalError` — a stray local `import threading` shadowed the module-level one, tripping the earlier `threading.Timer(...)`. Now clean. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 5, 2026 (**v3.10.66**): **🏝️ "Open agent" from the island works now.** Right-click the island → *Open agent* → pick any CLI (or `dulus.py`) and it actually launches — the terminal used to open and close instantly because the island's agent wrappers weren't shipped in the pip package. Fixed in **dulus-bar 0.3.6** (wrappers now live inside the package) and required here. `pip install --upgrade dulus`. 🦅🇩🇴
