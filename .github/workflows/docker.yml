@@ -16,6 +16,12 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# A newer push to the same ref supersedes any in-flight build for that ref,
+# so stale builds get cancelled instead of hogging runners for 15+ min.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/dulus
@@ -23,6 +29,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # normal multi-arch build ~9 min; 30 catches true hangs
     permissions:
       contents: read
       packages: write   # required to push to ghcr.io
