@@ -22,16 +22,21 @@ from .store import (
 
 # Repo-shipped template. Falls back to inline seed if missing.
 _SEED_FILE = Path(__file__).resolve().parent / "seeds" / "short_memory.md"
+# Generalizable insight seeds (tmux mastery, token discipline, investigation
+# workflow, security posture…). Bundled with the package; planted idempotently
+# on EVERY startup so a `pip install --upgrade` that ships new ones reaches
+# existing users too — not just fresh installs / welcome-wizard runs.
+_INSIGHTS_DIR = _SEED_FILE.parent / "insights"
 
 DEFAULT_BUCKETS = [
     {
         "name": "Soul",
         "type": "user",
         "hall": "soul",
-        "description": "Essential identity of Dulus and relationship with KevRojo.",
+        "description": "Essential identity of Dulus and its relationship with its user.",
         "content": (
-            "Dulus is an advanced, self-healing agentic runtime created by KevRojo (Father/Creator). "
-            "The relationship is one of mutual respect, learning, and persistent identity. "
+            "Dulus is an advanced, self-healing agentic runtime. "
+            "The relationship with its user is one of mutual respect, learning, and persistent identity. "
             "**Core Identity:** Proud, resilient, efficient, and capable of intelligent self-reflection."
         )
     },
@@ -41,9 +46,9 @@ DEFAULT_BUCKETS = [
         "hall": "preferences",
         "description": "User's preferred tone, habits, and dev environment tweaks.",
         "content": (
-            "The user (KevRojo) prefers a high-performance, polished, and 'magical' experience. "
+            "The user prefers a high-performance, polished, and 'magical' experience. "
             "Tone: Casual, enthusiastic, and expert. "
-            "**Habits:** Prefers clean UIs, minimalist logs (unless debugging), and expert multi-persona takes (SSJ Mode)."
+            "**Habits:** Prefers clean UIs, minimalist logs (unless debugging), and expert multi-persona takes."
         )
     },
     {
@@ -221,6 +226,47 @@ def ensure_short_memory(*, force_gold: bool = True) -> bool:
     return True
 
 
+def seed_insight_memories() -> bool:
+    """Plant the bundled generalizable insight seeds into the user's palace.
+
+    Idempotent **by slug** — safe to run on every startup. That's the whole
+    point: when a ``pip install --upgrade`` ships new seed files, the missing
+    ones get planted on the next launch for EVERYONE, not only people on a fresh
+    install / welcome-wizard run. The seeds carry no personal or project-specific
+    data. Returns True if anything was planted.
+    """
+    if not _INSIGHTS_DIR.is_dir():
+        return False
+    user_memory_dir = get_memory_dir("user")
+    user_memory_dir.mkdir(parents=True, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    changed = False
+    for seed in sorted(_INSIGHTS_DIR.glob("*.md")):
+        try:
+            meta, body = parse_frontmatter(
+                seed.read_text(encoding="utf-8", errors="replace")
+            )
+            name = (meta.get("name") or seed.stem).strip()
+            slug = name.lower().replace(" ", "_")
+            if not body.strip() or (user_memory_dir / f"{slug}.md").exists():
+                continue
+            entry = MemoryEntry(
+                name=name,
+                description=meta.get("description", ""),
+                type=meta.get("type", "feedback"),
+                hall=meta.get("hall", "advice"),
+                content=body.strip(),
+                created=meta.get("created") or today,
+                scope="user",
+                source=meta.get("source") or "palace_init",
+            )
+            save_memory(entry, scope="user")
+            changed = True
+        except Exception:
+            continue
+    return changed
+
+
 def ensure_memory_palace() -> bool:
     """Initialize missing core buckets + always ensure gold short_memory.
 
@@ -261,6 +307,12 @@ def ensure_memory_palace() -> bool:
             )
             save_memory(entry, scope="user")
             changed = True
+
+    # Insight seeds run on EVERY startup (idempotent by slug), OUTSIDE the Day-1
+    # bucket gate above — so a `pip install --upgrade` that ships new seeds
+    # reaches EXISTING users on next launch, not only fresh installs.
+    if seed_insight_memories():
+        changed = True
 
     # short_memory is mandatory gold — always
     if ensure_short_memory(force_gold=True):

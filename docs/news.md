@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 5, 2026 (**v3.10.69**): **🧠 Every Dulus now starts wiser.** Ships **14 curated, hard-won insight memories** out of the box — tmux mastery, token discipline (don't swallow huge outputs), the investigator workflow, smarter browser automation, "don't busy-poll background jobs", security posture, and more. Planted on **every** startup, so existing users get them on upgrade too — not just fresh installs. Zero personal data, pure generalizable craft. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 5, 2026 (**v3.10.68**): **🏝️ Island polish.** No more duplicate agent when you close & reopen Dulus, and the expanded agents panel now closes when you click away (permission prompts still wait for Allow/Deny). Ships **dulus-bar 0.3.7**. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 5, 2026 (**v3.10.67**): **🎙️ Wake-word calibration crash fixed.** `cmd_wake`'s audio calibration could hit an `UnboundLocalError` — a stray local `import threading` shadowed the module-level one, tripping the earlier `threading.Timer(...)`. Now clean. `pip install --upgrade dulus`. 🦅🇩🇴

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.69] - 2026-08-05
+
+### Added
+- **Seed wisdom on every install.** Dulus now ships 14 curated, generalizable
+  insight memories: tmux send-keys mastery, filtering big tool outputs instead of
+  swallowing them, the investigator workflow, AskUserQuestion-after-lists, browser
+  automation (JS over click), not busy-polling background jobs, native code over
+  sketchy plugins, no personal info in code, search-by-mtime, tool chaining,
+  cleverness-over-resources (the `/img` OCR trick), and the corporate-TLS /
+  `curl_cffi` gotcha. Planted idempotently on **every** startup (not just first
+  run), so `pip install --upgrade dulus` delivers them to existing users on their
+  next launch. All carry zero personal or project-specific data.
+
+### Changed
+- Default identity buckets (Soul, Preferences) no longer embed a specific
+  creator/user name — generic wording so a fresh palace ships clean.
+
 ## [3.10.68] - 2026-08-05
 
 ### Fixed
