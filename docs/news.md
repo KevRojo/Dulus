@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 7, 2026 (**v3.10.70**): **⌨️ Quick menu fixed.** The `←←` (double-left-arrow) quick menu was silently broken — prompt_toolkit 3.0.52 dropped `run_in_terminal`, and the island's stdout wrapper made it render invisible. Now it opens and draws correctly (writes straight to the terminal). `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 5, 2026 (**v3.10.69**): **🧠 Every Dulus now starts wiser.** Ships **14 curated, hard-won insight memories** out of the box — tmux mastery, token discipline (don't swallow huge outputs), the investigator workflow, smarter browser automation, "don't busy-poll background jobs", security posture, and more. Planted on **every** startup, so existing users get them on upgrade too — not just fresh installs. Zero personal data, pure generalizable craft. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 5, 2026 (**v3.10.68**): **🏝️ Island polish.** No more duplicate agent when you close & reopen Dulus, and the expanded agents panel now closes when you click away (permission prompts still wait for Allow/Deny). Ships **dulus-bar 0.3.7**. `pip install --upgrade dulus`. 🦅🇩🇴
