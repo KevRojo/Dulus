@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.70"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.71"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -11100,6 +11100,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "bg":          ("Background Dulus — one detached daemon for CLI + Web + Telegram", ["start", "stop", "kill", "status", "attach"]),
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),
     "rtk":         ("Toggle RTK token-optimized shell rewriting", ["on", "off"]),
+    "lookback":    ("Lookback: API window = last N user turns", ["on", "off", "status", "50", "150", "250"]),
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
     "tts":         ("Toggle automatic TTS + lang/provider/auto", ["lang", "provider", "voice", "auto"]),
     "voice":       ("Voice input (record → STT)",         ["lang", "status", "device"]),
