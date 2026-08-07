@@ -22,7 +22,7 @@ from typing import Any
 
 DEFAULT_LOOKBACK_TURNS = 20
 MIN_LOOKBACK_TURNS = 2
-MAX_LOOKBACK_TURNS = 200
+MAX_LOOKBACK_TURNS = 250
 
 # Runtime key (in config) holding the anchored window start. The anchor gives
 # the window hysteresis: without it the start slides forward on every user

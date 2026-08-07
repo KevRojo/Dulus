@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.71] - 2026-08-07
+
+### Changed
+- **Bigger `/lookback` presets.** The `/lookback` autocomplete now offers
+  **50 / 150 / 250** user turns (was 5–50), and `MAX_LOOKBACK_TURNS` is raised
+  200 → 250. A single turn now drags its whole tool trail, so the old small
+  windows were cutting context mid-conversation. The window counts user TURNS
+  (each carries its tools); the full archive always stays local via loopback.
+
 ## [3.10.70] - 2026-08-07
 
 ### Fixed
