@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.70] - 2026-08-07
+
+### Fixed
+- **The `←←` (double-left-arrow) quick menu silently never opened.** Two bugs:
+  prompt_toolkit ≥ 3.0.52 removed `Application.run_in_terminal()` (the
+  `AttributeError` was swallowed), and once it ran the menu rendered invisible —
+  Dulus's stdout wrappers (island streaming + prompt_toolkit's `StdoutProxy`)
+  never reach the terminal while the prompt app is suspended. Now scheduled via
+  the module-level `run_in_terminal` and drawn straight to the controlling
+  terminal (`/dev/tty`, `CON` on Windows).
+
 ## [3.10.69] - 2026-08-05
 
 ### Added

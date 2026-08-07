@@ -172,7 +172,22 @@ def _show_with_rich() -> Optional[str]:
     from rich.console import Console
     from rich.live import Live
 
-    console = Console()
+    # Dulus wraps sys.stdout in its own _OutputRedirector (island streaming),
+    # and under sticky_input prompt_toolkit adds StdoutProxy on top. Writes to
+    # either wrapper never reach the terminal while the prompt app is
+    # suspended, so the menu renders INVISIBLE. Bypass all wrappers: write
+    # straight to the controlling terminal (/dev/tty on POSIX, CON on Windows).
+    _tty_file = None
+    try:
+        _tty_file = open("CON" if sys.platform == "win32" else "/dev/tty", "w")
+        console = Console(file=_tty_file, force_terminal=True)
+    except OSError:
+        _real = getattr(sys.stdout, "original_stdout", None)
+        console = (
+            Console(file=_real, force_terminal=True)
+            if _real is not None
+            else Console()
+        )
     selected = 0
 
     try:
@@ -198,6 +213,12 @@ def _show_with_rich() -> Optional[str]:
     except Exception:
         # If rich Live fails (e.g. weird terminal), fall back to plain text.
         return _show_fallback()
+    finally:
+        if _tty_file is not None:
+            try:
+                _tty_file.close()
+            except Exception:
+                pass
 
 
 def _show_fallback() -> Optional[str]:
@@ -239,7 +260,12 @@ def _open_menu(event: Any) -> None:
                 pass
 
     try:
-        event.app.run_in_terminal(_run)
+        # prompt_toolkit >= 3.0.52 removed Application.run_in_terminal().
+        # Use the module-level helper and schedule it as a background task;
+        # in_executor=True because _run blocks on raw terminal key reads.
+        from prompt_toolkit.application.run_in_terminal import run_in_terminal
+
+        event.app.create_background_task(run_in_terminal(_run, in_executor=True))
     except Exception:
         pass
 
