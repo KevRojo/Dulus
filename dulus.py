@@ -1462,17 +1462,41 @@ def _save_synthesis(state, out_file: str) -> None:
         return
 
 
+def _theme_accent(config: dict):
+    """ANSI prefix for the active theme's accent (main) color — used to paint
+    the rotating ASCII banner. None on any failure (banner stays default)."""
+    try:
+        import common as _cm
+        pal = _cm.THEMES.get(config.get("theme", "dulus"), _cm.THEMES["dulus"])
+        return _cm._rgb(pal["accent"])
+    except Exception:
+        return None
+
+
 def _print_dulus_banner(config: dict, with_logo: bool = True) -> None:
     """Reprint the Dulus logo, session card, and creator signature."""
     from providers import detect_provider
     if with_logo:
         printed = False
+        # Rotating curated ASCII banner (theme-colored) first; never blocks boot.
         try:
-            from cli_animations import print_banner
-            print_banner("dulus")
-            printed = True
+            import importlib.util as _ilu
+            _rot = Path(__file__).resolve().parent / "banners" / "banner_rotator.py"
+            if _rot.exists():
+                _spec = _ilu.spec_from_file_location("banner_rotator", _rot)
+                _mod = _ilu.module_from_spec(_spec)
+                _spec.loader.exec_module(_mod)
+                _mod.show_banner(color=_theme_accent(config))
+                printed = True
         except Exception:
-            pass
+            printed = False
+        if not printed:
+            try:
+                from cli_animations import print_banner
+                print_banner("dulus")
+                printed = True
+            except Exception:
+                pass
         if not printed:
             logo = globals().get("_DULUS_LOGO_CACHED")
             if logo:
@@ -11599,8 +11623,22 @@ def repl(config: dict, initial_prompt: str | None = None):
         except Exception:
             pass
 
-        # Print logo
-        for line in _DULUS_LOGO:
+        # Print logo — rotating curated ASCII banner (theme-colored) first,
+        # falling back to the Cigua eagle logo so startup is never blocked.
+        # On success only the version + news teaser tail of _DULUS_LOGO follows.
+        _banner_ok = False
+        try:
+            import importlib.util as _ilu
+            _rot = Path(__file__).resolve().parent / "banners" / "banner_rotator.py"
+            if _rot.exists():
+                _spec = _ilu.spec_from_file_location("banner_rotator", _rot)
+                _mod = _ilu.module_from_spec(_spec)
+                _spec.loader.exec_module(_mod)
+                _mod.show_banner(color=_theme_accent(config))
+                _banner_ok = True
+        except Exception:
+            _banner_ok = False
+        for line in (_DULUS_LOGO[-3:] if _banner_ok else _DULUS_LOGO):
             print(clr(line, "cyan", "bold"))
         print()
 
