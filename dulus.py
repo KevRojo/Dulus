@@ -1484,10 +1484,11 @@ def _print_dulus_banner(config: dict, with_logo: bool = True) -> None:
             _rot = Path(__file__).resolve().parent / "banners" / "banner_rotator.py"
             if _rot.exists():
                 _spec = _ilu.spec_from_file_location("banner_rotator", _rot)
-                _mod = _ilu.module_from_spec(_spec)
-                _spec.loader.exec_module(_mod)
-                _mod.show_banner(color=_theme_accent(config))
-                printed = True
+                if _spec and _spec.loader:
+                    _mod = _ilu.module_from_spec(_spec)
+                    _spec.loader.exec_module(_mod)
+                    _mod.show_banner(color=_theme_accent(config))
+                    printed = True
         except Exception:
             printed = False
         if not printed:
@@ -11632,10 +11633,11 @@ def repl(config: dict, initial_prompt: str | None = None):
             _rot = Path(__file__).resolve().parent / "banners" / "banner_rotator.py"
             if _rot.exists():
                 _spec = _ilu.spec_from_file_location("banner_rotator", _rot)
-                _mod = _ilu.module_from_spec(_spec)
-                _spec.loader.exec_module(_mod)
-                _mod.show_banner(color=_theme_accent(config))
-                _banner_ok = True
+                if _spec and _spec.loader:
+                    _mod = _ilu.module_from_spec(_spec)
+                    _spec.loader.exec_module(_mod)
+                    _mod.show_banner(color=_theme_accent(config))
+                    _banner_ok = True
         except Exception:
             _banner_ok = False
         for line in (_DULUS_LOGO[-3:] if _banner_ok else _DULUS_LOGO):
