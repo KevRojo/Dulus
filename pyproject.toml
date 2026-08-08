@@ -172,6 +172,7 @@ py-modules = [
 where = ["."]
 include = [
     "backend*",
+    "banners*",
     "checkpoint*",
     "cli_animations*",
     "data*",
