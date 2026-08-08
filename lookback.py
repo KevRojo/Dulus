@@ -30,10 +30,69 @@ MAX_LOOKBACK_TURNS = 250
 # call — costing more than lookback saves.
 LOOKBACK_ANCHOR_KEY = "_lookback_anchor"
 
+# Companion key: a byte-signature of the message AT the anchor index. The raw
+# index is meaningless after maybe_compact() rewrites/shrinks state.messages —
+# it can silently point at a *different* user turn, misaligning the window. We
+# only reuse the anchor when the message still living there matches the sig;
+# otherwise we re-anchor from scratch. Guards the compaction edge.
+LOOKBACK_ANCHOR_SIG_KEY = "_lookback_anchor_sig"
+
+# Default cache-aware gate: front-truncation busts the prompt-cache prefix, so
+# it only pays off when the HIDDEN head is much larger than the kept window
+# (the tokens we stop sending must outweigh losing the ~0.1x cached-read
+# discount on the full archive). Below this head:window size ratio we send the
+# full archive and let the cache absorb it. Override via config
+# ["lookback_min_hidden_ratio"]; set 0 to disable the gate (providers with no
+# prompt cache — lookback always helps there).
+DEFAULT_MIN_HIDDEN_RATIO = 2.0
+
 
 def _anchor_slack(n: int) -> int:
-    """Extra user turns the window may grow before re-anchoring."""
-    return max(2, n // 4)
+    """User turns the window may grow past ``n`` before re-anchoring.
+
+    Block re-anchoring: we let the window drift a full ``n`` extra user turns
+    (window grows n → 2n) before jumping the anchor back to n. Re-anchoring is
+    the *only* cache-busting event (it rewrites the conversation prefix), so
+    doing it every ~n turns — instead of the old n//4 — cuts the prefix
+    rewrites ~4x. Each rewrite carries more tokens, but under prefix caching a
+    few big writes amortize far better than many small ones.
+    """
+    return max(MIN_LOOKBACK_TURNS, n)
+
+
+def _msg_sig(m: dict) -> str:
+    """Cheap identity signature of an anchored message (role + content head).
+
+    Not a hash for security — just enough to detect that the message at a
+    stored index changed (e.g. after compaction) so we don't reuse a stale
+    anchor that now points at a different turn.
+    """
+    role = str(m.get("role", ""))
+    content = m.get("content")
+    if not isinstance(content, str):
+        content = str(content)
+    return f"{role}:{len(content)}:{content[:64]}"
+
+
+def _approx_size(messages: list) -> int:
+    """Rough char-count proxy for token weight of a message slice."""
+    total = 0
+    for m in messages or []:
+        c = m.get("content")
+        if isinstance(c, str):
+            total += len(c)
+        elif c is not None:
+            total += len(str(c))
+        tc = m.get("tool_calls")
+        if tc:
+            total += len(str(tc))
+    return total
+
+
+def _clear_anchor(config: dict | None) -> None:
+    if isinstance(config, dict):
+        config.pop(LOOKBACK_ANCHOR_KEY, None)
+        config.pop(LOOKBACK_ANCHOR_SIG_KEY, None)
 
 
 def _is_real_user(m: dict) -> bool:
@@ -113,42 +172,67 @@ def apply_lookback_window(
     n = lookback_turns(config) if turns is None else max(MIN_LOOKBACK_TURNS, min(MAX_LOOKBACK_TURNS, int(turns)))
     total = len(msgs)
     total_user = count_user_turns(msgs)
+    slack = _anchor_slack(n)
     meta: dict[str, Any] = {
         "enabled": on,
         "turns": n,
+        "slack": slack,
         "archive_messages": total,
         "archive_user_turns": total_user,
         "window_messages": total,
         "window_user_turns": total_user,
         "truncated": False,
+        "gated": False,
         "start_index": 0,
         "hidden_messages": 0,
     }
     if not on or total == 0:
-        if isinstance(config, dict):
-            config.pop(LOOKBACK_ANCHOR_KEY, None)
+        _clear_anchor(config)
         return msgs, meta
 
     # Hysteresis: reuse the previous start (anchor) while its window still
     # holds n..n+slack user turns. The API prefix then stays append-only
     # between jumps, so provider prompt caches keep hitting; we re-anchor
     # (one cache miss) only every ~slack user turns instead of every turn.
-    slack = _anchor_slack(n)
+    # The anchor is only trusted when the message still at that index matches
+    # the stored signature — otherwise compaction moved things and we re-anchor.
     start: int | None = None
     if isinstance(config, dict):
         anchor = config.get(LOOKBACK_ANCHOR_KEY)
+        sig = config.get(LOOKBACK_ANCHOR_SIG_KEY)
         if (isinstance(anchor, int) and 0 < anchor < total
-                and _is_real_user(msgs[anchor])):
+                and _is_real_user(msgs[anchor])
+                and (sig is None or sig == _msg_sig(msgs[anchor]))):
             w = count_user_turns(msgs[anchor:])
             if n <= w <= n + slack:
                 start = anchor
     if start is None:
         start = find_lookback_start(msgs, n)
-        if isinstance(config, dict):
-            config[LOOKBACK_ANCHOR_KEY] = start
 
     if start <= 0:
+        _clear_anchor(config)
         return msgs, meta
+
+    # Cache-aware gate: only truncate when the head we'd hide is meaningfully
+    # bigger than the window we'd keep. Otherwise dropping the front busts the
+    # prompt-cache prefix for a saving smaller than the lost cached-read
+    # discount — a net loss. When gated we send the full archive (cache-friendly)
+    # and drop the anchor so we retry cleanly once the archive outgrows the gate.
+    try:
+        ratio = float(config.get("lookback_min_hidden_ratio", DEFAULT_MIN_HIDDEN_RATIO)) if isinstance(config, dict) else DEFAULT_MIN_HIDDEN_RATIO
+    except (TypeError, ValueError):
+        ratio = DEFAULT_MIN_HIDDEN_RATIO
+    if ratio > 0:
+        head_size = _approx_size(msgs[:start])
+        win_size = _approx_size(msgs[start:]) or 1
+        if head_size < ratio * win_size:
+            _clear_anchor(config)
+            meta["gated"] = True
+            return msgs, meta
+
+    if isinstance(config, dict):
+        config[LOOKBACK_ANCHOR_KEY] = start
+        config[LOOKBACK_ANCHOR_SIG_KEY] = _msg_sig(msgs[start])
 
     window = msgs[start:]
     meta.update({
@@ -157,7 +241,6 @@ def apply_lookback_window(
         "window_messages": len(window),
         "window_user_turns": count_user_turns(window),
         "hidden_messages": start,
-        "slack": slack,
     })
     return window, meta
 
@@ -345,7 +428,9 @@ __all__ = [
     "DEFAULT_LOOKBACK_TURNS",
     "MIN_LOOKBACK_TURNS",
     "MAX_LOOKBACK_TURNS",
+    "DEFAULT_MIN_HIDDEN_RATIO",
     "LOOKBACK_ANCHOR_KEY",
+    "LOOKBACK_ANCHOR_SIG_KEY",
     "apply_lookback_window",
     "count_user_turns",
     "find_lookback_start",

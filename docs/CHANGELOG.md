@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.72] - 2026-08-08
+
+### Fixed
+- **`/lookback` was quietly restarting the prompt cache every few turns.** With
+  lookback ON the API window re-anchored every `n//4` user turns, and each
+  re-anchor drops the front of the conversation — which rewrites the whole
+  prefix and busts the provider prompt cache (a full write at ~1.25–2x price,
+  like starting a fresh session). Three fixes:
+  - **Block re-anchoring.** The window now drifts a full `n` turns (n → 2n)
+    before re-anchoring instead of `n//4`, cutting cache-busting rewrites ~4x.
+  - **Cache-aware gate.** When the hidden head isn't meaningfully bigger than
+    the window it would keep (`lookback_min_hidden_ratio`, default 2.0×),
+    lookback yields and sends the full archive so the cache keeps hitting —
+    front-truncation only wins when the archive is much larger than the window.
+    `/context` shows when the gate is active. Set the ratio to 0 to force
+    truncation (providers with no prompt cache).
+  - **Anchor signature.** The anchor now carries a byte-signature of its
+    message, so after context compaction rewrites the archive the window
+    realigns instead of reusing a stale index that points at the wrong turn.
+
 ## [3.10.71] - 2026-08-07
 
 ### Changed

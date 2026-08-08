@@ -2067,6 +2067,9 @@ def cmd_lookback(args: str, state, config) -> bool:
             if meta.get("truncated"):
                 info(f"Not sent to API:    {meta.get('hidden_messages', 0)} older messages "
                      f"(~{max(0, full_tok - win_tok):,} tokens saved this turn)")
+            elif meta.get("gated"):
+                info("Not sent to API:    0 — cache-aware gate: archive too small vs "
+                     "window, sending full so the prompt cache keeps hitting")
             else:
                 info("Not sent to API:    0 (archive still fits in the window)")
         info("Past essence: short_memory (system) · Full past: /loopback show|search")

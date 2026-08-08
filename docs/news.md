@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 8, 2026 (**v3.10.72**): **⚡ `/lookback` stops nuking the prompt cache.** With lookback ON the window re-anchored every few turns, and each re-anchor dropped the front of the chat — rewriting the whole prefix and busting the prompt cache like a brand-new session. Now it re-anchors ~4x less (block mode), auto-yields to the full archive when the cache would win anyway (cache-aware gate, shown in `/context`), and survives context compaction without misaligning. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 7, 2026 (**v3.10.71**): **🔭 Bigger `/lookback` presets.** The `/lookback` autocomplete now offers **50 / 150 / 250** user turns (was 5–50) — the small windows were cutting context now that each turn drags its whole tool trail. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 7, 2026 (**v3.10.70**): **⌨️ Quick menu fixed.** The `←←` (double-left-arrow) quick menu was silently broken — prompt_toolkit 3.0.52 dropped `run_in_terminal`, and the island's stdout wrapper made it render invisible. Now it opens and draws correctly (writes straight to the terminal). `pip install --upgrade dulus`. 🦅🇩🇴
