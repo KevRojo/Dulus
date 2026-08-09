@@ -125,6 +125,7 @@ Issues = "https://github.com/KevRojo/Dulus/issues"
 [tool.setuptools]
 py-modules = [
     "agent",
+    "algolia_search",
     "batch_api",
     "clipboard_utils",
     "cloudsave",
