@@ -762,6 +762,39 @@ def search_skillssh(query: Optional[str], limit: int = 10) -> list[dict]:
     if not query or not str(query).strip():
         return []
 
+    # ── ALGOLIA-FIRST (2026-08-09): our own dulus_skills index ─────────────
+    # ~1ms, typo-tolerant, 60k+ skills curated by votes — vs the throttled
+    # live APIs (10s+/req). Same output shape; any Algolia failure falls back
+    # to the live path below untouched. Kill-switch: DULUS_ALGOLIA=0.
+    try:
+        from algolia_search import INDEX_SKILLS, algolia_enabled, search_index
+
+        if algolia_enabled():
+            res = search_index(
+                INDEX_SKILLS, str(query).strip(),
+                page=0, hits_per_page=max(limit, 1),
+            )
+            if res is not None:
+                out: list[dict] = []
+                for hit in res["hits"]:
+                    repo = str(hit.get("repository") or "").strip()
+                    slug = str(hit.get("slug") or hit.get("name") or "").strip()
+                    name = str(hit.get("name") or slug).strip()
+                    if not repo or not slug:
+                        continue
+                    out.append({
+                        "id": f"skillssh/{repo}/{slug}",
+                        "skill": name,
+                        "name": name,
+                        "description": str(hit.get("description") or "")[:160],
+                        "repo": repo,
+                        "stars": int(hit.get("stars") or 0),
+                        "source": "skillssh",
+                    })
+                return out
+    except Exception:
+        pass  # fallback live below
+
     url = f"{_SKILLSSH_API}?q={urllib.parse.quote(str(query).strip())}"
     data = None
     try:
