@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.74] - 2026-08-09
+
+### Changed
+- **`/skill` search is now Algolia-backed — instant and typo-tolerant.** Skill
+  lookups query a hosted Algolia index (`dulus_skills`, 60k+ curated entries)
+  before the live skills.sh API, turning throttled 10s+/request crawls into
+  sub-millisecond, typo-tolerant results. The live path is untouched and still
+  runs as a fallback whenever Algolia is off or returns nothing. New stdlib-only
+  `algolia_search.py` client ships with a search-only public key (safe to
+  distribute) and a `DULUS_ALGOLIA=0` kill-switch; it never raises, so search
+  always degrades gracefully.
+
 ## [3.10.73] - 2026-08-08
 
 ### Added

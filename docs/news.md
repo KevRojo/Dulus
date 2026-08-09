@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 9, 2026 (**v3.10.74**): **⚡ `/skill` search got instant.** Skill lookups now hit our own **Algolia index** (60k+ curated skills) before the live API — **sub-millisecond, typo-tolerant** results instead of throttled 10s+ crawls. Type it a little wrong and it still finds it. The live path stays as a fallback, and a `DULUS_ALGOLIA=0` kill-switch turns it off if you ever want the old behavior. Search never breaks — it just degrades gracefully. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 8, 2026 (**v3.10.73**): **🎨 A fresh boot banner every time.** Dulus now greets you with a **different, curated ASCII logo on every launch** — ~42 hand-picked good-looking fonts (block / 3D / bold), painted in your **active theme's color** (`/theme`), rotating so no two boots look the same. The ugly/squished fonts are filtered out, the per-font label is gone, and it falls back to the Cigua eagle if anything's missing. Pure freshness, zero config. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 8, 2026 (**v3.10.72**): **⚡ `/lookback` stops nuking the prompt cache.** With lookback ON the window re-anchored every few turns, and each re-anchor dropped the front of the chat — rewriting the whole prefix and busting the prompt cache like a brand-new session. Now it re-anchors ~4x less (block mode), auto-yields to the full archive when the cache would win anyway (cache-aware gate, shown in `/context`), and survives context compaction without misaligning. `pip install --upgrade dulus`. 🦅🇩🇴
