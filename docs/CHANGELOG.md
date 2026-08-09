@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.73] - 2026-08-08
+
+### Added
+- **Rotating ASCII boot banner.** The startup logo now rotates through a curated
+  set of ~42 good-looking fonts (block / 3D / bold / clean) on every launch
+  instead of a single fixed logo — the flat, squished and oversized fonts in the
+  pack are filtered out. The ASCII is painted in the active theme's accent color
+  (follows `/theme`), with no per-font header line. Falls back to the Cigua eagle
+  logo (boot) or the block DULUS banner (`/clear`) if the pack is missing.
+  Rotation state lives under `~/.dulus`, so it works from a read-only install.
+
 ## [3.10.72] - 2026-08-08
 
 ### Fixed
