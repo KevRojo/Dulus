@@ -6008,10 +6008,15 @@ def stream_openai_compat(
     if tool_schemas and not config.get("no_tools") and not config.get("disable_parallel_tools"):
         _sys = _sys + (
             "\n\n[Tool use] Tools are executed for real by the Dulus harness. "
-            "When several actions are INDEPENDENT (e.g. reading multiple files, "
-            "separate searches), emit them as parallel tool calls in ONE response "
-            "instead of one per turn. Keep calling tools until you can give a "
-            "complete final answer. Never simulate tool results."
+            "CHAIN AGGRESSIVELY — every tool call is a round-trip that burns "
+            "tokens and time: (1) INDEPENDENT actions (multiple reads, searches, "
+            "fetches) → emit them ALL as parallel tool calls in ONE response, "
+            "never drip-feed one per turn. (2) DEPENDENT steps (scan → filter → "
+            "drill down) → run them INSIDE a single Python() or Bash() call, "
+            "not across turns. (3) Hunting through many files? Do the whole "
+            "hunt in the Python kernel (os.walk + regex over contents) — one "
+            "Python call beats 10 Grep/Glob round-trips. Keep calling tools "
+            "until you can give a complete final answer. Never simulate tool results."
         )
     oai_messages = [{"role": "system", "content": _sys}] + messages_to_openai(messages, model=model)
 

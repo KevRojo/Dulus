@@ -365,6 +365,10 @@ def _py_console(params: dict, config: dict) -> str:
 # ── registration ─────────────────────────────────────────────────────────────
 
 _DESCRIPTION = (
+    "⭐ FIRST-CHOICE TOOL for any multi-file investigation. If a task needs "
+    "more than ~2 Grep/Glob/Read calls, do the ENTIRE hunt here instead: "
+    "os.walk the tree, regex over file contents, parse JSON, then print only "
+    "the final slice. One Python call ≈ 10 search tool calls saved.\n\n"
     "Persistent Python console (REPL). State PERSISTS across calls within the "
     "session — variables, imports, and any data you assign stay alive between "
     "invocations. Runs in an ISOLATED subprocess kernel, so an infinite loop or "
