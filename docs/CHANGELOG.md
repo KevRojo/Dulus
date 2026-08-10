@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.10.74] - 2026-08-09
+## [3.10.75] - 2026-08-09
+
+### Changed
+- **`/mcp search` is now Algolia-backed too.** MCP server lookups query the
+  hosted `dulus_mcps` index (~3k servers, ~1ms, typo-tolerant) before the live
+  registry/awesome crawl, which walked thousands of entries and could take 10s+.
+  Same result shape; any Algolia miss or failure falls through to the full live
+  crawl untouched. Kill-switch: `DULUS_ALGOLIA=0`.
+- **Sharper efficiency prompting (the "Efficiency Law").** The system prompt and
+  the OpenAI-compatible tool-use guidance now push aggressive tool chaining:
+  emit independent calls in parallel in one turn, run dependent scan→filter→drill
+  steps inside a single Python()/Bash() call, and prefer one Python-kernel
+  `os.walk`+regex sweep over a string of Grep/Glob/Read round-trips. The Python
+  console is flagged as the first-choice tool for any multi-file investigation —
+  fewer round-trips, fewer tokens, faster answers.
 
 ### Changed
 - **`/skill` search is now Algolia-backed — instant and typo-tolerant.** Skill

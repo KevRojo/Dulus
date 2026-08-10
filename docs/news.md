@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 9, 2026 (**v3.10.75**): **⚡ `/mcp search` got instant too + smarter tool use.** MCP server search now hits our own **Algolia index** (~3k servers) before the slow live registry crawl — **~1ms, typo-tolerant** instead of 10s+. And Dulus now chains tools far more aggressively: independent calls fire in parallel, multi-step file hunts run in **one Python-kernel sweep** (`os.walk` + regex) instead of a dozen Grep/Read round-trips — fewer tokens, faster answers. `DULUS_ALGOLIA=0` opts out of Algolia. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 9, 2026 (**v3.10.74**): **⚡ `/skill` search got instant.** Skill lookups now hit our own **Algolia index** (60k+ curated skills) before the live API — **sub-millisecond, typo-tolerant** results instead of throttled 10s+ crawls. Type it a little wrong and it still finds it. The live path stays as a fallback, and a `DULUS_ALGOLIA=0` kill-switch turns it off if you ever want the old behavior. Search never breaks — it just degrades gracefully. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 8, 2026 (**v3.10.73**): **🎨 A fresh boot banner every time.** Dulus now greets you with a **different, curated ASCII logo on every launch** — ~42 hand-picked good-looking fonts (block / 3D / bold), painted in your **active theme's color** (`/theme`), rotating so no two boots look the same. The ugly/squished fonts are filtered out, the per-font label is gone, and it falls back to the Cigua eagle if anything's missing. Pure freshness, zero config. `pip install --upgrade dulus`. 🦅🇩🇴
