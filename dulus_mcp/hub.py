@@ -615,7 +615,50 @@ def list_all(query: Optional[str] = None, sources: Optional[list[str]] = None) -
 
 
 def search(query: str) -> list[MCPServerEntry]:
-    """Search across all sources for MCP servers matching query."""
+    """Search across all sources for MCP servers matching query.
+
+    Algolia-first: hit our hosted dulus_mcps index (~3k servers, ~1ms,
+    typo-tolerant) before the live registry/awesome crawl, which walks
+    thousands of entries and can take 10s+. Same MCPServerEntry shape; any
+    Algolia miss or failure falls through to the full live list_all() below.
+    Kill-switch: DULUS_ALGOLIA=0.
+    """
+    try:
+        from algolia_search import INDEX_MCPS, algolia_enabled, search_index
+
+        if algolia_enabled():
+            res = search_index(
+                INDEX_MCPS, str(query or "").strip(),
+                page=0, hits_per_page=50,
+            )
+            if res is not None and res["hits"]:
+                installed_names = {e.config_name.lower() for e in list_installed()}
+                src_map = {
+                    "official-registry": "registry",
+                    "awesome-mcp": "awesome",
+                    "composio": "registry",
+                }
+                out: list[MCPServerEntry] = []
+                for hit in res["hits"]:
+                    name = str(hit.get("name") or "").strip()
+                    if not name:
+                        continue
+                    out.append(MCPServerEntry(
+                        name=name,
+                        description=str(hit.get("description") or ""),
+                        source=src_map.get(str(hit.get("source") or ""), "registry"),
+                        command="",
+                        args=[],
+                        env={},
+                        url=str(hit.get("url") or ""),
+                        transport=str(hit.get("transport") or "stdio"),
+                        installed=name.lower() in installed_names,
+                        config_name=name,
+                    ))
+                if out:
+                    return out
+    except Exception:
+        pass  # fall back to the live crawl
     return list_all(query)
 
 
