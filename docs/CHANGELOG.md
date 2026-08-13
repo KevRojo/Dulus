@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.76] - 2026-08-13
+
+### Changed
+- **Quick menu now opens on double-tap `↓↓` instead of `←←`.** The left-arrow
+  trigger claimed the exact key you press to move the cursor back and fix a
+  word — so editing a typo could summon the whole menu. It's bound to the Down
+  arrow now (a single `↓` still moves down / steps through history), so it stays
+  out of the way while you edit. The `/menu` command is unchanged.
+
 ## [3.10.75] - 2026-08-09
 
 ### Changed
