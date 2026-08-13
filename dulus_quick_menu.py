@@ -1,4 +1,4 @@
-"""Dulus Quick Menu — popup triggered by double-tap ← in the REPL.
+"""Dulus Quick Menu — popup triggered by double-tap ↓ in the REPL.
 
 Optional, hot-pluggable module.  If this file is missing, Dulus keeps running
 exactly as before because `input.py` imports it inside a bare `try/except`.
@@ -7,8 +7,8 @@ Requirements (optional):
     pip install rich prompt_toolkit
 
 What it does:
-    • Registers a prompt_toolkit key binding on "left".
-    • If the user presses the Left Arrow twice within ~0.28 s, a full-screen
+    • Registers a prompt_toolkit key binding on "down".
+    • If the user presses the Down Arrow twice within ~0.28 s, a full-screen
       rich menu pops up.
     • Navigate with ↑/↓, pick with Enter, cancel with Esc or Q.
     • The selected slash command is inserted into the current input buffer.
@@ -69,8 +69,8 @@ try:
 except Exception:
     _OPTIONS = _OPTIONS_TOP + _OPTIONS_BOTTOM
 
-_DOUBLE_TAP_WINDOW = 1.0  # seconds between two ← to count as a double-tap
-_LEFT_TIMES: list[float] = []
+_DOUBLE_TAP_WINDOW = 1.0  # seconds between two ↓ to count as a double-tap
+_DOWN_TIMES: list[float] = []
 
 
 # ── Low-level key reader (cross-platform) ────────────────────────────────────
@@ -131,12 +131,12 @@ def _read_raw_key() -> str:
 # ── Double-tap detector ──────────────────────────────────────────────────────
 def _is_double_tap() -> bool:
     now = time.monotonic()
-    _LEFT_TIMES.append(now)
-    while len(_LEFT_TIMES) > 2:
-        _LEFT_TIMES.pop(0)
-    if len(_LEFT_TIMES) != 2:
+    _DOWN_TIMES.append(now)
+    while len(_DOWN_TIMES) > 2:
+        _DOWN_TIMES.pop(0)
+    if len(_DOWN_TIMES) != 2:
         return False
-    return (_LEFT_TIMES[1] - _LEFT_TIMES[0]) <= _DOUBLE_TAP_WINDOW
+    return (_DOWN_TIMES[1] - _DOWN_TIMES[0]) <= _DOUBLE_TAP_WINDOW
 
 
 # ── Menu rendering ───────────────────────────────────────────────────────────
@@ -271,19 +271,18 @@ def _open_menu(event: Any) -> None:
 
 
 def register_key_bindings(kb: Any) -> None:
-    """Hook double-tap Left Arrow into the prompt_toolkit session."""
+    """Hook double-tap Down Arrow into the prompt_toolkit session."""
     if not HAS_PROMPT_TOOLKIT:
         return
 
-    @kb.add("left", eager=True)
-    def _left_double_tap(event: Any) -> None:
+    @kb.add("down", eager=True)
+    def _down_double_tap(event: Any) -> None:
         if _is_double_tap():
             _open_menu(event)
         else:
-            # Default cursor-left behavior since we claimed the binding eagerly.
-            buf = event.app.current_buffer
-            if buf.cursor_position > 0:
-                buf.cursor_position -= 1
+            # Default down-arrow behavior since we claimed the binding eagerly
+            # (move down a line, or step forward through history).
+            event.app.current_buffer.auto_down(count=1)
 
 
 # Smoke test when run directly.
