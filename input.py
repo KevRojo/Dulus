@@ -743,7 +743,7 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     # Key bindings
     kb = KeyBindings()
 
-    # Double-tap ← opens the Dulus quick menu (effort / thinking / model / …).
+    # Double-tap ↓ opens the Dulus quick menu (effort / thinking / model / …).
     # Optional module: guarded so a missing/broken file never breaks input.
     try:
         import dulus_quick_menu as _quick_menu_split

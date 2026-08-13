@@ -2699,7 +2699,7 @@ def cmd_max_fix(args: str, _state, config) -> bool:
 
 
 def cmd_menu(_args: str, state, config) -> bool:
-    """Open the quick menu (same popup as double-tapping ← ←) and run the pick."""
+    """Open the quick menu (same popup as double-tapping ↓ ↓) and run the pick."""
     try:
         from dulus_quick_menu import show_quick_menu
     except Exception as e:
