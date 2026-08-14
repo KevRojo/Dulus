@@ -176,6 +176,14 @@ iwr -useb https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex
 
 Windows users who do not want Python or a terminal can download the self-contained MSI from [GitHub Releases](https://github.com/KevRojo/Dulus/releases).
 
+### Dulus for Windows — desktop app (alpha/beta trial)
+
+The full **Dulus desktop app** for Windows is now in open trial. No Python, no terminal, no API key — download, install, sign in, and go.
+
+**[⬇️ Dulus Windows Trial setup (alpha/beta)](https://drive.google.com/file/d/1Nxz_coVpXRwKQB7baI_0nG12-p1cLznZ/view)**
+
+It is early — expect rough edges, and tell us about them in [Issues](https://github.com/KevRojo/Dulus/issues). The CLI in this repository stays free and open source; the desktop app is the same engine with a face.
+
 ### Docker
 
 ```bash

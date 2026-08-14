@@ -10669,14 +10669,20 @@ def cmd_claude_batch(args: str, _state, config) -> bool:
 def cmd_buy_dulus(_args: str, _state, _config) -> bool:
     """Open the $DULUS DexScreener page. Temporary / undocumented — not in /help."""
     url = "https://tinyurl.com/DulusDexScreener"
+    trial_url = "https://drive.google.com/file/d/1Nxz_coVpXRwKQB7baI_0nG12-p1cLznZ/view"
     try:
         from cli_animations.ansi import gradient_text, ORANGE, CYAN
         styled = gradient_text(url, ORANGE, CYAN)
+        styled_trial = gradient_text(trial_url, ORANGE, CYAN)
     except Exception:
         styled = url
+        styled_trial = trial_url
     print()
     print(clr("  buy $dulus", "bold"))
     print(f"  {styled}")
+    print()
+    print(clr("  Dulus Windows Trial setup (alpha/beta)", "bold"))
+    print(f"  {styled_trial}")
     print()
     try:
         import webbrowser
