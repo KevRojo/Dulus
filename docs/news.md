@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 14, 2026: **🖥️ The Dulus desktop app for Windows is out in open trial (alpha/beta).** Same engine you've been running in the terminal — now with a face. No Python, no terminal, no API key: download, install, sign in, go. **[⬇️ Dulus Windows Trial setup (alpha/beta)](https://drive.google.com/file/d/1Nxz_coVpXRwKQB7baI_0nG12-p1cLznZ/view)**. It is early and it will have rough edges — that's the point of a trial, so [file what breaks](https://github.com/KevRojo/Dulus/issues). The CLI in this repo stays free and open source, forever. 🦅🇩🇴
+
 - August 13, 2026 (**v3.10.76**): **⌨️ Quick menu moved to `↓↓`.** It used to open on double-tap `←←` — which happens to be the exact key you press to go back and fix one word, so editing a typo kept ambushing you with a menu. Now it's **double-tap Down (`↓↓`)**; a single `↓` still just moves down / walks history. Fewer accidental menus, same fast effort/thinking/model switcher. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 9, 2026 (**v3.10.75**): **⚡ `/mcp search` got instant too + smarter tool use.** MCP server search now hits our own **Algolia index** (~3k servers) before the slow live registry crawl — **~1ms, typo-tolerant** instead of 10s+. And Dulus now chains tools far more aggressively: independent calls fire in parallel, multi-step file hunts run in **one Python-kernel sweep** (`os.walk` + regex) instead of a dozen Grep/Read round-trips — fewer tokens, faster answers. `DULUS_ALGOLIA=0` opts out of Algolia. `pip install --upgrade dulus`. 🦅🇩🇴
