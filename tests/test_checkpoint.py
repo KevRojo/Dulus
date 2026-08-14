@@ -456,3 +456,78 @@ class TestIntegration:
         state.turn_count = snap1.turn_count
         assert len(state.messages) == 0
         assert state.turn_count == 0
+
+
+class TestDiskBudget:
+    """Regression tests for the ENOSPC incident.
+
+    A user's server filled its disk and pathlib.mkdir raised OSError straight
+    out of the checkpoint store, killing the session. Age-based cleanup could
+    not have prevented it: MAX_SNAPSHOTS bounds snapshots per session, but
+    nothing bounded the number of sessions before the 30-day cutoff applied.
+    """
+
+    def test_enforce_store_budget_evicts_oldest_first(self, tmp_home):
+        import time as _time
+        from checkpoint import store
+
+        _tmp, ckpt_root = tmp_home
+        for name in ("old", "mid", "new"):
+            d = ckpt_root / name
+            (d / "backups").mkdir(parents=True)
+            (d / "backups" / "blob").write_bytes(b"x" * 4096)
+
+        now = _time.time()
+        os.utime(ckpt_root / "old", (now - 9000, now - 9000))
+        os.utime(ckpt_root / "mid", (now - 6000, now - 6000))
+        os.utime(ckpt_root / "new", (now - 10, now - 10))
+
+        # Force the store over budget so eviction has to run.
+        with patch.object(store, "_MAX_STORE_BYTES", 6000):
+            removed = store.enforce_store_budget()
+
+        assert removed >= 1
+        # Newest session must survive; oldest must be the first to go.
+        assert (ckpt_root / "new").exists()
+        assert not (ckpt_root / "old").exists()
+
+    def test_enforce_store_budget_noop_when_under_budget(self, tmp_home):
+        from checkpoint import store
+
+        _tmp, ckpt_root = tmp_home
+        d = ckpt_root / "session-a"
+        (d / "backups").mkdir(parents=True)
+        (d / "backups" / "blob").write_bytes(b"x" * 128)
+
+        assert store.enforce_store_budget() == 0
+        assert d.exists()
+
+    def test_track_file_edit_skips_when_disk_is_full(self, tmp_home, tmp_path):
+        """No backup should be written when the disk is nearly full."""
+        from checkpoint import store
+
+        target = tmp_path / "code.py"
+        target.write_text("print('hi')", encoding="utf-8")
+
+        with patch.object(store, "_has_room_for_backups", return_value=False):
+            result = store.track_file_edit("session-full", str(target))
+
+        assert result is None
+
+    def test_safe_mkdir_swallows_enospc(self, tmp_home):
+        """A full disk must not raise out of the checkpoint store."""
+        from checkpoint import store
+
+        with patch.object(
+            Path, "mkdir", side_effect=OSError(28, "No space left on device")
+        ):
+            assert store._safe_mkdir(Path("/whatever/nested")) is False
+
+    def test_save_snapshots_survives_enospc(self, tmp_home):
+        """Persisting snapshots must degrade, not crash, on a full disk."""
+        from checkpoint import store
+
+        with patch.object(
+            Path, "write_text", side_effect=OSError(28, "No space left on device")
+        ):
+            store._save_snapshots("session-x", [])  # must not raise

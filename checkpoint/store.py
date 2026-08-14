@@ -22,6 +22,18 @@ from .types import FileBackup, Snapshot, MAX_SNAPSHOTS
 # Max file size to back up (1 MB)
 _MAX_FILE_SIZE = 1 * 1024 * 1024
 
+# Hard ceiling for the whole checkpoint store. Age-based cleanup alone cannot
+# bound this: MAX_SNAPSHOTS caps snapshots *per session*, but nothing capped
+# the number of sessions, so a busy machine could accumulate gigabytes long
+# before the 30-day cutoff ever applied. Sentry caught exactly that in the
+# wild -- ENOSPC from mkdir under ~/.dulus/checkpoints on a user's server.
+_MAX_STORE_BYTES = 512 * 1024 * 1024
+
+# Free space below which we stop writing new backups entirely. Checkpoints are
+# a convenience feature; they must never be the reason a user's disk fills up
+# or their session dies.
+_MIN_FREE_BYTES = 256 * 1024 * 1024
+
 # Per-file version counters (reset per session)
 _file_versions: dict[str, int] = {}
 
@@ -34,21 +46,119 @@ def _session_dir(session_id: str) -> Path:
     return _checkpoints_root() / session_id
 
 
+def _safe_mkdir(path: Path) -> bool:
+    """mkdir -p that never raises.
+
+    A full disk raised OSError(ENOSPC) straight out of pathlib.mkdir and took
+    the whole session down with it. Checkpointing is optional; failing to
+    create its directory must degrade silently, not crash the caller.
+    """
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        return True
+    except OSError:
+        return False
+
+
 def _backups_dir(session_id: str) -> Path:
     d = _session_dir(session_id) / "backups"
-    d.mkdir(parents=True, exist_ok=True)
+    _safe_mkdir(d)
     return d
 
 
 def _snapshots_file(session_id: str) -> Path:
     d = _session_dir(session_id)
-    d.mkdir(parents=True, exist_ok=True)
+    _safe_mkdir(d)
     return d / "snapshots.json"
 
 
 def _path_hash(file_path: str) -> str:
     """Deterministic short hash from file path (not content)."""
     return hashlib.sha256(file_path.encode()).hexdigest()[:16]
+
+
+def _dir_size(path: Path) -> int:
+    """Total bytes under path. Best-effort: unreadable entries are skipped."""
+    total = 0
+    try:
+        for entry in path.rglob("*"):
+            try:
+                if entry.is_file():
+                    total += entry.stat().st_size
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return total
+
+
+def _free_bytes(path: Path) -> int | None:
+    """Free space on the filesystem holding path, or None if undeterminable."""
+    try:
+        return shutil.disk_usage(str(path)).free
+    except OSError:
+        return None
+
+
+def _has_room_for_backups() -> bool:
+    """Whether it is safe to write another backup.
+
+    Returns False when the store has grown past its ceiling or the disk is
+    nearly full. Callers must degrade gracefully: losing a checkpoint is
+    acceptable, killing the user's session with ENOSPC is not.
+    """
+    root = _checkpoints_root()
+    free = _free_bytes(root if root.exists() else root.parent)
+    if free is not None and free < _MIN_FREE_BYTES:
+        return False
+    return _dir_size(root) < _MAX_STORE_BYTES
+
+
+def enforce_store_budget() -> int:
+    """Evict oldest sessions until the store fits in _MAX_STORE_BYTES.
+
+    Age-based cleanup runs on a 30-day cutoff, which is far too slow for a
+    machine that opens many sessions a day. This is the size-based backstop.
+    Returns the number of sessions removed.
+    """
+    root = _checkpoints_root()
+    if not root.exists():
+        return 0
+
+    size = _dir_size(root)
+    free = _free_bytes(root)
+    over_budget = size > _MAX_STORE_BYTES
+    low_disk = free is not None and free < _MIN_FREE_BYTES
+    if not (over_budget or low_disk):
+        return 0
+
+    try:
+        sessions = [d for d in root.iterdir() if d.is_dir()]
+    except OSError:
+        return 0
+
+    # Oldest first, so recent (likely resumable) sessions survive.
+    def _mtime(d: Path) -> float:
+        try:
+            return d.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    sessions.sort(key=_mtime)
+
+    # When the disk itself is tight, free space aggressively rather than
+    # stopping at the store ceiling.
+    target = _MAX_STORE_BYTES // 2 if low_disk else _MAX_STORE_BYTES
+
+    removed = 0
+    for d in sessions:
+        if size <= target:
+            break
+        freed = _dir_size(d)
+        shutil.rmtree(str(d), ignore_errors=True)
+        size -= freed
+        removed += 1
+    return removed
 
 
 def _next_version(file_path: str) -> int:
@@ -72,9 +182,14 @@ def _load_snapshots(session_id: str) -> list[Snapshot]:
 
 def _save_snapshots(session_id: str, snapshots: list[Snapshot]) -> None:
     f = _snapshots_file(session_id)
-    f.parent.mkdir(parents=True, exist_ok=True)
+    if not _safe_mkdir(f.parent):
+        return
     data = [s.to_dict() for s in snapshots]
-    f.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    try:
+        f.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError as e:
+        # ENOSPC and friends: drop the checkpoint rather than the session.
+        print(f"[checkpoint] could not persist snapshots: {e}")
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
@@ -99,6 +214,12 @@ def track_file_edit(session_id: str, file_path: str) -> str | None:
     if size > _MAX_FILE_SIZE:
         print(f"[checkpoint] skipping large file ({size} bytes): {file_path}")
         return None
+
+    # Disk guard: never let a convenience feature fill the user's disk.
+    if not _has_room_for_backups():
+        enforce_store_budget()
+        if not _has_room_for_backups():
+            return None
 
     # Copy file to backups/
     version = _next_version(file_path)

@@ -9,6 +9,7 @@ from .store import (
     files_changed_since,
     delete_session_checkpoints,
     cleanup_old_sessions,
+    enforce_store_budget,
     reset_file_versions,
 )
 from .hooks import (
@@ -22,6 +23,7 @@ __all__ = [
     "FileBackup", "Snapshot", "MAX_SNAPSHOTS",
     "track_file_edit", "make_snapshot", "list_snapshots", "get_snapshot",
     "rewind_files", "files_changed_since",
-    "delete_session_checkpoints", "cleanup_old_sessions", "reset_file_versions",
+    "delete_session_checkpoints", "cleanup_old_sessions", "enforce_store_budget",
+    "reset_file_versions",
     "set_session", "get_tracked_edits", "reset_tracked", "install_hooks",
 ]

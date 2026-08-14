@@ -11564,6 +11564,14 @@ def repl(config: dict, initial_prompt: str | None = None):
 
     ckpt.set_session(session_id)
     ckpt.cleanup_old_sessions()
+    # Age-based cleanup only evicts sessions older than 30 days, which is far
+    # too slow for a machine that opens many sessions a day. Enforce the size
+    # ceiling too, otherwise the store grows until the disk runs out (observed
+    # in the wild: ENOSPC under ~/.dulus/checkpoints on a user's server).
+    try:
+        ckpt.enforce_store_budget()
+    except Exception:
+        pass
     # Initial snapshot: capture the "blank slate" before any prompts
     ckpt.make_snapshot(session_id, state, config, "(initial state)", tracked_edits=None)
 
