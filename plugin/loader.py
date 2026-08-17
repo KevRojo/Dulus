@@ -24,6 +24,30 @@ from .store import list_plugins
 from .types import PluginEntry, PluginScope
 
 
+def _active_profile_name() -> str:
+    """Name of the active profile ('default' when none / on error)."""
+    try:
+        from profiles import active_profile
+        return active_profile()
+    except Exception:
+        return "default"
+
+
+def _origin_key(entry: PluginEntry) -> str:
+    """Stable tag identifying WHERE a plugin's tools came from.
+
+    Keyed on the resolved install directory rather than the plugin name, because
+    the same name can legitimately exist in several places at once (the core
+    base and one or more profiles). Two plugins sharing a name but living in
+    different directories are different code and must not be conflated.
+    """
+    try:
+        install = str(entry.install_dir.resolve()).lower()
+    except Exception:
+        install = str(entry.install_dir).lower()
+    return f"plugin::{entry.scope.value}::{install}"
+
+
 def load_all_plugins(scope: PluginScope | None = None) -> list[PluginEntry]:
     """Return enabled plugins (optionally filtered by scope)."""
     return [p for p in list_plugins(scope) if p.enabled]
@@ -50,29 +74,43 @@ def reload_plugins(scope: PluginScope | None = None) -> dict:
     Reload all plugins and register their tools.
     Returns a dict with counts of what was reloaded.
     """
-    # Clear any cached plugin modules to force re-import
+    # Clear any cached plugin modules to force re-import. Keys are namespaced by
+    # scope + install-dir digest (see `_module_key`), so this still matches them
+    # all while never touching unrelated modules.
     import sys
-    modules_to_remove = [k for k in sys.modules.keys() if k.startswith("_plugin_")]
+    modules_to_remove = [k for k in list(sys.modules) if k.startswith("_plugin_")]
     for mod_name in modules_to_remove:
         del sys.modules[mod_name]
-    
-    # Re-register tools
+
+    # Re-register tools (prunes tools whose plugin is no longer eligible)
     tool_count = register_plugin_tools(scope)
-    
+
     return {
         "tools_registered": tool_count,
         "modules_cleared": len(modules_to_remove),
     }
 
 
-def register_plugin_tools(scope: PluginScope | None = None) -> int:
+def register_plugin_tools(scope: PluginScope | None = None, *, prune: bool = True) -> int:
     """
     Import tool modules from enabled plugins and register them into tool_registry.
     Returns number of tools registered.
+
+    Atomic swap: the tools of every currently-eligible plugin are registered
+    FIRST, and only afterwards are the tools of plugins that are no longer
+    eligible retired. There is never a moment with an empty tool surface, and a
+    profile switch can no longer leave the previous profile's tools behind.
+
+    `prune=False` keeps the additive behaviour, for callers that intentionally
+    register a single extra scope on top of what is already loaded.
     """
-    from tool_registry import register_tool, ToolDef
+    from tool_registry import register_tool, unregister_origins_except
+
     count = 0
+    live_origins: set[str] = set()
     for entry in load_all_plugins(scope):
+        origin = _origin_key(entry)
+        live_origins.add(origin)
         if not entry.manifest or not entry.manifest.tools:
             continue
         for module_name in entry.manifest.tools:
@@ -89,12 +127,30 @@ def register_plugin_tools(scope: PluginScope | None = None) -> int:
                             sch["input_schema"] = sch["parameters"]
                         elif "parameters" not in sch and "input_schema" in sch:
                             sch["parameters"] = sch["input_schema"]
-                        
+
                         # Scrub invalid 'any' types
                         tdef.schema = scrub_any_type(sch)
-                    
-                    register_tool(tdef)
+
+                    register_tool(tdef, origin=origin)
                     count += 1
+
+    if prune:
+        if scope is not None:
+            # Scoped call: only retire origins belonging to that same scope, so
+            # registering one scope never wipes the other's tools.
+            prefix = f"plugin::{scope.value}::"
+            try:
+                from tool_registry import _registry_origin  # type: ignore
+                keep = {
+                    o for o in set(_registry_origin.values())
+                    if o in live_origins or not o.startswith(prefix)
+                }
+            except Exception:
+                keep = live_origins
+        else:
+            keep = live_origins
+        unregister_origins_except(keep)
+
     return count
 
 
@@ -124,15 +180,26 @@ def load_plugin_mcp_configs(scope: PluginScope | None = None) -> dict:
     return configs
 
 
+def _module_key(entry: PluginEntry, module_name: str) -> str:
+    """Collision-free sys.modules key for a plugin module.
+
+    The key MUST encode the install directory. Keying only on the plugin name
+    meant that a plugin present in both the core base and a profile resolved to
+    whichever copy was imported first — permanently, for the whole process —
+    so one profile silently executed another profile's code.
+    """
+    import hashlib
+    try:
+        install = str(entry.install_dir.resolve()).lower()
+    except Exception:
+        install = str(entry.install_dir).lower()
+    digest = hashlib.sha256(install.encode("utf-8", "replace")).hexdigest()[:10]
+    return f"_plugin_{entry.scope.value}_{digest}_{entry.name}_{module_name}"
+
+
 def _import_plugin_module(entry: PluginEntry, module_name: str):
     """Dynamically import a module from a plugin directory."""
-    # Ensure plugin dir is on sys.path
-    plugin_dir_str = str(entry.install_dir)
-    if plugin_dir_str not in sys.path:
-        sys.path.insert(0, plugin_dir_str)
-
-    # Build a unique module name to avoid collisions
-    unique_name = f"_plugin_{entry.name}_{module_name}"
+    unique_name = _module_key(entry, module_name)
     if unique_name in sys.modules:
         return sys.modules[unique_name]
 
@@ -141,16 +208,30 @@ def _import_plugin_module(entry: PluginEntry, module_name: str):
         entry.install_dir / f"{module_name}.py",
         entry.install_dir / module_name / "__init__.py",
     ]
+    plugin_dir_str = str(entry.install_dir)
     for candidate in candidates:
         if candidate.exists():
             spec = importlib.util.spec_from_file_location(unique_name, candidate)
             if spec and spec.loader:
                 mod = importlib.util.module_from_spec(spec)
                 sys.modules[unique_name] = mod
+                # Expose the plugin dir on sys.path ONLY while its module body
+                # executes, so a sibling `import helpers` still resolves, but the
+                # entry does not linger and shadow another plugin's modules for
+                # the rest of the process.
+                _added = plugin_dir_str not in sys.path
+                if _added:
+                    sys.path.insert(0, plugin_dir_str)
                 try:
                     spec.loader.exec_module(mod)
                     return mod
                 except Exception as e:
                     print(f"[plugin] Failed to load {module_name} from {entry.name}: {e}")
                     del sys.modules[unique_name]
+                finally:
+                    if _added:
+                        try:
+                            sys.path.remove(plugin_dir_str)
+                        except ValueError:
+                            pass
     return None
