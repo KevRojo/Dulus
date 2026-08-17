@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.79] - 2026-08-17
+
+### Fixed
+- **Web-login harvest no longer hits an "unsupported browser" page.** The
+  harvest browser overrode its user-agent with a hardcoded, years-out-of-date
+  Chrome/123 string, so sites like Gemini and Qwen rejected it and never let
+  the session be captured. It now lets real Chrome report its own current
+  user-agent.
+
 ## [3.10.76] - 2026-08-13
 
 ### Changed

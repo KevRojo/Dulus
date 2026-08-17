@@ -380,7 +380,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.10.78"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.10.79"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -3466,7 +3466,10 @@ def _launch_harvest_browser(p, pw_profile, headless):
             "--no-default-browser-check",
             "--disable-dev-shm-usage",  # small /dev/shm in containers crashes Chrome
         ],
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        # No user_agent override — channel="chrome" runs real Chrome, so letting
+        # it report its own current UA keeps sites from bouncing the harvest to
+        # an "unsupported/outdated browser" page (a hardcoded Chrome/123 read as
+        # years out of date).
         viewport={"width": 1400, "height": 900},
         timeout=60000,
     )
@@ -3742,7 +3745,8 @@ def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
                     "--disable-blink-features=AutomationControlled",
                     "--disable-infobars",
                 ],
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+                # No user_agent override — real Chrome reports its own current
+                # UA, so sites don't reject the harvest as an outdated browser.
                 viewport={"width": 1400, "height": 900},
                 timeout=60000,
             )
@@ -3890,7 +3894,8 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
                     "--disable-blink-features=AutomationControlled",
                     "--disable-infobars",
                 ],
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+                # No user_agent override — real Chrome reports its own current
+                # UA, so sites don't reject the harvest as an outdated browser.
                 viewport={"width": 1400, "height": 900},
                 timeout=60000,
             )
