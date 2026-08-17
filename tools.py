@@ -2460,12 +2460,10 @@ import dulus_mcp.tools as _mcp_tools  # noqa: F401
 
 
 # ── Plugin tools ───────────────────────────────────────────────────────────────
-# Load tools contributed by installed+enabled plugins.
-try:
-    from plugin.loader import register_plugin_tools as _reg_plugin_tools
-    _reg_plugin_tools()
-except Exception as _plugin_err:
-    pass  # Plugin loading is best-effort; never crash startup
+# Registration happens ONCE, at the bottom of this module (see the
+# `register_plugin_tools()` call after the core tools are defined). It used to
+# run here as well, which meant every plugin module was imported and every tool
+# registered twice on each startup.
 
 
 # ── Task tools (TaskCreate, TaskUpdate, TaskGet, TaskList) ─────────────────────

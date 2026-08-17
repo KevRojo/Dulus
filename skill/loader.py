@@ -43,8 +43,24 @@ def _get_skill_paths() -> list[Path]:
     """
     paths = [
         Path.cwd() / ".dulus-context" / "skills",   # project-level (highest)
-        Path.home() / ".dulus" / "skills",          # user-level
     ]
+    # A NAMED profile is a lean agent: it loads ONLY its own skills (plus the
+    # bundled ones that ship with Dulus). It does NOT inherit the user's
+    # personal ~/.dulus/skills pile unless it opted into full inheritance. The
+    # default profile keeps the user skills (it IS the base).
+    named_profile = False
+    inherit = False
+    try:
+        from profiles import profile_skills_dir, inherits_core
+        pdir = profile_skills_dir()
+        if pdir:
+            named_profile = True
+            inherit = inherits_core()
+            paths.append(pdir)                       # profile-level
+    except Exception:
+        pass
+    if (not named_profile) or inherit:
+        paths.append(Path.home() / ".dulus" / "skills")  # user-level (base)
     bundled = Path(__file__).resolve().parent / "bundled"
     if bundled.is_dir():
         paths.append(bundled)                        # bundled (lowest)

@@ -4538,6 +4538,24 @@ def _current_workspace_name() -> str | None:
     return None
 
 
+def _rebind_scoped_capabilities() -> None:
+    """Re-resolve everything that is scoped to the working directory.
+
+    Project-scoped plugins live in `<cwd>/.dulus-context/plugins`, and the tool
+    registry is populated when `tools` is imported — which happens long before
+    the process moves into the active workspace. Without this, a workspace's own
+    plugins were listed but never actually loaded (and, after a switch, the
+    previous workspace's plugins stayed loaded). Re-registering after every cwd
+    change keeps the loaded surface equal to the advertised one.
+    """
+    try:
+        from plugin.loader import register_plugin_tools
+        from plugin.types import PluginScope
+        register_plugin_tools(PluginScope.PROJECT)
+    except Exception:
+        pass
+
+
 def _activate_workspace(name: str, config: dict) -> bool:
     """Change cwd into workspace, create it if missing, and persist as last used."""
     from config import save_config
@@ -4549,6 +4567,8 @@ def _activate_workspace(name: str, config: dict) -> bool:
         # Directory changed — git info is stale
         if _git_prompt is not None:
             _git_prompt.reset_git_cache()
+        # ...and so are the project-scoped plugins/skills.
+        _rebind_scoped_capabilities()
         return True
     except Exception as e:
         err(f"No pude cambiar al workspace '{name}': {e}")
@@ -4563,6 +4583,9 @@ def _apply_workspace(config: dict) -> None:
         _ensure_workspace(last)
     try:
         os.chdir(ws)
+        # The tool registry was built against the launch directory; rebind it to
+        # the workspace we just entered.
+        _rebind_scoped_capabilities()
         if config.get("verbose", False):
             info(f"Workspace activo: {last}")
     except Exception as e:
@@ -9442,10 +9465,15 @@ def cmd_profile(args: str, state, config) -> bool:
             P.apply_profile_config(config)
         except Exception:
             pass
-        # Hot-load the profile's plugin tools (hybrid: adds on top of core).
+        # Swap the plugin tool surface to the incoming profile. This must be a
+        # RELOAD, not a plain register: a plain register only adds, so the
+        # outgoing profile's tools stayed in the registry and the model kept
+        # being told about tools it could no longer legitimately use.
+        # reload_plugins() drops the cached plugin modules and prunes any tool
+        # whose plugin is not part of the new profile.
         try:
-            from plugin.loader import register_plugin_tools
-            register_plugin_tools()
+            from plugin.loader import reload_plugins
+            reload_plugins()
         except Exception:
             pass
         ok(msg + "  (persona, skills, plugins & conciencia now active)")

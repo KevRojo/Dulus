@@ -60,17 +60,62 @@ def get_project_memory_dir() -> Path:
     return Path.cwd() / ".dulus-context" / "memory"
 
 
+def _profile_memory_dir() -> Path | None:
+    """Memory dir of the active named profile, or None for the base."""
+    try:
+        from profiles import profile_memory_dir
+        return profile_memory_dir()
+    except Exception:
+        return None
+
+
+def _profile_inherits_core() -> bool:
+    try:
+        from profiles import inherits_core
+        return bool(inherits_core())
+    except Exception:
+        return False
+
+
 def get_memory_dir(scope: str = "user") -> Path:
-    """Return the memory directory for the given scope.
+    """Return the memory directory WRITES should go to, for the given scope.
+
+    A named profile is a separate agent and owns a separate memory: writing into
+    the shared base would leak one agent's notes into every other profile. The
+    'default' profile IS the base, so this collapses to the previous behavior.
 
     Args:
-        scope: "user" (global DULUS_HOME/memory) or
+        scope: "user" (active profile's memory, or DULUS_HOME/memory) or
                "project" (.dulus-context/memory relative to cwd)
     """
     if scope == "project":
         return get_project_memory_dir()
+    pdir = _profile_memory_dir()
+    if pdir is not None:
+        try:
+            pdir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return pdir
     # Re-resolve so DULUS_HOME env overrides always win
     return _user_memory_dir()
+
+
+def get_memory_read_dirs(scope: str = "user") -> list[Path]:
+    """Directories to READ memories from, in priority order (first wins).
+
+    Mirrors the skill loader: a named profile reads its own memory, and the base
+    only when it opted into full inheritance. Writes always land in the first
+    directory (see `get_memory_dir`).
+    """
+    if scope == "project":
+        return [get_project_memory_dir()]
+    pdir = _profile_memory_dir()
+    if pdir is None:
+        return [_user_memory_dir()]
+    if _profile_inherits_core():
+        return [pdir, _user_memory_dir()]
+    return [pdir]
 
 
 # ── Data model ─────────────────────────────────────────────────────────────
@@ -275,33 +320,42 @@ def load_entries(scope: str = "user") -> list[MemoryEntry]:
     Returns:
         List of MemoryEntry sorted alphabetically by name.
     """
-    mem_dir = get_memory_dir(scope)
-    if not mem_dir.exists():
-        return []
     entries: list[MemoryEntry] = []
-    for fp in sorted(mem_dir.glob("*.md")):
-        if fp.name == INDEX_FILENAME:
+    seen: set[str] = set()
+    # Read across the profile's search path (own memory first, base only if the
+    # profile inherits it). The first occurrence of a name wins, so a profile can
+    # shadow a base memory without mutating it.
+    for mem_dir in get_memory_read_dirs(scope):
+        if not mem_dir.exists():
             continue
-        try:
-            text = fp.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            continue
-        meta, body = parse_frontmatter(text)
-        entries.append(MemoryEntry(
-            name=meta.get("name", fp.stem),
-            description=meta.get("description", ""),
-            type=meta.get("type", "user"),
-            content=body,
-            file_path=str(fp),
-            created=meta.get("created", ""),
-            scope=scope,
-            hall=meta.get("hall", ""),
-            confidence=float(meta.get("confidence", 1.0)),
-            source=meta.get("source", "user"),
-            last_used_at=meta.get("last_used_at", ""),
-            conflict_group=meta.get("conflict_group", ""),
-            gold=meta.get("gold", "").lower() == "true",
-        ))
+        for fp in sorted(mem_dir.glob("*.md")):
+            if fp.name == INDEX_FILENAME:
+                continue
+            try:
+                text = fp.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            meta, body = parse_frontmatter(text)
+            key = meta.get("name", fp.stem)
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append(MemoryEntry(
+                name=key,
+                description=meta.get("description", ""),
+                type=meta.get("type", "user"),
+                content=body,
+                file_path=str(fp),
+                created=meta.get("created", ""),
+                scope=scope,
+                hall=meta.get("hall", ""),
+                confidence=float(meta.get("confidence", 1.0)),
+                source=meta.get("source", "user"),
+                last_used_at=meta.get("last_used_at", ""),
+                conflict_group=meta.get("conflict_group", ""),
+                gold=meta.get("gold", "").lower() == "true",
+            ))
+    entries.sort(key=lambda e: e.name)
     return entries
 
 
@@ -440,10 +494,16 @@ def check_conflict(entry: "MemoryEntry", scope: str = "user") -> dict | None:
     Returns a dict with the existing memory's key fields if a conflict is found,
     or None if no existing file or if the content is identical.
     """
-    mem_dir = get_memory_dir(scope)
     slug = _slugify(entry.name)
-    fp = mem_dir / f"{slug}.md"
-    if not fp.exists():
+    # A same-named memory anywhere on the read path counts as a conflict, so a
+    # profile is warned before shadowing an inherited base memory.
+    fp = None
+    for mem_dir in get_memory_read_dirs(scope):
+        cand = mem_dir / f"{slug}.md"
+        if cand.exists():
+            fp = cand
+            break
+    if fp is None:
         return None
     try:
         meta, existing_content = parse_frontmatter(fp.read_text(encoding="utf-8", errors="replace"))

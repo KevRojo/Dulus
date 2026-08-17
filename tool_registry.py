@@ -37,12 +37,68 @@ class ToolDef:
 _registry: Dict[str, ToolDef] = {}
 _last_seen_turn: int = -1
 
+# Provenance map: tool name → origin tag. Core tools carry no tag; tools
+# contributed by a plugin are tagged with an opaque key produced by the plugin
+# loader (see `plugin.loader._origin_key`). Without this the registry was purely
+# additive: switching the active profile ADDED the new profile's tools but never
+# retired the previous one's, so the model kept seeing (and calling) tools that
+# no longer belonged to the active agent. The tag makes retirement possible.
+_registry_origin: Dict[str, str] = {}
+
 
 # --------------- public API ---------------
 
-def register_tool(tool_def: ToolDef) -> None:
-    """Register a tool, overwriting any existing tool with the same name."""
+def register_tool(tool_def: ToolDef, origin: Optional[str] = None) -> None:
+    """Register a tool, overwriting any existing tool with the same name.
+
+    `origin` tags the contributing source so it can later be retired wholesale
+    (see `unregister_origin`). Core tools pass None and are never retired.
+    """
     _registry[tool_def.name] = tool_def
+    if origin:
+        _registry_origin[tool_def.name] = origin
+    else:
+        # A core registration reclaims the name: drop any stale plugin tag.
+        _registry_origin.pop(tool_def.name, None)
+
+
+def unregister_tool(name: str) -> bool:
+    """Remove a single tool from the registry. Returns True if it existed."""
+    _registry_origin.pop(name, None)
+    return _registry.pop(name, None) is not None
+
+
+def unregister_origin(origin: str) -> int:
+    """Retire every tool contributed by `origin`. Returns how many were removed.
+
+    Used when the active profile changes: the outgoing profile's plugin tools
+    must disappear from the registry, otherwise the model is told about tools
+    whose plugin is no longer part of the active agent.
+    """
+    names = [n for n, o in _registry_origin.items() if o == origin]
+    for n in names:
+        _registry.pop(n, None)
+        _registry_origin.pop(n, None)
+    return len(names)
+
+
+def unregister_origins_except(keep: "set[str] | frozenset[str]") -> int:
+    """Retire all plugin-contributed tools whose origin is not in `keep`.
+
+    This is the atomic-swap primitive: register the incoming profile's tools
+    first, then call this with the set of origins that survived, so there is
+    never a window where the agent has zero tools.
+    """
+    names = [n for n, o in _registry_origin.items() if o not in keep]
+    for n in names:
+        _registry.pop(n, None)
+        _registry_origin.pop(n, None)
+    return len(names)
+
+
+def get_tool_origin(name: str) -> Optional[str]:
+    """Return the origin tag of a tool, or None if it is a core tool."""
+    return _registry_origin.get(name)
 
 
 def get_tool(name: str) -> Optional[ToolDef]:
@@ -212,3 +268,4 @@ def clear_last_output() -> None:
 def clear_registry() -> None:
     """Remove all registered tools. Intended for testing."""
     _registry.clear()
+    _registry_origin.clear()
