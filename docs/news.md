@@ -2,7 +2,18 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
-- August 17, 2026 (**v3.10.79**): **🌐 Web logins harvest cleanly again.** The harvest browser was pinned to a hardcoded, years-out-of-date user-agent (Chrome/123), so sites like Gemini and Qwen bounced it straight to an "unsupported browser" page and the session never got captured. It now lets real Chrome report its own current version, so the harvest opens the real page and grabs your session like it should. `pip install --upgrade dulus`. 🦅🇩🇴
+- August 17, 2026 (**Progress update**): **🚀 Where Dulus is right now.**
+  - **Router** — a production model router with provider/model selection, including a **Fuel-metered Dulus provider** backed by OVH infrastructure.
+  - **Fuel billing** — atomic **reserve → inference → settle/release** flow is live on the control plane: no double charges, and failed requests return the reserved Fuel automatically.
+  - **Wallet** — the Dulus OS **Fuel Wallet** is connected to the control plane, with Solana deposit addresses, QR display, balances, lifetime deposits, a usage ledger, and automatic deposit reconciliation.
+  - **Auth** — Auth0 access-token forwarding into the Dulus OS sandbox is wired for Fuel Wallet entitlements.
+  - **Desktop GUI** — the model selector is now an editable input with CLI-style model completion.
+  - **Premium build** — a separate `dulus-premium` snapshot, stripped of internal orchestration. Private commands (including `/chat`) are hidden from the commercial build.
+  - **Security** — fixed the Cloudflare WAF rule that was returning 403 to new visitors on dulus.ai; the public site now responds **200 OK** while API and sensitive routes stay protected.
+  - **Observability** — Datadog and Amplitude instrumentation integrated across the product surfaces.
+  - **Testing** — **106/106** provider, auth and control-plane tests passing.
+
+  See it live → **[dulus.ai](https://dulus.ai)**. 🦅🇩🇴
 
 - August 14, 2026 (**v3.10.78**): **🩹 Checkpoints can no longer fill your disk.** The checkpoint store only pruned sessions older than 30 days, so a machine that opens many sessions a day could run out of space long before that cutoff applied — and when the disk filled, the resulting `ENOSPC` escaped and took the session down with it. There is now a hard 512 MB ceiling on the store plus a free-space floor: oldest sessions are evicted first, backups are skipped when space is tight, and a full disk degrades to "no checkpoint" instead of an error. Reported from the wild via crash telemetry. 🦅🇩🇴
 
