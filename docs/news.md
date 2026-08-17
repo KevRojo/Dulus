@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 17, 2026 (**v3.10.79**): **🌐 Web logins harvest cleanly again.** The harvest browser was pinned to a hardcoded, years-out-of-date user-agent (Chrome/123), so sites like Gemini and Qwen bounced it straight to an "unsupported browser" page and the session never got captured. It now lets real Chrome report its own current version, so the harvest opens the real page and grabs your session like it should. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 14, 2026 (**v3.10.78**): **🩹 Checkpoints can no longer fill your disk.** The checkpoint store only pruned sessions older than 30 days, so a machine that opens many sessions a day could run out of space long before that cutoff applied — and when the disk filled, the resulting `ENOSPC` escaped and took the session down with it. There is now a hard 512 MB ceiling on the store plus a free-space floor: oldest sessions are evicted first, backups are skipped when space is tight, and a full disk degrades to "no checkpoint" instead of an error. Reported from the wild via crash telemetry. 🦅🇩🇴
 
 - August 14, 2026 (**v3.10.77**): **🖥️ The Dulus desktop app for Windows is out in open trial (alpha/beta).** Same engine you've been running in the terminal — now with a face. No Python, no terminal, no API key: download, install, sign in, go. **[⬇️ Dulus Windows Trial setup (alpha/beta)](https://drive.google.com/file/d/1Nxz_coVpXRwKQB7baI_0nG12-p1cLznZ/view)**. It is early and it will have rough edges — that's the point of a trial, so [file what breaks](https://github.com/KevRojo/Dulus/issues). The CLI in this repo stays free and open source, forever. 🦅🇩🇴
