@@ -25,6 +25,10 @@
 </p>
 
 <p align="center">
+  <a href="docs/Dulus_YC_Company_Overview_Aug_2026.pdf"><strong>📈 Investors — read the company overview (PDF) ↗</strong></a>
+</p>
+
+<p align="center">
   <a href="#install-in-30-seconds"><strong>Install</strong></a> ·
   <a href="#why-dulus"><strong>Why Dulus</strong></a> ·
   <a href="#one-runtime-every-model"><strong>Models</strong></a> ·
