@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-08-17
+
+### Fixed
+- **Profiles now actually isolate.** A profile has always had its own
+  `plugins/`, `skills/` and `memory/` directories, but almost nothing read
+  them: plugins resolved to the shared base, skills always searched the base,
+  and every profile wrote its memories into the same place. Switching profiles
+  also only ever *added* tools — the outgoing profile's tools stayed in the
+  registry, so plugins appeared in the listing that could not be used from the
+  active context. Each of these is now scoped to the active profile.
+- **Two plugins with the same name no longer share one module.** Cached module
+  names were keyed on the plugin name alone, so a plugin installed both in the
+  base and in a profile resolved to whichever copy was imported first — for the
+  rest of the process. Cache keys now include the install directory.
+- **Uninstalling an inherited plugin from inside a profile is refused.** The
+  install directory is shared, so the removal silently uninstalled the plugin
+  for every other profile. Enabling or disabling one now writes to the config
+  that owns it instead of forking a phantom entry into the active profile.
+- **A workspace's own plugins are loaded, not just listed.** Project-scoped
+  plugins are resolved relative to the working directory, which Dulus enters
+  *after* the tool registry is built, so they were advertised but never
+  imported. They are now rebound on every directory change.
+- Plugin directories are added to `sys.path` only while a plugin module is
+  executing, instead of lingering and shadowing other plugins' imports.
+- Plugin tools were being registered twice on every startup.
+
+### Changed
+- A named profile is **lean** by default: it sees its own plugins and skills
+  plus the bundled ones, and reads only its own memory. Run
+  `/profile inherit <name> on` for a profile that also sees everything in your
+  base `~/.dulus`. The `default` profile is unchanged — it *is* the base.
+
 ## [3.10.79] - 2026-08-17
 
 ### Fixed

@@ -2,13 +2,15 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 17, 2026 (**v3.11.0**): **🧬 Profiles are real agents now.** A profile always had its own `plugins/`, `skills/` and `memory/` — but almost nothing read them, and switching profiles only ever *added* tools, so you'd see plugins you couldn't actually use. Every one of those paths is now scoped to the active profile: a named profile is **lean** by default (its own stuff plus the bundled skills), reads only its own memory, and can't accidentally uninstall a plugin out from under your other profiles. `/profile inherit <name> on` if you want one that sees everything. Your `default` profile is untouched.
+
 - August 17, 2026 (**Progress update**): **🚀 Where Dulus is right now.**
   - **Router** — a production model router with provider/model selection, including a **Fuel-metered Dulus provider** backed by OVH infrastructure.
   - **Fuel billing** — atomic **reserve → inference → settle/release** flow is live on the control plane: no double charges, and failed requests return the reserved Fuel automatically.
   - **Wallet** — the Dulus OS **Fuel Wallet** is connected to the control plane, with Solana deposit addresses, QR display, balances, lifetime deposits, a usage ledger, and automatic deposit reconciliation.
   - **Auth** — Auth0 access-token forwarding into the Dulus OS sandbox is wired for Fuel Wallet entitlements.
   - **Desktop GUI** — the model selector is now an editable input with CLI-style model completion.
-  - **Premium build** — a separate `dulus-premium` snapshot, stripped of internal orchestration. Private commands (including `/chat`) are hidden from the commercial build.
+  - **Dulus Premium** — a polished desktop build for people who want Dulus without the setup: installer, GUI and managed updates. The open-source runtime you're reading about stays free and complete.
   - **Security** — fixed the Cloudflare WAF rule that was returning 403 to new visitors on dulus.ai; the public site now responds **200 OK** while API and sensitive routes stay protected.
   - **Observability** — Datadog and Amplitude instrumentation integrated across the product surfaces.
   - **Testing** — **106/106** provider, auth and control-plane tests passing.
