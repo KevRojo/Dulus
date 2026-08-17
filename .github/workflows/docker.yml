@@ -14,6 +14,18 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    # Docs-only commits (README, news, changelog, the investor deck, i18n
+    # READMEs, images) don't change the image — skip the ~15-min multi-arch
+    # build for them. Tag pushes (v*) still build regardless, since a release
+    # commit also bumps the code. This keeps frequent docs pushes from flashing
+    # a red X when GitHub's action CDN rate-limits the buildx/qemu download.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "**/*.pdf"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.svg"
   workflow_dispatch:
 
 # A newer push to the same ref supersedes any in-flight build for that ref,
