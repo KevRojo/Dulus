@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.1] - 2026-08-18
+
+### Fixed
+- **Kimi Code works again after its host move.** Kimi Code migrated its coding
+  endpoint from `api.kimi.com/coding` to `api.kimi.ai/coding`. Dulus only knew
+  the old host, so calls to the new one went out without the required KimiCLI
+  user-agent and were rejected with 403. Both hosts are now recognised, so the
+  user-agent is always sent and `kimi-code` / `/login kimi` models connect again.
+
 ## [3.11.0] - 2026-08-17
 
 ### Fixed
