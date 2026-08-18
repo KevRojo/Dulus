@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dulus"
-version = "3.11.1"
+version = "3.11.2"
 description = "Provider-independent agent runtime for the terminal — cloud and local models, real tools, MCP, plugins, memory, sub-agents, and Dulus OS."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,24 +18,57 @@ requires-python = ">=3.10"
 # `License:` metadata field and keeps Metadata-Version at 2.1/2.2 — see the
 # build-system note above. LICENSE ships via MANIFEST.in.
 license = {text = "GPL-3.0-only"}
-authors = [{name = "KevRojo"}]
+authors = [{name = "KevRojo", email = "dev@dulus.ai"}]
+maintainers = [{name = "KevRojo", email = "dev@dulus.ai"}]
 keywords = [
+    # Providers and runtimes people actually search for.
     "ai", "cli", "llm", "claude", "gemini", "nvidia", "openai",
-    "kimi", "deepseek", "qwen", "ollama", "agent", "tts", "voice",
+    "kimi", "deepseek", "qwen", "ollama", "local-llm", "openai-compatible",
+    # What this thing IS. Without these the package never surfaces for the
+    # queries its own users type.
+    "agent", "ai-agent", "coding-agent", "autonomous-agent", "agentic",
+    "mcp", "terminal", "tui", "repl", "developer-tools", "sub-agents",
+    "tts", "voice",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    # 19K+ installs, a full test suite and a 3.11.x line in production. This
+    # sat at "4 - Beta" long after that stopped being true, and the Beta badge
+    # is the first thing anyone reads on the PyPI page.
+    "Development Status :: 5 - Production/Stable",
+    # Dulus is not console-only: it ships a desktop GUI (pywebview), a Qt
+    # status bar, a Flask webchat and Dulus OS. Listing just Console hid every
+    # one of those surfaces.
     "Environment :: Console",
+    "Environment :: Web Environment",
+    "Environment :: X11 Applications :: Qt",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+    # "Agentic AI for everyone" — the README's own pitch — is not a
+    # developers-only audience.
     "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: System Administrators",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Natural Language :: Spanish",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    # Topics decide which PyPI category listings this appears in. AI + Terminals
+    # alone missed the shell, code-generation, chat and speech angles that
+    # describe just as much of what Dulus does.
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Terminals",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: System :: Shells",
+    "Topic :: Communications :: Chat",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Utilities",
 ]
 dependencies = [
     "anthropic>=0.40.0",
