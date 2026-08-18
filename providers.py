@@ -91,6 +91,15 @@ class _ProviderRetry:
         # Rate limit / server overload
         if "429" in msg or "rate limit" in msg or "too many requests" in msg:
             return True
+        # Capacity pushback. Anthropic answers 529 "overloaded_error" and other
+        # providers say "overloaded"/"capacity"/"server is busy" with assorted
+        # status codes; the next request usually succeeds, so this is exactly
+        # the case worth absorbing silently instead of surfacing to the user.
+        if ("529" in msg or "overloaded" in msg or "over capacity" in msg
+                or "at capacity" in msg or "server is busy" in msg
+                or "model is currently loading" in msg
+                or type(exc).__name__ in ("OverloadedError", "InternalServerError")):
+            return True
         # Server errors
         if "500" in msg or "502" in msg or "503" in msg or "504" in msg:
             return True
@@ -5523,6 +5532,13 @@ def stream_anthropic(
             yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking,
                                 thinking_signature=thinking_signature, error=False)
             return
+        # Nothing emitted yet and the failure is transient (529 overloaded, a
+        # blip, a rate limit): let it propagate so _ProviderRetry can quietly
+        # try again. Turning it into text here would strand the retry wrapper,
+        # which only ever sees a well-behaved generator. Once output has been
+        # emitted a retry would duplicate it, so those still report.
+        if not text and not tool_calls and _ProviderRetry.is_retryable(_e):
+            raise
         msg = friendly_api_error(_e)
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
@@ -6151,6 +6167,11 @@ def stream_openai_compat(
                 {**config, "_modelstudio_remaining": _ms_remaining[1:]},
             )
             return
+        # Transient capacity pushback before the stream opened: propagate so
+        # _ProviderRetry absorbs it silently. This is the create() call, so
+        # nothing has been emitted yet and a retry cannot duplicate output.
+        if _ProviderRetry.is_retryable(e):
+            raise
         msg = friendly_api_error(e)
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
@@ -6166,6 +6187,10 @@ def stream_openai_compat(
                 {**config, "_modelstudio_remaining": _ms_remaining[1:]},
             )
             return
+        # Same as above: still inside the create() call, so a transient failure
+        # can be retried without duplicating anything.
+        if _ProviderRetry.is_retryable(e):
+            raise
         msg = friendly_api_error(e)
         yield TextChunk(msg)
         yield AssistantTurn(msg, [], 0, 0, error=True)
