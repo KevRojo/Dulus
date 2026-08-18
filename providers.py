@@ -5988,8 +5988,13 @@ def stream_openai_compat(
     # already stripped to the bare name, and detect_provider("kimi-k2.5") falls
     # through to the generic "kimi" prefix → header omitted → 403.
     # The /coding/v1 endpoint is unique to kimi-code regardless of model.
+    # api.kimi.ai and api.kimi.com are the same Kimi Code backend (same models,
+    # same quota errors, both behind Cloudflare), so accept either host — the
+    # endpoint 403s any client it can't recognise as a known coding agent.
+    _kimi_base = (base_url or "").lower()
     _is_kimi_code = (
-        "api.kimi.com/coding" in (base_url or "")
+        "api.kimi.com/coding" in _kimi_base
+        or "api.kimi.ai/coding" in _kimi_base
         or detect_provider(model) in ("kimi-code", "kimi-code2", "kimi-code3")
     )
     client_kwargs: dict = {"api_key": api_key or "dummy", "base_url": base_url}
