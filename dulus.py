@@ -9171,6 +9171,41 @@ def cmd_login(args: str, _state, config) -> bool:
     """
     sub = (args or "").strip().lower()
 
+    # ── Dulus account (OAuth 2.0 + PKCE against Dulus's own API) ──
+    # Unlike the provider logins below, this one authenticates you to Dulus
+    # itself, so the CLI can reach the Dulus API without an API key pasted in
+    # by hand. `/login dulus key` mints a dulus_sk_* key for CI and servers.
+    if sub.split(" ")[0] in ("dulus", "account"):
+        import dulus_account
+
+        rest = (args or "").strip().split()
+        force = "force" in rest
+        if len(rest) > 1 and rest[1] in ("key", "apikey", "api-key"):
+            name = rest[2] if len(rest) > 2 else "cli"
+            dulus_account.create_api_key(name, notify=lambda m: print(clr(m, "cyan")))
+            return True
+
+        if not force:
+            store = dulus_account.load_store()
+            if store.get("access_token") and not dulus_account._token_expired(store):
+                print(clr("✅ Dulus account already signed in.", "green"))
+                print(clr("Use `/login dulus force` to sign in again, or `/login dulus key` to mint an API key.", "green"))
+                return True
+
+        if force:
+            dulus_account.clear_store()
+        print(clr("Starting Dulus sign-in (OAuth 2.0 + PKCE)…", "cyan"))
+        try:
+            token = dulus_account.login(notify=lambda m: print(clr(m, "cyan")))
+        except Exception as e:
+            token = None
+            print(clr(f"Sign-in error: {e}", "red"))
+        if token:
+            print(clr("✅ Signed in to your Dulus account.", "green"))
+            return True
+        print(clr("Could not sign in. Re-run `/login dulus`.", "yellow"))
+        return True
+
     # ── Claude / Anthropic subscription OAuth (no API key, no cookie webbridge) ──
     # Mirrors the Grok flow: opens claude.ai in the browser, you approve and paste
     # back the code, Dulus exchanges it for an OAuth token. claude-* models then run
