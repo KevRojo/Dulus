@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 18, 2026 (**v3.11.1**): **🔧 Kimi Code connects again.** Kimi moved its coding endpoint from `api.kimi.com` to `api.kimi.ai`, and Dulus only knew the old address — so requests to the new one went out without the user-agent Kimi requires and bounced back with a 403. Dulus now recognizes both hosts, so `kimi-code` and `/login kimi` models talk to Kimi cleanly again. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 17, 2026 (**v3.11.0**): **🧬 Profiles are real agents now.** A profile always had its own `plugins/`, `skills/` and `memory/` — but almost nothing read them, and switching profiles only ever *added* tools, so you'd see plugins you couldn't actually use. Every one of those paths is now scoped to the active profile: a named profile is **lean** by default (its own stuff plus the bundled skills), reads only its own memory, and can't accidentally uninstall a plugin out from under your other profiles. `/profile inherit <name> on` if you want one that sees everything. Your `default` profile is untouched.
 
 - August 17, 2026 (**Progress update**): **🚀 Where Dulus is right now.**
