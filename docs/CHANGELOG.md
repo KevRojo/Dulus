@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.4] - 2026-08-19
+
+### Fixed
+- **Web chat no longer stutters on long replies.** The streaming bubble
+  re-parsed the whole markdown document and re-highlighted every code block on
+  each token, and the cost grows with message length. Re-renders are now
+  coalesced into one per animation frame, with a final flush so no tokens are
+  dropped.
+- **Repeated calls to the same tool now complete the right pill.** Five Bash
+  commands in a row kept marking the first pill "done" and left the rest
+  spinning "running" forever. The result now resolves to the newest still-
+  running pill and lands directly beneath it.
+- **A late click on an expired question can no longer fake an answer.**
+  AskUserQuestion banners outlived the agent's 300s timeout, so clicking one
+  afterwards looked "answered" while nobody was listening. Stale entries are
+  now purged before that can happen.
+- **Kimi quota exhaustion is reported honestly.** When a Kimi membership's
+  billing-cycle quota is spent, the API answers `403 access_terminated_error`
+  — which Dulus used to misread as an invalid API key, sending you to mint a
+  new key that cannot help (quota is billed per account). It now says what
+  happened and points at `/model`.
+- **`/login kimi force` actually switches accounts now.** It skipped the
+  "already logged in" check but left the stored refresh token and device id in
+  place, so the device flow silently re-bound the same account. Both are wiped
+  first.
+- **Removed a duplicated line in the Ollama streaming loop.** Harmless but
+  dead.
+
 ## [3.11.1] - 2026-08-18
 
 ### Fixed
