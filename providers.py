@@ -5244,6 +5244,13 @@ def friendly_api_error(exc: Exception) -> str:
     s = str(exc).lower()
     etype = type(exc).__name__
 
+    # Kimi Code quota. Checked before the generic auth/permission branches: the
+    # payload carries a 403 and the word "access", which would otherwise be read
+    # as a bad key. Quota is billed per ACCOUNT, so a new key changes nothing.
+    if "access_terminated_error" in s:
+        return ("Kimi membership quota is spent for this billing cycle. It is billed per "
+                "account, so a new API key won't help — switch model with /model, or wait "
+                "for the cycle to reset.")
     # Auth / key problems
     if "authentication" in s or "invalid_api_key" in s or "401" in s or etype == "AuthenticationError":
         return "API key is missing or invalid. Run /config <provider>_api_key=... or set the env var."
@@ -6817,7 +6824,6 @@ def stream_ollama(
                     _thinking_buffer = ""
 
             content = msg.get("content", "") if "content" in msg else ""
-            content = msg.get("content", "") if "content" in msg else ""
             if content:
                 # Flush thinking buffer before content
                 if _thinking_buffer:
@@ -6958,6 +6964,28 @@ def _kimi_oauth_load_store() -> dict:
 
 def _kimi_oauth_save_store(data: dict) -> None:
     _oauth_save_store(_kimi_oauth_store_path(), data)
+
+
+def _kimi_oauth_clear_store() -> list[str]:
+    """Delete the Kimi OAuth session *and* the device identity.
+
+    A plain re-login is not enough to switch Kimi accounts: the refresh token in
+    ``kimi_oauth.json`` silently revives the previous session, and the stable
+    ``kimi_device_id`` keeps the host tied to the old device. Both files have to
+    go before the device flow can bind a different account.
+
+    Returns the names of the files actually removed (for user feedback).
+    """
+    removed: list[str] = []
+    for path in (_kimi_oauth_store_path(), _oauth_store_path("kimi_device_id")):
+        try:
+            path.unlink()
+            removed.append(path.name)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
+    return removed
 
 
 def _kimi_device_headers() -> dict:
