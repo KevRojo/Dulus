@@ -146,6 +146,7 @@ def _start_question_watcher(q: "queue.Queue", stop_evt: threading.Event) -> thre
     """Poll tools._pending_questions and forward AskUserQuestion prompts to the
     SSE stream as {"type": "question", ...} events (same pattern as permissions)."""
     def watcher():
+        import time as _t_time
         import tools as _t
         while not stop_evt.is_set():
             grabbed: list[dict] = []
@@ -156,7 +157,19 @@ def _start_question_watcher(q: "queue.Queue", stop_evt: threading.Event) -> thre
                         _t._pending_questions.clear()
             except Exception:
                 pass
+            # Purge entries the agent already gave up on (AskUserQuestion
+            # times out after 300s) so a late click can never land on a dead
+            # entry and look "answered" while nobody is listening.
+            try:
+                with _LOCK:
+                    _now = _t_time.time()
+                    for _qid, _e in list(_PENDING_QUESTIONS.items()):
+                        if _now - float(_e.get("_ts", _now)) > 310:
+                            _PENDING_QUESTIONS.pop(_qid, None)
+            except Exception:
+                pass
             for entry in grabbed:
+                entry["_ts"] = _t_time.time()
                 qid = str(uuid.uuid4())
                 with _LOCK:
                     _PENDING_QUESTIONS[qid] = entry
