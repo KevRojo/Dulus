@@ -3246,11 +3246,7 @@ def cmd_harvest(_args: str, _state, config) -> bool:
                     info("Login page detected. Please log in manually, then press ENTER here...")
                     input()
 
-                # claude.ai is a long-lived SPA that never reaches "networkidle"
-                # (it keeps streaming/websocket connections open), so that wait
-                # always burned the full 30s and timed out. Wait for the DOM
-                # instead and give it a real ceiling.
-                page.goto("https://claude.ai/new", wait_until="domcontentloaded", timeout=60000)
+                page.goto("https://claude.ai/new", wait_until="networkidle")
                 time.sleep(2)
 
                 user_agent = page.evaluate("navigator.userAgent") if browser.pages else ""
