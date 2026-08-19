@@ -9289,7 +9289,10 @@ def cmd_login(args: str, _state, config) -> bool:
     # /login kimi — Kimi membership via the official Kimi Code CLI device OAuth.
     # Reuses ~/.kimi-code credentials when present; otherwise opens auth.kimi.com.
     if sub.split(" ")[0] in ("kimi", "kimi-oauth", "moonshot-oauth"):
-        from providers import _kimi_oauth_login, _kimi_oauth_get_token
+        from providers import (
+            _kimi_oauth_login, _kimi_oauth_get_token,
+            _kimi_oauth_clear_store,
+        )
         force = "force" in (args or "").lower()
         if not force:
             tok = _kimi_oauth_get_token(config)
@@ -9297,6 +9300,13 @@ def cmd_login(args: str, _state, config) -> bool:
                 print(clr("✅ Kimi OAuth session already active (Kimi membership, no API key).", "green"))
                 print(clr("kimi-oauth/* models use your Kimi membership automatically. Use `/login kimi force` to re-login.", "green"))
                 return True
+        else:
+            # A fresh device flow is not enough to switch accounts: the stored
+            # refresh token revives the old session and the persisted device id
+            # keeps us bound to it. Wipe both so the login binds cleanly.
+            removed = _kimi_oauth_clear_store()
+            if removed:
+                print(clr(f"Cleared previous Kimi session ({', '.join(removed)}).", "cyan"))
         print(clr("Starting Kimi membership login (device OAuth via auth.kimi.com)…", "cyan"))
         print(clr("A browser will open — approve the shown device code with your Kimi account.", "cyan"))
         try:
