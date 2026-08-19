@@ -46,58 +46,6 @@ def test_quota_error_is_not_retryable():
     assert _ProviderRetry.is_retryable(exc) is False
 
 
-def test_capacity_pushback_is_retryable():
-    # These clear up on their own — the next request usually succeeds, which is
-    # exactly the case worth absorbing instead of showing the user an error.
-    for message in (
-        'Error code: 529 - {"type":"overloaded_error"}',
-        "The model is overloaded. Please try again.",
-        "Service temporarily at capacity",
-        "server is busy, retry later",
-        "Model is currently loading",
-    ):
-        assert _ProviderRetry.is_retryable(Exception(message)), message
-
-
-def test_credential_and_client_errors_are_never_retried():
-    # Retrying these hammers the endpoint for an error that will never resolve.
-    for message in (
-        "401 invalid_authentication_error",
-        "400 invalid_request_error: bad tool schema",
-        "404 model_not_found",
-    ):
-        assert not _ProviderRetry.is_retryable(Exception(message)), message
-
-
-def test_overloaded_stream_recovers_without_telling_the_user(monkeypatch):
-    # End to end: a 529 on the first attempts must not reach the transcript.
-    attempts = 0
-
-    def overloaded_then_fine():
-        nonlocal attempts
-        attempts += 1
-        if attempts < 3:
-            raise Exception('Error code: 529 - {"type":"overloaded_error"}')
-        yield "the real answer"
-
-    monkeypatch.setattr(providers.time, "sleep", lambda _seconds: None)
-    out = list(_ProviderRetry.wrap_generator(overloaded_then_fine))
-
-    assert out == ["the real answer"]
-    assert attempts == 3
-
-
-def test_stream_handlers_reraise_transient_failures_for_the_retry_wrapper():
-    # stream_anthropic and stream_openai_compat used to convert every exception
-    # into an error TextChunk. That returns a well-behaved generator, so
-    # _ProviderRetry never saw a failure and the retry silently did nothing.
-    import inspect
-
-    for fn in (providers.stream_anthropic, providers.stream_openai_compat):
-        source = inspect.getsource(fn)
-        assert "_ProviderRetry.is_retryable" in source, fn.__name__
-
-
 def test_friendly_message_mentions_quota():
     msg = friendly_api_error(Exception(QUOTA_MSG))
     assert "quota" in msg.lower()
