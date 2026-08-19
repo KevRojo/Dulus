@@ -652,16 +652,32 @@ function ensureAssistantEl() {
   return _currentAssistantEl;
 }
 
+let _renderFrame = null;
+
+/**
+ * Re-render the streaming bubble's markdown from the accumulated text.
+ * Kept separate so both the coalesced path and the final flush share it.
+ */
+function _flushStreamText() {
+  _renderFrame = null;
+  if (!_currentAssistantEl) return;
+  const contentEl = _currentAssistantEl.querySelector('.msg-content');
+  if (!contentEl) return;
+  contentEl.innerHTML = renderMarkdown(_currentAssistantText);
+  applyHljs(contentEl);
+}
+
 function appendStreamText(chunk) {
   hideEmptyState();
   ensureAssistantEl();
   _currentAssistantText += chunk;
-  // Update rendered markdown in real-time
-  const contentEl = _currentAssistantEl.querySelector('.msg-content');
-  if (contentEl) {
-    contentEl.innerHTML = renderMarkdown(_currentAssistantText);
-    applyHljs(contentEl);
-  }
+  // Coalesce re-renders into one per animation frame. Tokens arrive far faster
+  // than the display refreshes, and re-parsing the whole markdown document plus
+  // re-highlighting every code block on each one made long replies visibly
+  // stutter — the cost grows with the length of the message, so the jank got
+  // worse the more Dulus wrote. One repaint per frame looks identical and keeps
+  // the work bounded.
+  if (_renderFrame === null) _renderFrame = requestAnimationFrame(_flushStreamText);
   scrollToBottom();
 }
 
@@ -693,6 +709,14 @@ function addAssistantMessage(text, animate = true) {
 
 function finalizeAssistant(meta) {
   if (!_currentAssistantEl) return;
+  // A coalesced re-render may still be queued for the frame after this one.
+  // Flush it now, while the bubble is still the current one, or the last tokens
+  // of the reply would be dropped and the frame would then repaint an already
+  // cleared element.
+  if (_renderFrame !== null) {
+    cancelAnimationFrame(_renderFrame);
+    _flushStreamText();
+  }
   _currentAssistantEl.classList.remove('streaming');
 
   if (meta && (meta.in || meta.out)) {
@@ -758,19 +782,34 @@ function appendToolCall(name, inputs) {
 
 function updateToolCall(name, result, permitted) {
   if (!_currentAssistantEl) return;
-  const tc = _currentAssistantEl.querySelector(`.tool-call[data-tool="${CSS.escape(name)}"]`);
+  // Resolve the pill this result belongs to by walking backwards to the most
+  // recent one still marked "running". querySelector() returns the *first*
+  // match, so a turn that calls the same tool repeatedly (five Bash commands in
+  // a row) kept re-completing pill #1 and left every later pill spinning
+  // "running" forever.
+  const pills = _currentAssistantEl.querySelectorAll(`.tool-call[data-tool="${CSS.escape(name)}"]`);
+  let tc = null;
+  for (let i = pills.length - 1; i >= 0; i--) {
+    if (pills[i].querySelector('.tool-call-status.running')) { tc = pills[i]; break; }
+  }
+  if (!tc) tc = pills[pills.length - 1] || null;
+
   if (tc) {
     const statusEl = tc.querySelector('.tool-call-status');
     if (statusEl) {
       statusEl.className = 'tool-call-status done';
       statusEl.textContent = permitted ? 'done' : 'denied';
+      statusEl.setAttribute('aria-label', permitted ? 'done' : 'denied');
     }
   }
   if (result && result.length > 2) {
     const res = document.createElement('div');
     res.className = 'tool-result';
     res.textContent = result.slice(0, 1200) + (result.length > 1200 ? '...' : '');
-    _currentAssistantEl.appendChild(res);
+    // Attach the output directly beneath its own pill instead of at the end of
+    // the message, so results stay next to the call that produced them.
+    if (tc && tc.parentNode) tc.parentNode.insertBefore(res, tc.nextSibling);
+    else _currentAssistantEl.appendChild(res);
   }
   scrollToBottom();
 }
