@@ -66,7 +66,6 @@ from agent import (
     AgentState,
     TextChunk,
     ThinkingChunk,
-    StatusChunk,
     ToolStart,
     ToolEnd,
     TurnDone,
@@ -585,8 +584,6 @@ def _event_to_dict(event, bar_ok: bool = True) -> "dict | tuple | None":
         return {"type": "text", "text": event.text}
     elif isinstance(event, ThinkingChunk):
         return {"type": "thinking", "text": event.text}
-    elif isinstance(event, StatusChunk):
-        return {"type": "status", "text": event.text}
     elif isinstance(event, ToolStart):
         return {"type": "tool_start", "name": event.name, "inputs": event.inputs}
     elif isinstance(event, ToolEnd):
