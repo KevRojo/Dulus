@@ -13,7 +13,7 @@ from typing import Any, Generator
 from tool_registry import get_tool_schemas, clear_last_output
 from tools import execute_tool
 import tools as _tools_init  # ensure built-in tools are registered on import
-from providers import stream, AssistantTurn, TextChunk, ThinkingChunk, StatusChunk, detect_provider
+from providers import stream, AssistantTurn, TextChunk, ThinkingChunk, detect_provider
 from compaction import maybe_compact
 import governance
 
@@ -239,7 +239,7 @@ def run(
         )):
             if cancel_check and cancel_check():
                 return
-            if isinstance(event, (TextChunk, ThinkingChunk, StatusChunk)):
+            if isinstance(event, (TextChunk, ThinkingChunk)):
                 yield event
             elif isinstance(event, AssistantTurn):
                 assistant_turn = event
