@@ -11358,7 +11358,7 @@ def repl(config: dict, initial_prompt: str | None = None):
     import threading
     from config import HISTORY_FILE
     from context import build_system_prompt
-    from agent import AgentState, run, TextChunk, ThinkingChunk, ToolStart, ToolEnd, TurnDone, PermissionRequest
+    from agent import AgentState, run, TextChunk, ThinkingChunk, StatusChunk, ToolStart, ToolEnd, TurnDone, PermissionRequest
     from tools import input_setup, HAS_PROMPT_TOOLKIT
 
     setup_readline(HISTORY_FILE)
@@ -12190,7 +12190,7 @@ def repl(config: dict, initial_prompt: str | None = None):
                         # Stop spinner only when visible output arrives
                         if spinner_shown:
                             show_thinking = isinstance(event, ThinkingChunk) and verbose
-                            if isinstance(event, TextChunk) or show_thinking or isinstance(event, ToolStart):
+                            if isinstance(event, (TextChunk, ToolStart, StatusChunk)) or show_thinking:
                                 _stop_tool_spinner()
                                 spinner_shown = False
                                 # Restore │ prefix for first text chunk in plain-text (non-Rich) mode
@@ -12244,6 +12244,12 @@ def repl(config: dict, initial_prompt: str | None = None):
                                     print(clr("  [thinking]", "dim"))
                                     thinking_started = True
                                 stream_thinking(event.text, verbose)
+
+                        elif isinstance(event, StatusChunk):
+                            # Transient provider status (retry countdown): a
+                            # silent backoff reads as a frozen app — show it.
+                            flush_response()
+                            print(clr(f"  ⟳ {event.text}", "yellow"))
 
                         elif isinstance(event, ToolStart):
                             flush_response()

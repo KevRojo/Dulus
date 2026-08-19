@@ -118,22 +118,60 @@ class _ProviderRetry:
         return min(jitter, cls.MAX_DELAY)
 
     @classmethod
+    def retry_reason(cls, exc: Exception) -> str:
+        """Short human label for why a retry is happening."""
+        msg = str(exc).lower()
+        if ("529" in msg or "overloaded" in msg or "capacity" in msg
+                or "server is busy" in msg or "model is currently loading" in msg):
+            return "provider overloaded"
+        if "429" in msg or "rate limit" in msg or "too many requests" in msg:
+            return "rate limited"
+        if "timeout" in msg or "timed out" in msg:
+            return "request timed out"
+        if "chunked encoding" in msg or "broken pipe" in msg:
+            return "connection dropped"
+        if "connection" in msg:
+            return "connection error"
+        if "500" in msg or "502" in msg or "503" in msg or "504" in msg:
+            return "server error"
+        return type(exc).__name__
+
+    @classmethod
     def wrap_generator(cls, fn: Callable, *args, **kwargs) -> Generator:
         """Wrap a generator function with retry logic.
 
-        Yields through the generator; if it raises a retryable exception,
-        waits and retries up to MAX_RETRIES times.
+        If the request fails before yielding anything, wait and retry up to
+        MAX_RETRIES times.  Once a stream has emitted output it is unsafe to
+        restart it: doing so duplicates text, burns tokens, and can repeat a
+        provider-side action.  Partial streams therefore propagate the error
+        instead of replaying the request from the beginning.
         """
         last_exc: Exception | None = None
         for attempt in range(cls.MAX_RETRIES + 1):
+            emitted = False
             try:
-                yield from fn(*args, **kwargs)
+                for item in fn(*args, **kwargs):
+                    emitted = True
+                    yield item
                 return
             except Exception as exc:
                 last_exc = exc
-                if attempt >= cls.MAX_RETRIES or not cls.is_retryable(exc):
+                if (
+                    emitted
+                    or attempt >= cls.MAX_RETRIES
+                    or not cls.is_retryable(exc)
+                ):
                     raise
                 delay = cls.sleep_for_attempt(attempt)
+                # Tell the UI what we're waiting on — a silent backoff reads
+                # as a frozen app. StatusChunk is transient: never recorded
+                # to history, safe for every consumer to ignore, and it does
+                # NOT flip the emitted guard (it comes from the wrapper, not
+                # the provider stream), so partial-stream protection holds.
+                yield StatusChunk(
+                    f"{cls.retry_reason(exc)} — retrying in {delay:.1f}s "
+                    f"({attempt + 2}/{cls.MAX_RETRIES + 1})…"
+                )
                 time.sleep(delay)
         # Should never reach here, but just in case
         if last_exc:
@@ -5223,6 +5261,11 @@ class TextChunk:
     def __init__(self, text): self.text = text
 
 class ThinkingChunk:
+    def __init__(self, text): self.text = text
+
+class StatusChunk:
+    """Transient UI status (e.g. a provider retry countdown). Never part of
+    the conversation history — consumers render it dimmed or ignore it."""
     def __init__(self, text): self.text = text
 
 class AssistantTurn:

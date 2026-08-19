@@ -69,8 +69,10 @@ def test_credential_and_client_errors_are_never_retried():
         assert not _ProviderRetry.is_retryable(Exception(message)), message
 
 
-def test_overloaded_stream_recovers_without_telling_the_user(monkeypatch):
-    # End to end: a 529 on the first attempts must not reach the transcript.
+def test_overloaded_stream_recovers_and_shows_why_it_waited(monkeypatch):
+    # End to end: a 529 on the first attempts must not reach the transcript as
+    # output text, but the backoff must be VISIBLE — a silent retry reads as a
+    # frozen app, so each wait emits a transient StatusChunk instead.
     attempts = 0
 
     def overloaded_then_fine():
@@ -83,8 +85,37 @@ def test_overloaded_stream_recovers_without_telling_the_user(monkeypatch):
     monkeypatch.setattr(providers.time, "sleep", lambda _seconds: None)
     out = list(_ProviderRetry.wrap_generator(overloaded_then_fine))
 
-    assert out == ["the real answer"]
+    statuses = [c for c in out if isinstance(c, providers.StatusChunk)]
+    output = [c for c in out if not isinstance(c, providers.StatusChunk)]
+    assert output == ["the real answer"]
     assert attempts == 3
+    # One status per retry — none before the final (successful) attempt.
+    assert len(statuses) == 2
+    assert all("overloaded" in c.text for c in statuses)
+
+
+def test_retry_status_never_enables_a_partial_stream_replay(monkeypatch):
+    # StatusChunk comes from the wrapper, not the provider stream, so it must
+    # NOT flip the emitted guard: once real output has streamed, a failure
+    # still propagates instead of replaying the request (duplicate text).
+    attempts = 0
+
+    def fail_then_partial():
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise Exception('Error code: 529 - {"type":"overloaded_error"}')
+        yield "partial answer"
+        raise Exception('Error code: 529 - {"type":"overloaded_error"}')
+
+    monkeypatch.setattr(providers.time, "sleep", lambda _seconds: None)
+    out = []
+    with pytest.raises(Exception, match="529"):
+        for chunk in _ProviderRetry.wrap_generator(fail_then_partial):
+            out.append(chunk)
+
+    assert "partial answer" in out  # streamed once, never replayed
+    assert attempts == 2  # no third attempt after partial output
 
 
 def test_stream_handlers_reraise_transient_failures_for_the_retry_wrapper():

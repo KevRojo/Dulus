@@ -1060,6 +1060,11 @@ function handleStreamEvent(d) {
     case 'thinking':
       appendThinking(d.text);
       break;
+    case 'status':
+      // Transient provider status (e.g. retry countdown) — show it in the
+      // status bar so a backoff never reads as a frozen app.
+      setStatus(d.text, 'thinking');
+      break;
     case 'tool_start':
       appendToolCall(d.name, d.inputs);
       // ── Analytics: tool_used ──
