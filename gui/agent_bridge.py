@@ -14,6 +14,7 @@ from agent import (
     run,
     TextChunk,
     ThinkingChunk,
+    StatusChunk,
     ToolStart,
     ToolEnd,
     TurnDone,
@@ -198,6 +199,9 @@ class DulusBridge:
 
             elif isinstance(event, ThinkingChunk):
                 self._emit("thinking", text=event.text)
+
+            elif isinstance(event, StatusChunk):
+                self._emit("status", text=event.text)
 
             elif isinstance(event, ToolStart):
                 self._emit("tool_start", name=event.name, inputs=event.inputs)
