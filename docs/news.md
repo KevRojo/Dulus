@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 19, 2026 (**v3.11.5**): **🔑 `/login dulus` works for real now.** The account module was missing from the PyPI wheel, so installed copies died with `No module named 'dulus_account'` — fixed and verified inside the wheel itself. Signing in unlocks the Fuel-metered `dulus-*` models on the Dulus control plane, and bare `/login` now shows every provider instead of wandering into a Grok login. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 19, 2026 (**v3.11.4**): **🩹 Web chat polish + honest Kimi errors.** Long replies no longer stutter (streaming re-renders are coalesced to one per frame), repeated calls to the same tool complete the right pill instead of leaving the rest spinning forever, and a late click on an expired question can't fake an answer anymore. On the Kimi side: a spent membership quota is now reported as quota — not as a bogus "invalid API key" — and `/login kimi force` wipes the old session and device id so switching accounts actually works. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 18, 2026 (**v3.11.1**): **🔧 Kimi Code connects again.** Kimi moved its coding endpoint from `api.kimi.com` to `api.kimi.ai`, and Dulus only knew the old address — so requests to the new one went out without the user-agent Kimi requires and bounced back with a 403. Dulus now recognizes both hosts, so `kimi-code` and `/login kimi` models talk to Kimi cleanly again. `pip install --upgrade dulus`. 🦅🇩🇴

@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.11.4] - 2026-08-19
+## [3.11.5] - 2026-08-19
+
+### Fixed
+- **`/login dulus` actually ships now.** `dulus_account.py` was missing from
+  `py-modules`, so the PyPI wheel did not contain it and the command died with
+  `No module named 'dulus_account'` on every installed copy. The source tree
+  was fine, which is exactly why nobody caught it — the wheel is now checked.
+- **Fuel-metered `dulus-*` models are wired to your Dulus account.** Signing in
+  with `/login dulus` (or a `dulus_sk_*` key / `DULUS_API_KEY`) unlocks the
+  `dulus/` model family on the Dulus control plane, metered in Fuel. The client
+  holds only its own credential; upstream provider keys never leave the server.
+- **`/login` with no arguments prints usage** listing every provider instead of
+  silently launching the Grok login flow.
+- **`/login` is in the help and the autocomplete**, with subcommand hints.
+
+### Changed
+- The Dulus account API base now defaults to `https://control.dulus.ai` — the
+  previous default host did not resolve, so OAuth sign-in and key minting could
+  never reach the server.
+
 
 ### Fixed
 - **Web chat no longer stutters on long replies.** The streaming bubble
