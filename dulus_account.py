@@ -29,7 +29,7 @@ from typing import Any, Callable
 from urllib.parse import parse_qs, urlencode, urlparse
 
 
-DULUS_API_BASE = os.environ.get("DULUS_API_BASE", "https://api.dulus.ai").rstrip("/")
+DULUS_API_BASE = os.environ.get("DULUS_API_BASE", "https://control.dulus.ai").rstrip("/")
 DULUS_OAUTH_CLIENT_ID = "dulus-cli"
 DULUS_OAUTH_SCOPE = "inference balance:read"
 _REDIRECT_PATH = "/callback"

@@ -92,6 +92,13 @@ Slash commands in REPL:
   /update now       Force update to the latest release
   /update on|off    Toggle the automatic update check at startup (default: on)
   /update status    Show installed version, latest, and auto-check setting
+  /login dulus      Sign in to your Dulus account (OAuth PKCE — no API key; unlocks Fuel-metered Dulus models)
+  /login dulus key  Mint a dulus_sk_* API key for CI/servers
+  /login claude     Claude Pro/Max subscription OAuth (no API key)
+  /login chatgpt    ChatGPT Plus/Pro/Team via Codex OAuth
+  /login kimi       Kimi membership via device OAuth (add `force` to switch accounts)
+  /login grok       Grok (xAI) OAuth — `/login x` forces a fresh login
+  /login zai        Z.ai (GLM) account via ZCode OAuth
   /tasks            List all tasks
   /tasks create <subject>    Quick-create a task
   /tasks start/done/cancel <id>  Update task status
@@ -9153,17 +9160,14 @@ def cmd_compact(args: str, state, config) -> bool:
 
 
 def cmd_login(args: str, _state, config) -> bool:
-    """Login for Grok models (official Grok Build TUI only).
+    """Sign in to a provider — or to Dulus itself.
 
-    This command no longer supports the old Playwright browser harvest for Grok.
-    To use grok-* models:
+    /login dulus    — your Dulus account (OAuth 2.0 + PKCE, loopback capture);
+                      unlocks Fuel-metered Dulus models without pasting an API key
+    /login dulus key — mint a dulus_sk_* API key for CI and servers
+    /login claude / chatgpt / kimi / grok / zai — provider subscription logins
 
-    1. Install the official Grok CLI if you don't have it.
-    2. Run `grok login` (or launch it from here if the binary is in PATH).
-    3. Dulus will automatically detect ~/.grok/auth.json and use the real session.
-
-    /login grok will try to launch the official `grok login` if the binary is available
-    in your PATH. Otherwise it will guide you to run it manually.
+    Bare `/login` prints usage; it no longer falls through into a Grok login.
     """
     sub = (args or "").strip().lower()
 
@@ -9320,7 +9324,7 @@ def cmd_login(args: str, _state, config) -> bool:
         print(clr("Could not authenticate Kimi. Re-run `/login kimi` (or `/login kimi force`).", "yellow"))
         return True
 
-    if sub in ("grok", "xai", "x", "grok-oauth", ""):
+    if sub in ("grok", "xai", "x", "grok-oauth"):
         from providers import (
             _load_grok_build_session_token, _xai_oauth_login,
             _xai_oauth_load_store, _is_token_expired,
@@ -9379,8 +9383,13 @@ def cmd_login(args: str, _state, config) -> bool:
         print(clr("  • Or set XAI_API_KEY as a direct fallback", "yellow"))
         return True
 
-    print(clr("Usage: /login claude   (Claude Pro/Max subscription OAuth — no API key)", "yellow"))
+    print(clr("Usage: /login dulus    (your Dulus account — OAuth PKCE, unlocks Fuel-metered Dulus models)", "yellow"))
+    print(clr("       /login dulus key (mint a dulus_sk_* API key for CI/servers)", "yellow"))
+    print(clr("       /login claude   (Claude Pro/Max subscription OAuth — no API key)", "yellow"))
+    print(clr("       /login chatgpt  (ChatGPT Plus/Pro/Team via Codex OAuth)", "yellow"))
+    print(clr("       /login kimi     (Kimi membership — device OAuth, no API key)", "yellow"))
     print(clr("       /login grok     (use `/login x` to force a fresh Grok login)", "yellow"))
+    print(clr("       /login zai      (Z.ai GLM account via ZCode OAuth)", "yellow"))
     return True
 
 
@@ -11208,6 +11217,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "task":        ("Manage tasks (alias)",               ["create", "delete", "get", "clear",
                                                            "todo", "in-progress", "done", "blocked"]),
     "proactive":   ("Manage proactive background watcher", ["off"]),
+    "login":       ("Sign in to Dulus or a provider (OAuth, no API key)", ["dulus", "claude", "chatgpt", "kimi", "grok", "zai", "key", "force"]),
     "daemon":      ("Toggle daemon — allow external triggers (Telegram) to spawn Dulus", ["on", "off"]),
     "bg":          ("Background Dulus — one detached daemon for CLI + Web + Telegram", ["start", "stop", "kill", "status", "attach"]),
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),
