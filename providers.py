@@ -619,6 +619,24 @@ PROVIDERS: dict[str, dict] = {
             "glm-z1-flash", "GLM-4.7", "GLM-4.5-AIR",
         ],
     },
+    "dulus": {
+        # Fuel-backed models on the Dulus control plane. Sign in with
+        # `/login dulus` (OAuth PKCE — no API key) or mint a dulus_sk_* key
+        # with `/login dulus key` for CI/servers. The control plane maps the
+        # dulus-* tiers to upstream models and meters Fuel per token; the
+        # client never sees the upstream model name and holds no provider key.
+        "type":       "dulus-oauth",
+        "api_key_env": None,
+        "base_url":   "https://control.dulus.ai/v1",
+        "context_limit": 262144,
+        "max_completion_tokens": 8192,
+        "models": [
+            "dulus-a-9b", "dulus-b-27b", "dulus-x-397b",
+            "dulus-mistral-7b", "dulus-mistral-nemo", "dulus-gpt-oss-20b",
+            "dulus-mistral-small-24b", "dulus-qwen-32b", "dulus-coder-30b",
+            "dulus-llama-70b", "dulus-vl-72b", "dulus-gpt-oss-120b",
+        ],
+    },
     "deepseek": {
         "type":       "openai",
         "api_key_env": "DEEPSEEK_API_KEY",
@@ -893,6 +911,12 @@ COSTS = {
 
 # Auto-detection: prefix → provider name
 _PREFIXES = [
+    # Dulus account models (Fuel-metered control plane, /login dulus) — MUST
+    # precede the generic mistral/qwen/llama→ollama rules below, or ids like
+    # dulus-mistral-7b would route to a local Ollama instead of the Dulus
+    # control plane. Order matters: first match wins.
+    ("dulus/",        "dulus"),
+    ("dulus-",        "dulus"),
     # ChatGPT/Codex subscription (OAuth) — MUST precede the generic "gpt-"→openai
     # rule below, or gpt-5.x / codex-* ids route to the paid API instead of the
     # user's ChatGPT plan. Order matters: first match wins.
@@ -7208,6 +7232,38 @@ def stream_kimi_oauth(
                                     messages, tool_schemas, config)
 
 
+def stream_dulus_account(
+    model: str,
+    system: str,
+    messages: list,
+    tool_schemas: list,
+    config: dict,
+) -> Generator:
+    """Stream Fuel-metered dulus-* models from the Dulus control plane.
+
+    The credential comes from `/login dulus` (OAuth access token) or a
+    ``dulus_sk_*`` key (`/login dulus key`, or DULUS_API_KEY in the
+    environment). The control plane owns the upstream provider keys and
+    settles Fuel per token — the client only ever holds its own account
+    credential.
+    """
+    try:
+        import dulus_account
+        token = dulus_account.access_token(notify=lambda _m: None)
+    except Exception:
+        token = ""
+    if not token:
+        yield TextChunk("[dulus] No Dulus account session. Run `/login dulus` to sign in "
+                        "(OAuth — no API key), or `/login dulus key` to mint a "
+                        "dulus_sk_* key for CI/servers.")
+        return
+    base_url = (config.get("dulus_base_url")
+                or _os_tls.environ.get("DULUS_BASE_URL", "")).rstrip("/") \
+        or PROVIDERS["dulus"]["base_url"]
+    yield from stream_openai_compat(token, base_url, model, system,
+                                    messages, tool_schemas, config)
+
+
 def stream(
     model: str,
     system: str,
@@ -7240,6 +7296,9 @@ def stream(
             # Kimi membership OAuth (`/login kimi` or ~/.kimi-code credentials)
             # → api.kimi.com/coding/v1 (same endpoint as kimi-code API key).
             yield from stream_kimi_oauth(model_name, system, messages, tool_schemas, config)
+        elif prov["type"] == "dulus-oauth":
+            # Dulus account (`/login dulus`) → control plane, Fuel-metered.
+            yield from stream_dulus_account(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "kimi_web":
             auth_file = _web_auth_path(config, "kimi_web_auth_path", "kimi_consumer.json")
             yield from stream_kimi_web(auth_file, model_name, system, messages, tool_schemas, config)
