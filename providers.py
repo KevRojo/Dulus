@@ -6081,8 +6081,11 @@ def stream_openai_compat(
     _is_local_ollama = "11434" in base_url
     _is_lmstudio     = "1234" in base_url and ("lmstudio" in base_url or "localhost" in base_url or "127.0.0.1" in base_url)
     if _is_local_ollama or _is_lmstudio:
+        # Same single source of truth as stream_ollama: config.json first,
+        # provider default only when the user hasn't set anything.
         prov = detect_provider(model)
-        ctx_limit = PROVIDERS.get(prov if prov in ("ollama", "lmstudio") else "ollama", {}).get("context_limit", 128000)
+        fallback = PROVIDERS.get(prov if prov in ("ollama", "lmstudio") else "ollama", {}).get("context_limit", 128000)
+        ctx_limit = int(config.get("context_limit") or config.get("max_tokens") or fallback)
         kwargs["extra_body"] = {"options": {"num_ctx": ctx_limit}}
 
     # Kimi thinking control (v1.0.1.20+)
@@ -6709,7 +6712,9 @@ def stream_ollama(
         "messages": oai_messages,
         "stream": True,
         "options": {
-            "num_ctx": config.get("context_limit", 32768)
+            # One source of truth: the user's config.json. max_tokens is the
+            # existing Dulus knob — no new params. 32k only if config has neither.
+            "num_ctx": int(config.get("context_limit") or config.get("max_tokens") or 32768)
         }
     }
 

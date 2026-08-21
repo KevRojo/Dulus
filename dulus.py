@@ -10148,7 +10148,7 @@ def cmd_status(args: str, state, config) -> bool:
     tokens_in = getattr(state, "total_input_tokens", 0)
     tokens_out = getattr(state, "total_output_tokens", 0)
     est_ctx = estimate_tokens(getattr(state, "messages", []), model=model, config=config)
-    ctx_limit = get_context_limit(model)
+    ctx_limit = get_context_limit(model, config)
     ctx_pct = (est_ctx / ctx_limit * 100) if ctx_limit else 0
     plan_mode = config.get("permission_mode") == "plan"
 
@@ -11451,7 +11451,7 @@ def repl(config: dict, initial_prompt: str | None = None):
             from compaction import estimate_tokens, get_context_limit
             _model = config.get("model", "")
             _used = estimate_tokens(state.messages, _model, config)
-            _limit = get_context_limit(_model) or 128000
+            _limit = get_context_limit(_model, config) or 128000
             _pct = int((_used * 100 / _limit) if _limit else 0)
             parts.append(clr(f"📊 ctx {_pct}%", "gray"))
         except Exception:
@@ -12931,7 +12931,7 @@ def repl(config: dict, initial_prompt: str | None = None):
                 from compaction import estimate_tokens, get_context_limit
                 _model = config.get("model", "")
                 _used = estimate_tokens(state.messages, _model, config)
-                _limit = get_context_limit(_model) or 128000
+                _limit = get_context_limit(_model, config) or 128000
                 _pct_f = (_used * 100 / _limit) if _limit else 0
                 # Big-context models (200k+) round to 0% for ages — show one
                 # decimal under 1% so the user knows it's actually tracking.
