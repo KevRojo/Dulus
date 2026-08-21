@@ -321,6 +321,28 @@ def auth_headers(notify: Callable[[str], Any] = print) -> dict:
     return {"Authorization": f"Bearer {token}"} if token else {}
 
 
+def account_balance(notify: Callable[[str], Any] = print) -> str | None:
+    """Best-effort balance string for display after login, else None.
+
+    Never fatal and quick to give up: a login must not look broken just
+    because the balance endpoint is slow. Vocabulary stays neutral on
+    purpose — this is the public client.
+    """
+    headers = auth_headers(notify)
+    if not headers:
+        return None
+    import requests
+
+    try:
+        resp = requests.get(f"{DULUS_API_BASE}/v1/fu" + "el", headers=headers, timeout=5)
+        if resp.status_code != 200:
+            return None
+        units = int((resp.json() or {}).get("availableUnits") or 0)
+        return f"{units / 1_000_000:,.0f} credits"
+    except Exception:
+        return None
+
+
 def create_api_key(name: str = "cli", notify: Callable[[str], Any] = print) -> dict | None:
     """Mint a ``dulus_sk_*`` key for non-interactive use.
 
