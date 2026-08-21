@@ -116,14 +116,23 @@ def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
     return int((content_tokens + framing_tokens) * 1.1)
 
 
-def get_context_limit(model: str) -> int:
+def get_context_limit(model: str, config: dict | None = None) -> int:
     """Look up context window size for a model.
 
+    One knob, one source of truth: the user's ~/.dulus/config.json.
+    Priority: explicit config["context_limit"], then config["max_tokens"]
+    (the existing Dulus setting — no new params), then the provider default.
     Args:
         model: model string (e.g. "claude-opus-4-6", "ollama/llama3.3")
+        config: optional agent config dict
     Returns:
         context limit in tokens
     """
+    if config and isinstance(config, dict):
+        if config.get("context_limit"):
+            return int(config["context_limit"])
+        if config.get("max_tokens"):
+            return int(config["max_tokens"])
     provider_name = providers.detect_provider(model)
     prov = providers.PROVIDERS.get(provider_name, {})
     return prov.get("context_limit", 128000)
@@ -506,7 +515,7 @@ def maybe_compact(state, config: dict) -> bool:
         True if compaction was performed
     """
     model = config.get("model", "")
-    limit = get_context_limit(model)
+    limit = get_context_limit(model, config)
     threshold = limit * 0.7
 
     # Fast pre-check (startup-latency fix, 2026-07-06): the precise path can
