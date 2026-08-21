@@ -717,8 +717,8 @@ PROVIDERS: dict[str, dict] = {
         "api_key":    "ollama",
         "context_limit": 250000,
         "models": [
-            "llama3.3", "llama3.2", "phi4", "mistral", "mixtral",
-            "qwen2.5-coder", "deepseek-r1", "gemma3",
+            "gemma4", "qwen3", "qwen2.5-coder", "llama3.3",
+            "deepseek-r1", "mistral",
         ],
     },
     "lmstudio": {
@@ -6710,9 +6710,14 @@ def stream_ollama(
         }
     }
 
-    # Honor `thinking: false` — tell Ollama-hosted reasoning models (Qwen3, etc.)
+    # Honor `thinking` — tell Ollama-hosted reasoning models (Qwen3, etc.)
     # to skip the thinking phase instead of streaming <think> blocks.
-    if not config.get("thinking", False):
+    # Cap at level 3: level 4 stalls Ollama after the first message.
+    _thk = _thinking_level_from(config.get("thinking", 0))
+    if _thk > 3:
+        _thk = 3
+        config = {**config, "thinking": 3}
+    if _thk == 0:
         payload["think"] = False
         payload["options"]["enable_thinking"] = False
 
