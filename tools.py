@@ -1979,7 +1979,15 @@ def ask_input_interactive(prompt: str, config: dict, menu_text: str | None = Non
                 # Call the read_line function from input module (not readline)
                 # prompt_toolkit handles ANSI escapes natively, no need for \001/\002 markers
                 if read_line:
-                    return read_line(prompt)
+                    # show_recent=False: we print our own question/menu right above
+                    # this prompt. The recent-strip's DEC save/restore + \033[J
+                    # erase would wipe the menu and swallow everything printed
+                    # after it ("no se ven tus mensajes" bug).
+                    try:
+                        return read_line(prompt, show_recent=False)
+                    except TypeError:
+                        # Older input.py without the show_recent kwarg
+                        return read_line(prompt)
                 else:
                     # Fallback to input() if read_line is not available
                     import re as _re
@@ -2010,13 +2018,17 @@ def drain_pending_questions(config: dict) -> bool:
     # Temporarily restore the real stdout/stderr for the entire drain so that
     # both print() and input() (used by ask_input_interactive) go to the
     # terminal and not into any redirect_stdout() buffer from execute_tool.
+    # The restore MUST live in a finally: an exception mid-drain (Ctrl+C,
+    # a broken option, EOF) would otherwise leave process-wide stdout stomped
+    # for the rest of the session.
     import sys as _sys
     _saved_out = _sys.stdout
     _saved_err = _sys.stderr
     _sys.stdout = _sys.__stdout__
     _sys.stderr = _sys.__stderr__
 
-    for entry in pending:
+    try:
+      for entry in pending:
         question = entry["question"]
         options  = entry["options"]
         allow_ft = entry["allow_freetext"]
@@ -2069,10 +2081,9 @@ def drain_pending_questions(config: dict) -> bool:
 
         result.append(raw)
         event.set()
-
-
-    _sys.stdout = _saved_out
-    _sys.stderr = _saved_err
+    finally:
+        _sys.stdout = _saved_out
+        _sys.stderr = _saved_err
 
     return True
 

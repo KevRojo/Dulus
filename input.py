@@ -383,12 +383,18 @@ def _build_session(history_path: Optional[Path]):
     )
 
 
-def read_line(prompt_ansi: str, history_path: Optional[Path] = None) -> str:
+def read_line(prompt_ansi: str, history_path: Optional[Path] = None, show_recent: bool = True) -> str:
     """Read one line of input via prompt_toolkit; caches the session across calls.
 
     The history file passed here MUST NOT be the readline history file — the
     two line-editors use incompatible formats. See Dulus REPL for the
     dedicated PT_HISTORY_FILE.
+
+    show_recent=False skips the recent-messages strip AND the DEC cursor
+    save/restore + erase-to-end-of-screen dance. Callers that render their own
+    menu above the prompt (e.g. AskUserQuestion's drain) MUST pass False —
+    otherwise the \\0338\\033[J erase wipes the menu and any output printed
+    after it (the "no se ven tus mensajes" bug).
     """
     global _SESSION, _SESSION_HISTORY_PATH, _notification_callback, _active_app
     
@@ -412,12 +418,13 @@ def read_line(prompt_ansi: str, history_path: Optional[Path] = None) -> str:
     # ANSI \033[s/\033[u which prompt_toolkit uses internally and would
     # clobber our saved position.
     import sys as _sys
-    recent = _RECENT_USER_MSGS[-_RECENT_MAX:] if _RECENT_USER_MSGS else []
+    recent = (_RECENT_USER_MSGS[-_RECENT_MAX:] if _RECENT_USER_MSGS else []) if show_recent else []
 
-    _sys.stdout.write("\0337")           # DEC save cursor (ESC 7)
-    for msg in recent:
-        _sys.stdout.write(f"\033[2m» {msg}\033[0m\n")
-    _sys.stdout.flush()
+    if show_recent:
+        _sys.stdout.write("\0337")       # DEC save cursor (ESC 7)
+        for msg in recent:
+            _sys.stdout.write(f"\033[2m» {msg}\033[0m\n")
+        _sys.stdout.flush()
 
     with patch_stdout(raw=True):
         try:
@@ -426,8 +433,9 @@ def read_line(prompt_ansi: str, history_path: Optional[Path] = None) -> str:
         finally:
             _active_app = None
 
-    _sys.stdout.write("\0338\033[J")     # DEC restore cursor (ESC 8) → erase to end
-    _sys.stdout.flush()
+    if show_recent:
+        _sys.stdout.write("\0338\033[J")  # DEC restore cursor (ESC 8) → erase to end
+        _sys.stdout.flush()
 
     return result
 
