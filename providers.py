@@ -6793,40 +6793,21 @@ def stream_ollama(
             yield AssistantTurn(msg, [], 0, 0, error=True)
             return
     except (urllib.error.URLError, ConnectionError, OSError) as e:
-        # Ollama not reachable. If the `ollama` binary is installed, try to
-        # auto-start the server and retry once before giving up — most users
-        # just forgot to launch it. Only fail soft if it's truly unavailable.
-        import os as _os, shutil as _sh, subprocess as _sp, time as _t
-        resp_cm = None
-        if _sh.which("ollama") and ("11434" in (base_url or "")):
-            try:
-                _kw: dict[str, Any] = {"stdout": _sp.DEVNULL, "stderr": _sp.DEVNULL}
-                if _os.name == "nt":
-                    _kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED | NEW_GROUP
-                else:
-                    _kw["start_new_session"] = True
-                _sp.Popen(["ollama", "serve"], **_kw)
-                yield ThinkingChunk("[ollama] server not running — starting it for you…\n")
-                for _ in range(24):  # wait up to ~12s for the port to come up
-                    _t.sleep(0.5)
-                    try:
-                        resp_cm = urllib.request.urlopen(req)
-                        break
-                    except Exception:
-                        continue
-            except Exception:
-                resp_cm = None
-        if resp_cm is None:
-            if _sh.which("ollama"):
-                msg = (f"[ollama] Tried to start Ollama but it didn't come up at {base_url} ({e}). "
-                       "Run `ollama serve` manually, or switch provider with /model.")
-            else:
-                msg = (f"[ollama] Could not connect to Ollama at {base_url} ({e}). "
-                       "Ollama isn't installed — get it at https://ollama.com/download, "
-                       "or switch to a cloud provider with /model. Run /help for options.")
-            yield TextChunk(msg)
-            yield AssistantTurn(msg, [], 0, 0, error=True)
-            return
+        # Ollama not reachable. NEVER auto-start `ollama serve` from here:
+        # spawning it detached with default env stomps the user's own server
+        # config (and the retry loop hammered the port for ~12s). Fail fast
+        # with a clear message instead.
+        import shutil as _sh
+        if _sh.which("ollama"):
+            msg = (f"[ollama] Could not connect to Ollama at {base_url} ({e}). "
+                   "Start it yourself with `ollama serve`, or switch provider with /model.")
+        else:
+            msg = (f"[ollama] Could not connect to Ollama at {base_url} ({e}). "
+                   "Ollama isn't installed — get it at https://ollama.com/download, "
+                   "or switch to a cloud provider with /model. Run /help for options.")
+        yield TextChunk(msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+        return
 
     # Buffer for accumulating thinking content to reduce word-by-word chunks
     _thinking_buffer = ""
