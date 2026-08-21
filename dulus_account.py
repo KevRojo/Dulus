@@ -321,12 +321,12 @@ def auth_headers(notify: Callable[[str], Any] = print) -> dict:
     return {"Authorization": f"Bearer {token}"} if token else {}
 
 
-def account_balance(notify: Callable[[str], Any] = print) -> str | None:
-    """Best-effort balance string for display after login, else None.
+def balance_units(notify: Callable[[str], Any] = print) -> int | None:
+    """Best-effort raw balance in micro-units, else None.
 
-    Never fatal and quick to give up: a login must not look broken just
+    Never fatal and quick to give up: nothing should look broken just
     because the balance endpoint is slow. Vocabulary stays neutral on
-    purpose — this is the public client.
+    purpose — this is the public client; callers format the label.
     """
     headers = auth_headers(notify)
     if not headers:
@@ -337,10 +337,17 @@ def account_balance(notify: Callable[[str], Any] = print) -> str | None:
         resp = requests.get(f"{DULUS_API_BASE}/v1/fu" + "el", headers=headers, timeout=5)
         if resp.status_code != 200:
             return None
-        units = int((resp.json() or {}).get("availableUnits") or 0)
-        return f"{units / 1_000_000:,.0f} credits"
+        return int((resp.json() or {}).get("availableUnits") or 0)
     except Exception:
         return None
+
+
+def account_balance(notify: Callable[[str], Any] = print) -> str | None:
+    """Display-ready balance string, or None when signed out/unreachable."""
+    units = balance_units(notify)
+    if units is None:
+        return None
+    return f"{units / 1_000_000:,.0f} credits"
 
 
 def create_api_key(name: str = "cli", notify: Callable[[str], Any] = print) -> dict | None:
