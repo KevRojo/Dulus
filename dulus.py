@@ -9190,7 +9190,7 @@ def cmd_login(args: str, _state, config) -> bool:
             if store.get("access_token") and not dulus_account._token_expired(store):
                 print(clr("✅ Dulus account already signed in.", "green"))
                 bal = dulus_account.account_balance(notify=lambda m: None)
-                if fuel:
+                if bal:
                     print(clr(f"⛽ Balance: {bal}", "green"))
                 print(clr("Use `/login dulus force` to sign in again, or `/login dulus key` to mint an API key.", "green"))
                 return True
@@ -9206,7 +9206,7 @@ def cmd_login(args: str, _state, config) -> bool:
         if token:
             print(clr("✅ Signed in to your Dulus account.", "green"))
             bal = dulus_account.account_balance(notify=lambda m: None)
-            if fuel:
+            if bal:
                 print(clr(f"⛽ Balance: {bal}", "green"))
             return True
         print(clr("Could not sign in. Re-run `/login dulus`.", "yellow"))
