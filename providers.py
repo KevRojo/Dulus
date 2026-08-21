@@ -6086,7 +6086,8 @@ def stream_openai_compat(
         prov = detect_provider(model)
         fallback = PROVIDERS.get(prov if prov in ("ollama", "lmstudio") else "ollama", {}).get("context_limit", 128000)
         ctx_limit = int(config.get("context_limit") or config.get("max_tokens") or fallback)
-        kwargs["extra_body"] = {"options": {"num_ctx": ctx_limit}}
+        _ctx_body: dict = {"options": {"num_ctx": ctx_limit}}  # bare dict: extra_body mixes int/str shapes
+        kwargs["extra_body"] = _ctx_body
 
     # Kimi thinking control (v1.0.1.20+)
     # Gate by the REAL endpoint host, not just the model-name prefix: Kimi models
