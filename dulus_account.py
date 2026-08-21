@@ -231,7 +231,8 @@ def login(notify: Callable[[str], Any] = print) -> str | None:
     if ent.status_code != 200:
         notify(f"[dulus] Account lookup failed ({ent.status_code}).")
         return None
-    lease = (ent.json() or {}).get("leaseToken")
+    ent_data = ent.json() or {}
+    lease = ent_data.get("leaseToken")
     if not lease:
         notify("[dulus] This account has no active Dulus plan — sign up at dulus.ai first.")
         return None
@@ -287,6 +288,12 @@ def login(notify: Callable[[str], Any] = print) -> str | None:
         return None
 
     store = _persist_tokens(response.json())
+    # Keep the account lease too: balance/usage endpoints authenticate with
+    # X-Dulus-Lease, not with the OAuth token, so without this the toolbar
+    # balance has nothing to present.
+    store["lease_token"] = lease
+    store["lease_expires_at"] = ent_data.get("leaseExpiresAt")
+    save_store(store)
     notify("[dulus] Signed in.")
     return store.get("access_token") or None
 
@@ -328,7 +335,21 @@ def balance_units(notify: Callable[[str], Any] = print) -> int | None:
     because the balance endpoint is slow. Vocabulary stays neutral on
     purpose — this is the public client; callers format the label.
     """
-    headers = auth_headers(notify)
+    store = load_store()
+    lease = str(store.get("lease_token") or "")
+    if lease:
+        # The balance endpoint authenticates with the account lease, not the
+        # OAuth token ("invalid or expired Dulus lease" otherwise).
+        exp = store.get("lease_expires_at")
+        try:
+            if exp and time.time() >= float(exp):
+                lease = ""
+        except (TypeError, ValueError):
+            pass  # unknown format: present it and let a 401 decide
+    if lease:
+        headers = {"X-Dulus-Lease": lease}
+    else:
+        headers = auth_headers(notify)
     if not headers:
         return None
     import requests
