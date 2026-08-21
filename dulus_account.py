@@ -26,14 +26,20 @@ import pathlib
 import secrets
 import time
 from typing import Any, Callable
-from urllib.parse import parse_qs, urlencode, urlparse
 
 
 DULUS_API_BASE = os.environ.get("DULUS_API_BASE", "https://control.dulus.ai").rstrip("/")
 DULUS_OAUTH_CLIENT_ID = "dulus-cli"
 DULUS_OAUTH_SCOPE = "inference balance:read"
 _REDIRECT_PATH = "/callback"
-_LOGIN_TIMEOUT_SECONDS = 180
+_LOGIN_TIMEOUT_SECONDS = 300
+# Locked Auth0 tenant constants — same tenant the private build uses. A public
+# client must not be able to repoint auth at its own tenant to dodge the plan
+# gate. The device flow is what identifies the human; the Dulus OAuth code
+# flow below only converts that identity into CLI tokens.
+_AUTH0_DOMAIN = "dulus.us.auth0.com"
+_AUTH0_CLIENT_ID = "gm7NFQrAhhBKG0VsAEdVkhUU7oayQC1g"
+_AUTH0_SCOPES = "openid profile email"
 # Refresh slightly early so a request never leaves with a token that expires
 # while it is in flight.
 _EXPIRY_BUFFER_SECONDS = 60
@@ -132,102 +138,142 @@ def refresh(refresh_token: str) -> dict | None:
 
 
 def login(notify: Callable[[str], Any] = print) -> str | None:
-    """Run the browser login. Returns an access token, or None on failure."""
-    import threading
-    import webbrowser
-    from http.server import BaseHTTPRequestHandler, HTTPServer
+    """Sign in via the device flow. Returns an access token, or None.
 
+    The server has no browser consent page for the CLI: /v1/oauth/authorize
+    is a POST-only API that expects an account lease. So the chain is:
+
+      1. Auth0 device-code login (works headless; the approving browser can
+         be on any machine — nothing has to reach the CLI's localhost).
+      2. GET /api/entitlements with the Auth0 token → account lease.
+      3. POST /v1/oauth/authorize with the lease → authorization code.
+      4. POST /v1/oauth/token (code + PKCE verifier) → CLI tokens.
+    """
     import requests
+    import webbrowser
 
+    # ── 1. Auth0 device code ────────────────────────────────────────────
+    try:
+        start = requests.post(
+            f"https://{_AUTH0_DOMAIN}/oauth/device/code",
+            data={"client_id": _AUTH0_CLIENT_ID, "scope": _AUTH0_SCOPES},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=30,
+        ).json()
+    except Exception as exc:
+        notify(f"[dulus] Could not reach the login server: {exc}")
+        return None
+
+    device_code = start.get("device_code")
+    user_code = start.get("user_code")
+    verify_full = start.get("verification_uri_complete") or start.get("verification_uri")
+    if not device_code or not user_code or not verify_full:
+        notify("[dulus] Login server returned no device code.")
+        return None
+
+    notify(f"[dulus] Go to {start.get('verification_uri') or verify_full} and enter: {user_code}")
+    notify(f"[dulus] If the browser didn't open, use:\n{verify_full}")
+    try:
+        webbrowser.open(verify_full)
+    except Exception:
+        pass
+
+    interval = max(1, int(start.get("interval") or 5))
+    deadline = time.time() + min(int(start.get("expires_in") or 300), _LOGIN_TIMEOUT_SECONDS)
+    auth0_token = None
+    while time.time() < deadline:
+        time.sleep(interval)
+        try:
+            poll = requests.post(
+                f"https://{_AUTH0_DOMAIN}/oauth/token",
+                data={
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                    "device_code": device_code,
+                    "client_id": _AUTH0_CLIENT_ID,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=30,
+            )
+        except Exception:
+            continue
+        if poll.status_code == 200:
+            auth0_token = poll.json().get("access_token")
+            break
+        err = (poll.json() or {}).get("error", "")
+        if err == "authorization_pending":
+            continue
+        if err == "slow_down":
+            interval += 5
+            continue
+        if err == "access_denied":
+            notify("[dulus] Sign-in denied.")
+            return None
+        if err in ("expired_token", "expired"):
+            notify("[dulus] The login code expired. Run /login dulus again.")
+            return None
+        notify(f"[dulus] Login failed: {err or poll.status_code}")
+        return None
+
+    if not auth0_token:
+        notify("[dulus] Sign-in timed out before it was approved.")
+        return None
+
+    # ── 2. Account lease ────────────────────────────────────────────────
+    try:
+        ent = requests.get(
+            f"{DULUS_API_BASE}/api/entitlements",
+            headers={"Authorization": f"Bearer {auth0_token}"},
+            timeout=30,
+        )
+    except Exception as exc:
+        notify(f"[dulus] Could not reach the Dulus API: {exc}")
+        return None
+    if ent.status_code != 200:
+        notify(f"[dulus] Account lookup failed ({ent.status_code}).")
+        return None
+    lease = (ent.json() or {}).get("leaseToken")
+    if not lease:
+        notify("[dulus] This account has no active Dulus plan — sign up at dulus.ai first.")
+        return None
+
+    # ── 3. Authorization code (POST — there is no GET consent page) ─────
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(24)
-    captured: dict = {}
-
-    class _Handler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
-            query = parse_qs(urlparse(self.path).query)
-            captured["code"] = (query.get("code") or [None])[0]
-            captured["state"] = (query.get("state") or [None])[0]
-            captured["error"] = (query.get("error") or [None])[0]
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            ok = captured.get("code") and not captured.get("error")
-            body = (
-                "<h2>Dulus &mdash; you're signed in</h2>"
-                "<p>You can close this tab and return to the terminal.</p>"
-                if ok
-                else "<h2>Dulus &mdash; sign-in failed</h2><p>%s</p>"
-                % (captured.get("error") or "no code received")
-            )
-            self.wfile.write(
-                b"<html><body style='font-family:sans-serif;background:#111;color:#eee;"
-                b"text-align:center;padding-top:60px'>" + body.encode("utf-8") + b"</body></html>"
-            )
-
-        def log_message(self, *_args) -> None:
-            pass  # the default handler logs every hit to stderr
-
-    # Port 0 lets the OS pick a free port, so a second login (or a leftover
-    # socket) can never make sign-in fail with "address already in use".
+    redirect_uri = f"http://127.0.0.1{_REDIRECT_PATH}"
     try:
-        server = HTTPServer(("127.0.0.1", 0), _Handler)
-    except OSError as exc:
-        notify(f"[dulus] Cannot start the local callback server: {exc}")
+        authz = requests.post(
+            f"{DULUS_API_BASE}/v1/oauth/authorize",
+            params={
+                "client_id": DULUS_OAUTH_CLIENT_ID,
+                "redirect_uri": redirect_uri,
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "state": state,
+                "scope": DULUS_OAUTH_SCOPE,
+            },
+            headers={"X-Dulus-Lease": lease},
+            timeout=30,
+        )
+    except Exception as exc:
+        notify(f"[dulus] Authorization request failed: {exc}")
         return None
-    port = server.server_port
-    redirect_uri = f"http://127.0.0.1:{port}{_REDIRECT_PATH}"
-    server.timeout = 1
-
-    authorize_url = f"{DULUS_API_BASE}/v1/oauth/authorize?" + urlencode(
-        {
-            "response_type": "code",
-            "client_id": DULUS_OAUTH_CLIENT_ID,
-            "redirect_uri": redirect_uri,
-            "scope": DULUS_OAUTH_SCOPE,
-            "state": state,
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-        }
-    )
-
-    notify("[dulus] Opening your browser to sign in…")
-    notify(f"[dulus] If it doesn't open, paste this URL manually:\n{authorize_url}")
-    try:
-        webbrowser.open(authorize_url)
-    except Exception:
-        pass
-
-    deadline = time.time() + _LOGIN_TIMEOUT_SECONDS
-    while "code" not in captured and "error" not in captured and time.time() < deadline:
-        server.handle_request()
-    try:
-        server.server_close()
-    except Exception:
-        pass
-
-    if captured.get("error"):
-        notify(f"[dulus] Sign-in denied: {captured['error']}")
+    if authz.status_code != 200:
+        notify(f"[dulus] Authorization rejected ({authz.status_code}): {authz.text[:200]}")
         return None
-    if not captured.get("code"):
-        notify("[dulus] Sign-in timed out (no callback received).")
-        return None
-    # The state proves this callback belongs to the request we just made; a
-    # mismatch means someone else's authorization was injected.
-    if captured.get("state") != state:
-        notify("[dulus] State mismatch — aborting for safety (possible CSRF).")
+    code = (authz.json() or {}).get("code")
+    if not code:
+        notify("[dulus] Server returned no authorization code.")
         return None
 
+    # ── 4. Code exchange ────────────────────────────────────────────────
     try:
         response = requests.post(
             f"{DULUS_API_BASE}/v1/oauth/token",
             json={
                 "grant_type": "authorization_code",
                 "client_id": DULUS_OAUTH_CLIENT_ID,
-                "code": captured["code"],
+                "code": code,
                 "redirect_uri": redirect_uri,
-                # Proves this exchange comes from the program that started the
-                # flow, which is what makes a stolen code useless.
                 "code_verifier": verifier,
             },
             timeout=30,
