@@ -629,7 +629,10 @@ PROVIDERS: dict[str, dict] = {
         "api_key_env": None,
         "base_url":   "https://control.dulus.ai/v1",
         "context_limit": 262144,
-        "max_completion_tokens": 8192,
+        # 8k was too small: with thinking:max the model burns the whole
+        # completion budget on reasoning and the stream ends on
+        # finish_reason="length" with no answer and no tool call.
+        "max_completion_tokens": 32768,
         "models": [
             "dulus-a-9b", "dulus-b-27b", "dulus-x-397b",
             "dulus-mistral-7b", "dulus-mistral-nemo", "dulus-gpt-oss-20b",
