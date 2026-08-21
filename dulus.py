@@ -11484,8 +11484,36 @@ def repl(config: dict, initial_prompt: str | None = None):
         _pmode_color = "red" if pmode == "accept-all" else "gray"
         parts.append(clr(f"{lock} {pmode}", _pmode_color))
 
+        # Dulus balance — red pump like the private build. Cache-only read +
+        # background refresh (45s TTL); the toolbar repaints on every
+        # keystroke so it must NEVER touch the network inline.
+        try:
+            _bc = _render_toolbar._balance_cache
+            import threading as _th, time as _tm
+            if _tm.time() - _bc["ts"] > 45.0 and not _bc["refreshing"]:
+                _bc["refreshing"] = True
+
+                def _refresh_balance():
+                    try:
+                        import dulus_account
+                        units = dulus_account.balance_units(notify=lambda m: None)
+                        _bc["text"] = f"{units / 1_000_000:,.0f} fuel" if units is not None else None
+                    except Exception:
+                        _bc["text"] = None
+                    finally:
+                        _bc["ts"] = _tm.time()
+                        _bc["refreshing"] = False
+
+                _th.Thread(target=_refresh_balance, daemon=True).start()
+            if _bc["text"]:
+                parts.append(clr(f"⛽ {_bc['text']}", "red"))
+        except Exception:
+            pass
+
         # Separator in gray
         return clr("  ·  ", "gray").join(parts) if parts else ""
+
+    _render_toolbar._balance_cache = {"text": None, "ts": 0.0, "refreshing": False}
 
     # Setup slash-command autocompletion with prompt_toolkit if available
     if HAS_PROMPT_TOOLKIT and input_setup:
