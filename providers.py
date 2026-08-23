@@ -5089,12 +5089,15 @@ def messages_to_anthropic(messages: list) -> list:
             thinking = m.get("thinking", "")
             thinking_sig = m.get("thinking_signature", "")
             # A thinking block can only be replayed WITH its signature — the API
-            # rejects one missing the field. So include it only when we have the
-            # signature; otherwise drop the thinking block (safe: it's optional).
-            if thinking and thinking_sig and i == _last_assistant_idx:
+            # rejects one missing the field. On newer Claude models thinking is
+            # returned with display="omitted", so the thinking text is empty but
+            # the signature still must be passed back. Replay the block whenever
+            # we have the signature, using an empty string for the thinking text
+            # when the model chose not to return it.
+            if thinking_sig and i == _last_assistant_idx:
                 blocks.append({
                     "type": "thinking",
-                    "thinking": thinking,
+                    "thinking": thinking or "",
                     "signature": thinking_sig,
                 })
             
