@@ -1496,7 +1496,7 @@ def _print_login_nag(config: dict) -> None:
     except Exception:
         pass  # can't tell → show it (nudge toward the account)
     try:
-        accent = _theme_accent(config)
+        accent = _theme_accent(config) or "cyan"
     except Exception:
         accent = "cyan"
     try:
