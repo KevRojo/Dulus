@@ -2134,8 +2134,11 @@ def _print_to_console(content: str = "", style: str = "normal", prefix: str = ""
     if file_path:
         try:
             fp = Path(file_path)
-            # Special case: last_tool_output.txt is usually in the app config dir (~/.dulus)
-            if file_path == "last_tool_output.txt" and not fp.exists():
+            # Special case: last_tool_output.txt always lives in ~/.dulus. Match by
+            # BASENAME (not the exact string) so a workspace/cwd-relative or absolute
+            # path the model guessed — e.g. "<workspace>/last_tool_output.txt" — still
+            # resolves there instead of failing in the workspace.
+            if fp.name == "last_tool_output.txt" and not fp.exists():
                 # Cross-platform home directory resolution
                 fp = Path.home() / ".dulus" / "last_tool_output.txt"
                 

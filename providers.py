@@ -5246,7 +5246,8 @@ class ThinkingChunk:
 class AssistantTurn:
     """Completed assistant turn with text + tool_calls + thinking."""
     def __init__(self, text, tool_calls, in_tokens, out_tokens, thinking="", error=False,
-                 cache_creation_tokens=0, cache_read_tokens=0, thinking_signature=""):
+                 cache_creation_tokens=0, cache_read_tokens=0, thinking_signature="",
+                 finish_reason=""):
         self.text        = text
         self.tool_calls  = tool_calls   # list of {id, name, input}
         self.in_tokens   = in_tokens
@@ -5256,6 +5257,9 @@ class AssistantTurn:
         # be replayed verbatim alongside the thinking text or the API 400s.
         self.thinking_signature = thinking_signature
         self.error       = error
+        # Why the turn ended: "stop" | "tool_calls" | "length" | "". Lets the
+        # agent loop tell a real completion from a max_tokens truncation.
+        self.finish_reason = finish_reason
         # Anthropic explicit caching + OpenAI prompt-cached tokens.
         # 0 when the provider doesn't report it.
         self.cache_creation_tokens = cache_creation_tokens
@@ -5486,6 +5490,13 @@ def stream_anthropic(
         # thinking_budget in config still wins when provided.
         _level_budgets = {1: 2048, 2: 6000, 3: 16000, 4: 8192}
         budget = config.get("thinking_budget") or _level_budgets[_thk_level]
+        # Anthropic needs max_tokens > budget_tokens, and the ANSWER must fit in
+        # whatever's left after thinking. Cap the budget so text always has room —
+        # otherwise Claude "thinks" up to the limit and stops with no answer.
+        _mx = int(kwargs.get("max_tokens") or 0)
+        _answer_room = 4096
+        if _mx and budget >= _mx - _answer_room:
+            budget = max(1024, _mx - _answer_room)
         kwargs["thinking"] = {
             "type":          "enabled",
             "budget_tokens": budget,
@@ -5516,6 +5527,7 @@ def stream_anthropic(
                         thinking_signature += getattr(delta, "signature", "") or ""
 
             final = stream.get_final_message()
+            _final_text_parts = []
             for block in final.content:
                 if block.type == "tool_use":
                     tool_calls.append({
@@ -5528,6 +5540,23 @@ def stream_anthropic(
                     _sig = getattr(block, "signature", "") or ""
                     if _sig:
                         thinking_signature = _sig
+                elif block.type == "text":
+                    _final_text_parts.append(getattr(block, "text", "") or "")
+
+            # Recover the answer from the final message if the streamed deltas
+            # missed it (seen under the Claude OAuth/beta path, where the text can
+            # surface only on the final message). Without this the turn looks like
+            # a "thinking-only" stall even though Claude did answer.
+            if not (text or "").strip() and _final_text_parts:
+                text = "".join(_final_text_parts)
+                if text:
+                    yield TextChunk(text)
+
+            # Map Anthropic stop_reason → finish_reason so the agent loop can tell
+            # a real end from a max_tokens truncation.
+            _sr = getattr(final, "stop_reason", "") or ""
+            _finish = {"max_tokens": "length", "tool_use": "tool_calls",
+                       "end_turn": "stop", "stop_sequence": "stop"}.get(_sr, _sr or "stop")
 
             _cc = getattr(final.usage, "cache_creation_input_tokens", 0) or 0
             _cr = getattr(final.usage, "cache_read_input_tokens", 0) or 0
@@ -5539,6 +5568,7 @@ def stream_anthropic(
                 thinking_signature=thinking_signature,
                 cache_creation_tokens=_cc,
                 cache_read_tokens=_cr,
+                finish_reason=_finish,
             )
     except KeyboardInterrupt:
         # User Ctrl+C'd mid-stream. Yield whatever text we already got and
