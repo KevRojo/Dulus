@@ -387,7 +387,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.11.7"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.11.8"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -1478,6 +1478,36 @@ def _theme_accent(config: dict):
         return _cm._rgb(pal["accent"])
     except Exception:
         return None
+
+
+def _print_login_nag(config: dict) -> None:
+    """Freeware-style boot nudge shown when no Dulus account is signed in.
+
+    Invites the user to `/login dulus` — which unlocks the Fuel-metered Dulus
+    router (12 models on $DULUS). This is NOT a wall: local and web-session
+    models keep working without it; the router is gated server-side regardless.
+    Best-effort — never breaks boot.
+    """
+    try:
+        import dulus_account
+        store = dulus_account.load_store()
+        if store.get("access_token") and not dulus_account._token_expired(store):
+            return  # signed in — no nag
+    except Exception:
+        pass  # can't tell → show it (nudge toward the account)
+    try:
+        accent = _theme_accent(config)
+    except Exception:
+        accent = "cyan"
+    try:
+        print(clr("  Dulus free - one step left: claim your free account.", accent))
+        print("     Run " + clr("/login dulus", "cyan", "bold")
+              + " for your AI username + the Dulus router (12 models on "
+              + clr("$DULUS", accent) + ").")
+        print(clr("     Local & web models keep working without it.", "cyan"))
+        print()
+    except Exception:
+        pass
 
 
 def _print_dulus_banner(config: dict, with_logo: bool = True) -> None:
@@ -11826,6 +11856,13 @@ def repl(config: dict, initial_prompt: str | None = None):
             for msg in startup_status_msgs:
                 print(msg)
         print()
+
+        # Freeware-style login nudge (every interactive boot until signed in).
+        # Not a wall — it just funnels anonymous users toward a free account.
+        try:
+            _print_login_nag(config)
+        except Exception:
+            pass
 
         # First-run /doctor — runs LAST, after every boot print so it's the
         # final thing the user sees before the prompt. Welcome wizard set
