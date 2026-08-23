@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 23, 2026 (**v3.11.10**): **🦅 /model tab completion is back.** Hit `/model ` + Tab and you now get live `provider/model` suggestions from the registry, plus narrowing when you type a provider prefix. No more guessing whether it's `kimi-oauth/kimi-for-coding` or `kimi/kimi-k2.5`. Also: Claude's newer "hidden thinking" blocks no longer leave an empty assistant message on the next turn, so Anthropic stops 400'ing after a reasoning-only response. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 23, 2026 (**v3.11.9**): **🩹 Claude answers again (and finds its own output).** Two papercuts fixed: Claude on a subscription/OAuth login could get stuck emitting "only reasoning, no answer" — Dulus now recovers the reply from the final message, caps the thinking budget so there's always room to answer, and knows the difference between a real stop and a token cutoff. And when a tool's output is too long to inline, the "full output saved to…" hint now gives the exact `~/.dulus/last_tool_output.txt` path instead of a bare filename, so the model stops hunting for it in your workspace. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 23, 2026 (**v3.11.8**): **🔑 Claim your free account.** Dulus stays free — but the Dulus router (12 models on $DULUS) needs a login, so booting without an account now shows a one-line nudge to run `/login dulus`. Nothing is blocked: your local and web-session models keep working exactly as before. It's a two-second sign-in that unlocks the good stuff. `pip install --upgrade dulus`. 🦅🇩🇴
