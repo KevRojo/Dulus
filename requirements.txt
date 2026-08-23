@@ -50,6 +50,9 @@ dulus-bar>=0.3.7
 customtkinter>=5.2.0
 Pillow>=10.0.0
 
+# ── Analytics ────────────────────────────────────────────────────────────
+posthog>=3.0.0
+
 # ── Error tracking ────────────────────────────────────────────────────────
 sentry-sdk>=2.0.0
 # OS trust store fix for corporate TLS interception (Zero Trust/Zscaler)

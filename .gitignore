@@ -74,3 +74,4 @@ _*.json
 
 # CI test scratch (DULUS_HOME during pytest) — never commit
 .dulus-ci/
+.env

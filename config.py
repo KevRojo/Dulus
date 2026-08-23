@@ -84,7 +84,15 @@ MR_SESSION_DIR = SESSIONS_DIR / "mr_sessions"
 
 DEFAULTS = {
     "model":            "gemini-web/gemini-latest",
+    # max_tokens is the max OUTPUT (completion) tokens per turn — NOT the context
+    # window. Providers cap it down to their own output limit. To size the context
+    # window (how much the model can READ), use context_limit below.
     "max_tokens":       128000,
+    # context_limit is the context window (num_ctx) for LOCAL models (Ollama /
+    # LM Studio). Decoupled from max_tokens so output length and context size are
+    # independent knobs. 0 = auto (use the provider/model default); set a number
+    # to force it, e.g. 262144 for a long-context local model.
+    "context_limit":    0,
     "permission_mode":  "auto",   # auto | accept-all | manual
     "verbose":          False,
     "thinking":         False,

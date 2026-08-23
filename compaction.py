@@ -119,9 +119,12 @@ def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
 def get_context_limit(model: str, config: dict | None = None) -> int:
     """Look up context window size for a model.
 
-    One knob, one source of truth: the user's ~/.dulus/config.json.
-    Priority: explicit config["context_limit"], then config["max_tokens"]
-    (the existing Dulus setting — no new params), then the provider default.
+    This is the model's INPUT window (how much history fits before we compact) —
+    it is NOT the output cap. `max_tokens` is the output/completion cap and must
+    NOT be used here, or setting a small max_tokens would make Dulus think every
+    model (Claude 200k, Gemini 1M, …) has a tiny context and compact far too early.
+    Priority: explicit config["context_limit"] override, then the model/provider's
+    real context window.
     Args:
         model: model string (e.g. "claude-opus-4-6", "ollama/llama3.3")
         config: optional agent config dict
@@ -131,8 +134,6 @@ def get_context_limit(model: str, config: dict | None = None) -> int:
     if config and isinstance(config, dict):
         if config.get("context_limit"):
             return int(config["context_limit"])
-        if config.get("max_tokens"):
-            return int(config["max_tokens"])
     provider_name = providers.detect_provider(model)
     prov = providers.PROVIDERS.get(provider_name, {})
     return prov.get("context_limit", 128000)

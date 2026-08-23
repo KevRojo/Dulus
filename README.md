@@ -15,6 +15,19 @@
 </p>
 
 <p align="center">
+  <strong>⚡ Outgrew local? <a href="https://dulus.online">Dulus AI</a> is the hosted platform.</strong><br>
+  <strong>12 models behind one OpenAI-compatible router</strong> — from a nimble 9B to a 397B heavyweight,
+  including a <strong>Qwen-based uncensored flagship</strong> that answers straight, self-hosted, no gatekeeping.<br>
+  Fuel it with <strong><a href="https://dulus.online">$DULUS</a></strong> — the utility token that <em>is</em> your AI credit:
+  on-chain, transferable, spent by the token. No plan approvals, no frozen accounts.<br>
+  Point your OpenAI SDK at <code>https://control.dulus.ai/v1</code> and go.
+</p>
+
+<p align="center">
+  <a href="https://dulus.online"><strong>🚀 Start on the router → dulus.online</strong></a>
+</p>
+
+<p align="center">
   <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="PyPI version"></a>
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="PyPI downloads"></a>
   <a href="https://github.com/KevRojo/Dulus/releases"><img src="https://img.shields.io/github/v/release/KevRojo/Dulus?style=flat-square&color=ff6b1f&labelColor=07070a" alt="Latest release"></a>

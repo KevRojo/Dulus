@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import queue
 import threading
 import time
@@ -17,6 +18,31 @@ from typing import Any, Generator
 
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask.typing import ResponseReturnValue
+
+try:
+    from posthog import Posthog as _Posthog
+    _posthog = _Posthog(
+        project_api_key=os.environ.get("POSTHOG_PROJECT_API_KEY", ""),
+        host=os.environ.get("POSTHOG_HOST", "https://us.i.posthog.com"),
+    )
+except Exception:
+    _posthog = None  # type: ignore[assignment]
+
+_WEBCHAT_ANON_ID = "webchat-" + uuid.uuid4().hex
+
+
+def _ph_capture(event: str, properties: dict | None = None) -> None:
+    """Fire-and-forget PostHog event capture."""
+    if _posthog is None:
+        return
+    try:
+        _posthog.capture(
+            distinct_id=_WEBCHAT_ANON_ID,
+            event=event,
+            properties=properties or {},
+        )
+    except Exception:
+        pass
 
 from agent import (
     run as agent_run,
@@ -338,6 +364,8 @@ setInterval(syncChat, 5000);
         if not msg:
             return jsonify(error="empty message"), 400
 
+        _ph_capture("webchat_message_sent")
+
         def generate():
             q: queue.Queue = queue.Queue(maxsize=512)
             exc_holder: list[Any] = [None]
@@ -376,6 +404,11 @@ setInterval(syncChat, 5000);
                         "permitted": item.permitted,
                     }
                 elif isinstance(item, TurnDone):
+                    _ph_capture("webchat_turn_done", {
+                        "input_tokens": item.input_tokens,
+                        "output_tokens": item.output_tokens,
+                        "model": CONFIG.get("model", ""),
+                    })
                     payload = {
                         "type": "turn_done",
                         "in": item.input_tokens,
