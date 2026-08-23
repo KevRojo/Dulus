@@ -6085,7 +6085,9 @@ def stream_openai_compat(
         # provider default only when the user hasn't set anything.
         prov = detect_provider(model)
         fallback = PROVIDERS.get(prov if prov in ("ollama", "lmstudio") else "ollama", {}).get("context_limit", 128000)
-        ctx_limit = int(config.get("context_limit") or config.get("max_tokens") or fallback)
+        # Context window (num_ctx) is its OWN knob, decoupled from max_tokens
+        # (which is the output cap). context_limit first, provider default otherwise.
+        ctx_limit = int(config.get("context_limit") or fallback)
         _ctx_body: dict = {"options": {"num_ctx": ctx_limit}}  # bare dict: extra_body mixes int/str shapes
         kwargs["extra_body"] = _ctx_body
 
@@ -6713,9 +6715,12 @@ def stream_ollama(
         "messages": oai_messages,
         "stream": True,
         "options": {
-            # One source of truth: the user's config.json. max_tokens is the
-            # existing Dulus knob — no new params. 32k only if config has neither.
-            "num_ctx": int(config.get("context_limit") or config.get("max_tokens") or 32768)
+            # Context window and output length are independent knobs:
+            #   context_limit -> num_ctx (how much the model can READ)
+            #   max_tokens    -> num_predict (how much it can WRITE)
+            # 32k is the num_ctx fallback only when context_limit is unset.
+            "num_ctx": int(config.get("context_limit") or 32768),
+            "num_predict": int(config.get("max_tokens") or -1),
         }
     }
 
