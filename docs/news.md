@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 23, 2026 (**v3.11.8**): **🔑 Claim your free account.** Dulus stays free — but the Dulus router (12 models on $DULUS) needs a login, so booting without an account now shows a one-line nudge to run `/login dulus`. Nothing is blocked: your local and web-session models keep working exactly as before. It's a two-second sign-in that unlocks the good stuff. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 23, 2026 (**v3.11.7**): **📏 `max_tokens` stops shrinking your context.** Dulus was quietly using your `max_tokens` as the context window too — so setting it low (say 64k) made Dulus think even Claude (200k) or Gemini (1M) had a tiny window, and it compacted your history far too early. Now `max_tokens` is purely the output cap, and the context window comes from the model itself (or a new `context_limit` knob if you want to force it). Long conversations breathe again. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 19, 2026 (**v3.11.5**): **🔑 `/login dulus` works for real now.** The account module was missing from the PyPI wheel, so installed copies died with `No module named 'dulus_account'` — fixed and verified inside the wheel itself. Signing in unlocks the Fuel-metered `dulus-*` models on the Dulus control plane, and bare `/login` now shows every provider instead of wandering into a Grok login. `pip install --upgrade dulus`. 🦅🇩🇴

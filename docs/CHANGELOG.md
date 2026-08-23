@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.8] - 2026-08-23
+
+### Added
+- Free-tier login nudge: on every interactive boot without a signed-in Dulus
+  account, a one-line prompt invites `/login dulus` (a free account that unlocks
+  the Fuel-metered Dulus router — 12 models on `$DULUS`). Non-blocking — local
+  and web-session models keep working exactly as before.
+
 ## [3.11.7] - 2026-08-23
 
 ### Fixed
