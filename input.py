@@ -49,6 +49,7 @@ except ImportError:
 # Callers (Dulus REPL) must call setup() before read_line().
 _commands_provider: Optional[Callable[[], dict]] = None
 _meta_provider: Optional[Callable[[], dict]] = None
+_dynamic_completions_provider: Optional[Callable[[], dict]] = None
 _toolbar_provider: Optional[Callable[[], str]] = None
 _toolbar_status: str = ""  # Background status (e.g. wake energy bar)
 _active_app: Any = None  # Track currently running prompt-toolkit app (Any: optional pt)
@@ -60,17 +61,22 @@ def setup(
     commands_provider: Callable[[], dict],
     meta_provider: Callable[[], dict],
     toolbar_provider: Optional[Callable[[], str]] = _TOOLBAR_SENTINEL,  # type: ignore[assignment]
+    dynamic_completions_provider: Optional[Callable[[], dict]] = None,
 ) -> None:
     """Register providers for the live command registry and metadata.
 
     `commands_provider` returns the dispatcher's COMMANDS dict.
     `meta_provider` returns the _CMD_META dict (descriptions + subcommands).
     `toolbar_provider` returns an ANSI toolbar string (or "" to hide).
+    `dynamic_completions_provider` returns a dict mapping command names to
+    callables: fn(partial: str) -> Iterable[str]. Used for context-aware
+    completions beyond static subcommand lists (e.g. /model providers).
     Pass None explicitly to clear a previously-registered toolbar.
     """
-    global _commands_provider, _meta_provider, _toolbar_provider
+    global _commands_provider, _meta_provider, _dynamic_completions_provider, _toolbar_provider
     _commands_provider = commands_provider
     _meta_provider = meta_provider
+    _dynamic_completions_provider = dynamic_completions_provider
     if toolbar_provider is not _TOOLBAR_SENTINEL:
         _toolbar_provider = toolbar_provider  # type: ignore[assignment]
 
@@ -105,6 +111,23 @@ if HAS_PROMPT_TOOLKIT:
         def _get_meta(self) -> dict:
             provider = self._meta_override or _meta_provider
             return (provider() if provider else {}) or {}
+
+        def _get_dynamic_completions(self, cmd: str, partial: str) -> list[str]:
+            provider = self._commands_override or _commands_provider
+            if provider is not None:
+                # Unused override path; keep signature consistent.
+                pass
+            dyn_provider = _dynamic_completions_provider
+            if not dyn_provider:
+                return []
+            try:
+                fn = dyn_provider().get(cmd)
+                if fn:
+                    return list(fn(partial))[:60]
+            except Exception:
+                # Never let a dynamic completer crash the REPL input.
+                pass
+            return []
 
         def _live_command_names(self) -> list[str]:
             keys = sorted(set(self._get_commands().keys()) | set(self._get_meta().keys()))
@@ -143,13 +166,25 @@ if HAS_PROMPT_TOOLKIT:
 
             head, _, tail = text.partition(" ")
             cmd = head[1:]
+            partial = tail.rsplit(" ", 1)[-1]
+
+            # Dynamic command-specific completions (e.g. /model provider/model).
+            dynamic = self._get_dynamic_completions(cmd, partial)
+            if dynamic:
+                for item in dynamic:
+                    yield Completion(
+                        item,
+                        start_position=-len(partial),
+                        display_meta=f"{cmd} provider/model",
+                    )
+                return
+
             meta_entry = meta.get(cmd)
             if not meta_entry:
                 return
             subs = meta_entry[1]
             if not subs:
                 return
-            partial = tail.rsplit(" ", 1)[-1]
             for sub in subs:
                 if sub.startswith(partial):
                     yield Completion(

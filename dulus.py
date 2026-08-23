@@ -11312,6 +11312,66 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
 }
 
 
+def _model_dynamic_completions(partial: str) -> list[str]:
+    """Return /model completion suggestions: provider/model combos.
+
+    Examples:
+      /model <tab>  → anthropic/claude-sonnet-4-6, openai/gpt-4o, ...
+      /model anth/<tab> → anthropic/claude-opus-4-6, ...
+    """
+    from providers import PROVIDERS
+
+    suggestions: list[str] = []
+    partial_clean = partial.lstrip().lower()
+
+    if not partial_clean:
+        # First tab after `/model ` — show one default model per native provider.
+        for pname, pdata in PROVIDERS.items():
+            if pname == "litellm":
+                continue
+            models = pdata.get("models", [])
+            if models:
+                suggestions.append(f"{pname}/{models[0]}")
+        return suggestions[:60]
+
+    # Provider already typed: complete its models.
+    if "/" in partial_clean:
+        provider_prefix, rest = partial_clean.split("/", 1)
+        canonical_provider = provider_prefix.lower().replace("_", "-")
+        if canonical_provider in PROVIDERS and canonical_provider != "litellm":
+            pdata = PROVIDERS[canonical_provider]
+            _rest = rest.lower()
+            for m in pdata.get("models", []):
+                if m.lower().startswith(_rest):
+                    suggestions.append(f"{canonical_provider}/{m}")
+            return suggestions[:60]
+
+    # Bare partial: match provider name or any provider/model combo.
+    _p = partial_clean
+    seen = set()
+    for pname, pdata in PROVIDERS.items():
+        if pname == "litellm":
+            continue
+        for m in pdata.get("models", []):
+            candidate = f"{pname}/{m}".lower()
+            if (
+                candidate.startswith(_p)
+                or pname.lower().startswith(_p)
+                or m.lower().startswith(_p)
+                or _p in candidate
+            ) and candidate not in seen:
+                seen.add(candidate)
+                suggestions.append(candidate)
+    return suggestions[:60]
+
+
+def _dynamic_completions_provider() -> dict:
+    """Registry of dynamic command completers used by the prompt_toolkit UI."""
+    return {
+        "model": _model_dynamic_completions,
+    }
+
+
 def setup_readline(history_file: Path):
     if readline is None:
         return
@@ -11550,7 +11610,12 @@ def repl(config: dict, initial_prompt: str | None = None):
         # Use the global COMMANDS and _CMD_META from dulus.py
         commands_provider = lambda: dict(COMMANDS)
         meta_provider = lambda: dict(_CMD_META)
-        input_setup(commands_provider, meta_provider, toolbar_provider=_render_toolbar)
+        input_setup(
+            commands_provider,
+            meta_provider,
+            toolbar_provider=_render_toolbar,
+            dynamic_completions_provider=_dynamic_completions_provider,
+        )
 
     # Warm Grok remaining-usage cache in the background so the toolbar can
     # show "N% left" shortly after boot (never blocks startup).
