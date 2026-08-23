@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.7] - 2026-08-23
+
+### Fixed
+- Context window is no longer derived from `max_tokens`. `max_tokens` is the
+  output/completion cap only; the input window now comes from the model's real
+  context (or an explicit `context_limit`), so a small `max_tokens` no longer
+  forces early compaction on large-context models (Claude 200k, Gemini 1M, …).
+
+### Added
+- `context_limit` config knob to size a local model's context window (`num_ctx`)
+  independently of `max_tokens`.
+- README leads with the Dulus AI hosted platform — a 12-model, `$DULUS`-fueled
+  OpenAI-compatible router plus a self-hosted uncensored flagship.
+- Opt-in PostHog product analytics in the web chat (project key via env;
+  anonymous session id, no PII).
+
 ## [3.11.5] - 2026-08-19
 
 ### Fixed
