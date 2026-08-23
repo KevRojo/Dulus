@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.11] - 2026-08-23
+
+### Fixed
+- dulus.online was serving a stale build for ~5 days where the Fuel purchase
+  flow never rendered, so customers could not buy $DULUS. Redeployed — the Fuel
+  Wallet, Solana deposit address and per-token metering are live again.
+
+### Changed
+- Free-account boot nudge now announces that Fuel is live and lists the router
+  tiers (dulus-a-9b, dulus-b-27b, dulus-x-397b) plus the uncensored dulus-f.
+
 ## [3.11.9] - 2026-08-23
 
 ### Fixed

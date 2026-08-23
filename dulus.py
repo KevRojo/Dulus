@@ -387,7 +387,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.11.9"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.11.11"  # dev fallback — keep in sync with pyproject.toml
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -1504,6 +1504,10 @@ def _print_login_nag(config: dict) -> None:
         print("     Run " + clr("/login dulus", "cyan", "bold")
               + " for your AI username + the Dulus router (12 models on "
               + clr("$DULUS", accent) + ").")
+        print("     Fuel is LIVE - buy " + clr("$DULUS", accent)
+              + " now and run " + clr("dulus-a-9b", "cyan") + ", "
+              + clr("dulus-b-27b", "cyan") + ", " + clr("dulus-x-397b", "cyan")
+              + " + the uncensored " + clr("dulus-f", "cyan") + ".")
         print(clr("     Local & web models keep working without it.", "cyan"))
         print()
     except Exception:
