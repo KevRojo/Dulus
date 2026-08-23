@@ -247,9 +247,12 @@ def execute_tool(
         first_chunk = max_output // 3  # Less upfront, force pagination
         last_chunk = max_output // 6   # Even smaller tail
         
-        # Show small preview + force explicit pagination pattern
+        # Show small preview + force explicit pagination pattern. Use the ABSOLUTE
+        # path so the model does not resolve it relative to the workspace/cwd
+        # (where the file does not live — it always lives in ~/.dulus).
+        _lo_path = Path.home() / ".dulus" / "last_tool_output.txt"
         result = (
-            result[:first_chunk]+" >>>>>> THE RESULT WAS TRUNCATED TO AVOID TOKEN WASTE,Read last_tool_output.txt file if complete output needed <<<<<<<  "+result[-last_chunk:]
+            result[:first_chunk]+f" >>>>>> THE RESULT WAS TRUNCATED TO AVOID TOKEN WASTE. Read this exact path for the full output: {_lo_path} <<<<<<<  "+result[-last_chunk:]
         )
 
     return result

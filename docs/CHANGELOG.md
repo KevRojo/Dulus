@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.9] - 2026-08-23
+
+### Fixed
+- Claude (subscription/OAuth) no longer stalls with "only reasoning, no answer":
+  the answer is now recovered from the final message when the streamed deltas
+  miss it, the thinking budget is capped to leave room for the reply, and the
+  turn carries a finish_reason so truncation is distinguishable from a stall.
+- Truncated-output hint now points at the absolute `~/.dulus/last_tool_output.txt`
+  path (not a bare filename), so the model stops looking for it in the workspace;
+  the read fallback also resolves a guessed workspace/cwd path by basename.
+
 ## [3.11.8] - 2026-08-23
 
 ### Added
