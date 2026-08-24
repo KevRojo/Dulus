@@ -5315,14 +5315,19 @@ def friendly_api_error(exc: Exception) -> str:
 
 
 def _thinking_level_from(value) -> int:
-    """Coerce legacy bool/int thinking config into an int 0-4."""
+    """Coerce legacy bool/int thinking config into an int 0-3.
+
+    Level 4 is clamped to 3: the largest budgets push providers into
+    RESOURCE_EXHAUSTED. 3 is the effective max everywhere, whatever the UI
+    toggle says.
+    """
     if value is True:  return 3
     if value is False or value is None: return 0
     try:
         lvl = int(value)
     except (TypeError, ValueError):
         return 0
-    return max(0, min(4, lvl))
+    return max(0, min(3, lvl))
 
 
 _ANTHROPIC_TOOL_ALLOWED_KEYS = {
@@ -6612,16 +6617,23 @@ def stream_gcloud(
     oai_messages = messages_to_openai(messages)
     contents = _openai_messages_to_vertex_contents(oai_messages)
 
-    # Cap maxOutputTokens to Vertex AI limit (65536)
-    prov_cap = PROVIDERS.get("gcloud", {}).get("max_completion_tokens", 65536)
-    req_max = config.get("max_tokens", 2048)
-    safe_max = min(req_max, prov_cap) if prov_cap else req_max
+    # Gemini 2.5 models "think" before answering, and that reasoning is billed
+    # against maxOutputTokens. With a small cap the model can burn the whole
+    # budget thinking and return no answer at all ("no responde"). Give it a
+    # generous output budget so thinking never starves the answer — general fix,
+    # works no matter what thinking/reasoning toggle the user has on.
+    prov_cap = PROVIDERS.get("gcloud", {}).get("max_completion_tokens", 65536) or 65536
+    req_max = config.get("max_tokens") or 0
+    safe_max = min(prov_cap, max(req_max, 32768))
 
     payload: dict = {
         "contents": contents,
         "generationConfig": {
             "temperature": config.get("temperature", 0.7),
             "maxOutputTokens": safe_max,
+            # Surface the model's reasoning as thought parts; depth stays dynamic
+            # (the model decides) so this behaves for every model and toggle.
+            "thinkingConfig": {"includeThoughts": True},
         },
     }
 
@@ -6670,9 +6682,16 @@ def stream_gcloud(
 
     for part in parts:
         if "text" in part:
-            chunk_text = part["text"]
-            text += chunk_text
-            yield TextChunk(chunk_text)
+            # Gemini flags reasoning parts with "thought": true — route those to
+            # the thinking channel; everything else is the visible answer.
+            if part.get("thought"):
+                chunk_think = part["text"]
+                thinking += chunk_think
+                yield ThinkingChunk(chunk_think)
+            else:
+                chunk_text = part["text"]
+                text += chunk_text
+                yield TextChunk(chunk_text)
 
         if "functionCall" in part:
             fc = part["functionCall"]
@@ -6686,6 +6705,15 @@ def stream_gcloud(
     usage = data.get("usageMetadata", {})
     in_tok = usage.get("promptTokenCount", 0)
     out_tok = usage.get("candidatesTokenCount", 0)
+
+    # Safety net: if the model produced no answer and no tool call (e.g. it hit
+    # the token cap mid-thought), say so instead of returning dead silence.
+    if not text and not tool_calls:
+        fr = candidate.get("finishReason", "")
+        note = f"[gcloud] No answer returned (finishReason={fr or 'unknown'}). Try again."
+        yield TextChunk(note)
+        yield AssistantTurn(note, [], in_tok, out_tok, thinking=thinking, error=True)
+        return
 
     yield AssistantTurn(text, tool_calls, in_tok, out_tok, thinking=thinking)
 

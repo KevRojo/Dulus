@@ -2830,14 +2830,18 @@ def cmd_thinking(_args: str, _state, config) -> bool:
     else:
         new_level = aliases[arg]
 
+    # Level 4 (raw) is capped to 3: the top budget trips RESOURCE_EXHAUSTED on
+    # some providers. 3 is the effective ceiling, so the effort bar fills to 100%
+    # at MAX instead of stalling at 75%.
+    new_level = min(new_level, 3)
     config["thinking"] = new_level
     if new_level > 0:
         config["_thinking_last_level"] = new_level
 
-    labels = {0: "OFF", 1: "MIN", 2: "MED", 3: "MAX", 4: "RAW"}
+    labels = {0: "OFF", 1: "MIN", 2: "MED", 3: "MAX"}
     try:
         from cli_animations import render_effort_bar
-        print(render_effort_bar(new_level / 4, label=f"Thinking {labels[new_level]}"))
+        print(render_effort_bar(new_level / 3, label=f"Thinking {labels[new_level]}"))
     except Exception:
         pass
     ok(f"Extended thinking: {labels[new_level]}  (level={new_level})")
@@ -2856,7 +2860,7 @@ def _normalize_thinking_level(value) -> int:
     except (TypeError, ValueError):
         return 0
     if lvl < 0: return 0
-    if lvl > 4: return 4
+    if lvl > 3: return 3   # level 4 (raw) capped to 3 — see cmd_thinking
     return lvl
 
 def cmd_lang(args: str, state, config) -> bool:
