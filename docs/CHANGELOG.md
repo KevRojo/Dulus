@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.12] - 2026-08-24
+
+### Fixed
+- Google (`gcloud`/Vertex) models no longer go silent when thinking is on: the
+  model was spending its whole output budget on reasoning and returning no
+  answer. Output budget is now generous so thinking never starves the reply,
+  thought parts stream as reasoning, and an empty response reports its
+  finish reason instead of dead silence.
+
+### Changed
+- Extended-thinking now tops out at level 3 (MAX). Level 4 pushed some providers
+  into RESOURCE_EXHAUSTED; it is capped to 3 everywhere, and the effort bar fills
+  to 100% at MAX instead of stopping at 75%.
+
 ## [3.11.11] - 2026-08-23
 
 ### Fixed
