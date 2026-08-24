@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 24, 2026 (**v3.11.13**): **🧩 `/mcp install` stops lying about "not found".** Some MCP servers appear in the catalog with just their name and repo URL (no launcher), so `/mcp install <name>` would either say "not found" or reject them for having no command — even though they exist. Dulus now resolves the real command/args from the official MCP registry on demand, so the server you can see in `/mcp list` is the server you can actually install. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 24, 2026 (**v3.11.12**): **🧠 Google models answer with thinking on, and MAX means MAX.** Two thinking fixes: `gcloud`/Vertex (Gemini) models could go completely silent when thinking was enabled — the model spent its whole output budget reasoning and had nothing left to answer with. Dulus now gives it room so thinking never starves the reply, streams the reasoning as thoughts, and tells you the finish reason instead of returning nothing. And extended-thinking now tops out at level 3 (MAX): level 4 was tripping some providers into "resource exhausted", so it's capped everywhere and the effort bar finally fills to 100% at MAX instead of stalling at 75%. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 23, 2026 (**v3.11.11**): **⛽ Fuel is live again — you can buy $DULUS.** For about five days dulus.online was serving an old build where the Fuel purchase flow never rendered, so nobody could actually buy Fuel. It's fixed and back live: the Fuel Wallet, Solana deposit address and per-token metering all work, and you can top up and run the router right now. The free-account boot nudge now says so too, pointing you straight at `dulus-a-9b`, `dulus-b-27b`, `dulus-x-397b` and the uncensored `dulus-f`. `pip install --upgrade dulus`. 🦅🇩🇴
