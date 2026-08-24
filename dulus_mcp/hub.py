@@ -683,6 +683,41 @@ def get_server(name: str) -> Optional[MCPServerEntry]:
 
 # ── Install / Uninstall ────────────────────────────────────────────────────
 
+def _resolve_installable(name: str) -> Optional[MCPServerEntry]:
+    """Resolve an installable entry for ``name`` across every catalog source.
+
+    The default ``get_server`` only inspects the merged in-process catalog
+    (curated + cached registry + awesome + Algolia hits stored as metadata).
+    That path has TWO known blind spots that surface as "not found" or as an
+    entry with an empty command:
+
+      1. Algolia lists thousands of servers with only name/description/repo_url
+         (no launcher). ``get_server`` may hand back such an entry, and the
+         stdio-guard below then rejects it.
+      2. A server present only in the LIVE official registry (freshly indexed,
+         cache miss) can appear in Algolia's list but not in the local catalog
+         until the next refresh — the user sees it in the GUI, tries to install
+         it, and hits "not found".
+
+    This helper tries the local catalog first (fast path), and if that yields
+    nothing or a launcher-less entry, it consults the official registry live
+    by exact name — which DOES carry the real command/args/env. That resolves
+    the listar-sí/instalar-no split-brain.
+    """
+    entry = get_server(name)
+    if entry is not None and (entry.transport != "stdio" or (entry.command or "").strip()):
+        return entry
+    try:
+        target = name.strip().lower()
+        for candidate in list_registry(query=name):
+            if candidate.name.lower() == target or candidate.config_name.lower() == target:
+                if candidate.transport != "stdio" or (candidate.command or "").strip():
+                    return candidate
+    except Exception:
+        pass
+    return entry
+
+
 def install(name: str, user_args: Optional[list[str]] = None, env_overrides: Optional[dict] = None) -> tuple[bool, str]:
     """0-friction install an MCP server.
 
@@ -694,7 +729,7 @@ def install(name: str, user_args: Optional[list[str]] = None, env_overrides: Opt
     Returns:
         (success, message)
     """
-    entry = get_server(name)
+    entry = _resolve_installable(name)
     if entry is None:
         return False, f"MCP server '{name}' not found. Run '/mcp list' to see available servers."
 

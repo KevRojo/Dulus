@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.13] - 2026-08-24
+
+### Fixed
+- `/mcp install <name>` no longer says "not found" for servers that ARE in the
+  catalog but only carry metadata (name/description/repo_url) without a
+  launcher command. Install now resolves the real command/args from the
+  official MCP registry live when the local catalog lacks them, so the
+  listar-sí/instalar-no split-brain is gone.
+
 ## [3.11.12] - 2026-08-24
 
 ### Fixed
