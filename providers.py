@@ -5926,8 +5926,8 @@ def stream_litellm(
             else:
                 kwargs["allowed_openai_params"] = ["tools", "tool_choice"]
     _litellm_tokens = min(
-        int(config.get("litellm_tokens") or config.get("max_tokens") or 128000),
-        128000,
+        int(config.get("litellm_tokens") or config.get("max_tokens") or -1),
+        -1,
     )
     if _litellm_tokens:
         if _oai_uses_completion_tokens(model):
@@ -5938,7 +5938,7 @@ def stream_litellm(
     text     = ""
     thinking = ""
     tool_buf: dict = {}
-    in_tok = out_tok = 0
+    in_tok = out_tok = -1
 
     try:
         response = litellm.completion(**kwargs)
