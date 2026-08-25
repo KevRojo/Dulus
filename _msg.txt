@@ -1,0 +1,10 @@
+config: raise default token limits and enable interactive defaults
+
+- max_tokens: 32000 -> 1000000
+- litellm_tokens: 128000 (new key)
+- context_limit: 0 -> 128000
+- verbose: False -> True
+- thinking: False -> 3
+- git_status: False -> True
+- permission_mode stays auto
+- thinking_budget stays 32000, cache_ttl stays 1h
