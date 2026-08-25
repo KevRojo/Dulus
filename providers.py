@@ -6718,6 +6718,70 @@ def stream_gcloud(
     yield AssistantTurn(text, tool_calls, in_tok, out_tok, thinking=thinking)
 
 
+def _ollama_pull_stream(base_url: str, model: str, timeout: int = 1800) -> Generator:
+    """Pull a model into Ollama, yielding human-readable progress lines.
+
+    Mirrors what `ollama run <model>` does implicitly: if the model isn't on
+    disk, download it first instead of dying with a 404. This is what makes
+    the HuggingFace "Use this model -> Dulus" snippet
+    (`dulus --model ollama/hf.co/<repo>:<quant>`) work verbatim on a machine
+    that has never seen that GGUF before.
+
+    Yields str progress lines. Final yield is True on success, False on failure.
+    """
+    import time as _t
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/api/pull",
+        data=json.dumps({"model": model, "stream": True}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    last_emit = 0.0
+    last_pct = -1
+    ok = False
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            for raw in resp:
+                if not raw:
+                    continue
+                try:
+                    ev = json.loads(raw.decode("utf-8", "replace").strip())
+                except Exception:
+                    continue
+                if ev.get("error"):
+                    yield f"\n  [ollama] pull failed: {ev['error']}\n"
+                    return
+                status = ev.get("status", "")
+                total = ev.get("total") or 0
+                done = ev.get("completed") or 0
+                now = _t.time()
+                if total and done:
+                    pct = int(done * 100 / total)
+                    # Throttle: only redraw every 2% or every 1.5s.
+                    if pct != last_pct and (pct - last_pct >= 2 or now - last_emit > 1.5):
+                        mb_d, mb_t = done / 1048576, total / 1048576
+                        bar_n = int(pct / 5)
+                        bar = "#" * bar_n + "-" * (20 - bar_n)
+                        yield f"\r  [{bar}] {pct:3d}%  {mb_d:.0f}/{mb_t:.0f} MB  {status}"
+                        last_pct, last_emit = pct, now
+                elif status and now - last_emit > 0.5:
+                    yield f"\r  [ollama] {status}...".ljust(60)
+                    last_emit = now
+                if status == "success":
+                    ok = True
+    except urllib.error.HTTPError as he:
+        body = ""
+        try:
+            body = he.read().decode("utf-8", "replace")[:200]
+        except Exception:
+            pass
+        yield f"\n  [ollama] pull rejected ({he.code}): {body or he.reason}\n"
+        return
+    except Exception as e:
+        yield f"\n  [ollama] pull error: {type(e).__name__}: {e}\n"
+        return
+    yield ok
+
+
 def stream_ollama(
     base_url: str,
     model: str,
@@ -6843,7 +6907,75 @@ def stream_ollama(
         # SOFT with a friendly turn instead of letting the HTTPError bubble all
         # the way up and crash the app (Sentry: HTTP 500 in stream_ollama).
         resp_cm = None
-        _transient = he.code in (408, 425, 429, 500, 502, 503, 504)
+
+        # 404 "model not found" = the GGUF simply isn't pulled yet. `ollama run`
+        # downloads it transparently; the HTTP API does not. Match `ollama run`
+        # so the HuggingFace snippet `dulus --model ollama/hf.co/<repo>:<quant>`
+        # works verbatim on a fresh machine instead of dying with a bare 404.
+        if he.code == 404 and not (config or {}).get("no_auto_pull"):
+            _body = ""
+            try:
+                _body = he.read().decode("utf-8", "replace")
+            except Exception:
+                pass
+            if "not found" in (_body or "").lower() or "not found" in str(getattr(he, "reason", "")).lower():
+                yield TextChunk(f"\n  [ollama] Model '{model}' not found locally — downloading...\n")
+                _pulled = False
+                for _ev in _ollama_pull_stream(base_url, model):
+                    if isinstance(_ev, bool):
+                        _pulled = _ev
+                    else:
+                        yield TextChunk(_ev)
+                if _pulled:
+                    yield TextChunk("\n  [ollama] Download complete. Starting...\n")
+                    try:
+                        resp_cm = urllib.request.urlopen(_make_request(payload))
+                    except urllib.error.HTTPError as _he2:
+                        # Fall through to the 400/transient handling below — a
+                        # freshly pulled GGUF very often has no tool template,
+                        # which surfaces as 400 "does not support tools".
+                        he = _he2
+                    except Exception as _e2:
+                        _m = (f"[ollama] Model '{model}' downloaded but the request still "
+                              f"failed: {_e2}. Try again or switch with /model.")
+                        yield TextChunk(_m)
+                        yield AssistantTurn(_m, [], 0, 0, error=True)
+                        return
+                else:
+                    _m = (f"[ollama] Could not download '{model}' from {base_url}. "
+                          "Check the model name (for GGUF use "
+                          "`ollama/hf.co/<user>/<repo>:<QUANT>`) and your connection.")
+                    yield TextChunk(_m)
+                    yield AssistantTurn(_m, [], 0, 0, error=True)
+                    return
+
+        # 400 "<model> does not support tools" — many GGUF chat models (SmolLM2,
+        # base Llama/Phi builds, most HuggingFace quants) have no tool-calling
+        # template, so Ollama rejects the request outright. Dulus already has a
+        # prompt-based tool mode for exactly this case, but nothing ever flipped
+        # the switch. Detect it here, remember it for this model, and replay the
+        # turn with the prompt-tool manifest instead of native `tools`.
+        if resp_cm is None and he.code == 400:
+            _body400 = ""
+            try:
+                _body400 = he.read().decode("utf-8", "replace")
+            except Exception:
+                pass
+            if "does not support tools" in _body400.lower():
+                if config is not None:
+                    config[_no_native_tools_key] = True
+                if not _prompt_tool_mode:
+                    yield from stream_ollama(base_url, model, system, messages,
+                                             tool_schemas, config)
+                    return
+                _m = (f"[ollama] Model '{model}' does not support tools and the "
+                      "prompt-based fallback also failed. Use a tool-capable model "
+                      "or run with --no-tools.")
+                yield TextChunk(_m)
+                yield AssistantTurn(_m, [], 0, 0, error=True)
+                return
+
+        _transient = resp_cm is None and he.code in (408, 425, 429, 500, 502, 503, 504)
         if _transient:
             for _attempt in range(3):
                 _time.sleep(min(1.5 * (2 ** _attempt), 8.0))
