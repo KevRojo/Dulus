@@ -87,7 +87,7 @@ DEFAULTS = {
     # max_tokens is the max OUTPUT (completion) tokens per turn — NOT the context
     # window. Providers cap it down to their own output limit. To size the context
     # window (how much the model can READ), use context_limit below.
-    "max_tokens":       128000,
+    "max_tokens":       32000,
     # context_limit is the context window (num_ctx) for LOCAL models (Ollama /
     # LM Studio). Decoupled from max_tokens so output length and context size are
     # independent knobs. 0 = auto (use the provider/model default); set a number
@@ -101,7 +101,7 @@ DEFAULTS = {
     # high=16000, on=8192). A non-zero value here overrides ALL levels —
     # the old default of 50000 silently let every thinking turn burn up
     # to 50K output tokens regardless of level.
-    "thinking_budget":  0,
+    "thinking_budget":  32000,
     # Anthropic prompt-cache TTL. "1h" = cache survives think-pauses between
     # turns (the default 5-min ephemeral cache dies if you pause >5 min,
     # forcing a full prefix re-write at 1.25x price every time). 1h costs 2x
