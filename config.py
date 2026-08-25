@@ -87,16 +87,19 @@ DEFAULTS = {
     # max_tokens is the max OUTPUT (completion) tokens per turn — NOT the context
     # window. Providers cap it down to their own output limit. To size the context
     # window (how much the model can READ), use context_limit below.
-    "max_tokens":       32000,
+    "max_tokens":       1000000,
+    # litellm_tokens caps the completion tokens sent to LiteLLM-based providers.
+    # Use this to decouple the global max_tokens from the LiteLLM path.
+    "litellm_tokens":   128000,
     # context_limit is the context window (num_ctx) for LOCAL models (Ollama /
     # LM Studio). Decoupled from max_tokens so output length and context size are
     # independent knobs. 0 = auto (use the provider/model default); set a number
     # to force it, e.g. 262144 for a long-context local model.
-    "context_limit":    0,
+    "context_limit":    128000,
     "permission_mode":  "auto",   # auto | accept-all | manual
-    "verbose":          False,
-    "thinking":         False,
-    "git_status":       False,
+    "verbose":          True,
+    "thinking":         3,
+    "git_status":       True,
     # 0 = auto: scale budget with /thinking level (low=2048, med=6000,
     # high=16000, on=8192). A non-zero value here overrides ALL levels —
     # the old default of 50000 silently let every thinking turn burn up
