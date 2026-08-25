@@ -6282,6 +6282,7 @@ def cmd_plugin(args: str, _state, config) -> "bool | tuple":
     /plugin disable-all                      — disable all plugins
     /plugin update name                      — update a plugin from its source
     /plugin reload                           — reload all plugins and register tools
+    /plugin doctor                           — diagnose/repair profile-scope issues (mis-filed entries, orphan folders)
     /plugin recommend [context]              — recommend plugins for context
     /plugin info name                        — show plugin details
     """
@@ -6372,6 +6373,51 @@ def cmd_plugin(args: str, _state, config) -> "bool | tuple":
     if subcmd == "reload":
         result = reload_plugins()
         ok(f"Reloaded plugins: {result['tools_registered']} tools registered, {result['modules_cleared']} modules cleared")
+        return True
+
+    if subcmd == "doctor":
+        from plugin.store import (
+            _active_user_cfg,
+            _active_user_dir,
+            _all_user_cfgs,
+            _read_cfg,
+            purge_misfiled_entries,
+        )
+        try:
+            from profiles import active_profile
+            prof = active_profile()
+        except Exception:
+            prof = "default"
+        info(f"Active profile: {prof}")
+        info(f"  plugins dir : {_active_user_dir()}")
+        info(f"  plugins.json: {_active_user_cfg()}")
+
+        fixed = purge_misfiled_entries()
+        if fixed:
+            ok(f"Removed {fixed} mis-filed registration(s) (entry stored in a config that did not own its files).")
+        else:
+            info("No mis-filed registrations found.")
+
+        # Directories on disk that no config claims: these are what made a
+        # reinstall fail with "destination path already exists".
+        orphans = []
+        for cfg in _all_user_cfgs():
+            pdir = cfg.parent / "plugins"
+            if not pdir.is_dir():
+                continue
+            known = set(_read_cfg(cfg).get("plugins", {}))
+            for d in sorted(pdir.iterdir()):
+                if d.is_dir() and not d.name.startswith((".", "__")) and d.name not in known:
+                    orphans.append(d)
+        if orphans:
+            warn(f"{len(orphans)} orphan plugin folder(s) (on disk, unregistered):")
+            for d in orphans:
+                print(f"    {d}")
+            info("These are cleared automatically on the next `/plugin install <name>@<url>`.")
+        else:
+            info("No orphan plugin folders.")
+
+        reload_plugins()
         return True
 
     if subcmd == "recommend":

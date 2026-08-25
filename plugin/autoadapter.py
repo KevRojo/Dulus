@@ -185,6 +185,23 @@ def _extract_exports(code: str) -> list[dict]:
         pass
     return exports
 
+def _plugin_paths_hint(plugin_dir: Path | str) -> tuple[str, str]:
+    """(plugin folder, owning plugins.json) as ABSOLUTE paths for the adapter prompt.
+
+    The adapter used to hard-code the core paths, so under a named profile it
+    told the agent to write plugin.json into `~/.dulus/plugins.json` while the
+    files actually sat in the profile tree — the plugin was then registered for
+    the wrong agent and never loaded for the one that installed it.
+    """
+    p = Path(plugin_dir)
+    try:
+        from .store import _cfg_for_install_dir, _active_user_cfg
+        cfg = _cfg_for_install_dir(p) or _active_user_cfg()
+    except Exception:
+        cfg = Path.home() / ".dulus" / "plugins.json"
+    return str(p), str(cfg)
+
+
 def generate_plugin_files(plugin_dir: Path, safe_name: str, config: dict) -> bool:
     """Use AI to generate plugin_tool.py and plugin.json based on analysis."""
     analysis = _analyze_repository(plugin_dir)
@@ -418,8 +435,8 @@ This section is read by the verifier and by future re-adaptations, so be precise
             "let the user choose. Saves them from installing a redundant plugin when a curated skill\n"
             "already exists. If the catalog file is missing, suggest `dulus -c \"skill list dump\"`.\n\n"
             "HOW THE PLUGIN GETS PICKED UP (so the user can actually test the tools after you finish):\n"
-            "1. The plugin folder lives at `~/.dulus/plugins/<plugin_name>/` (Windows: `%USERPROFILE%\\.dulus\\plugins\\<plugin_name>\\`).\n"
-            "2. The plugin MUST be listed in `~/.dulus/plugins.json` — add an entry like:\n"
+            f"1. The plugin folder is `{_plugin_paths_hint(plugin_dir)[0]}` — use THAT exact path, not a guessed one.\n"
+            f"2. The plugin MUST be listed in `{_plugin_paths_hint(plugin_dir)[1]}` — add an entry like:\n"
             '       {\"name\": \"<plugin_name>\", \"enabled\": true, \"path\": \"<absolute path to the plugin folder>\"}\n'
             "   If `plugins.json` does not exist yet, create it with a top-level `{\"plugins\": [...]}`.\n"
             "3. From any shell, run `dulus -c \"plugin reload\"` to register the new TOOL_DEFS without restarting the REPL.\n"
