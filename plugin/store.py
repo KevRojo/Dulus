@@ -47,6 +47,28 @@ def _write_cfg(cfg_path: Path, data: dict) -> None:
 # separate agent, so USER-scope reads and writes follow the active profile. The
 # 'default' profile IS the base, so these collapse to the previous behaviour.
 
+def _profiles_root() -> Path | None:
+    try:
+        from profiles import PROFILES_DIR
+        return Path(PROFILES_DIR)
+    except Exception:
+        return None
+
+
+def _rmtree_force(path: Path) -> None:
+    """rmtree that survives read-only files (git pack files on Windows)."""
+    def _on_error(func, p, _exc_info):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+    try:
+        try:
+            shutil.rmtree(path, onexc=_on_error)  # type: ignore[call-arg]
+        except TypeError:
+            shutil.rmtree(path, onerror=_on_error)  # type: ignore[call-arg,arg-type]
+    except Exception:
+        pass
+
+
 def _active_user_dir() -> Path:
     try:
         from profiles import profile_plugins_dir
@@ -116,10 +138,103 @@ def _plugin_cfg_for(scope: PluginScope) -> Path:
 # enable/disable would write a phantom entry — pointing at the base's
 # install_dir — into the profile's own plugins.json.
 
+def _cfg_for_install_dir(install_dir: Path | str | None) -> Path | None:
+    """Map an install DIRECTORY back to the plugins.json that owns it.
+
+    The directory is the ground truth of ownership: a plugin's files live either
+    in the core base (~/.dulus/plugins/<name>) or inside exactly ONE profile
+    (~/.dulus/profiles/<p>/plugins/<name>). Deriving ownership from the path
+    means a config write can never land in the wrong file — not on a fresh
+    install (where no config lists the plugin yet, so a name lookup would fall
+    through to the core) and not when repairing an entry that was already
+    mis-filed. Returns None when the directory is outside both trees.
+    """
+    if not install_dir:
+        return None
+    try:
+        p = Path(install_dir).resolve()
+    except Exception:
+        return None
+
+    proot = _profiles_root()
+    if proot is not None:
+        try:
+            rel = p.relative_to(proot.resolve())
+            parts = rel.parts
+            # <profile>/plugins/<plugin_name>[/...]
+            if len(parts) >= 2 and parts[1] == "plugins":
+                return proot / parts[0] / "plugins.json"
+        except Exception:
+            pass
+
+    try:
+        p.relative_to(USER_PLUGIN_DIR.resolve())
+        return USER_PLUGIN_CFG
+    except Exception:
+        return None
+
+
+def _all_user_cfgs() -> list[Path]:
+    """Every USER-scope plugins.json on this machine: core + each profile."""
+    cfgs = [USER_PLUGIN_CFG]
+    proot = _profiles_root()
+    if proot is not None and proot.is_dir():
+        try:
+            for d in proot.iterdir():
+                if d.is_dir():
+                    cfgs.append(d / "plugins.json")
+        except Exception:
+            pass
+    return cfgs
+
+
+def purge_misfiled_entries(name: str | None = None) -> int:
+    """Drop config entries whose install_dir belongs to a DIFFERENT plugins.json.
+
+    Self-healing for machines that already ran the buggy name-based ownership
+    lookup: an install performed under a profile could register itself in the
+    core config while its files lived in the profile, leaking the plugin into
+    every profile and hiding it from the one that owns it. Returns the number
+    of entries removed.
+    """
+    removed = 0
+    for cfg in _all_user_cfgs():
+        if not cfg.exists():
+            continue
+        data = _read_cfg(cfg)
+        plugins = data.get("plugins", {})
+        if not plugins:
+            continue
+        drop = [
+            n for n, d in plugins.items()
+            if (name is None or n == name)
+            and (owner := _cfg_for_install_dir(d.get("install_dir"))) is not None
+            and owner != cfg
+        ]
+        if drop:
+            for n in drop:
+                plugins.pop(n, None)
+            data["plugins"] = plugins
+            _write_cfg(cfg, data)
+            removed += len(drop)
+    return removed
+
+
 def _owning_cfg(entry: PluginEntry) -> Path:
-    """The plugins.json that actually declares `entry`."""
+    """The plugins.json that actually declares `entry`.
+
+    Resolved from the install PATH first. A name lookup cannot answer this
+    correctly while a plugin is being installed for the first time (no config
+    lists it yet, so the lookup falls through to the core and the entry gets
+    written to the wrong file even though the files went into the profile).
+    The path is unambiguous, so it wins; the name lookup stays as a fallback
+    for entries whose directory sits outside both trees.
+    """
     if entry.scope == PluginScope.PROJECT:
         return _project_plugin_cfg()
+    by_path = _cfg_for_install_dir(getattr(entry, "install_dir", None))
+    if by_path is not None:
+        return by_path
     active = _active_user_cfg()
     if entry.name in _read_cfg(active).get("plugins", {}):
         return active
@@ -149,6 +264,17 @@ def list_plugins(scope: PluginScope | None = None) -> list[PluginEntry]:
         e.manifest = PluginManifest.from_plugin_dir(e.install_dir)
         return e
 
+    def _belongs_to(data: dict, cfg: Path) -> bool:
+        """Reject registrations whose files live under a DIFFERENT config's tree.
+
+        A mis-filed entry (e.g. the core's plugins.json pointing at
+        profiles/<p>/plugins/<name>) would otherwise be advertised to every
+        profile, and its tools loaded from a directory the active profile does
+        not own. Entries outside both trees (bare local paths) are kept.
+        """
+        owner = _cfg_for_install_dir(data.get("install_dir"))
+        return owner is None or owner == cfg
+
     entries: list[PluginEntry] = []
     seen: set[str] = set()
     scopes = [PluginScope.USER, PluginScope.PROJECT] if scope is None else [scope]
@@ -156,6 +282,8 @@ def list_plugins(scope: PluginScope | None = None) -> list[PluginEntry]:
         primary = _plugin_cfg_for(sc)
         for name, data in _read_cfg(primary).get("plugins", {}).items():
             if name in seen:
+                continue
+            if sc == PluginScope.USER and not _belongs_to(data, primary):
                 continue
             entries.append(_mk(data))
             seen.add(name)
@@ -173,6 +301,8 @@ def list_plugins(scope: PluginScope | None = None) -> list[PluginEntry]:
                 if name in seen:
                     continue
                 if baseline is not None and name not in baseline:
+                    continue
+                if not _belongs_to(data, USER_PLUGIN_CFG):
                     continue
                 entries.append(_mk(data))
                 seen.add(name)
@@ -200,6 +330,15 @@ def install_plugin(
     name, source = parse_plugin_identifier(identifier)
     safe_name = sanitize_plugin_name(name)
 
+    # Heal configs left inconsistent by an earlier install before deciding
+    # whether this name is taken — a mis-filed entry would otherwise report the
+    # plugin as "already installed" from a config that does not own its files,
+    # blocking a legitimate install in the active profile.
+    try:
+        purge_misfiled_entries(safe_name)
+    except Exception:
+        pass
+
     # Check if already installed. An INHERITED plugin of the same name does not
     # block the install: a profile is entitled to its own copy, which then
     # shadows the base's (list_plugins dedups with the profile winning).
@@ -226,7 +365,15 @@ def install_plugin(
 
         # Install from local path or git
         if plugin_dir.exists() and force:
-            shutil.rmtree(plugin_dir)
+            _rmtree_force(plugin_dir)
+        elif plugin_dir.exists():
+            # No config entry claims this name (checked above) yet the files are
+            # here: a leftover from an install that was interrupted, or one whose
+            # registration was written into a different profile's plugins.json.
+            # Clearing it is safe precisely because nothing owns it, and leaving
+            # it makes the install unrecoverable — git clone refuses a non-empty
+            # destination and the user gets a dead-end error on every retry.
+            _rmtree_force(plugin_dir)
 
         if _is_git_url(source):
             ok, msg = _clone_plugin(source, plugin_dir)
