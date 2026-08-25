@@ -111,6 +111,9 @@ DEFAULTS = {
     # once on write, then ~0.1x on every hit — massively cheaper for
     # interactive sessions.
     "cache_ttl":        "1h",
+    # When True, Dulus boots inside the last-used workspace (~/.dulus/workspaces/...).
+    # When False, it keeps the shell's original cwd as the working directory.
+    "workspace_auto_enter": True,
     "custom_base_url":  "",       # for "custom" provider
     "max_tool_output":  2500,
     "max_agent_depth":  3,

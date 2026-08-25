@@ -130,7 +130,7 @@ Slash commands in REPL:
   /roundtable       Start a multi-model roundtable discussion
   /fork             Fork session at a given turn
   /undo             Undo last turn
-  /workspace [cmd]  Manage Dulus workspaces (switch/list/default)
+  /workspace [cmd]  Manage Dulus workspaces (switch/list/default/on/off)
   /add-dir [path]   Manage additional workspace directories
   /import <file>    Import conversation from file or session
   /harvest          Harvest Claude.ai cookies (alias: /harvest-claude)
@@ -994,7 +994,7 @@ _HELP_PAGES = [
         ("/loopback [show|search]", "Inspect/search the full local archive (loopback)"),
         ("/fork",         "Fork session at a given turn"),
         ("/undo",         "Undo last turn"),
-        ("/workspace [cmd]", "Manage Dulus workspaces (switch/list/default)"),
+        ("/workspace [cmd]", "Manage Dulus workspaces (switch/list/default/on/off)"),
         ("/import <file>","Import conversation from file/session"),
         ("/add-dir [path]","Manage additional workspace directories"),
         ("/batch",        "Manage Kimi Batch tasks"),
@@ -4549,6 +4549,8 @@ def cmd_cwd(args: str, _state, config) -> bool:
 
 _WORKSPACES_DIR: Path = Path.home() / ".dulus" / "workspaces"
 _DEFAULT_WORKSPACE: str = "workspace1"
+# cwd of the shell that launched Dulus; used when workspace auto-enter is off.
+_SHELL_CWD: str = os.getcwd()
 
 
 def _workspace_path(name: str) -> Path:
@@ -4621,7 +4623,19 @@ def _activate_workspace(name: str, config: dict) -> bool:
 
 
 def _apply_workspace(config: dict) -> None:
-    """At boot, move cwd into the last-used workspace (or workspace1)."""
+    """At boot, move cwd into the last-used workspace (or workspace1).
+
+    If workspace_auto_enter is False, stay in the shell's original cwd so Dulus
+    behaves like a normal CLI that starts wherever the user invoked it.
+    """
+    if not config.get("workspace_auto_enter", True):
+        try:
+            os.chdir(_SHELL_CWD)
+            if config.get("verbose", False):
+                info(f"Workspace auto-enter: off — cwd is {_SHELL_CWD}")
+        except Exception as e:
+            warn(f"No pude volver al directorio del shell: {e}")
+        return
     last = config.get("workspace_last") or _DEFAULT_WORKSPACE
     ws = _workspace_path(last)
     if not ws.exists():
@@ -4640,8 +4654,10 @@ def _apply_workspace(config: dict) -> None:
 def cmd_workspace(args: str, _state, config) -> bool:
     """Manage Dulus workspaces under ~/.dulus/workspaces.
 
-    /workspace                — show current workspace + cwd
+    /workspace                — show current workspace, cwd and auto-enter state
     /workspace current        — same as above
+    /workspace on             — auto-enter the last workspace on boot
+    /workspace off            — keep the shell's cwd on boot (sets it as cwd now)
     /workspace list           — list workspaces
     /workspace switch <name>  — change to workspace (creates if missing)
     /workspace default [name] — show or set the startup workspace
@@ -4660,6 +4676,25 @@ def cmd_workspace(args: str, _state, config) -> bool:
         else:
             info("No estás dentro de un workspace de Dulus.")
         info(f"Working directory: {os.getcwd()}")
+        auto_enter = config.get("workspace_auto_enter", True)
+        info(f"Auto-enter al boot: {'on' if auto_enter else 'off'}")
+        return True
+
+    if subcmd == "on":
+        config["workspace_auto_enter"] = True
+        save_config(config)
+        ok("Workspace auto-enter: on — Dulus entrará al workspace al boot.")
+        return True
+
+    if subcmd == "off":
+        config["workspace_auto_enter"] = False
+        try:
+            os.chdir(_SHELL_CWD)
+        except Exception as e:
+            err(f"No pude cambiar al directorio del shell: {e}")
+            return True
+        save_config(config)
+        ok(f"Workspace auto-enter: off — cwd ahora es {_SHELL_CWD}.")
         return True
 
     if subcmd == "list":
@@ -11295,7 +11330,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "export":      ("Export conversation to file",          []),
     "fork":        ("Fork session at a turn",               []),
     "undo":        ("Undo last turn",                       []),
-    "workspace":   ("Manage Dulus workspaces",              ["current", "list", "switch", "default", "create", "delete"]),
+    "workspace":   ("Manage Dulus workspaces",              ["current", "on", "off", "list", "switch", "default", "create", "delete"]),
     "add-dir":     ("Manage additional workspace dirs",     ["list", "remove"]),
     "import":      ("Import from file or session",          []),
     "copy":        ("Copy last response or file to clipboard", ["file"]),
