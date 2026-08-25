@@ -2,6 +2,9 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 24, 2026 (**v3.11.14**): **🐛 Read tool stops crashing on offset/limit.** When the model asked to read a slice of a file (`Read` with `offset`/`limit`), the JSON values could arrive as strings instead of ints — and Python's list slicing exploded with `slice indices must be integers`. Dulus now coerces both params to `int` before slicing, so paginated reads work every time. `pip install --upgrade dulus`. 🦅🇩🇴
+
+
 - August 24, 2026 (**v3.11.13**): **🧩 `/mcp install` stops lying about "not found".** Some MCP servers appear in the catalog with just their name and repo URL (no launcher), so `/mcp install <name>` would either say "not found" or reject them for having no command — even though they exist. Dulus now resolves the real command/args from the official MCP registry on demand, so the server you can see in `/mcp list` is the server you can actually install. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 24, 2026 (**v3.11.12**): **🧠 Google models answer with thinking on, and MAX means MAX.** Two thinking fixes: `gcloud`/Vertex (Gemini) models could go completely silent when thinking was enabled — the model spent its whole output budget reasoning and had nothing left to answer with. Dulus now gives it room so thinking never starves the reply, streams the reasoning as thoughts, and tells you the finish reason instead of returning nothing. And extended-thinking now tops out at level 3 (MAX): level 4 was tripping some providers into "resource exhausted", so it's capped everywhere and the effort bar finally fills to 100% at MAX instead of stalling at 75%. `pip install --upgrade dulus`. 🦅🇩🇴

@@ -557,6 +557,11 @@ _DEFAULT_READ_LIMIT = 1000  # kimi-cli default
 
 
 def _read(file_path: str, limit: int | None = None, offset: int | None = None) -> str:
+    # Coerce string params to int (LLM JSON may send strings, not ints)
+    if limit is not None:
+        limit = int(limit)
+    if offset is not None:
+        offset = int(offset)
     p = Path(file_path).expanduser().resolve()
     if not p.exists():
         return f"Error: file not found: {p}"
