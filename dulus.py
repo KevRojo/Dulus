@@ -1500,6 +1500,12 @@ def _print_login_nag(config: dict) -> None:
     except Exception:
         accent = "cyan"
     try:
+        # Import gradient effect for URL
+        from cli_animations.ansi import gradient_text, ORANGE, CYAN
+        # Create gradient URL
+        dx_url = "https://tinyurl.com/DulusDexScreener"
+        styled_dx_url = gradient_text(dx_url, ORANGE, CYAN)
+        
         print(clr("  Dulus free - one step left: claim your free account.", accent))
         print("     Run " + clr("/login dulus", "cyan", "bold")
               + " for your AI username + the Dulus router (12 models on "
@@ -1509,6 +1515,13 @@ def _print_login_nag(config: dict) -> None:
               + clr("dulus-b-27b", "cyan") + ", " + clr("dulus-x-397b", "cyan")
               + " + the uncensored " + clr("dulus-f", "cyan") + ".")
         print(clr("     Local & web models keep working without it.", "cyan"))
+        print()
+        print(clr("  Trial time! Go to https://dulus.ai/ and download the install binary", "green"))
+        print(clr("  according to your OS. Log in and use the Dulus GUI which brings", "green"))
+        print(clr("  2,000 MCPS + 60,000 skills!", "green"))
+        print()
+        print("  Buy $DULUS now:")
+        print(f"  {styled_dx_url}")
         print()
     except Exception:
         pass
