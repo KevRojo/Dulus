@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 25, 2026 (**v3.11.20**): **🚀 MCP launcher intelligence + CI & shell robustness.** Auto-infers runtimes, commands, and arguments for official and community MCP servers directly from registry links and package repos. Hardened shell execution and environment isolation across Windows, macOS, and Linux runners. `pip install --upgrade dulus`. 🦅🇩🇴
+
 - August 24, 2026 (**v3.11.14**): **🐛 Read tool stops crashing on offset/limit.** When the model asked to read a slice of a file (`Read` with `offset`/`limit`), the JSON values could arrive as strings instead of ints — and Python's list slicing exploded with `slice indices must be integers`. Dulus now coerces both params to `int` before slicing, so paginated reads work every time. `pip install --upgrade dulus`. 🦅🇩🇴
 
 
