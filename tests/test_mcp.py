@@ -455,8 +455,17 @@ class TestLauncherInference:
         assert "magic-mcp" in res["args"]
         assert res["runtime"] == "node"
 
-    def test_resolve_launcher_python(self):
+    def test_resolve_launcher_python(self, monkeypatch):
         import sys
+        import os
         from dulus_mcp.client import _resolve_launcher
+        res = _resolve_launcher("python3")
+        assert os.path.exists(res) or res == "python3"
+
+        # Fallback when launcher is not found on PATH
+        monkeypatch.setattr("shutil.which", lambda cmd: None)
         assert _resolve_launcher("python") == sys.executable
         assert _resolve_launcher("python3") == sys.executable
+        assert _resolve_launcher("py") == sys.executable
+        assert _resolve_launcher("non_existent_binary") == "non_existent_binary"
+
