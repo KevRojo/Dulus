@@ -280,6 +280,8 @@ class TestTaskToolFunctions:
 
     def test_tool_schemas_registered(self):
         """All four task tools must be registered in tool_registry."""
+        import task.tools
+        task.tools._register()
         from tool_registry import get_tool
         for name in ("TaskCreate", "TaskUpdate", "TaskGet", "TaskList"):
             assert get_tool(name) is not None, f"{name} not registered"
