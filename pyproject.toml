@@ -105,6 +105,11 @@ dependencies = [
     # boxes (Docker, servers, CI) since it never imports Qt without a screen.
     # Off switch for anyone who dislikes it: DULUS_BAR=0 or /config dulus_bar=0.
     "dulus-bar>=0.3.7",
+    # Model Context Protocol (MCP) SDK & runtime utilities
+    "mcp>=1.0.0",
+    "uv>=0.4.0",
+    "sse-starlette>=2.0.0",
+    "starlette>=0.38.0",
 ]
 
 # mempalace pulls chromadb (26 transitive deps incl. numpy + onnxruntime),

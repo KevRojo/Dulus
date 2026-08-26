@@ -394,3 +394,69 @@ sys.stdout.flush()
 
         client.disconnect()
         assert client.state == MCPServerState.DISCONNECTED
+
+
+# ── Launcher & Catalog Inference ─────────────────────────────────────────────
+
+class TestLauncherInference:
+    def test_infer_curated_official(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("github")
+        assert res["command"] == "npx"
+        assert "@modelcontextprotocol/server-github" in res["args"]
+        assert res["runtime"] == "node"
+
+    def test_infer_official_github_subpath_python(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("fetch", "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch")
+        assert res["command"] == "uvx"
+        assert res["args"] == ["mcp-server-fetch"]
+        assert res["runtime"] == "python"
+
+    def test_infer_official_github_subpath_node(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("memory", "https://github.com/modelcontextprotocol/servers/tree/main/src/memory")
+        assert res["command"] == "npx"
+        assert "@modelcontextprotocol/server-memory" in res["args"]
+        assert res["runtime"] == "node"
+
+    def test_infer_npmjs_link(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("brave-search", "https://www.npmjs.com/package/@modelcontextprotocol/server-brave-search")
+        assert res["command"] == "npx"
+        assert "@modelcontextprotocol/server-brave-search" in res["args"]
+        assert res["runtime"] == "node"
+
+    def test_infer_pypi_link(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("mcp-server-git", "https://pypi.org/project/mcp-server-git/")
+        assert res["command"] == "uvx"
+        assert "mcp-server-git" in res["args"]
+        assert res["runtime"] == "python"
+
+    def test_infer_remote_sse_url(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("1mcpserver", "https://github.com/particlefuture/1mcpserver", "Remote SSE server at https://mcp.1mcpserver.com/sse")
+        assert res["transport"] == "sse"
+        assert res["url"] == "https://mcp.1mcpserver.com/sse"
+        assert res["runtime"] == "remote"
+
+    def test_infer_python_github_repo(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("mcp-zenml", "https://github.com/zenml-io/mcp-zenml", "ZenML Python MCP server for ML pipelines")
+        assert res["command"] == "uvx"
+        assert res["args"] == ["mcp-zenml"]
+        assert res["runtime"] == "python"
+
+    def test_infer_node_github_repo(self):
+        from dulus_mcp.hub import _infer_mcp_entry
+        res = _infer_mcp_entry("magic-mcp", "https://github.com/21st-dev/magic-mcp", "UI component MCP server")
+        assert res["command"] == "npx"
+        assert "magic-mcp" in res["args"]
+        assert res["runtime"] == "node"
+
+    def test_resolve_launcher_python(self):
+        import sys
+        from dulus_mcp.client import _resolve_launcher
+        assert _resolve_launcher("python") == sys.executable
+        assert _resolve_launcher("python3") == sys.executable

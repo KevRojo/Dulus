@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -79,10 +80,14 @@ _OFFICIAL_CURATED = {
         "arg_prompt": "Enter your PostgreSQL connection URL (postgresql://user:pass@host/db):",
         "runtime": "node",
     },
+    # NOTE: @modelcontextprotocol/server-sqlite was removed/renamed upstream —
+    # confirmed 404 on the npm registry (2026-07-13). Using the actively
+    # maintained community replacement (mcp-server-sqlite-npx) instead so
+    # `/mcp install sqlite` doesn't hang until timeout on a dead package.
     "sqlite": {
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-sqlite"],
-        "description": "SQLite database operations.",
+        "args": ["-y", "mcp-server-sqlite-npx"],
+        "description": "SQLite database operations (community-maintained fork after the official package was delisted).",
         "requires_args": True,
         "arg_prompt": "Enter the path to your SQLite database file:",
         "runtime": "node",
@@ -132,13 +137,45 @@ _OFFICIAL_CURATED = {
         "env": {"GOOGLE_MAPS_API_KEY": ""},
         "runtime": "node",
     },
+    # NOTE: @modelcontextprotocol/server-sentry was removed from npm (confirmed
+    # 404, 2026-07-13). Sentry now maintains their own official MCP server
+    # package directly — @sentry/mcp-server — actively published (last release
+    # 2026-07-02 as of this fix). Switched to that instead of hanging on a
+    # dead package until timeout.
     "sentry": {
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-sentry"],
+        "args": ["-y", "@sentry/mcp-server"],
         "description": "Sentry — error tracking and issue management. Requires SENTRY_AUTH_TOKEN.",
         "requires_args": False,
         "env": {"SENTRY_AUTH_TOKEN": ""},
         "runtime": "node",
+    },
+    # Make.com (formerly Integromat) official MCP server — @makehq/mcp-server.
+    # Was previously only reachable via the "awesome" README-scraped catalog,
+    # which has no real command (just name/description/repo_url), causing
+    # installs to write a broken command="" entry to mcp.json. Curated here
+    # with the real npm package + required env vars instead.
+    "make": {
+        "command": "npx",
+        "args": ["-y", "@makehq/mcp-server"],
+        "description": "Make.com (Integromat) — run scenarios, manage account. Requires MAKE_API_KEY.",
+        "requires_args": False,
+        "env": {"MAKE_API_KEY": "", "MAKE_ZONE": "", "MAKE_TEAM": ""},
+        "runtime": "node",
+        "repo_url": "https://github.com/integromat/make-mcp-server",
+    },
+    # Datadog official remote MCP server: OAuth-backed HTTP endpoint.
+    # No local runtime needed; auth happens via browser during first connect.
+    "datadog": {
+        "command": "",
+        "args": [],
+        "description": "Datadog — metrics, logs, traces, monitors, dashboards, security signals. OAuth via browser.",
+        "requires_args": True,
+        "arg_prompt": "Enter your Datadog site (e.g. app.datadoghq.com, us3.datadoghq.com, app.datadoghq.eu, ap1.datadoghq.com, uk1.datadoghq.com):",
+        "transport": "http",
+        "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp",
+        "runtime": "",
+        "repo_url": "https://github.com/datadog-labs/mcp-server",
     },
 }
 
@@ -466,6 +503,137 @@ def list_registry(query: Optional[str] = None) -> list[MCPServerEntry]:
     return results
 
 
+def _infer_mcp_entry(name: str, repo_url: str = "", description: str = "") -> dict:
+    """Infer executable launcher, arguments, transport, and runtime for an MCP server.
+
+    Resolves curated names, official repository subpackages, npm packages,
+    PyPI packages, remote SSE/HTTP URLs, explicit launcher snippets in descriptions,
+    and GitHub repo language indicators.
+    """
+    name_clean = (name or "").strip()
+    target = name_clean.lower()
+    desc = (description or "").strip()
+    url = (repo_url or "").strip()
+
+    # 1. Direct curated match
+    if target in _OFFICIAL_CURATED:
+        info = dict(_OFFICIAL_CURATED[target])
+        info.setdefault("name", name_clean)
+        info.setdefault("source", "official")
+        return info
+    if target in _DULUS_CURATED:
+        info = dict(_DULUS_CURATED[target])
+        info.setdefault("name", name_clean)
+        info.setdefault("source", "dulus")
+        return info
+
+    import re as _re
+
+    # 2. Check official repo subtrees: modelcontextprotocol/servers/.../src/<tool>
+    if "modelcontextprotocol/servers" in url:
+        m = _re.search(r"/src/([a-zA-Z0-9_\-]+)", url)
+        if m:
+            sub = m.group(1).lower()
+            if sub in _OFFICIAL_CURATED:
+                info = dict(_OFFICIAL_CURATED[sub])
+                info["name"] = name_clean
+                return info
+            if sub in ("fetch", "git", "time", "sqlite", "gdrive"):
+                return {
+                    "name": name_clean, "description": desc, "repo_url": url,
+                    "command": "uvx", "args": [f"mcp-server-{sub}"],
+                    "transport": "stdio", "runtime": "python",
+                }
+            pkg_name = f"@modelcontextprotocol/server-{sub}" if sub != "sequentialthinking" else "@modelcontextprotocol/server-sequential-thinking"
+            return {
+                "name": name_clean, "description": desc, "repo_url": url,
+                "command": "npx", "args": ["-y", pkg_name],
+                "transport": "stdio", "runtime": "node",
+            }
+
+    # 3. Direct npmjs / pypi package links
+    if "npmjs.com/package/" in url:
+        pkg = url.split("npmjs.com/package/")[-1].strip().split("?")[0].strip("/")
+        if pkg:
+            return {
+                "name": name_clean, "description": desc, "repo_url": url,
+                "command": "npx", "args": ["-y", pkg],
+                "transport": "stdio", "runtime": "node",
+            }
+    if "pypi.org/project/" in url:
+        pkg = url.split("pypi.org/project/")[-1].strip().split("?")[0].strip("/")
+        if pkg:
+            return {
+                "name": name_clean, "description": desc, "repo_url": url,
+                "command": "uvx", "args": [pkg],
+                "transport": "stdio", "runtime": "python",
+            }
+
+    # 4. Remote HTTP/SSE server URLs found in description or url (excluding repo hosts)
+    if not any(h in url for h in ("github.com", "gitlab.com", "npmjs.com", "pypi.org")):
+        if _re.search(r"https?://[^\s\)\"\'\`]+/(?:mcp|sse)(?:[/?#\s]|$)", url):
+            transport = "sse" if "/sse" in url else "http"
+            return {
+                "name": name_clean, "description": desc, "repo_url": url,
+                "url": url, "transport": transport, "runtime": "remote",
+            }
+
+    remote_desc = _re.search(r"https?://[^\s\)\"\'\`]+/(?:mcp|sse)(?:[/?#\s]|$)[^\s\)\"\'\`]*", desc)
+    if remote_desc and not any(h in remote_desc.group(0) for h in ("github.com", "gitlab.com", "npmjs.com", "pypi.org")):
+        rem_url = remote_desc.group(0).rstrip(".,;")
+        transport = "sse" if "/sse" in rem_url else "http"
+        return {
+            "name": name_clean, "description": desc, "repo_url": url,
+            "url": rem_url, "transport": transport, "runtime": "remote",
+        }
+
+    # 5. Extract command from description text (e.g., `npx -y ...`, `uvx ...`, `docker run ...`)
+    npx_m = _re.search(r"(?:npx\s+(?:-y\s+)?)(@?[a-zA-Z0-9_\-\.\/]+)", desc)
+    if npx_m:
+        pkg = npx_m.group(1).strip()
+        return {
+            "name": name_clean, "description": desc, "repo_url": url,
+            "command": "npx", "args": ["-y", pkg],
+            "transport": "stdio", "runtime": "node",
+        }
+    uvx_m = _re.search(r"(?:uvx\s+|pip\s+install\s+)([a-zA-Z0-9_\-]+)", desc)
+    if uvx_m:
+        pkg = uvx_m.group(1).strip()
+        return {
+            "name": name_clean, "description": desc, "repo_url": url,
+            "command": "uvx", "args": [pkg],
+            "transport": "stdio", "runtime": "python",
+        }
+
+    # 6. GitHub repo inference: https://github.com/<owner>/<repo>
+    gh_m = _re.search(r"github\.com/([^/]+)/([^/#\?]+)", url)
+    if gh_m:
+        owner, repo = gh_m.group(1), gh_m.group(2).rstrip(".git")
+        repo_lower = repo.lower()
+        desc_lower = desc.lower()
+
+        is_python = any(k in desc_lower for k in ("python", "pip", "uv", "fastmcp", "pypi", "django", "flask", "pytorch")) or repo_lower.startswith("py-") or repo_lower.startswith("python-")
+        is_node = any(k in desc_lower for k in ("node", "npm", "npx", "typescript", "javascript", "react", "nextjs")) or repo_lower.startswith("ts-") or repo_lower.startswith("js-")
+
+        if is_python:
+            return {
+                "name": name_clean, "description": desc, "repo_url": url,
+                "command": "uvx", "args": [repo],
+                "transport": "stdio", "runtime": "python",
+            }
+        else:
+            return {
+                "name": name_clean, "description": desc, "repo_url": url,
+                "command": "npx", "args": ["-y", repo],
+                "transport": "stdio", "runtime": "node",
+            }
+
+    return {
+        "name": name_clean, "description": desc, "repo_url": url,
+        "command": "", "args": [], "transport": "stdio", "runtime": "",
+    }
+
+
 def _fetch_awesome_mcp(force: bool = False) -> list[dict]:
     """Parse the wong2/awesome-mcp-servers README into a flat catalog."""
     if not force and _AWESOME_CACHE.exists():
@@ -495,15 +663,20 @@ def _fetch_awesome_mcp(force: bool = False) -> list[dict]:
         if key in seen:
             continue
         seen.add(key)
-        # Best-effort install hint from the repo/name
-        runtime = ""
-        if "npmjs.com" in url or "/npm/" in url:
-            runtime = "node"
-        elif "pypi.org" in url:
-            runtime = "python"
+        
+        inferred = _infer_mcp_entry(name, url, desc)
         servers.append({
-            "name": name, "description": desc,
-            "repo_url": url, "runtime": runtime,
+            "name": name,
+            "description": desc,
+            "repo_url": url,
+            "command": inferred.get("command", ""),
+            "args": list(inferred.get("args") or []),
+            "env": dict(inferred.get("env") or {}),
+            "url": inferred.get("url", ""),
+            "transport": inferred.get("transport", "stdio"),
+            "runtime": inferred.get("runtime", ""),
+            "requires_args": bool(inferred.get("requires_args", False)),
+            "arg_prompt": str(inferred.get("arg_prompt") or ""),
         })
 
     if servers:
@@ -526,7 +699,14 @@ def list_awesome(query: Optional[str] = None) -> list[MCPServerEntry]:
             name=info["name"],
             description=info.get("description", ""),
             source="awesome",
+            command=info.get("command", ""),
+            args=list(info.get("args") or []),
+            env=dict(info.get("env") or {}),
+            url=info.get("url", ""),
+            transport=info.get("transport", "stdio"),
             runtime=info.get("runtime", ""),
+            requires_args=bool(info.get("requires_args", False)),
+            arg_prompt=info.get("arg_prompt", ""),
             repo_url=info.get("repo_url", ""),
         ))
     return results
@@ -614,6 +794,216 @@ def list_all(query: Optional[str] = None, sources: Optional[list[str]] = None) -
     return list(results.values())
 
 
+def catalog_page(
+    query: Optional[str] = None,
+    source: str = "all",
+    page: int = 1,
+    page_size: int = 30,
+) -> dict:
+    """Return a paginated view of the complete MCP catalog for the GUI."""
+    page = max(int(page or 1), 1)
+    page_size = min(max(int(page_size or 30), 1), 100)
+    requested_source = str(source or "all").strip().lower()
+
+    # ── ALGOLIA-FIRST (2026-08-09): índice propio dulus_mcps ───────────────
+    # ~1ms vs el crawl en vivo del registry (40 páginas × 100, 10s+ → el tab
+    # MCP de la GUI se quedaba colgado). Mismo shape de salida. Si Algolia
+    # falla por lo que sea → cae al path live original (abajo).
+    if requested_source in {"all", "registry", "awesome"}:
+        try:
+            from algolia_search import INDEX_MCPS, algolia_enabled, search_index
+
+            if algolia_enabled():
+                filters = {
+                    "registry": "source:official-registry",
+                    "awesome": "source:awesome-mcp",
+                }.get(requested_source)
+                res = search_index(
+                    INDEX_MCPS, str(query or "").strip(),
+                    page=page - 1, hits_per_page=page_size,
+                    filters=filters, facets=["source"],
+                )
+                if res is not None:
+                    src_map = {
+                        "official": "official",
+                        "dulus": "community",
+                        "official-registry": "registry",
+                        "awesome-mcp": "awesome",
+                        "composio": "registry",
+                    }
+                    q = str(query or "").strip().lower()
+                    installed_entries = list_installed()
+                    installed_names = {e.name.lower() for e in installed_entries}
+                    items = []
+                    for hit in res["hits"]:
+                        name = str(hit.get("name") or "").strip()
+                        if not name:
+                            continue
+                        items.append({
+                            "name": name,
+                            "description": str(hit.get("description") or ""),
+                            "source": src_map.get(str(hit.get("source") or ""), "registry"),
+                            "command": str(hit.get("command") or ""),
+                            "args": list(hit.get("args") or []),
+                            "env": dict(hit.get("env") or {}),
+                            "url": str(hit.get("url") or ""),
+                            "transport": str(hit.get("transport") or "stdio"),
+                            "requires_args": bool(hit.get("requires_args", False)),
+                            "arg_prompt": str(hit.get("arg_prompt") or ""),
+                            "runtime": str(hit.get("runtime") or ""),
+                            "installed": name.lower() in installed_names,
+                            "config_name": name,
+                            "error": "",
+                            "repo_url": str(hit.get("repo_url") or ""),
+                            "security": None,
+                        })
+
+                    # ── Enrich Algolia hits with real launchers from local catalogs
+                    # Algolia only indexes name/description/repo_url for many servers,
+                    # so the GUI receives empty commands and Install does nothing.
+                    # Overlay curated + cached registry entries so the button works.
+                    _official_lookup = {n.lower(): i for n, i in _OFFICIAL_CURATED.items()}
+                    _dulus_lookup = {n.lower(): i for n, i in _DULUS_CURATED.items()}
+                    # Only read the already-cached registry; do NOT trigger a
+                    # network crawl here or the GUI tab will hang/time out.
+                    _registry_lookup: dict[str, dict] = {}
+                    try:
+                        if _REGISTRY_CACHE.exists():
+                            data = json.loads(_REGISTRY_CACHE.read_text(encoding="utf-8"))
+                            if time.time() - float(data.get("fetched_at", 0)) < _REGISTRY_TTL_SEC:
+                                for info in data.get("servers", []):
+                                    key = str(info.get("name") or "").strip().lower()
+                                    if key:
+                                        _registry_lookup[key] = info
+                    except Exception:
+                        pass
+                    for item in items:
+                        name_lower = item["name"].lower()
+                        info = _official_lookup.get(name_lower) or _dulus_lookup.get(name_lower) or _registry_lookup.get(name_lower)
+                        if info:
+                            item["repo_url"] = info.get("repo_url", item["repo_url"])
+                            if info.get("command") or info.get("url"):
+                                item["command"] = info.get("command", "")
+                                item["args"] = info.get("args") if info.get("args") is not None else []
+                                item["env"] = info.get("env") if info.get("env") is not None else {}
+                                item["url"] = info.get("url", "")
+                                item["transport"] = info.get("transport", item["transport"])
+                                item["runtime"] = info.get("runtime", item["runtime"])
+                                item["requires_args"] = bool(info.get("requires_args", False))
+                                item["arg_prompt"] = info.get("arg_prompt", "")
+                        if not item.get("command") and not item.get("url"):
+                            inferred = _infer_mcp_entry(item["name"], item.get("repo_url", ""), item.get("description", ""))
+                            if inferred.get("command") or inferred.get("url"):
+                                item["command"] = inferred.get("command", "")
+                                item["args"] = list(inferred.get("args") or [])
+                                item["env"] = dict(inferred.get("env") or {})
+                                item["url"] = inferred.get("url", "")
+                                item["transport"] = inferred.get("transport", item.get("transport", "stdio"))
+                                item["runtime"] = inferred.get("runtime", item.get("runtime", ""))
+                                item["requires_args"] = bool(inferred.get("requires_args", False))
+                                item["arg_prompt"] = str(inferred.get("arg_prompt") or "")
+
+                    facets = (res.get("facets") or {}).get("source", {})
+                    registry_n = int(facets.get("official-registry", 0)) + int(facets.get("composio", 0))
+                    awesome_n = int(facets.get("awesome-mcp", 0))
+                    official_n = len(list_official(query))
+                    community_n = sum(
+                        1 for n, info in _DULUS_CURATED.items()
+                        if not q or q in n.lower() or q in str(info.get("description", "")).lower()
+                    )
+                    installed_n = sum(
+                        1 for e in installed_entries
+                        if not q or q in e.name.lower() or q in (e.description or "").lower()
+                    )
+                    return {
+                        "items": items,
+                        "total": int(res["total"]),
+                        "catalog_total": registry_n + awesome_n,
+                        "page": page,
+                        "page_size": page_size,
+                        "pages": max(int(res["pages"]), 1),
+                        "has_more": bool(res["has_more"]),
+                        "source": requested_source,
+                        "source_counts": {
+                            "all": registry_n + awesome_n,
+                            "official": official_n,
+                            "registry": registry_n,
+                            "awesome": awesome_n,
+                            "community": community_n,
+                            "installed": installed_n,
+                        },
+                    }
+        except Exception as exc:
+            # fallback live abajo. Silencioso por diseño, pero deja rastro con
+            # DULUS_DEBUG=1: un ImportError aquí en un binario congelado
+            # significa que algolia_search no se compiló.
+            import os as _os
+            import sys as _sys
+            if _os.environ.get("DULUS_DEBUG"):
+                print(f"[mcp.hub] algolia path unavailable: {type(exc).__name__}: {exc}",
+                      file=_sys.stderr)
+
+    all_entries = list_all()
+    if query and str(query).strip():
+        needle = str(query).strip().lower()
+        entries = [
+            entry
+            for entry in all_entries
+            if needle in entry.name.lower()
+            or needle in (entry.description or "").lower()
+        ]
+    else:
+        entries = all_entries
+    source_counts = {
+        "all": len(entries),
+        "official": 0,
+        "registry": 0,
+        "awesome": 0,
+        "community": 0,
+        "installed": 0,
+    }
+    for entry in entries:
+        if entry.installed:
+            source_counts["installed"] += 1
+        if entry.source == "official":
+            source_counts["official"] += 1
+        elif entry.source == "registry":
+            source_counts["registry"] += 1
+        elif entry.source == "awesome":
+            source_counts["awesome"] += 1
+        elif entry.source == "dulus":
+            source_counts["community"] += 1
+
+    if requested_source == "installed":
+        filtered = [entry for entry in entries if entry.installed]
+    elif requested_source == "community":
+        filtered = [entry for entry in entries if entry.source == "dulus"]
+    elif requested_source in {"official", "registry", "awesome"}:
+        filtered = [entry for entry in entries if entry.source == requested_source]
+    else:
+        requested_source = "all"
+        filtered = entries
+
+    total = len(filtered)
+    pages = max((total + page_size - 1) // page_size, 1)
+    page = min(page, pages)
+    start = (page - 1) * page_size
+    return {
+        "items": [
+            entry.to_dict()
+            for entry in filtered[start:start + page_size]
+        ],
+        "total": total,
+        "catalog_total": len(all_entries),
+        "page": page,
+        "page_size": page_size,
+        "pages": pages,
+        "has_more": page < pages,
+        "source": requested_source,
+        "source_counts": source_counts,
+    }
+
+
 def search(query: str) -> list[MCPServerEntry]:
     """Search across all sources for MCP servers matching query.
 
@@ -631,7 +1021,7 @@ def search(query: str) -> list[MCPServerEntry]:
                 INDEX_MCPS, str(query or "").strip(),
                 page=0, hits_per_page=50,
             )
-            if res is not None and res["hits"]:
+            if res is not None and res.get("hits"):
                 installed_names = {e.config_name.lower() for e in list_installed()}
                 src_map = {
                     "official-registry": "registry",
@@ -643,17 +1033,30 @@ def search(query: str) -> list[MCPServerEntry]:
                     name = str(hit.get("name") or "").strip()
                     if not name:
                         continue
+                    inferred = _infer_mcp_entry(name, str(hit.get("repo_url") or hit.get("url") or ""), str(hit.get("description") or ""))
+                    cmd = str(hit.get("command") or inferred.get("command") or "")
+                    u = str(hit.get("url") or inferred.get("url") or "")
+                    tr = str(hit.get("transport") or inferred.get("transport") or "stdio")
+                    args = list(hit.get("args") or inferred.get("args") or [])
+                    env = dict(hit.get("env") or inferred.get("env") or {})
+                    rt = str(hit.get("runtime") or inferred.get("runtime") or "")
+                    req_args = bool(hit.get("requires_args", inferred.get("requires_args", False)))
+                    arg_p = str(hit.get("arg_prompt") or inferred.get("arg_prompt") or "")
                     out.append(MCPServerEntry(
                         name=name,
-                        description=str(hit.get("description") or ""),
+                        description=str(hit.get("description") or inferred.get("description") or ""),
                         source=src_map.get(str(hit.get("source") or ""), "registry"),
-                        command="",
-                        args=[],
-                        env={},
-                        url=str(hit.get("url") or ""),
-                        transport=str(hit.get("transport") or "stdio"),
+                        command=cmd,
+                        args=args,
+                        env=env,
+                        url=u,
+                        transport=tr,
+                        requires_args=req_args,
+                        arg_prompt=arg_p,
+                        runtime=rt,
                         installed=name.lower() in installed_names,
                         config_name=name,
+                        repo_url=str(hit.get("repo_url") or inferred.get("repo_url") or ""),
                     ))
                 if out:
                     return out
@@ -686,35 +1089,135 @@ def get_server(name: str) -> Optional[MCPServerEntry]:
 def _resolve_installable(name: str) -> Optional[MCPServerEntry]:
     """Resolve an installable entry for ``name`` across every catalog source.
 
-    The default ``get_server`` only inspects the merged in-process catalog
-    (curated + cached registry + awesome + Algolia hits stored as metadata).
-    That path has TWO known blind spots that surface as "not found" or as an
-    entry with an empty command:
-
-      1. Algolia lists thousands of servers with only name/description/repo_url
-         (no launcher). ``get_server`` may hand back such an entry, and the
-         stdio-guard below then rejects it.
-      2. A server present only in the LIVE official registry (freshly indexed,
-         cache miss) can appear in Algolia's list but not in the local catalog
-         until the next refresh — the user sees it in the GUI, tries to install
-         it, and hits "not found".
-
-    This helper tries the local catalog first (fast path), and if that yields
-    nothing or a launcher-less entry, it consults the official registry live
-    by exact name — which DOES carry the real command/args/env. That resolves
-    the listar-sí/instalar-no split-brain.
+    1. Fast path: check _OFFICIAL_CURATED and _DULUS_CURATED directly (0ms).
+    2. Local catalog (merged in-process catalog).
+    3. Algolia lookup (if enabled) for fresh launcher properties.
+    4. Official registry live by exact name.
     """
+    target = (name or "").strip().lower()
+    if not target:
+        return None
+
+    # Instant curated fast-path
+    if target in _OFFICIAL_CURATED:
+        info = _OFFICIAL_CURATED[target]
+        return MCPServerEntry(
+            name=target,
+            description=info.get("description", ""),
+            source="official",
+            command=info.get("command", ""),
+            args=list(info.get("args") or []),
+            env=dict(info.get("env") or {}),
+            url=info.get("url", ""),
+            transport=info.get("transport", "stdio"),
+            requires_args=bool(info.get("requires_args", False)),
+            arg_prompt=info.get("arg_prompt", ""),
+            runtime=info.get("runtime", ""),
+            repo_url=info.get("repo_url", ""),
+        )
+    if target in _DULUS_CURATED:
+        info = _DULUS_CURATED[target]
+        return MCPServerEntry(
+            name=target,
+            description=info.get("description", ""),
+            source="dulus",
+            command=info.get("command", ""),
+            args=list(info.get("args") or []),
+            env=dict(info.get("env") or {}),
+            url=info.get("url", ""),
+            transport=info.get("transport", "stdio"),
+            requires_args=bool(info.get("requires_args", False)),
+            arg_prompt=info.get("arg_prompt", ""),
+            runtime=info.get("runtime", ""),
+            repo_url=info.get("repo_url", ""),
+        )
+
     entry = get_server(name)
     if entry is not None and (entry.transport != "stdio" or (entry.command or "").strip()):
         return entry
+
+    # Algolia fallback
+    if entry is None or (entry.transport == "stdio" and not (entry.command or "").strip()):
+        try:
+            from algolia_search import INDEX_MCPS, algolia_enabled, search_index
+            if algolia_enabled():
+                alg_res = search_index(INDEX_MCPS, name, hits_per_page=5)
+                if alg_res and alg_res.get("hits"):
+                    for hit in alg_res["hits"]:
+                        h_name = str(hit.get("name") or "").strip().lower()
+                        if h_name == target:
+                            cmd = str(hit.get("command") or "")
+                            u = str(hit.get("url") or "")
+                            tr = str(hit.get("transport") or "stdio")
+                            if tr != "stdio" or cmd.strip():
+                                return MCPServerEntry(
+                                    name=str(hit.get("name") or target),
+                                    description=str(hit.get("description") or ""),
+                                    source=str(hit.get("source") or "registry"),
+                                    command=cmd,
+                                    args=list(hit.get("args") or []),
+                                    env=dict(hit.get("env") or {}),
+                                    url=u,
+                                    transport=tr,
+                                    requires_args=bool(hit.get("requires_args", False)),
+                                    arg_prompt=str(hit.get("arg_prompt") or ""),
+                                    runtime=str(hit.get("runtime") or ""),
+                                    repo_url=str(hit.get("repo_url") or ""),
+                                )
+        except Exception:
+            pass
+
+    # Official registry live by exact name
     try:
-        target = name.strip().lower()
         for candidate in list_registry(query=name):
             if candidate.name.lower() == target or candidate.config_name.lower() == target:
                 if candidate.transport != "stdio" or (candidate.command or "").strip():
                     return candidate
     except Exception:
         pass
+    if entry is None or (entry.transport == "stdio" and not (entry.command or "").strip()):
+        try:
+            for info in _fetch_official_registry():
+                if str(info.get("name") or "").strip().lower() == target:
+                    mapped = _map_registry_server(info)
+                    if mapped:
+                        candidate = MCPServerEntry(**mapped)
+                        if candidate.transport != "stdio" or (candidate.command or "").strip():
+                            return candidate
+        except Exception:
+            pass
+
+    # Inferred fallback for awesome / community / generic servers
+    if entry is not None and (entry.transport == "stdio" and not (entry.command or "").strip()):
+        inferred = _infer_mcp_entry(entry.name, entry.repo_url, entry.description)
+        if inferred.get("command") or inferred.get("url"):
+            entry.command = inferred.get("command", "")
+            entry.args = list(inferred.get("args") or [])
+            entry.env = dict(inferred.get("env") or {})
+            entry.url = inferred.get("url", "")
+            entry.transport = inferred.get("transport", entry.transport)
+            entry.runtime = inferred.get("runtime", entry.runtime)
+            entry.requires_args = bool(inferred.get("requires_args", False))
+            entry.arg_prompt = str(inferred.get("arg_prompt") or "")
+            return entry
+    elif entry is None:
+        inferred = _infer_mcp_entry(name, "", "")
+        if inferred.get("command") or inferred.get("url"):
+            return MCPServerEntry(
+                name=name,
+                description=inferred.get("description", ""),
+                source="inferred",
+                command=inferred.get("command", ""),
+                args=list(inferred.get("args") or []),
+                env=dict(inferred.get("env") or {}),
+                url=inferred.get("url", ""),
+                transport=inferred.get("transport", "stdio"),
+                requires_args=bool(inferred.get("requires_args", False)),
+                arg_prompt=str(inferred.get("arg_prompt") or ""),
+                runtime=inferred.get("runtime", ""),
+                repo_url=inferred.get("repo_url", ""),
+            )
+
     return entry
 
 
@@ -768,8 +1271,16 @@ def install(name: str, user_args: Optional[list[str]] = None, env_overrides: Opt
 
     # Apply user args if the server requires them
     if entry.requires_args and user_args:
+        # Datadog remote MCP server: the argument is the Datadog site (e.g.
+        # app.datadoghq.com, us3.datadoghq.com, app.datadoghq.eu). Rewrite the
+        # URL to hit the regional endpoint.
+        if entry.name == "datadog":
+            site = (user_args[0] or "").strip().lower()
+            if not site or "." not in site:
+                return False, f"Invalid Datadog site: '{site}'. Expected something like app.datadoghq.com or us3.datadoghq.com."
+            config_entry["url"] = f"https://mcp.{site}/api/unstable/mcp-server/mcp"
         # For filesystem server, args are appended
-        if entry.name == "filesystem":
+        elif entry.name == "filesystem":
             config_entry["args"] = entry.args + list(user_args)
         # For postgres, the DB URL replaces or is appended
         elif entry.name == "postgres":
@@ -822,9 +1333,29 @@ def uninstall(name: str) -> tuple[bool, str]:
         return False, f"Failed to uninstall '{name}': {e}"
 
 
-def get_status(name: str) -> dict:
-    """Get connection status of an installed MCP server."""
-    from .client import MCPClient, get_mcp_manager
+def get_status(name: str, connect_if_missing: bool = False) -> dict:
+    """Get connection status of an installed MCP server.
+
+    IMPORTANT: this reads the state of the ALREADY-LIVE connection held by the
+    shared MCPManager singleton (the same one `dulus_mcp.tools.initialize_mcp()`
+    populates on startup / after install). It does NOT spin up a brand new
+    MCPClient + subprocess on every call.
+
+    Why this matters: the GUI polls this every 5s for every installed server
+    (see MCPView.tsx). The old implementation created a fresh MCPClient and
+    called connect()/disconnect() on EVERY poll tick, for EVERY server — which
+    meant N fresh `npx`/`uvx` subprocesses spawned every 5 seconds. On Windows
+    those processes fight over the same npm/npx cache lock, causing cascading
+    "the parameter is incorrect" errors and timeouts as soon as you had more
+    than a couple servers installed. Reading the manager's live state is O(1)
+    and touches zero subprocesses.
+
+    Args:
+        connect_if_missing: if True and the server isn't registered/connected
+            yet in the manager, do a one-off connect (used by explicit
+            "check status now" actions, NOT by the polling loop).
+    """
+    from .client import get_mcp_manager, MCPClient, MCPServerState
 
     configs = load_mcp_configs()
     if name not in configs:
@@ -838,12 +1369,39 @@ def get_status(name: str) -> dict:
             return {"name": name, "state": "not_configured", "tools": 0, "error": "Not installed"}
         name = resolved
 
-    cfg = configs[name]
-    client = MCPClient(cfg)
+    mgr = get_mcp_manager()
+    client = next((c for c in mgr.list_servers() if c.config.name == name), None)
+
+    if client is None:
+        # Not yet registered with the manager (e.g. installed via GUI while a
+        # long-lived initialize_mcp() run in a different process/session).
+        if not connect_if_missing:
+            return {"name": name, "state": "not_configured", "tools": 0, "error": ""}
+        cfg = configs[name]
+        mgr.add_server(cfg)
+        client = next(c for c in mgr.list_servers() if c.config.name == name)
+
+    if client.state == MCPServerState.CONNECTED and client.alive:
+        return {
+            "name": name,
+            "state": "connected",
+            "tools": len(client._tools),
+            "error": "",
+            "description": client._server_info.get("name", ""),
+            "version": client._server_info.get("version", ""),
+        }
+
+    if client.state == MCPServerState.ERROR:
+        return {"name": name, "state": "error", "tools": 0, "error": client._error}
+
+    if not connect_if_missing:
+        # Don't reconnect on a passive status read — just report current state.
+        return {"name": name, "state": client.state.value, "tools": 0, "error": ""}
+
+    # Explicit one-off connect requested (not part of the polling path).
     try:
         client.connect()
         tools = client.list_tools()
-        client.disconnect()
         return {
             "name": name,
             "state": "connected",
@@ -853,12 +1411,7 @@ def get_status(name: str) -> dict:
             "version": client._server_info.get("version", ""),
         }
     except Exception as e:
-        return {
-            "name": name,
-            "state": "error",
-            "tools": 0,
-            "error": str(e),
-        }
+        return {"name": name, "state": "error", "tools": 0, "error": str(e)}
 
 
 # ── Runtime detection ──────────────────────────────────────────────────────
@@ -866,36 +1419,42 @@ def get_status(name: str) -> dict:
 def _check_runtime(runtime: str, command: str = "") -> tuple[bool, str]:
     """Check if the required runtime — and specifically the launcher command
     the entry will actually invoke — is available. Returns (ok, message).
-
-    Why `command` matters: several curated servers tagged runtime="python"
-    actually launch via `uvx` (e.g. git, fetch), not via a plain `python`
-    interpreter. The old check accepted ANY of python/python3/uv/uvx being
-    present as proof the "python runtime" was satisfied — so on a machine
-    that has python.exe but never installed `uv`, servers needing `uvx`
-    would sail through this check, get marked "installed", and then fail
-    every single connection attempt with a raw FileNotFoundError/WinError 2.
-    We now also require the exact launcher binary to resolve via PATH.
     """
-    if command and not shutil.which(command):
-        friendly = {
-            "uvx": "uv (install via https://astral.sh/uv or `pip install uv`) — needed for the 'uvx' launcher",
-            "uv": "uv (install via https://astral.sh/uv or `pip install uv`)",
-            "npx": "Node.js (install from https://nodejs.org) — needed for the 'npx' launcher",
-            "docker": "Docker (install from https://docker.com)",
-        }.get(command, f"the '{command}' command")
-        return False, f"Required launcher '{command}' not found on PATH. Install {friendly}."
+    if command:
+        from .client import _resolve_launcher
+        resolved = _resolve_launcher(command)
+        if command in ("uvx", "uv"):
+            try:
+                import uv  # noqa: F401
+                return True, ""
+            except ImportError:
+                pass
+        if not (os.path.exists(resolved) or shutil.which(resolved)):
+            friendly = {
+                "uvx": "uv (install via https://astral.sh/uv or `pip install uv`) — needed for the 'uvx' launcher",
+                "uv": "uv (install via https://astral.sh/uv or `pip install uv`)",
+                "npx": "Node.js (install from https://nodejs.org) — needed for the 'npx' launcher",
+                "docker": "Docker (install from https://docker.com)",
+            }.get(command, f"the '{command}' command")
+            return False, f"Required launcher '{command}' not found on PATH. Install {friendly}."
 
     if not runtime:
         return True, ""
 
     if runtime == "node":
-        if shutil.which("node") or shutil.which("npx"):
+        from .client import _resolve_launcher
+        if shutil.which("node") or shutil.which("npx") or _resolve_launcher("npx") != "npx":
             return True, ""
         return False, "Node.js is required but not found. Install from https://nodejs.org"
 
     if runtime == "python":
         if shutil.which("python") or shutil.which("python3") or shutil.which("uv") or shutil.which("uvx"):
             return True, ""
+        try:
+            import uv  # noqa: F401
+            return True, ""
+        except ImportError:
+            pass
         return False, "Python is required but not found."
 
     if runtime == "docker":
@@ -908,10 +1467,20 @@ def _check_runtime(runtime: str, command: str = "") -> tuple[bool, str]:
 
 def detect_available_runtimes() -> dict[str, bool]:
     """Detect which runtimes are available on this system."""
+    from .client import _resolve_launcher
+    has_uv = False
+    try:
+        import uv  # noqa: F401
+        has_uv = True
+    except ImportError:
+        pass
+    has_uv = has_uv or bool(shutil.which("uv") or shutil.which("uvx") or _resolve_launcher("uvx") != "uvx")
+    has_node = bool(shutil.which("node") or shutil.which("npx") or _resolve_launcher("npx") != "npx")
+
     return {
-        "node": bool(shutil.which("node") or shutil.which("npx")),
-        "python": bool(shutil.which("python") or shutil.which("python3")),
-        "uv": bool(shutil.which("uv") or shutil.which("uvx")),
+        "node": has_node,
+        "python": bool(shutil.which("python") or shutil.which("python3") or has_uv),
+        "uv": has_uv,
         "docker": bool(shutil.which("docker")),
     }
 
