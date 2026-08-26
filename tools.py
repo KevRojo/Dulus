@@ -882,89 +882,28 @@ def _kill_proc_tree(pid: int):
 
 def _find_windows_bash():
     """Return (kind, path) for the best bash available on Windows, or None."""
-    import shutil
-    if not hasattr(_find_windows_bash, "_cache"):
-        result = None
-        # 1. bash already in PATH (Git for Windows added to PATH, MSYS2, etc.)
-        bash_in_path = shutil.which("bash")
-        if bash_in_path:
-            # Skip WSL bash stub disguised as native bash
-            if "system32" not in bash_in_path.lower() and "sysnative" not in bash_in_path.lower() and "syswow64" not in bash_in_path.lower():
-                result = ("gitbash", bash_in_path)
-        # 2. Git Bash at default install locations
-        if result is None:
-            for candidate in [
-                r"C:\Program Files\Git\bin\bash.exe",
-                r"C:\Program Files (x86)\Git\bin\bash.exe",
-            ]:
-                if Path(candidate).exists():
-                    result = ("gitbash", candidate)
-                    break
-        # 3. WSL
-        if result is None:
-            wsl = shutil.which("wsl")
-            if wsl:
-                try:
-                    r = subprocess.run(["wsl", "echo", "ok"],
-                                       capture_output=True, text=True, timeout=5)
-                    if r.returncode == 0:
-                        result = ("wsl", wsl)
-                except Exception:
-                    pass
-        _find_windows_bash._cache = result
-    return _find_windows_bash._cache
+    try:
+        from context import resolve_shell_environment
+        info = resolve_shell_environment({"shell": {"type": "auto"}})
+        if info.get("family") == "bash" and info.get("path"):
+            return (info.get("kind", "gitbash"), info.get("path"))
+    except Exception:
+        pass
+    return None
 
 
 def _find_shell_by_type(shell_type: str, forced_path: str = ""):
     """Find a specific shell type on Windows. Returns (kind, path) or None."""
-    import shutil
-
-    # Handle custom shell with forced path
-    if shell_type == "custom" and forced_path and Path(forced_path).exists():
-        return ("custom", forced_path)
-
-    if shell_type == "gitbash":
-        # Try bash in PATH first (but not WSL stub)
-        bash_in_path = shutil.which("bash")
-        if bash_in_path:
-            if "system32" not in bash_in_path.lower() and "sysnative" not in bash_in_path.lower() and "syswow64" not in bash_in_path.lower():
-                return ("gitbash", bash_in_path)
-        # Try default Git locations
-        for candidate in [
-            r"C:\Program Files\Git\bin\bash.exe",
-            r"C:\Program Files (x86)\Git\bin\bash.exe",
-        ]:
-            if Path(candidate).exists():
-                return ("gitbash", candidate)
-
-    elif shell_type == "wsl":
-        wsl = shutil.which("wsl")
-        if wsl:
-            try:
-                r = subprocess.run(["wsl", "echo", "ok"],
-                                   capture_output=True, text=True, timeout=5)
-                if r.returncode == 0:
-                    return ("wsl", wsl)
-            except Exception:
-                pass
-
-    elif shell_type == "powershell":
-        # Try PowerShell Core first, then Windows PowerShell
-        candidates = [
-            shutil.which("pwsh"),  # PowerShell Core
-            shutil.which("powershell"),
-            r"C:\Program Files\PowerShell\7\pwsh.exe",
-            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
-        ]
-        for candidate in candidates:
-            if candidate and Path(candidate).exists():
-                return ("powershell", candidate)
-
-    elif shell_type == "cmd":
-        cmd = shutil.which("cmd") or r"C:\Windows\System32\cmd.exe"
-        if Path(cmd).exists():
-            return ("cmd", cmd)
-
+    try:
+        from context import resolve_shell_environment
+        cfg = {"type": shell_type}
+        if forced_path:
+            cfg["path"] = forced_path
+        info = resolve_shell_environment({"shell": cfg})
+        if info.get("path"):
+            return (info.get("kind", shell_type), info.get("path"))
+    except Exception:
+        pass
     return None
 
 
@@ -1164,80 +1103,42 @@ def _bash(command: str, timeout: int = 30) -> str:
     cwd = os.getcwd()
 
     if _sys.platform == "win32":
-        shell_type = shell_cfg.get("type", "auto")
-        forced_path = shell_cfg.get("path", "")
+        from context import resolve_shell_environment
+        shell_info = resolve_shell_environment({"shell": shell_cfg})
+        kind = shell_info.get("kind", "cmd")
+        path = shell_info.get("path", "")
 
-        # Determine shell to use
-        if shell_type == "auto":
-            shell_info = _find_windows_bash()
-        elif shell_type == "custom" and forced_path and Path(forced_path).exists():
-            # Custom shell with explicit path
-            shell_info = ("custom", forced_path)
-        elif forced_path and Path(forced_path).exists():
-            # User forced a specific shell path with known type
-            shell_info = (shell_type, forced_path)
+        if kind == "gitbash" and path:
+            posix_cwd = _win_to_posix(cwd)
+            args = [path, "-c", f"cd {posix_cwd!r} && {command}"]
+            kwargs = dict(shell=False, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True,
+                          encoding='utf-8', errors='replace', cwd=cwd)
+        elif kind == "wsl" and path:
+            posix_cwd = _win_to_posix(cwd, wsl=True)
+            args = ["wsl", "--", "bash", "-c", f"cd {posix_cwd!r} && {command}"]
+            kwargs = dict(shell=False, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True,
+                          encoding='utf-8', errors='replace', cwd=cwd)
+        elif kind == "powershell" and path:
+            # PowerShell execution with LiteralPath for robust path handling
+            args = [path, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", f"Set-Location -LiteralPath '{cwd}'; {command}"]
+            kwargs = dict(shell=False, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True,
+                          encoding='utf-8', errors='replace', cwd=cwd)
+        elif kind == "cmd" and path:
+            # CMD execution
+            args = [path, "/c", f"cd /d \"{cwd}\" && {command}"]
+            kwargs = dict(shell=False, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True,
+                          encoding='utf-8', errors='replace', cwd=cwd)
+        elif kind == "custom" and path:
+            args = [path, "-c", command]
+            kwargs = dict(shell=False, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True, 
+                          encoding='utf-8', errors='replace', cwd=cwd)
         else:
-            # Try to find the specified shell type
-            shell_info = _find_shell_by_type(shell_type, forced_path)
-
-        if shell_info:
-            kind, path = shell_info
-            import time; time.sleep(0.5)  # Small stabilization delay for Windows shells
-            if kind == "gitbash":
-                posix_cwd  = _win_to_posix(cwd)
-                args = [path, "-c", f"cd {posix_cwd!r} && {command}"]
-                kwargs = dict(shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, text=True,
-                              encoding='utf-8', errors='replace')
-            elif kind == "wsl":
-                posix_cwd = _win_to_posix(cwd, wsl=True)
-                args = ["wsl", "--", "bash", "-c",
-                        f"cd {posix_cwd!r} && {command}"]
-                kwargs = dict(shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, text=True,
-                              encoding='utf-8', errors='replace')
-            elif kind == "powershell":
-                # PowerShell execution
-                args = [path, "-NoProfile", "-Command", f"cd '{cwd}'; {command}"]
-                kwargs = dict(shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, text=True,
-                              encoding='utf-8', errors='replace')
-            elif kind == "cmd":
-                # CMD execution
-                args = [path, "/c", f"cd /d {cwd} && {command}"]
-                kwargs = dict(shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, text=True,
-                              encoding='utf-8', errors='replace')
-            elif kind == "custom":
-                # Custom shell - try to be smart about the command format
-                # Most shells accept -c for commands, but we'll try different approaches
-                cmd_lower = command.lower().strip()
-                # Check if it looks like a Windows command (uses Windows paths, backslashes, etc.)
-                looks_like_windows = (
-                    '\\' in command or
-                    'dir ' in cmd_lower or
-                    'echo %' in cmd_lower or
-                    '.exe' in cmd_lower or
-                    'C:' in command or
-                    'D:' in command
-                )
-                if looks_like_windows:
-                    # Treat as Windows command - pass to shell's -c
-                    args = [path, "-c", command]
-                else:
-                    # Treat as Unix-style command
-                    args = [path, "-c", command]
-                kwargs = dict(shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, text=True, 
-                              encoding='utf-8', errors='replace', cwd=cwd)
-            else:
-                # Fallback to shell=True with system default
-                args = command
-                kwargs = dict(shell=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, text=True, 
-                              encoding='utf-8', errors='replace', cwd=cwd)
-        else:
-            # No shell found, use system default
+            # Fallback to shell=True with system default
             args = command
             kwargs = dict(shell=True, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE, text=True, 

@@ -141,32 +141,204 @@ def get_project_memory_index() -> str:
     return value
 
 
+def _find_git_bash_path() -> str | None:
+    import shutil
+    # 1. PATH (skip WSL stubs)
+    bash_in_path = shutil.which("bash")
+    if bash_in_path:
+        low = bash_in_path.lower()
+        if "system32" not in low and "sysnative" not in low and "syswow64" not in low:
+            if Path(bash_in_path).exists():
+                return bash_in_path
+
+    # 2. Check standard system and per-user install directories
+    candidates = [
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\usr\bin\bash.exe",
+        r"C:\msys64\usr\bin\bash.exe",
+    ]
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    if local_app_data:
+        candidates.extend([
+            os.path.join(local_app_data, "Programs", "Git", "bin", "bash.exe"),
+            os.path.join(local_app_data, "Programs", "Git", "usr", "bin", "bash.exe"),
+        ])
+    user_profile = os.environ.get("USERPROFILE", "")
+    if user_profile:
+        candidates.extend([
+            os.path.join(user_profile, "scoop", "apps", "git", "current", "bin", "bash.exe"),
+            os.path.join(user_profile, "scoop", "apps", "git", "current", "usr", "bin", "bash.exe"),
+        ])
+    for c in candidates:
+        if c and Path(c).exists():
+            return c
+    return None
+
+
+def _find_powershell_path() -> str | None:
+    import shutil
+    candidates = [
+        shutil.which("pwsh"),
+        shutil.which("powershell"),
+        r"C:\Program Files\PowerShell\7\pwsh.exe",
+        r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+    ]
+    for c in candidates:
+        if c and Path(c).exists():
+            return c
+    return None
+
+
+def _find_cmd_path() -> str:
+    import shutil
+    return shutil.which("cmd") or r"C:\Windows\System32\cmd.exe"
+
+
+def _detect_running_parent_shell() -> str | None:
+    """Inspect parent process tree if psutil is available to see what launched Dulus."""
+    try:
+        import psutil
+        proc = psutil.Process()
+        for _ in range(4):
+            proc = proc.parent()
+            if not proc:
+                break
+            name = proc.name().lower()
+            if "pwsh" in name or "powershell" in name:
+                return "powershell"
+            if "bash" in name or "mintty" in name or "sh.exe" in name:
+                return "gitbash"
+            if "cmd.exe" in name:
+                return "cmd"
+    except Exception:
+        pass
+    return None
+
+
+def resolve_shell_environment(config: dict | None = None) -> dict[str, str]:
+    """Single source of truth for shell detection and execution across Dulus.
+
+    Returns a dict with:
+      - kind: 'gitbash' | 'powershell' | 'cmd' | 'wsl' | 'bash' | 'custom'
+      - path: path to the executable
+      - family: 'bash' | 'powershell' | 'cmd'
+    """
+    import sys as _sys
+    if _sys.platform != "win32":
+        shell_path = os.environ.get("SHELL", "/bin/bash")
+        return {"kind": "bash", "path": shell_path, "family": "bash"}
+
+    configured = config.get("shell", {}).get("type", "auto") if config else "auto"
+    forced_path = config.get("shell", {}).get("path", "") if config else ""
+    st = (configured or "auto").lower()
+
+    # 1. Custom shell with explicit path
+    if st == "custom" and forced_path and Path(forced_path).exists():
+        low = forced_path.lower()
+        if "bash" in low or "sh" in low:
+            fam = "bash"
+        elif "pwsh" in low or "powershell" in low:
+            fam = "powershell"
+        else:
+            fam = "cmd"
+        return {"kind": "custom", "path": forced_path, "family": fam}
+
+    # 2. Explicitly configured shells
+    if st == "gitbash":
+        p = _find_git_bash_path()
+        if p:
+            return {"kind": "gitbash", "path": p, "family": "bash"}
+    elif st == "wsl":
+        import shutil
+        wsl = shutil.which("wsl")
+        if wsl:
+            return {"kind": "wsl", "path": wsl, "family": "bash"}
+    elif st == "powershell":
+        p = _find_powershell_path()
+        if p:
+            return {"kind": "powershell", "path": p, "family": "powershell"}
+    elif st == "cmd":
+        return {"kind": "cmd", "path": _find_cmd_path(), "family": "cmd"}
+
+    # 3. Auto-detection:
+    # A) Check interactive shell environment variables
+    if os.environ.get("MSYSTEM") or "MINGW" in os.environ.get("MSYSTEM", ""):
+        p = _find_git_bash_path()
+        if p:
+            return {"kind": "gitbash", "path": p, "family": "bash"}
+
+    shell_env = os.environ.get("SHELL", "").lower()
+    if "bash" in shell_env or "BASH" in os.environ or "BASH_VERSION" in os.environ:
+        p = _find_git_bash_path()
+        if p:
+            return {"kind": "gitbash", "path": p, "family": "bash"}
+
+    if os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"):
+        import shutil
+        wsl = shutil.which("wsl")
+        if wsl:
+            return {"kind": "wsl", "path": wsl, "family": "bash"}
+
+    if os.environ.get("PSExecutionPolicyPreference") or os.environ.get("PSCommandPath"):
+        p = _find_powershell_path()
+        if p:
+            return {"kind": "powershell", "path": p, "family": "powershell"}
+
+    # B) Check parent process tree (e.g. launched from Windows Terminal / VS Code)
+    parent_shell = _detect_running_parent_shell()
+    if parent_shell == "gitbash":
+        p = _find_git_bash_path()
+        if p:
+            return {"kind": "gitbash", "path": p, "family": "bash"}
+    elif parent_shell == "powershell":
+        p = _find_powershell_path()
+        if p:
+            return {"kind": "powershell", "path": p, "family": "powershell"}
+    elif parent_shell == "cmd":
+        p = _find_git_bash_path()
+        if p:
+            return {"kind": "gitbash", "path": p, "family": "bash"}
+        return {"kind": "cmd", "path": _find_cmd_path(), "family": "cmd"}
+
+    # C) Neutral preference (GUI app, background service, etc.):
+    # Prefer Git Bash for POSIX tool call compatibility if installed
+    git_bash = _find_git_bash_path()
+    if git_bash:
+        return {"kind": "gitbash", "path": git_bash, "family": "bash"}
+
+    # Next prefer PowerShell
+    ps = _find_powershell_path()
+    if ps:
+        return {"kind": "powershell", "path": ps, "family": "powershell"}
+
+    # Default fallback to CMD
+    return {"kind": "cmd", "path": _find_cmd_path(), "family": "cmd"}
+
+
 def _detect_shell_type(config: dict | None = None) -> str:
     """Resolve which shell family to advertise: 'bash', 'powershell', or 'cmd'."""
-    configured = config.get("shell", {}).get("type", "auto") if config else "auto"
-    if configured != "auto":
-        st = configured.lower()
-        if st in ("gitbash", "wsl", "bash"):
-            return "bash"
-        if st == "powershell":
-            return "powershell"
-        return "cmd"
-    shell_name = os.environ.get("SHELL", "").lower()
-    if "bash" in shell_name or "BASH" in os.environ:
-        return "bash"
-    if "powershell" in shell_name or "PSModulePath" in os.environ:
-        return "powershell"
-    return "cmd"
+    info = resolve_shell_environment(config)
+    return info.get("family", "bash")
 
 
 def get_platform_hints(config: dict | None = None) -> str:
     import platform as _plat
-    shell_type = _detect_shell_type(config)
     dulus_home = Path.home() / ".dulus"
     skills_dir = dulus_home / "skills"
     if _plat.system() == "Windows":
-        cmds = "Get-Content=cat,Select-String=grep,Get-ChildItem=ls" if shell_type=="powershell" else "type=cat,findstr=grep,dir=ls"
-        return f"# Shell:Windows({shell_type}) | {cmds} | Dulus:{dulus_home} | Skills:{skills_dir} | WARNING: Use Glob/Read tools instead of raw shell commands for path navigation to avoid Windows path errors."
+        info = resolve_shell_environment(config)
+        fam = info.get("family", "bash")
+        kind = info.get("kind", "gitbash")
+        if fam == "bash":
+            return f"# Shell:Windows({kind}/POSIX) | cat,grep,ls,curl,&& | Dulus:{dulus_home} | Skills:{skills_dir} | Forward slashes /c/Users/... or relative paths"
+        elif fam == "powershell":
+            cmds = "Get-Content=cat,Select-String=grep,Get-ChildItem=ls"
+            return f"# Shell:Windows(PowerShell) | {cmds} | Dulus:{dulus_home} | Skills:{skills_dir} | WARNING: Use Glob/Read tools instead of raw shell commands for path navigation to avoid Windows path errors."
+        else:
+            cmds = "type=cat,findstr=grep,dir=ls"
+            return f"# Shell:Windows(CMD) | {cmds} | Dulus:{dulus_home} | Skills:{skills_dir} | WARNING: Use Glob/Read tools instead of raw shell commands for path navigation to avoid Windows path errors."
     return f"# Shell:Unix(cat,grep,ls,&&) | Dulus:{dulus_home} | Skills:{skills_dir}"
 
 
