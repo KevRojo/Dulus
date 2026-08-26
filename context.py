@@ -263,7 +263,23 @@ def resolve_shell_environment(config: dict | None = None) -> dict[str, str]:
         return {"kind": "cmd", "path": _find_cmd_path(), "family": "cmd"}
 
     # 3. Auto-detection:
-    # A) Check interactive shell environment variables
+    # A) Check parent process tree (e.g. launched from Windows Terminal / VS Code)
+    parent_shell = _detect_running_parent_shell()
+    if parent_shell == "gitbash":
+        p = _find_git_bash_path()
+        if p:
+            return {"kind": "gitbash", "path": p, "family": "bash"}
+    elif parent_shell == "powershell":
+        p = _find_powershell_path()
+        if p:
+            return {"kind": "powershell", "path": p, "family": "powershell"}
+    elif parent_shell == "cmd":
+        p = _find_git_bash_path()
+        if p:
+            return {"kind": "gitbash", "path": p, "family": "bash"}
+        return {"kind": "cmd", "path": _find_cmd_path(), "family": "cmd"}
+
+    # B) Check interactive shell environment variables
     if os.environ.get("MSYSTEM") or "MINGW" in os.environ.get("MSYSTEM", ""):
         p = _find_git_bash_path()
         if p:
@@ -285,22 +301,6 @@ def resolve_shell_environment(config: dict | None = None) -> dict[str, str]:
         p = _find_powershell_path()
         if p:
             return {"kind": "powershell", "path": p, "family": "powershell"}
-
-    # B) Check parent process tree (e.g. launched from Windows Terminal / VS Code)
-    parent_shell = _detect_running_parent_shell()
-    if parent_shell == "gitbash":
-        p = _find_git_bash_path()
-        if p:
-            return {"kind": "gitbash", "path": p, "family": "bash"}
-    elif parent_shell == "powershell":
-        p = _find_powershell_path()
-        if p:
-            return {"kind": "powershell", "path": p, "family": "powershell"}
-    elif parent_shell == "cmd":
-        p = _find_git_bash_path()
-        if p:
-            return {"kind": "gitbash", "path": p, "family": "bash"}
-        return {"kind": "cmd", "path": _find_cmd_path(), "family": "cmd"}
 
     # C) Neutral preference (GUI app, background service, etc.):
     # Prefer Git Bash for POSIX tool call compatibility if installed
