@@ -23,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from .recorder import SAMPLE_RATE, CHANNELS, BYTES_PER_SAMPLE
 
@@ -94,8 +94,8 @@ def _transcribe_nvidia_riva(
         None,             # ssl_cert
         True,             # use_ssl
         RIVA_SERVER,
-        [("function-id", RIVA_FUNCTION_ID),
-         ("authorization", f"Bearer {api_key}")],
+        [["function-id", RIVA_FUNCTION_ID],
+         ["authorization", f"Bearer {api_key}"]],
     )
     asr = riva.client.ASRService(auth)
     lang_code = "multi" if (not language or language == "auto") else language
@@ -110,9 +110,9 @@ def _transcribe_nvidia_riva(
     if translate:
         riva.client.add_custom_configuration_to_config(config, "task:translate")
     wav = _pcm_to_wav(pcm_bytes)
-    resp = asr.offline_recognize(wav, config)
+    resp: Any = asr.offline_recognize(wav, config)
     parts = []
-    for r in resp.results:
+    for r in getattr(resp, "results", []):
         if r.alternatives:
             parts.append(r.alternatives[0].transcript)
     return " ".join(parts).strip()
@@ -371,8 +371,10 @@ def _transcribe_openai_whisper(
     if language and language != "auto":
         options["language"] = language
 
-    result = model.transcribe(audio, **options)
-    return result.get("text", "").strip()
+    result: Any = model.transcribe(audio, **options)
+    if isinstance(result, dict):
+        return str(result.get("text", "")).strip()
+    return str(result).strip()
 
 
 # ── OpenAI Whisper API ────────────────────────────────────────────────────

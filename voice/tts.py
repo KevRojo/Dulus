@@ -437,8 +437,8 @@ def _say_nvidia_riva(text: str, lang: str = "es") -> bool:
         api_key = os.environ["NVIDIA_API_KEY"]
         auth = riva.client.Auth(
             None, True, RIVA_TTS_SERVER,
-            [("function-id", RIVA_TTS_FUNCTION_ID),
-             ("authorization", f"Bearer {api_key}")],
+            [["function-id", RIVA_TTS_FUNCTION_ID],
+             ["authorization", f"Bearer {api_key}"]],
         )
         tts = riva.client.SpeechSynthesisService(auth)
         # Magpie caps inputs at ~400 chars per request — chunk by sentence.
@@ -459,11 +459,12 @@ def _say_nvidia_riva(text: str, lang: str = "es") -> bool:
                     if getattr(r, "audio", None):
                         chunks.extend(r.audio)
             except AttributeError:
-                resp = tts.synthesize(
+                resp: Any = tts.synthesize(
                     seg, voice_name=voice, language_code=lang_code,
                     encoding=enc, sample_rate_hz=RIVA_TTS_SAMPLE_RATE,
                 )
-                chunks.extend(resp.audio)
+                if getattr(resp, "audio", None):
+                    chunks.extend(resp.audio)
         if not chunks:
             return False
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:

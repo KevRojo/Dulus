@@ -112,7 +112,7 @@ class TestShellModeExecution:
     @pytest.mark.asyncio
     async def test_execute_stderr_captured(self, shell: ShellMode) -> None:
         """execute() should capture stderr in output."""
-        cmd = '''python -c "import sys; sys.stderr.write('error_msg')"'''
+        cmd = f'''"{sys.executable}" -c "import sys; sys.stderr.write('error_msg')"'''
         result = await shell.execute(cmd)
         assert result["exit_code"] == 0
         assert "[stderr]" in result["output"]
@@ -121,13 +121,13 @@ class TestShellModeExecution:
     @pytest.mark.asyncio
     async def test_execute_nonzero_exit(self, shell: ShellMode) -> None:
         """execute() should report non-zero exit codes."""
-        result = await shell.execute('python -c "import sys; sys.exit(42)"')
+        result = await shell.execute(f'"{sys.executable}" -c "import sys; sys.exit(42)"')
         assert result["exit_code"] == 42
 
     @pytest.mark.asyncio
     async def test_execute_timeout(self, shell: ShellMode) -> None:
         """execute() should handle command timeout."""
-        result = await shell.execute('python -c "import time; time.sleep(5)"', timeout=1)
+        result = await shell.execute(f'"{sys.executable}" -c "import time; time.sleep(5)"', timeout=1)
         assert result["exit_code"] == -1
         assert "timed out" in result["message"]
 
@@ -145,7 +145,7 @@ class TestShellModeExecution:
         """execute() should respect the cwd parameter."""
         subdir = tmp_path / "subdir"
         subdir.mkdir()
-        result = await shell.execute('python -c "import os; print(os.getcwd())"', cwd=str(subdir))
+        result = await shell.execute(f'"{sys.executable}" -c "import os; print(os.getcwd())"', cwd=str(subdir))
         assert str(subdir) in result["output"]
 
 

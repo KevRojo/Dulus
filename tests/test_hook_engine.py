@@ -191,7 +191,7 @@ class TestHookEngine:
         engine = HookEngine()
         engine.add_hook(HookDef(
             event="tool_call",
-            command='python -c "import time; time.sleep(10)"',
+            command=f'"{sys.executable}" -c "import time; time.sleep(10)"',
             timeout=1,  # Very short timeout
         ))
         results = await engine.trigger("tool_call", "Write")
@@ -362,7 +362,7 @@ class TestHookEngineEdgeCases:
         """Trigger should execute in the specified working directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             engine = HookEngine(cwd=tmpdir)
-            engine.add_hook(HookDef(event="tool_call", command='python -c "import os; print(os.getcwd())"'))
+            engine.add_hook(HookDef(event="tool_call", command=f'"{sys.executable}" -c "import os; print(os.getcwd())"'))
             results = await engine.trigger("tool_call", "Write")
             assert len(results) == 1
             assert tmpdir in results[0]["stdout"]
