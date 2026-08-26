@@ -42,13 +42,14 @@ ARG DULUS_EXTRAS=
 # Use the published wheel by default. To build from local source instead,
 # pass --build-arg DULUS_SOURCE=local and ensure the repo is in the context.
 ARG DULUS_SOURCE=pypi
-COPY pyproject.toml ./pyproject-local.toml
+COPY . /build/
 
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends git build-essential; \
     if [ "$DULUS_SOURCE" = "local" ]; then \
         echo "Building Dulus from local source (context)"; \
+        pip install --prefix=/install .; \
     else \
         pkg="dulus${DULUS_VERSION:+==$DULUS_VERSION}"; \
         if [ -n "$DULUS_EXTRAS" ]; then pkg="dulus[$DULUS_EXTRAS]${DULUS_VERSION:+==$DULUS_VERSION}"; fi; \

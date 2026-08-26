@@ -26,6 +26,12 @@ def test_windows_auto_detection_with_gitbash(monkeypatch):
     monkeypatch.setenv('PSModulePath', r'C:\Program Files\WindowsPowerShell\Modules')
     monkeypatch.delenv('MSYSTEM', raising=False)
     monkeypatch.delenv('PSExecutionPolicyPreference', raising=False)
+    monkeypatch.delenv('PSCommandPath', raising=False)
+    monkeypatch.delenv('WSL_DISTRO_NAME', raising=False)
+    monkeypatch.delenv('WSL_INTEROP', raising=False)
+    monkeypatch.delenv('SHELL', raising=False)
+    monkeypatch.delenv('BASH', raising=False)
+    monkeypatch.delenv('BASH_VERSION', raising=False)
 
     info = resolve_shell_environment({'shell': {'type': 'auto'}})
     assert info['kind'] == 'gitbash'
@@ -69,6 +75,14 @@ def test_platform_hints_match_resolved_shell(monkeypatch):
     monkeypatch.setattr('sys.platform', 'win32')
     monkeypatch.setattr('context._find_git_bash_path', lambda: r'C:\Program Files\Git\bin\bash.exe')
     monkeypatch.setattr('context._detect_running_parent_shell', lambda: None)
+    monkeypatch.delenv('MSYSTEM', raising=False)
+    monkeypatch.delenv('PSExecutionPolicyPreference', raising=False)
+    monkeypatch.delenv('PSCommandPath', raising=False)
+    monkeypatch.delenv('WSL_DISTRO_NAME', raising=False)
+    monkeypatch.delenv('WSL_INTEROP', raising=False)
+    monkeypatch.delenv('SHELL', raising=False)
+    monkeypatch.delenv('BASH', raising=False)
+    monkeypatch.delenv('BASH_VERSION', raising=False)
 
     hints = get_platform_hints({'shell': {'type': 'auto'}})
     assert 'Windows(gitbash/POSIX)' in hints
