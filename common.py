@@ -164,7 +164,30 @@ def warn(msg: str):
     print(clr(f"Warning: {msg}", "yellow"))
 
 
+# Set by err(); read via last_error(). See the note in err() for why.
+_LAST_ERROR: str = ""
+
+
+def last_error() -> str:
+    """Return the most recent message passed to err(), or "" if there is none."""
+    return _LAST_ERROR
+
+
+def clear_last_error() -> None:
+    """Forget the recorded error so a later read can't attribute a stale one."""
+    global _LAST_ERROR
+    _LAST_ERROR = ""
+
+
 def err(msg: str):
+    # Last message passed to err(), from any module. A caller that has to report
+    # a failure machine-readably (dulus.py's `--output json` protocol mode) needs
+    # the reason, but almost every failure in an interactive agent is *handled*
+    # and surfaced only as human text right here — there is no exception left to
+    # inspect by the time the run ends. Recording it at this layer catches every
+    # call site regardless of how the module imported err.
+    global _LAST_ERROR
+    _LAST_ERROR = str(msg).strip()
     # Sentry auto-captures only UNCAUGHT exceptions (via the excepthook). Almost
     # every failure in an interactive agent is caught and surfaced right here
     # through err(), so those never reach Sentry — which is why the dashboard

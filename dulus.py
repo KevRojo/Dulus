@@ -393,7 +393,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.12.0"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.12.1"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -439,25 +439,72 @@ def _emit_error(message: str | BaseException) -> None:
     _emit({"type": "error", "message": str(message)})
 
 
-def _final_assistant_text(state: Any) -> str:
-    """Flatten the last assistant message to plain text.
+def _final_assistant_text(state: Any, since: int = 0) -> str:
+    """Flatten this turn's assistant answer to plain text.
+
+    `since` is the message count captured *before* the turn ran. Everything
+    below it — the injected Soul, gold memories (which are appended as
+    `role: "assistant"` at boot), a previous turn's reply — is not this turn's
+    output and must never be reported as it. Reading a bare `messages[-1]`
+    made a failed run look like a success whose answer was the gold memory
+    dump, because a failed turn rolls its own messages back and leaves the
+    boot-time injections on top.
 
     Message content is either a string or a list of blocks — the block form is
     what arrives once thinking is on, where only `type == "text"` blocks are
     the answer.
     """
     msgs = getattr(state, "messages", None) or []
-    last = msgs[-1] if msgs else {}
-    if not isinstance(last, dict) or last.get("role") != "assistant":
-        return ""
-    content = last.get("content", "")
-    if isinstance(content, list):
-        return "\n".join(
-            b["text"] if isinstance(b, dict) else str(b)
-            for b in content
-            if (isinstance(b, dict) and b.get("type") == "text") or isinstance(b, str)
-        )
-    return content if isinstance(content, str) else str(content)
+    for msg in reversed(msgs[since:]):
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            return "\n".join(
+                b["text"] if isinstance(b, dict) else str(b)
+                for b in content
+                if (isinstance(b, dict) and b.get("type") == "text") or isinstance(b, str)
+            )
+        return content if isinstance(content, str) else str(content)
+    return ""
+
+
+def _turn_reply_text(state: Any, since: int = 0) -> str:
+    """This turn's assistant answer, or "" when the turn produced none.
+
+    `state.last_reply` is set by the agent loop for the turn it just ran, so it
+    is exact: immune to the boot-time injections and to mid-run auto-compaction,
+    which rebinds `state.messages` and invalidates any index into it. The
+    message scan is the fallback for callers that don't go through
+    `agent.run()`.
+    """
+    reply = getattr(state, "last_reply", None)
+    if reply is not None:
+        return str(reply)
+    return _final_assistant_text(state, since=since)
+
+
+def _turn_error_message(state: Any) -> str:
+    """Best available reason the turn produced no answer.
+
+    Failures reach us three ways, in descending specificity. The agent loop
+    records `state.last_error` when a provider ends a turn with `error=True`
+    (a missing web-auth file, an exhausted quota) — that path raises nothing,
+    yields no `TurnDone` and rolls its own messages back, so it is otherwise
+    completely unobservable. `common.err()` records whatever was last reported
+    to the human channel, which covers the handled-and-printed failures. And
+    if neither fired we still have to fail: an empty run is not a success, so
+    say so plainly rather than exit 0.
+    """
+    reason = str(getattr(state, "last_error", "") or "").strip()
+    if reason:
+        return reason
+    try:
+        import common as _cm
+        reason = (_cm.last_error() or "").strip()
+    except Exception:
+        reason = ""
+    return reason or "model produced no assistant reply"
 
 
 def _usage_part(state: Any, config: dict) -> dict:
@@ -12941,6 +12988,14 @@ def repl(config: dict, initial_prompt: str | None = None):
         # usage, and a non-zero exit on failure. Before this existed a one-shot
         # run always exited 0, so a parent could not tell a completed run from
         # an auth failure.
+        #
+        # The baseline is the message count before the turn: it is what makes
+        # "this turn's answer" a well-defined thing, and therefore what makes
+        # "this turn produced nothing" detectable. Everything above the
+        # explicitly-handled failure paths below reaches us as an empty answer,
+        # so the emptiness check is the net that catches the failure modes we
+        # have not enumerated — including any added later.
+        _baseline = len(getattr(state, "messages", []) or [])
         _emit({"type": "step_start", "sessionID": session_id})
         try:
             run_query(initial_prompt)
@@ -12957,7 +13012,17 @@ def repl(config: dict, initial_prompt: str | None = None):
                 sys.exit(1)
             raise
         if _protocol_enabled():
-            _emit({"type": "text", "part": {"text": _final_assistant_text(state)}})
+            # Order matters. A turn can stream partial text and *then* fail, and
+            # partial text is not an answer — so the failure verdict is read
+            # first. The emptiness check behind it is the net for every failure
+            # mode not enumerated above (and any added later): they all surface
+            # here as "the turn produced nothing", which is never a success.
+            _fail = str(getattr(state, "last_error", "") or "").strip()
+            _reply = "" if _fail else _turn_reply_text(state, since=_baseline)
+            if _fail or not _reply.strip():
+                _emit_error(_turn_error_message(state))
+                sys.exit(1)
+            _emit({"type": "text", "part": {"text": _reply}})
             _emit({"type": "step_finish", "part": _usage_part(state, config)})
         return
 
@@ -14025,6 +14090,17 @@ def main():
 
     args = parser.parse_args()
 
+    # `--version` and `--help` answer on stdout in every mode. They are
+    # queries, not runs: they emit no frames, so swapping the channel first
+    # would leave stdout empty and hide the answer on stderr.
+    if args.version:
+        print(f"dulus v{VERSION}")
+        sys.exit(0)
+
+    if args.help:
+        print(__doc__)
+        sys.exit(0)
+
     # ── Protocol mode: split the channels before anything can print ────────
     # This must happen before the first print in main() (the license gate is
     # ~90 lines below) or the parent's first stdout line is our banner, not a
@@ -14036,14 +14112,6 @@ def main():
         # Cursor repaints and in-place Live rendering are pure noise once the
         # human channel is a pipe — without this stderr fills with \033[2K\r.
         os.environ["DULUS_NO_ANIMATIONS"] = "1"
-
-    if args.version:
-        print(f"dulus v{VERSION}")
-        sys.exit(0)
-
-    if args.help:
-        print(__doc__)
-        sys.exit(0)
 
     from config import load_config, save_config, has_api_key
     from providers import detect_provider, PROVIDERS

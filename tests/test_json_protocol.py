@@ -52,6 +52,18 @@ def test_channel_split_happens_before_the_first_print() -> None:
     assert parse_args < swap < license_gate
 
 
+def test_version_and_help_answer_before_the_swap() -> None:
+    """`--version` and `--help` are queries, not runs.
+
+    They emit no frames, so if the swap ran first their answer would land on
+    stderr and stdout would come back empty.
+    """
+    swap = SOURCE.index("sys.stdout = sys.stderr")
+
+    assert SOURCE.index('print(f"dulus v{VERSION}")') < swap
+    assert SOURCE.index("print(__doc__)") < swap
+
+
 def test_protocol_mode_disables_cursor_repaints() -> None:
     """Live rendering and animations only emit escapes a parent has to strip."""
     assert 'os.environ["DULUS_NO_ANIMATIONS"] = "1"' in SOURCE
@@ -65,8 +77,62 @@ def test_protocol_mode_never_hands_the_prompt_to_another_process() -> None:
 
 def test_one_shot_run_emits_the_full_lifecycle() -> None:
     assert '_emit({"type": "step_start", "sessionID": session_id})' in SOURCE
-    assert '_emit({"type": "text", "part": {"text": _final_assistant_text(state)}})' in SOURCE
+    assert '_emit({"type": "text", "part": {"text": _reply}})' in SOURCE
     assert '_emit({"type": "step_finish", "part": _usage_part(state, config)})' in SOURCE
+
+
+def test_a_turn_that_produced_nothing_is_never_reported_as_success() -> None:
+    """The catch-all that makes unenumerated failures fail loudly.
+
+    Most provider failures never raise and never reach the guards below —
+    the agent loop rolls the turn back and breaks. What they all have in
+    common is that the turn produced no answer, so that is what is checked.
+    """
+    one_shot = _one_shot_branch()
+
+    assert "_fail = str(getattr(state, \"last_error\", \"\") or \"\").strip()" in one_shot
+    assert "_reply = \"\" if _fail else _turn_reply_text(state, since=_baseline)" in one_shot
+    assert "if _fail or not _reply.strip():" in one_shot
+    assert "_emit_error(_turn_error_message(state))" in one_shot
+    assert "sys.exit(1)" in one_shot
+
+
+def test_agent_loop_records_the_verdict_of_the_turn_it_ran() -> None:
+    """`AssistantTurn.error` is otherwise unobservable to any caller.
+
+    On that path `run()` rolls the history back and breaks — no exception, no
+    new assistant message, no TurnDone. Without these two fields a failed run
+    is indistinguishable from a successful one.
+    """
+    agent_src = (Path(__file__).resolve().parent.parent / "agent.py").read_text(encoding="utf-8")
+
+    assert "last_error: str = \"\"" in agent_src
+    assert "last_reply: str | None = None" in agent_src
+    # Cleared at the start of every turn so a stale verdict can't be reused.
+    assert "state.last_error = \"\"" in agent_src
+    assert "state.last_reply = None" in agent_src
+    # Captured before the rollback throws the evidence away.
+    error_branch = agent_src[agent_src.index("if assistant_turn.error:"):]
+    error_branch = error_branch[:error_branch.index("break")]
+    assert "state.last_error = sanitize_text(assistant_turn.text or \"\").strip()" in error_branch
+    assert error_branch.index("state.last_error") < error_branch.index("state.messages.pop()")
+    assert "state.last_reply = _reply_text" in agent_src
+
+
+def test_err_records_the_reason_for_every_module() -> None:
+    """Handled-and-printed failures leave no exception to inspect later.
+
+    Recording in `common.err` rather than a local wrapper is deliberate: every
+    module does `from common import err`, which binds the function object at
+    import time, so a wrapper in dulus.py would miss providers.py and tools.py.
+    """
+    common_src = (Path(__file__).resolve().parent.parent / "common.py").read_text(encoding="utf-8")
+
+    assert "_LAST_ERROR: str = \"\"" in common_src
+    assert "def last_error() -> str:" in common_src
+    assert "def clear_last_error() -> None:" in common_src
+    err_body = common_src[common_src.index("def err(msg: str):"):common_src.index("def pip_install_cmd")]
+    assert "_LAST_ERROR = str(msg).strip()" in err_body
 
 
 def test_failures_exit_non_zero_in_protocol_mode() -> None:
@@ -75,8 +141,7 @@ def test_failures_exit_non_zero_in_protocol_mode() -> None:
     Every failure path reachable from a one-shot run has to do both: emit an
     `error` frame and exit non-zero. Previously all of them exited 0.
     """
-    one_shot = SOURCE[SOURCE.index("    if initial_prompt:"):]
-    one_shot = one_shot[:one_shot.index("# ── Bracketed paste mode")]
+    one_shot = _one_shot_branch()
 
     assert '_emit_error("interrupted")' in one_shot
     assert "sys.exit(130)" in one_shot
@@ -88,6 +153,11 @@ def test_failures_exit_non_zero_in_protocol_mode() -> None:
     assert "_emit_error(friendly_api_error(e))" in SOURCE
     # Missing credentials are a warning interactively, terminal for a parent.
     assert "_emit_error(_msg)" in SOURCE
+
+
+def _one_shot_branch() -> str:
+    branch = SOURCE[SOURCE.index("    if initial_prompt:"):]
+    return branch[:branch.index("# ── Bracketed paste mode")]
 
 
 # ── Frame contract ────────────────────────────────────────────────────────────

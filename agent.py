@@ -66,6 +66,18 @@ class AgentState:
     total_cache_creation_tokens: int = 0
     turn_count: int = 0
     _short_mem_counter: int = 0  # +1 per tool turn; nudges short_memory at 10
+    # Why the last turn failed, or "" when it didn't. A provider can end a turn
+    # with error=True (missing web-auth file, exhausted quota) — run() rolls the
+    # history back and breaks, so the caller sees no new assistant message, no
+    # TurnDone and no exception. Without this the failure is unobservable and a
+    # non-interactive run reports success with whatever message was already last.
+    last_error: str = ""
+    # This turn's assistant text, or None when the turn never produced one.
+    # Read by non-interactive callers that must report exactly what this turn
+    # answered. Unlike scanning `messages` it survives mid-run auto-compaction
+    # (which rebinds the list and invalidates any index) and cannot pick up the
+    # Soul or gold-memory messages that are injected as role="assistant" at boot.
+    last_reply: str | None = None
 
 
 @dataclass
@@ -147,6 +159,8 @@ def run(
         user_msg["videos"] = [pending_vid]
     
     initial_msg_count = len(state.messages)
+    state.last_error = ""     # this turn's verdict starts clean
+    state.last_reply = None
     state.messages.append(user_msg)
 
     # Inject runtime metadata into config so tools (e.g. Agent, Loopback) can access it.
@@ -248,18 +262,23 @@ def run(
             break
 
         if assistant_turn.error:
+            # The turn's text IS the failure reason (provider layer puts it
+            # there); record it before the rollback throws away the evidence.
+            state.last_error = sanitize_text(assistant_turn.text or "").strip()
             # Rollback: remove anything added during this turn sequence to prevent corrupted history
             while len(state.messages) > initial_msg_count:
                 state.messages.pop()
             break
 
         # Record assistant turn in neutral format
+        _reply_text = sanitize_text(assistant_turn.text)
         state.messages.append({
             "role":       "assistant",
-            "content":    sanitize_text(assistant_turn.text),
+            "content":    _reply_text,
             "thinking":   sanitize_text(assistant_turn.thinking) if assistant_turn.thinking else "",
             "tool_calls": assistant_turn.tool_calls,
         })
+        state.last_reply = _reply_text
 
         # Token accounting. Most providers only emit the usage chunk on the
         # FINAL (text) response — on intermediate tool-call responses they send
