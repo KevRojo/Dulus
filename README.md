@@ -572,6 +572,32 @@ git diff | dulus -p "write a precise commit message"
 
 Place a `CLAUDE.md` in the project root. Dulus injects it into the system context so the agent starts with the repository's stack, conventions, commands, and constraints.
 
+### Run Dulus from another program
+
+`--output json` turns a one-shot run into a machine-readable stream, so Dulus can be embedded as the agent runtime behind another tool, an IDE bridge, or a CI job.
+
+```bash
+dulus -p --accept-all --output json -- "explain this repository"
+```
+
+The contract:
+
+| Channel | Carries |
+| --- | --- |
+| **stdout** | JSONL protocol frames, and nothing else |
+| **stderr** | Banner, spinners, tool status, warnings — every human-facing byte |
+
+Frames use the OpenCode event-stream dialect, so a consumer that already parses that format needs no new adapter:
+
+| Frame | Payload |
+| --- | --- |
+| `step_start` | `sessionID` |
+| `text` | `part.text` — the assistant's answer |
+| `step_finish` | `part.tokens.input` · `.output` · `.cache.read` · `.cache.write` · `part.cost` |
+| `error` | `message` |
+
+Exit code is `0` on success, `130` on Ctrl+C, and non-zero on any failure — a missing credential, a provider error, an unhandled exception — always alongside an `error` frame. Pass the prompt after `--`: it is a positional argument, so without the terminator a prompt starting with a hyphen is parsed as a flag.
+
 ### Development setup
 
 ```bash

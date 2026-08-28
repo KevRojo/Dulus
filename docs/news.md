@@ -2,6 +2,21 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 28, 2026 (**v3.12.0**): **🔌 Dulus is now embeddable — `--output json`.** Dulus already ran fine as a one-shot (`dulus -p "…"`), but it was impossible to *drive* from another program. Three things were in the way, and all three are fixed. **(1) Channels.** Every human-facing byte — the boot banner, spinners, tool status lines, warnings, Rich's cursor repaints — went to stdout, mixed in with the answer, so a parent process parsing stdout got `🦅 Dulus — [FREE] …` as line one and gave up. `--output json` now reserves stdout for a clean **JSONL protocol stream** and sends *everything else* to stderr — one swap, before the first print can fire. **(2) Frames.** stdout carries four frame types: `step_start` (with the session id), `text` (the assistant's answer), `step_finish` (input/output/cache tokens plus estimated cost, accounted exactly like `/cost` so the two can't disagree), and `error`. We deliberately speak the **OpenCode event-stream dialect** instead of inventing our own, so a tool that already parses that format needs **zero new code** to run Dulus. **(3) Exit codes.** A one-shot run used to exit **0 no matter what** — an expired key, a quota wall, a missing credential, all indistinguishable from success. Now every failure path emits an `error` frame *and* exits non-zero (`130` on Ctrl+C), so a parent can tell a finished run from a dead one. Protocol mode also refuses to hand your prompt to an already-running Dulus over IPC — that would answer in the *other* process's directory and emit no frames at all. Try it: `dulus -p --accept-all --output json -- "explain this repo"`. If the first line of stdout isn't a JSON object, that's a bug — report it. `pip install --upgrade dulus`. 🦅🇩🇴
+
+- August 28, 2026 (**Business update**): **💰 How Dulus makes money — and what stays free.** Worth saying plainly, because "free" is doing a lot of work in this README and you deserve to know which parts are load-bearing.
+
+  **Free, and staying free:**
+  - **The runtime itself** — everything in this repository, GPL-3.0, no license key, no seat count. The `--output json` mode above is not a paid add-on; if it were, embedding Dulus wouldn't be worth doing.
+  - **A free Dulus account** (`/login dulus`) — unlocks the Fuel-metered Dulus router: `dulus-a-9b`, `dulus-b-27b`, `dulus-x-397b` and the uncensored `dulus-f`. Two seconds, no card.
+  - **NVIDIA NIM's free tier** — 14 models with automatic fallback when one hits its ceiling, so a quota wall degrades to the next model instead of killing the session.
+  - **Fully local, $0/token** — `edge/*` over llama.cpp, Ollama or LM Studio, priced at zero because it *is* zero. Laptop, VM, or Termux on an Android phone.
+  - **Subscription logins** — Claude, ChatGPT, Kimi and DeepSeek through the plan you already pay for. No second API bill.
+
+  **What we charge for:** `$DULUS` **Fuel** on the hosted router (atomic reserve → inference → settle; failed requests refund automatically), and **Dulus Premium** — a signed, auto-updating desktop build for people who want the GUI without the setup. That's it. The commercial build funds the open one; it does not fence it off.
+
+  **Why this matters if you're integrating Dulus:** the runtime you embed is the runtime we ship, under a license that can't be revoked out from under you. Build on it. See it live → **[dulus.ai](https://dulus.ai)**. 🦅🇩🇴
+
 - August 25, 2026 (**v3.11.20**): **🚀 MCP launcher intelligence + CI & shell robustness.** Auto-infers runtimes, commands, and arguments for official and community MCP servers directly from registry links and package repos. Hardened shell execution and environment isolation across Windows, macOS, and Linux runners. `pip install --upgrade dulus`. 🦅🇩🇴
 
 - August 24, 2026 (**v3.11.14**): **🐛 Read tool stops crashing on offset/limit.** When the model asked to read a slice of a file (`Read` with `offset`/`limit`), the JSON values could arrive as strings instead of ints — and Python's list slicing exploded with `slice indices must be integers`. Dulus now coerces both params to `int` before slicing, so paginated reads work every time. `pip install --upgrade dulus`. 🦅🇩🇴

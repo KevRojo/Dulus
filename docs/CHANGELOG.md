@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-08-28
+
+### Added
+- `--output json`: machine-readable protocol mode for running Dulus as a child
+  process of another program (agent runtime, IDE bridge, CI job). stdout is
+  reserved for a JSONL frame stream; every human-facing byte goes to stderr.
+  The channel swap happens immediately after `parse_args()` — before the first
+  print in `main()` — by pointing `sys.stdout` at `sys.stderr` once, so the
+  existing print surface becomes diagnostics without touching its call sites.
+  Rich follows automatically because it resolves `sys.stdout` per write.
+- Frame vocabulary is the OpenCode JSON event-stream dialect on purpose, so
+  existing consumers need no new parser: `step_start` (carries the session id),
+  `text` (assistant answer), `step_finish` (`tokens.input`, `tokens.output`,
+  `tokens.cache.read`, `tokens.cache.write`, `cost`) and `error`. Token/cost
+  accounting reuses the same estimation as `/cost`, so the two cannot disagree.
+
+### Fixed
+- A one-shot run (`dulus -p "…"`) exited `0` on every outcome, making a failed
+  run indistinguishable from a successful one to any caller. Under `--output
+  json` each failure now emits an `error` frame **and** exits non-zero:
+  provider/API errors that `run_query` swallows to keep the REPL alive, a
+  missing provider credential (a warning interactively, terminal for a parent),
+  and unhandled exceptions. Ctrl+C exits `130`.
+- Protocol mode no longer forwards the prompt over IPC to an already-running
+  Dulus. That answered in the other process's session and working directory
+  while this one exited `0` having emitted no frames at all.
+- Protocol mode disables Live rendering (`rich_live`) and sets
+  `DULUS_NO_ANIMATIONS`, so stderr carries readable diagnostics instead of
+  cursor-repaint escape sequences.
+- The first-run welcome wizard is skipped under `--output json`; a parent
+  process has no terminal to answer it with.
+
 ## [3.11.13] - 2026-08-24
 
 ### Fixed

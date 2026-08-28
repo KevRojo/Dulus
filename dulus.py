@@ -11,6 +11,11 @@ Options:
   -m, --model MODEL    Override model (e.g., -m kimi/kimi-k2.5, -m gpt-4o)
   --accept-all         Never ask permission (dangerous)
   --verbose            Show thinking + token counts
+  --output FORMAT      text (default) or json. 'json' reserves stdout for a
+                       JSONL protocol stream (step_start / text / step_finish /
+                       error) and sends banner, spinners, tool status and
+                       warnings to stderr. Use it when another program — an
+                       agent runtime, an IDE bridge, CI — parses the output.
   --version            Print version and exit
   -h, --help           Show this help message
   
@@ -27,6 +32,7 @@ Options:
 Non-interactive Examples:
   dulus "explain this code"                    # Quick question and exit
   dulus -p "refactor this function"            # Same, explicit flag
+  dulus -p --accept-all --output json -- "add a test"   # Machine-readable JSONL
   dulus --cmd "plugin install art@gh"          # Install plugin from CLI
   dulus --cmd "checkpoint"                     # List checkpoints
 
@@ -387,7 +393,110 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.11.13"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.12.0"  # dev fallback — keep in sync with pyproject.toml
+
+# ── Machine-readable protocol output (`--output json`) ─────────────────────
+# Dulus is increasingly run as a child process by another agent runtime (an
+# IDE bridge, a CI job, OpenDesign). Those parents read stdout as a protocol
+# stream, so a single human-facing byte on stdout — the boot banner, a spinner
+# repaint, a warning — corrupts the whole run.
+#
+# Rather than rewire ~470 `print()` call sites, `main()` swaps `sys.stdout`
+# for `sys.stderr` exactly once when `--output json` is passed. Every existing
+# print becomes a diagnostic on stderr for free (Rich resolves `sys.stdout`
+# lazily on each write, so Live/Markdown output follows), and the real stdout
+# is parked in `_PROTOCOL_OUT` where only `_emit()` may write.
+#
+# The frame vocabulary is deliberately the OpenCode JSON event stream dialect
+# (`step_start` / `text` / `step_finish` / `error`), because that is what the
+# existing parsers in the ecosystem already understand — emitting our own
+# dialect would force every consumer to write a new adapter.
+_PROTOCOL_OUT: Any = None   # real stdout; set by main() under --output json
+
+
+def _protocol_enabled() -> bool:
+    """True when stdout is reserved for JSONL protocol frames."""
+    return _PROTOCOL_OUT is not None
+
+
+def _emit(frame: dict) -> None:
+    """Write one protocol frame as a single JSONL line on the real stdout.
+
+    No-op unless `--output json` is active. Write failures are swallowed: a
+    parent that closed the pipe must never turn into a traceback on the way out.
+    """
+    if _PROTOCOL_OUT is None:
+        return
+    try:
+        _PROTOCOL_OUT.write(json.dumps(frame, ensure_ascii=False) + "\n")
+        _PROTOCOL_OUT.flush()
+    except Exception:
+        pass
+
+
+def _emit_error(message: str) -> None:
+    """Emit an `error` frame. Parents mark the run failed on this frame alone."""
+    _emit({"type": "error", "message": str(message)})
+
+
+def _final_assistant_text(state: Any) -> str:
+    """Flatten the last assistant message to plain text.
+
+    Message content is either a string or a list of blocks — the block form is
+    what arrives once thinking is on, where only `type == "text"` blocks are
+    the answer.
+    """
+    msgs = getattr(state, "messages", None) or []
+    last = msgs[-1] if msgs else {}
+    if not isinstance(last, dict) or last.get("role") != "assistant":
+        return ""
+    content = last.get("content", "")
+    if isinstance(content, list):
+        return "\n".join(
+            b["text"] if isinstance(b, dict) else str(b)
+            for b in content
+            if (isinstance(b, dict) and b.get("type") == "text") or isinstance(b, str)
+        )
+    return content if isinstance(content, str) else str(content)
+
+
+def _usage_part(state: Any, config: dict) -> dict:
+    """Build the `step_finish` payload: token counts plus estimated cost.
+
+    Accounting matches `/cost` deliberately, so the number a parent reports
+    can't contradict the number the REPL shows: the provider's per-request
+    input counter re-includes the whole replayed context on every tool turn,
+    so summing it over-reports badly. Estimate input from the real message
+    list instead and keep the reported output as an upper-bounded fallback.
+    """
+    est_in = 0
+    try:
+        from compaction import estimate_tokens
+        est_in = estimate_tokens(
+            getattr(state, "messages", []) or [],
+            model=config.get("model", ""),
+            config=config,
+        )
+    except Exception:
+        est_in = getattr(state, "total_input_tokens", 0)
+    est_out = min(getattr(state, "total_output_tokens", 0), est_in)
+    try:
+        from config import calc_cost
+        cost = round(float(calc_cost(config.get("model", ""), est_in, est_out)), 6)
+    except Exception:
+        cost = 0.0
+    return {
+        "tokens": {
+            "input": est_in,
+            "output": est_out,
+            "cache": {
+                "read": getattr(state, "total_cache_read_tokens", 0),
+                "write": getattr(state, "total_cache_creation_tokens", 0),
+            },
+        },
+        "cost": cost,
+    }
+
 
 # ── ANSI helpers (used even with rich for non-markdown output) ─────────────
 from common import C, clr, info, ok, warn, err, stream_thinking, sanitize_text
@@ -12614,6 +12723,14 @@ def repl(config: dict, initial_prompt: str | None = None):
                         # consistent (same pattern as the KeyboardInterrupt path).
                         if state.messages and state.messages[-1]["role"] == "user" and user_input == state.messages[-1].get("content"):
                             state.messages.pop()
+                        # Interactively this is recoverable, so run_query returns
+                        # normally and the REPL keeps going. A parent process has
+                        # no /model to switch to, so the failure has to reach it
+                        # as a frame — otherwise the run reads as a success with
+                        # an empty answer.
+                        if _protocol_enabled():
+                            _emit_error(friendly_api_error(e))
+                            sys.exit(1)
                         return
                     raise e
 
@@ -12818,11 +12935,30 @@ def repl(config: dict, initial_prompt: str | None = None):
 
     # ── Main loop ──
     if initial_prompt:
+        # ── One-shot run ───────────────────────────────────────────────────
+        # Under `--output json` this is the whole protocol lifecycle: a
+        # `step_start`, the assistant's answer as `text`, a `step_finish` with
+        # usage, and a non-zero exit on failure. Before this existed a one-shot
+        # run always exited 0, so a parent could not tell a completed run from
+        # an auth failure.
+        _emit({"type": "step_start", "sessionID": session_id})
         try:
             run_query(initial_prompt)
         except KeyboardInterrupt:
             _track_ctrl_c()
             print()
+            if _protocol_enabled():
+                _emit_error("interrupted")
+                sys.exit(130)
+            return
+        except Exception as _one_shot_err:
+            if _protocol_enabled():
+                _emit_error(_one_shot_err)
+                sys.exit(1)
+            raise
+        if _protocol_enabled():
+            _emit({"type": "text", "part": {"text": _final_assistant_text(state)}})
+            _emit({"type": "step_finish", "part": _usage_part(state, config)})
         return
 
     # ── Bracketed paste mode ──────────────────────────────────────────────
@@ -13883,8 +14019,23 @@ def main():
                         help="Alias for --gui (kept for backward compatibility)")
     parser.add_argument("--daemon", action="store_true",
                         help="Daemon mode — keep Dulus alive in the background for Telegram/webhook bridges")
+    parser.add_argument("--output", choices=["text", "json"], default="text",
+                        help="Output format. 'json' reserves stdout for protocol JSONL "
+                             "and sends every human-facing byte to stderr")
 
     args = parser.parse_args()
+
+    # ── Protocol mode: split the channels before anything can print ────────
+    # This must happen before the first print in main() (the license gate is
+    # ~90 lines below) or the parent's first stdout line is our banner, not a
+    # frame. One assignment moves the whole existing print surface to stderr.
+    if args.output == "json":
+        global _PROTOCOL_OUT
+        _PROTOCOL_OUT = sys.stdout
+        sys.stdout = sys.stderr
+        # Cursor repaints and in-place Live rendering are pure noise once the
+        # human channel is a pipe — without this stderr fills with \033[2K\r.
+        os.environ["DULUS_NO_ANIMATIONS"] = "1"
 
     if args.version:
         print(f"dulus v{VERSION}")
@@ -13903,7 +14054,7 @@ def main():
     # load_config() picks up the freshly-written values.
     try:
         from welcome import is_first_run, run_welcome_wizard
-        if is_first_run() and not args.print_mode and not args.exec_cmd and not args.run_tool:
+        if is_first_run() and not args.print_mode and not args.exec_cmd and not args.run_tool and not _protocol_enabled():
             _bootstrap_cfg = load_config()
             _bootstrap_cfg = run_welcome_wizard(_bootstrap_cfg)
             save_config(_bootstrap_cfg)
@@ -13911,6 +14062,11 @@ def main():
         print(f"(welcome wizard skipped: {_e})")
 
     config = load_config()
+
+    # Protocol mode drives a pipe, not a terminal: in-place Live streaming
+    # would only emit escape sequences the parent has to strip back out.
+    if _protocol_enabled():
+        config["rich_live"] = False
 
     # ── Anonymous telemetry (opt-in, one-time consent prompt) ───────────
     # Asks ONCE on an interactive boot when the user has never answered.
@@ -14111,8 +14267,16 @@ def main():
         prov  = PROVIDERS.get(pname, {})
         env   = prov.get("api_key_env", "")
         if env:   # local providers like ollama have no env key requirement
-            warn(f"No API key found for provider '{pname}'. "
-                 f"Set {env} or run: /config {pname}_api_key=YOUR_KEY")
+            _msg = (f"No API key found for provider '{pname}'. "
+                    f"Set {env} or run: /config {pname}_api_key=YOUR_KEY")
+            # Interactively this is a warning — the user can still /login or
+            # switch models. A parent process cannot, so a missing credential
+            # is a terminal condition: report it as a frame and fail loudly
+            # instead of streaming a provider error mid-run.
+            if _protocol_enabled():
+                _emit_error(_msg)
+                sys.exit(1)
+            warn(_msg)
 
     initial = " ".join(args.prompt) if args.prompt else None
 
@@ -14120,7 +14284,10 @@ def main():
     # 127.0.0.1:5151, forward this prompt to it (shared session) and exit.
     # Falls through silently when no listener is up.
     # Only kicks in for plain `dulus "..."` and `dulus -p "..."` — not for
-    # daemon/gui/cmd/run-tool/job invocations, which need their own process.
+    # daemon/gui/cmd/run-tool/job invocations, which need their own process,
+    # and not under `--output json`: handing the prompt to another process
+    # would answer in *that* process's session and cwd, and this one would
+    # exit 0 having emitted no frames at all.
     if (initial
         and not args.daemon
         and not args.gui
@@ -14130,6 +14297,7 @@ def main():
         and not args.job_id
         and not args.job_path
         and not os.environ.get("DULUS_NO_IPC")
+        and not _protocol_enabled()
     ):
         try:
             if _try_ipc_dispatch(initial):
