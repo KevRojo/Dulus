@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.1] - 2026-08-28
+
+Follow-up to 3.12.0: the channel split and the frame vocabulary were correct,
+but a failed run could still report success. Found by running the 3.12.0 wheel
+against an unauthenticated provider.
+
+### Fixed
+- A one-shot `--output json` run against a provider that fails to authenticate
+  exited `0` with a `text` frame containing the **gold-memory dump** as the
+  assistant's answer. Two defects combined:
+  - The failure was unobservable. Most provider failures do not raise: the
+    provider ends the turn with `AssistantTurn(error=True)` and `agent.run()`
+    rolls the turn's messages back and breaks — no exception, no `TurnDone`,
+    no new assistant message. Neither of 3.12.0's guards (`friendly_api_error`,
+    missing API key) could see it. `AgentState` now carries `last_error` /
+    `last_reply`, recorded by the agent loop for the turn it actually ran, and
+    `common.err()` records the last message reported to the human channel — at
+    that layer, so it catches every module rather than only `dulus.py`.
+  - The answer was not scoped to the turn. Gold memories are appended as
+    `role: "assistant"` at boot, so reading a bare `messages[-1]` after a
+    rolled-back turn returned a memory file. The answer is now resolved from
+    the agent loop's own record of the turn (immune to mid-run auto-compaction,
+    which rebinds `state.messages`), falling back to a scan bounded by the
+    pre-turn message count.
+- A turn that produces no answer is now always `error` + exit `1`, whatever the
+  cause. This is the net for failure modes that are not individually
+  enumerated: they all surface as an empty turn, and an empty turn is never a
+  success. A turn that streams partial text and *then* fails is also a failure
+  — partial text is not an answer.
+- `--version` and `--help` are answered before the channel swap. They emit no
+  frames, so under `--output json` their output landed on stderr and stdout
+  came back empty.
+
 ## [3.12.0] - 2026-08-28
 
 ### Added

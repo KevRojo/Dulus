@@ -76,25 +76,21 @@ def test_protocol_mode_never_hands_the_prompt_to_another_process() -> None:
 
 
 def test_one_shot_run_emits_the_full_lifecycle() -> None:
-    assert '_emit({"type": "step_start", "sessionID": session_id})' in SOURCE
-    assert '_emit({"type": "text", "part": {"text": _reply}})' in SOURCE
-    assert '_emit({"type": "step_finish", "part": _usage_part(state, config)})' in SOURCE
-
-
-def test_a_turn_that_produced_nothing_is_never_reported_as_success() -> None:
-    """The catch-all that makes unenumerated failures fail loudly.
-
-    Most provider failures never raise and never reach the guards below —
-    the agent loop rolls the turn back and breaks. What they all have in
-    common is that the turn produced no answer, so that is what is checked.
-    """
     one_shot = _one_shot_branch()
 
-    assert "_fail = str(getattr(state, \"last_error\", \"\") or \"\").strip()" in one_shot
-    assert "_reply = \"\" if _fail else _turn_reply_text(state, since=_baseline)" in one_shot
-    assert "if _fail or not _reply.strip():" in one_shot
-    assert "_emit_error(_turn_error_message(state))" in one_shot
-    assert "sys.exit(1)" in one_shot
+    assert '_emit({"type": "step_start", "sessionID": session_id})' in one_shot
+    assert "_baseline = len(getattr(state, \"messages\", []) or [])" in one_shot
+    assert "_code = _emit_turn_result(state, config, since=_baseline)" in one_shot
+    # Non-zero only: the success path keeps the pre-existing `return` so text
+    # mode's control flow is untouched.
+    assert "if _code:\n                sys.exit(_code)" in one_shot
+
+
+def test_baseline_is_captured_before_the_turn_runs() -> None:
+    """Captured after the turn it would already include this turn's messages."""
+    one_shot = _one_shot_branch()
+
+    assert one_shot.index("_baseline = len(") < one_shot.index("run_query(initial_prompt)")
 
 
 def test_agent_loop_records_the_verdict_of_the_turn_it_ran() -> None:
@@ -111,6 +107,9 @@ def test_agent_loop_records_the_verdict_of_the_turn_it_ran() -> None:
     # Cleared at the start of every turn so a stale verdict can't be reused.
     assert "state.last_error = \"\"" in agent_src
     assert "state.last_reply = None" in agent_src
+    # The shared err() record is turn-scoped too, or a stale reason from an
+    # earlier turn gets blamed for this turn's outcome.
+    assert "_common.clear_last_error()" in agent_src
     # Captured before the rollback throws the evidence away.
     error_branch = agent_src[agent_src.index("if assistant_turn.error:"):]
     error_branch = error_branch[:error_branch.index("break")]
@@ -146,7 +145,6 @@ def test_failures_exit_non_zero_in_protocol_mode() -> None:
     assert '_emit_error("interrupted")' in one_shot
     assert "sys.exit(130)" in one_shot
     assert "_emit_error(_one_shot_err)" in one_shot
-    assert "sys.exit(1)" in one_shot
 
     # Provider/API errors are swallowed by run_query so the REPL survives them;
     # in protocol mode they must surface instead.
@@ -158,6 +156,120 @@ def test_failures_exit_non_zero_in_protocol_mode() -> None:
 def _one_shot_branch() -> str:
     branch = SOURCE[SOURCE.index("    if initial_prompt:"):]
     return branch[:branch.index("# ── Bracketed paste mode")]
+
+
+# ── Turn verdict (end to end) ─────────────────────────────────────────────────
+#
+# These are the cases that were red before this fix: an auth failure reported
+# `exit 0` with a `text` frame containing the gold-memory dump.
+
+GOLD_MEMORY = {
+    "role": "assistant",
+    "content": "[Golden Memory Loaded: short_memory]\n\n# Short Memory (gold)…",
+}
+
+
+def _verdict(state, config=None, since=1):
+    """Run the real verdict logic and return (exit_code, [frames])."""
+    dulus = _dulus()
+    common = pytest.importorskip("common")
+    buf = io.StringIO()
+    original = dulus._PROTOCOL_OUT
+    dulus._PROTOCOL_OUT = buf
+    try:
+        code = dulus._emit_turn_result(state, config or {"model": "kimi/kimi-k2.5"}, since=since)
+    finally:
+        dulus._PROTOCOL_OUT = original
+        common.clear_last_error()
+    return code, [json.loads(line) for line in buf.getvalue().splitlines()]
+
+
+def test_provider_auth_failure_is_a_failed_run() -> None:
+    """The reported bug, verbatim.
+
+    `dulus --print --accept-all --output json -- "di hola"` against an
+    unauthenticated web provider exited 0 and reported the gold memory as the
+    assistant's answer. The provider ends the turn with `error=True`, which
+    raises nothing and rolls the turn's messages back — leaving the boot-time
+    gold memory as the last assistant message.
+    """
+    state = SimpleNamespace(
+        messages=[GOLD_MEMORY],
+        last_error="[gemini-web] Auth file not found: /x/auth.json. Run /harvest.",
+        last_reply=None,
+    )
+
+    code, frames = _verdict(state)
+
+    assert code == 1
+    assert frames == [{
+        "type": "error",
+        "message": "[gemini-web] Auth file not found: /x/auth.json. Run /harvest.",
+    }]
+    # The gold memory must not appear anywhere on the wire.
+    assert "Golden Memory" not in json.dumps(frames)
+
+
+def test_silent_empty_turn_is_a_failed_run() -> None:
+    """No exception, no `last_error` — only something printed to the human.
+
+    An invalid API key surfaces this way. The emptiness net catches it and the
+    reason comes from whatever `err()` last reported, from any module.
+    """
+    common = pytest.importorskip("common")
+    common.clear_last_error()
+    common.err("Invalid API key for provider 'openai'")
+
+    code, frames = _verdict(
+        SimpleNamespace(messages=[GOLD_MEMORY], last_error="", last_reply=None)
+    )
+
+    assert code == 1
+    assert frames == [{"type": "error", "message": "Invalid API key for provider 'openai'"}]
+
+
+def test_unexplained_empty_turn_still_fails() -> None:
+    """The floor: a run with no answer is never a success, reason or not."""
+    code, frames = _verdict(
+        SimpleNamespace(messages=[GOLD_MEMORY], last_error="", last_reply=None)
+    )
+
+    assert code == 1
+    assert frames == [{"type": "error", "message": "model produced no assistant reply"}]
+
+
+def test_partial_text_followed_by_a_failure_is_a_failed_run() -> None:
+    """Streamed prose is not an answer if the turn then died."""
+    code, frames = _verdict(SimpleNamespace(
+        messages=[GOLD_MEMORY],
+        last_error="Quota exhausted for provider 'nvidia'",
+        last_reply="let me check that for you…",
+    ))
+
+    assert code == 1
+    assert [f["type"] for f in frames] == ["error"]
+    assert "let me check" not in json.dumps(frames)
+
+
+def test_successful_turn_emits_text_then_step_finish() -> None:
+    code, frames = _verdict(SimpleNamespace(
+        messages=[
+            GOLD_MEMORY,
+            {"role": "user", "content": "di hola"},
+            {"role": "assistant", "content": "¡Hola!", "tool_calls": []},
+        ],
+        last_error="",
+        last_reply="¡Hola!",
+        total_input_tokens=3447,
+        total_output_tokens=12,
+        total_cache_read_tokens=0,
+        total_cache_creation_tokens=0,
+    ))
+
+    assert code == 0
+    assert [f["type"] for f in frames] == ["text", "step_finish"]
+    assert frames[0]["part"]["text"] == "¡Hola!"
+    assert set(frames[1]["part"]["tokens"]) >= {"input", "output", "cache"}
 
 
 # ── Frame contract ────────────────────────────────────────────────────────────
@@ -215,6 +327,77 @@ def test_error_frame_shape() -> None:
         dulus._PROTOCOL_OUT = original
 
     assert json.loads(buf.getvalue()) == {"type": "error", "message": "no API key"}
+
+
+def test_final_assistant_text_never_reaches_below_the_baseline() -> None:
+    """The gold-memory bug.
+
+    Gold memories are appended as `role: "assistant"` at boot. A failed turn
+    rolls its own messages back, so a bare `messages[-1]` read returned the
+    gold-memory dump and the run looked like a success whose answer was a
+    memory file. `since` scopes the scan to this turn's messages.
+    """
+    dulus = _dulus()
+    gold = {"role": "assistant", "content": "[Golden Memory Loaded: short_memory]\n\n# gold"}
+
+    rolled_back = SimpleNamespace(messages=[gold])
+    assert dulus._final_assistant_text(rolled_back, since=1) == ""
+    # …and without the baseline it is exactly the old, wrong behaviour.
+    assert "Golden Memory" in dulus._final_assistant_text(rolled_back)
+
+    # A real reply above the baseline is still found, even behind a tool result.
+    answered = SimpleNamespace(messages=[
+        gold,
+        {"role": "user", "content": "di hola"},
+        {"role": "assistant", "content": "", "tool_calls": [{"name": "Read"}]},
+        {"role": "tool", "content": "file contents"},
+        {"role": "assistant", "content": "¡Hola!", "tool_calls": []},
+    ])
+    assert dulus._final_assistant_text(answered, since=1) == "¡Hola!"
+
+
+def test_turn_reply_prefers_what_the_agent_loop_recorded() -> None:
+    """`last_reply` survives mid-run auto-compaction; a message index does not.
+
+    Compaction rebinds `state.messages` to a shorter list, which invalidates
+    the pre-turn baseline. The agent loop's own record of the turn it ran is
+    immune to that, so it wins when present.
+    """
+    dulus = _dulus()
+
+    compacted = SimpleNamespace(messages=[{"role": "system", "content": "summary"}],
+                                last_reply="¡Hola!")
+    assert dulus._turn_reply_text(compacted, since=7) == "¡Hola!"
+
+    # Absent (a caller that doesn't go through agent.run()) → fall back to the scan.
+    scanned = SimpleNamespace(messages=[{"role": "assistant", "content": "from history"}])
+    assert dulus._turn_reply_text(scanned, since=0) == "from history"
+
+    # Present but empty is a real answer of "" — a failed turn, not a fallback.
+    empty = SimpleNamespace(messages=[{"role": "assistant", "content": "stale"}], last_reply="")
+    assert dulus._turn_reply_text(empty, since=0) == ""
+
+
+def test_turn_error_message_prefers_the_most_specific_reason() -> None:
+    dulus = _dulus()
+    common = pytest.importorskip("common")
+
+    # 1. The agent loop's verdict for an error=True turn wins.
+    common.clear_last_error()
+    common.err("something printed earlier")
+    state = SimpleNamespace(last_error="[gemini-web] Auth file not found: /x. Run /harvest.")
+    assert dulus._turn_error_message(state) == "[gemini-web] Auth file not found: /x. Run /harvest."
+
+    # 2. Otherwise the last thing reported to the human channel, from any module.
+    common.clear_last_error()
+    common.err("Invalid API key for provider 'openai'")
+    assert dulus._turn_error_message(SimpleNamespace(last_error="")) == \
+        "Invalid API key for provider 'openai'"
+
+    # 3. Nothing recorded is still a failure — an empty run is never a success.
+    common.clear_last_error()
+    assert dulus._turn_error_message(SimpleNamespace(last_error="")) == \
+        "model produced no assistant reply"
 
 
 def test_final_assistant_text_flattens_block_content() -> None:

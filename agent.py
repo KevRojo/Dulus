@@ -161,6 +161,13 @@ def run(
     initial_msg_count = len(state.messages)
     state.last_error = ""     # this turn's verdict starts clean
     state.last_reply = None
+    # Same for the shared err() record: without this a stale reason from an
+    # earlier turn could be blamed for this turn's outcome.
+    try:
+        import common as _common
+        _common.clear_last_error()
+    except Exception:
+        pass
     state.messages.append(user_msg)
 
     # Inject runtime metadata into config so tools (e.g. Agent, Loopback) can access it.

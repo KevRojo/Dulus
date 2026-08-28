@@ -484,6 +484,26 @@ def _turn_reply_text(state: Any, since: int = 0) -> str:
     return _final_assistant_text(state, since=since)
 
 
+def _emit_turn_result(state: Any, config: dict, since: int = 0) -> int:
+    """Emit this turn's outcome as frames. Returns the intended exit code.
+
+    Order matters: a turn can stream partial text and *then* fail, and partial
+    text is not an answer, so the failure verdict is read first. The emptiness
+    check behind it is the net for every failure mode the callers do not
+    enumerate — including any added later. Provider failures overwhelmingly
+    neither raise nor yield anything the caller can see; what they all have in
+    common is that the turn produced no answer, and that is never a success.
+    """
+    fail = str(getattr(state, "last_error", "") or "").strip()
+    reply = "" if fail else _turn_reply_text(state, since=since)
+    if fail or not reply.strip():
+        _emit_error(_turn_error_message(state))
+        return 1
+    _emit({"type": "text", "part": {"text": reply}})
+    _emit({"type": "step_finish", "part": _usage_part(state, config)})
+    return 0
+
+
 def _turn_error_message(state: Any) -> str:
     """Best available reason the turn produced no answer.
 
@@ -12991,10 +13011,7 @@ def repl(config: dict, initial_prompt: str | None = None):
         #
         # The baseline is the message count before the turn: it is what makes
         # "this turn's answer" a well-defined thing, and therefore what makes
-        # "this turn produced nothing" detectable. Everything above the
-        # explicitly-handled failure paths below reaches us as an empty answer,
-        # so the emptiness check is the net that catches the failure modes we
-        # have not enumerated — including any added later.
+        # "this turn produced nothing" detectable. See _emit_turn_result.
         _baseline = len(getattr(state, "messages", []) or [])
         _emit({"type": "step_start", "sessionID": session_id})
         try:
@@ -13012,18 +13029,9 @@ def repl(config: dict, initial_prompt: str | None = None):
                 sys.exit(1)
             raise
         if _protocol_enabled():
-            # Order matters. A turn can stream partial text and *then* fail, and
-            # partial text is not an answer — so the failure verdict is read
-            # first. The emptiness check behind it is the net for every failure
-            # mode not enumerated above (and any added later): they all surface
-            # here as "the turn produced nothing", which is never a success.
-            _fail = str(getattr(state, "last_error", "") or "").strip()
-            _reply = "" if _fail else _turn_reply_text(state, since=_baseline)
-            if _fail or not _reply.strip():
-                _emit_error(_turn_error_message(state))
-                sys.exit(1)
-            _emit({"type": "text", "part": {"text": _reply}})
-            _emit({"type": "step_finish", "part": _usage_part(state, config)})
+            _code = _emit_turn_result(state, config, since=_baseline)
+            if _code:
+                sys.exit(_code)
         return
 
     # ── Bracketed paste mode ──────────────────────────────────────────────

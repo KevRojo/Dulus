@@ -596,7 +596,9 @@ Frames use the OpenCode event-stream dialect, so a consumer that already parses 
 | `step_finish` | `part.tokens.input` · `.output` · `.cache.read` · `.cache.write` · `part.cost` |
 | `error` | `message` |
 
-Exit code is `0` on success, `130` on Ctrl+C, and non-zero on any failure — a missing credential, a provider error, an unhandled exception — always alongside an `error` frame. Pass the prompt after `--`: it is a positional argument, so without the terminator a prompt starting with a hyphen is parsed as a flag.
+Exit code is `0` on success, `130` on Ctrl+C, and non-zero on any failure — a missing credential, a provider error, an unhandled exception, or a turn that produced no answer at all — always alongside an `error` frame. A run that streams partial text and then fails is a failure, not a partial success. Pass the prompt after `--`: it is a positional argument, so without the terminator a prompt starting with a hyphen is parsed as a flag.
+
+`--version` and `--help` always answer on stdout, in every mode.
 
 ### Development setup
 
