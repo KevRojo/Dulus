@@ -434,7 +434,7 @@ def _emit(frame: dict) -> None:
         pass
 
 
-def _emit_error(message: str) -> None:
+def _emit_error(message: str | BaseException) -> None:
     """Emit an `error` frame. Parents mark the run failed on this frame alone."""
     _emit({"type": "error", "message": str(message)})
 
