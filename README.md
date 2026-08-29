@@ -1,7 +1,11 @@
 # Dulus
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/hero.png" alt="Dulus — Hunt. Patch. Ship." width="100%">
+  <img width="1382" height="938" alt="image" src="https://github.com/user-attachments/assets/a2b297e3-53f8-4fce-a91a-6123274c4fc4" />
+</p>
+
+<p align="center">
+  <img width="1179" height="761" alt="image" src="https://github.com/user-attachments/assets/95c8a306-88e6-4f9d-a1aa-009ac38ebeaf" />
 </p>
 
 <p align="center">
@@ -12,6 +16,10 @@
   Dulus is an open-source agent runtime that hands you a real AI agent the moment you install it —<br>
   talking to Gemini, Claude and GPT through their own web sessions, so you owe no one a key or a cent.<br>
   One runtime. Every model. Your machine. The whole world invited.
+
+  For a better version get the binaries from https://dulus.ai/ there are free models on my /dulus/dulus-* providers, love you guys!
+
+  God bless you! ♥
 </p>
 
 <p align="center">
