@@ -132,6 +132,21 @@ Try it and hit me with feedback — it's the token trick I'm proudest of.
 
 ---
 
+## New — Signed binaries, maintained by me
+
+> 📢 The fastest way to run Dulus is the prebuilt app — I keep it updated myself.
+
+The public `pip install dulus` gives you the full open-source runtime. But if you want the **smoothest experience** — auto-updating, code-signed, zero Python setup — grab the **prebuilt binaries** for Windows, macOS and Linux. I maintain those builds personally so they always ship the latest fixes first.
+
+<p align="center">
+  <a href="https://dulus.ai/"><strong>⬇️ Download the binaries → dulus.ai</strong></a> ·
+  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>GitHub Releases ↗</strong></a>
+</p>
+
+The **premium/desktop core is closed-source on purpose** — that code stays private so it can't be leaked, cloned, or stripped of its license gate. This public repo is the real runtime you can read, fork and build on; the signed binaries are the same runtime plus the private polish, kept safe on my side. Best of both: **open where it counts, protected where it matters.**
+
+---
+
 ## A note from the builder
 
 I'm one developer. No team, no funding, no VC deck — just me, a laptop, and a stubborn little bird from the Dominican Republic. 🇩🇴
