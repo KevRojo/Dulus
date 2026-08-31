@@ -278,22 +278,60 @@ def lookback_system_note(meta: dict[str, Any]) -> str:
 
 
 def get_archive_from_config(config: dict | None) -> list:
-    """Resolve the live conversation archive for tools / slash commands.
+    """Resolve the full conversation archive for tools / slash commands.
 
-    Prefer ``config['_state'].messages`` (bound by the agent/REPL). Returns []
-    when no live state is available — never invents history.
+    Order of preference:
+      1. ``config['_loopback_archive']`` — full pre-compact snapshot (in memory)
+      2. ``config['_loopback_archive_path']`` on disk (after lookback-aggressive compact)
+      3. ``config['_state'].messages`` — live archive when never compacted
+
+    After a lookback compact, live ``state.messages`` is intentionally tiny
+    (hint card + last turn). Loopback MUST still see the full history, so we
+    prefer the durable archive whenever it is present and longer.
     """
     if not config:
         return []
+
+    # 1–2 durable archive (lookback compact)
+    durable: list = []
+    live_archive = config.get("_loopback_archive")
+    if isinstance(live_archive, list) and live_archive:
+        durable = live_archive
+    else:
+        path = config.get("_loopback_archive_path") or ""
+        if path:
+            try:
+                import json
+                from pathlib import Path as _P
+                data = json.loads(_P(path).read_text(encoding="utf-8"))
+                msgs = data.get("messages") if isinstance(data, dict) else None
+                if isinstance(msgs, list) and msgs:
+                    durable = msgs
+                    config["_loopback_archive"] = msgs
+            except Exception:
+                durable = []
+        if not durable:
+            try:
+                from compaction import load_loopback_archive
+                durable = load_loopback_archive(config) or []
+            except Exception:
+                durable = []
+
+    # 3 live state
     state = config.get("_state")
-    if state is None:
-        return []
-    msgs = getattr(state, "messages", None)
-    if msgs is None and isinstance(state, dict):
-        msgs = state.get("messages")
-    if not isinstance(msgs, list):
-        return []
-    return msgs
+    live: list = []
+    if state is not None:
+        msgs = getattr(state, "messages", None)
+        if msgs is None and isinstance(state, dict):
+            msgs = state.get("messages")
+        if isinstance(msgs, list):
+            live = msgs
+
+    # Prefer the longer full archive. If durable exists and is longer (or live
+    # is a post-compact stub), return durable so Loopback still works.
+    if durable and (not live or len(durable) >= len(live)):
+        return durable
+    return live if isinstance(live, list) else []
 
 
 def format_message_preview(m: dict, max_len: int = 160) -> str:

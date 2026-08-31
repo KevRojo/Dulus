@@ -2,6 +2,9 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 31, 2026 (**v3.13.3**): **`/compact` got serious.** Full archive → disk for Loopback, live context → ~0 with a dense hint card, and **lookback is forced ON** for that session even if it was off — so quality does not fall off a cliff after compact. `pip install -U dulus`. 🦅
+
+
 - August 31, 2026 (**v3.13.2**): **⛽ `/fuel` is READY — reload wallet as a console QR.** Sign in with `/login dulus`, run `/fuel`, scan the QR with Phantom/Solflare, send **$DULUS**, and Fuel credits hit your account. Real utility coin for real AI compute — not points, not a waitlist. `pip install -U dulus`. 🦅🇩🇴
 
 
