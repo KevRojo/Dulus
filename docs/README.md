@@ -17,7 +17,6 @@ installation paths, screenshots, and feature tour, start with the
 | Review the security and permission model | [Security](SECURITY.md) |
 | Diagnose a common problem | [FAQ](FAQ.md) |
 | See what shipped | [Release journal](news.md) and [changelog](CHANGELOG.md) |
-| Read the longer product thesis | [Dulus AI whitepaper](Dulus_AI_Whitepaper_%28v2.0%29.pdf) |
 
 ## Runtime map
 

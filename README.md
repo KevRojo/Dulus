@@ -32,7 +32,34 @@
 </p>
 
 <p align="center">
-  <a href="https://dulus.online"><strong>🚀 Start on the router → dulus.online</strong></a>
+  <strong>🔑 Need an API key?</strong> Stop waiting on the website.<br>
+  It has been in <strong>dulus-public (pip)</strong> forever — mint it from the CLI:
+</p>
+
+```bash
+pip install -U dulus
+dulus
+# inside the REPL:
+/login dulus        # sign in (OAuth — browser opens)
+/login dulus key    # mint a dulus_sk_* key (shown once)
+```
+
+```bash
+# then point anything OpenAI-compatible at the router
+export OPENAI_API_KEY='dulus_sk_...'          # the key you just minted
+export OPENAI_BASE_URL='https://control.dulus.ai/v1'
+# or:  openai.base_url = "https://control.dulus.ai/v1"
+```
+
+<p align="center">
+  <em>Damn brother… are you really waiting for the website update to get your API key?</em><br>
+  That’s on Dulus-public since years. Have fun. It was a surprise u,u — <strong>$DULUS</strong>
+</p>
+
+<p align="center">
+  <a href="#get-your-dulus-api-key-no-website-required"><strong>🔑 Get your API key from pip →</strong></a>
+  ·
+  <a href="https://dulus.online"><strong>🚀 Platform → dulus.online</strong></a>
 </p>
 
 <p align="center">
@@ -51,11 +78,8 @@
 </p>
 
 <p align="center">
-  <a href="docs/Dulus_YC_Company_Overview_Aug_2026.pdf"><strong>📈 Investors — read the company overview (PDF) ↗</strong></a>
-</p>
-
-<p align="center">
   <a href="#install-in-30-seconds"><strong>Install</strong></a> ·
+  <a href="#get-your-dulus-api-key-no-website-required"><strong>API key</strong></a> ·
   <a href="#why-dulus"><strong>Why Dulus</strong></a> ·
   <a href="#one-runtime-every-model"><strong>Models</strong></a> ·
   <a href="#turn-any-python-repo-into-tools"><strong>Extensions</strong></a> ·
@@ -94,6 +118,64 @@ On a fresh machine that's the whole setup — Dulus boots straight into **Gemini
 - The same trick works for **Claude, ChatGPT, DeepSeek, Qwen, Kimi.** Dulus harvests each service's web session and speaks its protocol, so your ChatGPT Plus or Claude subscription becomes an agent backend with **one command and zero keys.**
 
 Rather use keys, local models, or your own endpoint? Dulus does that too — **34 providers** in a single runtime (cloud API, local Ollama/LM Studio, OAuth, and web-session). But the free default is the whole point: **you shouldn't need a corporation's permission to have an agent.**
+
+---
+
+---
+
+## Get your Dulus API key (no website required)
+
+Damn brother… are you really waiting for the website update to get your API key?
+
+**You don’t need the website.** Minting a `dulus_sk_*` key has been in **dulus-public** (`pip install dulus`) for ages. The CLI talks straight to the control plane.
+
+```bash
+pip install -U dulus
+dulus
+```
+
+Inside the REPL:
+
+```text
+/login dulus        # sign in (OAuth PKCE — browser opens, no API key pasted by hand)
+/login dulus key    # mint a dulus_sk_* key for CI, SDKs, servers (shown once — copy it)
+```
+
+Then point **any** OpenAI-compatible client at the router and burn **$DULUS** fuel by the token:
+
+```bash
+export OPENAI_API_KEY='dulus_sk_...' 
+export OPENAI_BASE_URL='https://control.dulus.ai/v1'
+```
+
+```python
+from openai import OpenAI
+client = OpenAI(
+    api_key="dulus_sk_...",                 # from /login dulus key
+    base_url="https://control.dulus.ai/v1",
+)
+r = client.chat.completions.create(
+    model="dulus-a-9b",  # or dulus-b-27b, dulus-x-397b, …
+    messages=[{"role": "user", "content": "hola desde el router"}],
+)
+print(r.choices[0].message.content)
+```
+
+Or stay inside Dulus and use the built-in provider (same login, Fuel-metered):
+
+```text
+/login dulus
+/model dulus-a-9b
+```
+
+| Want | Do this |
+|---|---|
+| Interactive agent on Dulus models | `/login dulus` then `/model dulus-*` |
+| API key for scripts / CI / other tools | `/login dulus key` → `dulus_sk_*` |
+| OpenAI SDK / anything compatible | `base_url=https://control.dulus.ai/v1` + that key |
+| Fuel (`$DULUS`) | Spent per token on the control plane — utility coin, not a wallpaper ticker |
+
+It was a surprise u,u — have fun. 🦅 **$DULUS**
 
 ---
 
@@ -250,7 +332,13 @@ dulus
 ### Pick any brain
 
 ```bash
-# Cloud provider
+# Dulus router (Fuel / $DULUS) — no website key form
+dulus
+# /login dulus
+# /login dulus key          # mint dulus_sk_* for SDKs
+# /model dulus-a-9b
+
+# Cloud provider key
 export ANTHROPIC_API_KEY=sk-ant-...
 dulus --model claude-sonnet-4-6
 
@@ -262,7 +350,7 @@ dulus --model ollama/qwen2.5-coder
 git diff | dulus -p "review this diff and find the dangerous parts"
 ```
 
-No key yet? Start with Ollama, use NVIDIA NIM's free tier, or configure one of the supported browser-backed providers from the welcome flow.
+No third-party key yet? Use **`/login dulus`** for the hosted router, start with Ollama, NVIDIA NIM's free tier, or a browser-backed provider from the welcome flow.
 
 ---
 
@@ -306,10 +394,15 @@ Dulus does not make model choice an architectural decision. Switch providers dur
 | **Local** | Ollama · LM Studio · vLLM · any OpenAI-compatible endpoint |
 | **Edge / on-device** | `edge/*` — small models on your phone or in Termux via llama.cpp / Ollama |
 | **Browser-backed** | Supported authenticated sessions for Claude, Gemini, Kimi, Qwen, and DeepSeek |
+| **Dulus router (`$DULUS` Fuel)** | `dulus-*` models on `https://control.dulus.ai/v1` — `/login dulus` or `dulus_sk_*` from `/login dulus key` |
 | **Free tier** | 14 models through NVIDIA NIM with automatic fallback |
 
 ```text
 /model
+/login dulus
+/model dulus-a-9b
+/model dulus-b-27b
+/model dulus-x-397b
 /model claude-sonnet-4-6
 /model nvidia-web/deepseek-r1
 /model ollama/qwen2.5-coder
@@ -547,7 +640,8 @@ Type `/` and press Tab inside the REPL to explore the live command list.
 
 | Area | Commands |
 |---|---|
-| Models | `/model` · `/nvidia` · `/ollama` |
+| Account / Fuel | `/login dulus` · `/login dulus key` (mint `dulus_sk_*`) |
+| Models | `/model` · `/nvidia` · `/ollama` · `dulus-*` on the router |
 | Sessions | `/save` · `/load` · `/resume` · `/compact` |
 | Memory | `/remember` · `/memory` |
 | Work | `/task` · `/agents` · `/worker` · `/checkpoint` |
@@ -676,8 +770,6 @@ Documentation:
 - [Contributing](docs/CONTRIBUTING.md)
 - [Security](docs/SECURITY.md)
 - [Release notes](docs/news.md)
-- [Whitepaper](docs/Dulus_AI_Whitepaper_%28v2.0%29.pdf)
-
 ---
 
 ## Shipping in public
