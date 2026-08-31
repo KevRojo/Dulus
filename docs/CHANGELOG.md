@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.3] - 2026-08-31
+
+### Fixed
+- **`/compact` quality**: always lookback-aggressive — full archive saved for Loopback, live context collapses to a hint card + last turn
+- Compact **forces lookback ON** for the rest of the session even if it was off (without lookback the model invents the past after compact)
+- Loopback tool reads durable `loopback_archives/` when live messages are the post-compact stub
+
+
 ## [3.13.2] - 2026-08-31
 
 ### Added

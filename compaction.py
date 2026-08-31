@@ -6,16 +6,39 @@ import time
 from pathlib import Path
 
 import providers
+try:
+    import token_budget
+except ImportError:  # public wheel may omit it
+    token_budget = None  # type: ignore
 
 
 # ── Compaction tuning ─────────────────────────────────────────────────────
 # Number of recent conversation turns that are NEVER summarized.
 # A "turn" starts at a user message and ends just before the next user message.
-RECENT_TURNS_TO_PRESERVE = 20
+# Soft cap: if the chat has fewer turns than this, we still leave headroom so
+# /compact can actually compress something (see find_split_point).
+RECENT_TURNS_TO_PRESERVE = 8
+
+# Absolute floor of recent turns kept even on aggressive compact (lookback OFF).
+MIN_RECENT_TURNS = 3
 
 # Fraction of tokens to aim to keep in the recent portion (as a floor).
 # The turn-preservation rule is usually stricter, so this is a fallback.
-DEFAULT_KEEP_RATIO = 0.55
+DEFAULT_KEEP_RATIO = 0.40
+
+# ── Lookback-aware compact (aggressive) ──────────────────────────────────
+# When lookback is ON the full archive already lives locally for Loopback.
+# Compact should leave the LIVE context near-empty and point the model at
+# the loopback archive file — not keep 8 fat turns + pinned dumps.
+LOOKBACK_RECENT_TURNS = 1          # only the active turn stays verbatim
+LOOKBACK_MIN_RECENT_TURNS = 1
+LOOKBACK_KEEP_RATIO = 0.02         # ~nothing from the old side by tokens
+LOOKBACK_SUMMARY_SNIPPET = 400     # denser, shorter snippets into summarizer
+LOOKBACK_SUMMARY_MAX_CHARS = 1200  # hard cap on the summary card itself
+
+# Durable full-archive store so Loopback still works after compact rewrites
+# state.messages. Sibling of compaction_backups.
+# LOOPBACK_ARCHIVE_DIR set below with CHECKPOINT_DIR (CONFIG_DIR-safe)
 
 # Maximum chars of each old message fed into the summarizer.
 SUMMARY_SNIPPET_LEN = 1200
@@ -23,53 +46,56 @@ SUMMARY_SNIPPET_LEN = 1200
 # Where to store pre-compact checkpoints for possible rollback.
 # Derive from config.CONFIG_DIR (resolved once to a writable location) instead
 # of hardcoding ~/.dulus: on OEM/multi-user Windows boxes Path.home() points at
-# a profile the process can't write, and this mkdir runs at IMPORT time (agent.py
-# imports compaction), so an unguarded call crashed the whole app on startup with
-# WinError 5 / WinError 3. Wrapped so a denied FS never brings down import.
+# a profile the process can't write, and this mkdir runs at IMPORT time — an
+# unguarded call crashed the whole app on startup (WinError 5 / 3).
 from config import CONFIG_DIR
 
 CHECKPOINT_DIR = CONFIG_DIR / "compaction_backups"
-try:
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-except OSError:
-    # Checkpoint writes (_save_precompact_checkpoint / rollback_compact) are all
-    # already wrapped, so a missing dir just disables rollback — never fatal.
-    pass
+LOOPBACK_ARCHIVE_DIR = CONFIG_DIR / "loopback_archives"
+
+# System/user markers that previous compact runs re-inject. Must be stripped
+# before compacting or every /compact STACKS another copy (net token growth).
+_REINJECT_MARKERS = (
+    "[Relevant memories recovered after compaction]",
+    "[Plan file restored after compaction:",
+    "[Conversation summary",
+    "[Compacted conversation summary",
+    "[Previous conversation summarized",
+    "[Previous conversation summary]",
+    "[LOOKBACK COMPACT]",
+    "[Lookback compact]",
+)
+for _d in (CHECKPOINT_DIR, LOOPBACK_ARCHIVE_DIR):
+    try:
+        _d.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        # Checkpoint / archive writes are already wrapped — missing dir just
+        # disables rollback/archive, never fatal at import.
+        pass
+
+# Keep module-level alias used by save_loopback_archive when CONFIG_DIR differs
+# from Path.home()/.dulus (Windows). Already set above.
+
 
 
 # ── Token estimation ──────────────────────────────────────────────────────
 
-def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
-                    fast: bool = False) -> int:
-    """Estimate token count.
-    
-    For Kimi/Moonshot models, uses the native Kimi API token estimation endpoint
-    if API key is available. Otherwise falls back to character-based estimation.
+# Kimi native-API estimation guards. The estimate endpoint is a NETWORK call,
+# and estimate_tokens() is invoked from hot paths (toolbar refresh, prompt
+# render, per-message split loops). Without these guards a slow/invalid key
+# turns the whole REPL into an infinite-request hang:
+#   * _KIMI_EST_CACHE      — memoize by (msg_count, total_chars) fingerprint so
+#                            repeated calls on an unchanged history are free.
+#   * _KIMI_EST_DISABLED_UNTIL — circuit breaker: after ONE failure (bad key,
+#                            network down, timeout) stop trying for 10 minutes
+#                            and use the char-based fallback instead.
+_KIMI_EST_CACHE: dict = {"fp": None, "val": 0}
+_KIMI_EST_DISABLED_UNTIL: float = 0.0
+_KIMI_EST_COOLDOWN_S = 600.0
 
-    Args:
-        messages: list of message dicts with "content" field (str or list of dicts)
-        model: model string (optional, e.g., "kimi-k2.5")
-        config: agent config dict (optional, for accessing API keys)
-        fast: if True, NEVER hit the network — char-based estimation only.
-              Use this from hot paths (per-turn pre-checks, UI, tight loops).
-    Returns:
-        approximate token count, int
-    """
-    # Try Kimi native API estimation if this is a Kimi/Moonshot model
-    if not fast and model and (providers.detect_provider(model) in ("kimi", "moonshot")):
-        api_key = ""
-        if config:
-            api_key = providers.get_api_key("kimi", config) or providers.get_api_key("moonshot", config)
-        if api_key:
-            from providers import estimate_tokens_kimi
-            kimi_estimate = estimate_tokens_kimi(api_key, providers.bare_model(model), messages)
-            if kimi_estimate is not None:
-                return kimi_estimate
-    
-    # Fall back to character-based estimation.
-    # Formula: chars/2.8 (tighter divisor than the naive /4, more accurate for
-    # code+JSON heavy conversations) + per-message framing overhead + 10%
-    # safety buffer. Overcount slightly so compaction fires before API rejects.
+
+def _char_stats(messages: list) -> tuple[int, int]:
+    """Return (total_chars, msg_count) across a message list. Cheap, local."""
     total_chars = 0
     msg_count = 0
     for m in messages:
@@ -95,11 +121,12 @@ def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
         # user_msg["images"] / user_msg["videos"] (base64 strings), NOT
         # inside "content". This loop used to never look at them, so a
         # single video attachment (often 200-800k+ base64 chars) was
-        # completely invisible to the token estimate. Result: compaction
+        # completely invisible to the token estimate. Result: maybe_compact()
         # thought the conversation was small and never fired auto-compact,
-        # while the model actually receiving that payload (e.g. Kimi's
-        # multimodal video support) silently ballooned past its real
-        # context window and degraded. Count them like any other content.
+        # while Kimi (which DOES receive and pay for that payload) silently
+        # ballooned past its real context window and degraded. Count them
+        # the same way as any other content so compaction can actually see
+        # the true size of the conversation.
         for key in ("images", "videos"):
             items = m.get(key)
             if not items:
@@ -111,6 +138,56 @@ def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
                     data = item.get("data", "")
                     if isinstance(data, str):
                         total_chars += len(data)
+    return total_chars, msg_count
+
+
+def estimate_tokens(messages: list, model: str = "", config: dict | None = None,
+                    fast: bool = False) -> int:
+    """Estimate token count.
+
+    For Kimi/Moonshot models, uses the native Kimi API token estimation endpoint
+    if API key is available (memoized + circuit-broken — see guards above).
+    Otherwise falls back to character-based estimation.
+
+    Args:
+        messages: list of message dicts with "content" field (str or list of dicts)
+        model: model string (optional, e.g., "kimi-k2.5")
+        config: agent config dict (optional, for accessing API keys)
+        fast: if True, NEVER hit the network — char-based estimation only.
+              Use this from UI hot paths (toolbar, prompt render, tight loops).
+    Returns:
+        approximate token count, int
+    """
+    global _KIMI_EST_DISABLED_UNTIL
+    total_chars, msg_count = _char_stats(messages)
+
+    # Try Kimi native API estimation if this is a Kimi/Moonshot model.
+    # Skipped when: fast mode, circuit breaker open, or no key configured.
+    if (not fast and model
+            and providers.detect_provider(model) in ("kimi", "moonshot")
+            and time.time() >= _KIMI_EST_DISABLED_UNTIL):
+        api_key = ""
+        if config:
+            api_key = providers.get_api_key("kimi", config) or providers.get_api_key("moonshot", config)
+        if api_key:
+            fp = (msg_count, total_chars)
+            if fp == _KIMI_EST_CACHE["fp"]:
+                return _KIMI_EST_CACHE["val"]
+            from providers import estimate_tokens_kimi
+            kimi_estimate = estimate_tokens_kimi(api_key, providers.bare_model(model), messages)
+            if kimi_estimate is not None:
+                _KIMI_EST_CACHE["fp"] = fp
+                _KIMI_EST_CACHE["val"] = kimi_estimate
+                return kimi_estimate
+            # Endpoint failed (invalid key / network down / timeout). Open the
+            # circuit breaker so hot paths don't hammer the API and freeze the
+            # terminal; fall through to the char-based estimate below.
+            _KIMI_EST_DISABLED_UNTIL = time.time() + _KIMI_EST_COOLDOWN_S
+
+    # Fall back to character-based estimation.
+    # Formula: chars/2.8 (tighter divisor than the naive /4, more accurate for
+    # code+JSON heavy conversations) + per-message framing overhead + 10%
+    # safety buffer. Overcount slightly so compaction fires before API rejects.
     content_tokens = int(total_chars / 2.8)
     framing_tokens = msg_count * 4      # role + delimiters overhead per msg
     return int((content_tokens + framing_tokens) * 1.1)
@@ -123,20 +200,29 @@ def get_context_limit(model: str, config: dict | None = None) -> int:
     it is NOT the output cap. `max_tokens` is the output/completion cap and must
     NOT be used here, or setting a small max_tokens would make Dulus think every
     model (Claude 200k, Gemini 1M, …) has a tiny context and compact far too early.
-    Priority: explicit config["context_limit"] override, then the model/provider's
-    real context window.
+
+    Resolution lives in token_budget so the compaction threshold and the number
+    actually sent on the wire can never disagree: config["context_limit"] is the
+    user's ceiling (0 = auto) and is clamped to the model's real window, because
+    believing a 32k model holds 128k means compaction never fires and the
+    provider rejects the request instead.
     Args:
         model: model string (e.g. "claude-opus-4-6", "ollama/llama3.3")
         config: optional agent config dict
     Returns:
         context limit in tokens
     """
-    if config and isinstance(config, dict):
-        if config.get("context_limit"):
-            return int(config["context_limit"])
-    provider_name = providers.detect_provider(model)
-    prov = providers.PROVIDERS.get(provider_name, {})
-    return prov.get("context_limit", 128000)
+    if token_budget is not None:
+        return token_budget.context_window(model, config)
+    # Fallback when token_budget is not shipped (older public layouts)
+    if config:
+        try:
+            n = int(config.get("context_limit") or 0)
+            if n > 0:
+                return n
+        except (TypeError, ValueError):
+            pass
+    return 128_000
 
 
 # ── Layer 1: Snip old tool results ────────────────────────────────────────
@@ -171,6 +257,94 @@ def snip_old_tool_results(
         last_quarter = content[-(max_chars // 4):]
         snipped = len(content) - len(first_half) - len(last_quarter)
         m["content"] = f"{first_half}\n[... {snipped} chars snipped ...]\n{last_quarter}"
+    return messages
+
+
+# ── Layer 1b: Strip stale injected context from old user messages ─────────
+# MemPalace pre-loads (~2KB each) and [SYSTEM REMINDER — TRUNCATED OUTPUT]
+# notices are prepended/appended to user messages and then live in the
+# conversation FOREVER. They were only useful for the turn they landed on;
+# on old turns they're pure token dead-weight re-sent with every request.
+
+import re
+import re as _re
+
+_MEMPALACE_RE = _re.compile(
+    r"\[MemPalace — relevant memories pre-loaded for this turn\..*?"
+    r"\n\n---\n\n\[USER MESSAGE\]\n",
+    _re.DOTALL,
+)
+_SYS_REMINDER_RE = _re.compile(
+    r"\[SYSTEM REMINDER — TRUNCATED OUTPUT\].*?(?=\n\n\S|\Z)",
+    _re.DOTALL,
+)
+
+
+def strip_stale_injections(
+    messages: list,
+    preserve_last_n_turns: int = 6,
+) -> list:
+    """Remove MemPalace pre-loads and truncation reminders from OLD user
+    messages (older than preserve_last_n_turns from the end). The original
+    user text is kept intact. Mutates in place and returns the same list."""
+    cutoff = max(0, len(messages) - preserve_last_n_turns)
+    for i in range(cutoff):
+        m = messages[i]
+        if m.get("role") != "user":
+            continue
+        content = m.get("content", "")
+        if not isinstance(content, str):
+            continue
+        new = content
+        if "[MemPalace — relevant memories pre-loaded" in new:
+            new = _MEMPALACE_RE.sub("", new)
+        if "[SYSTEM REMINDER — TRUNCATED OUTPUT]" in new:
+            new = _SYS_REMINDER_RE.sub("[stale truncation notice removed]", new)
+        if new != content:
+            m["content"] = new.strip() or "(context injection removed)"
+    return messages
+
+
+def strip_compact_reinjections(messages: list) -> list:
+    """Drop system/user/assistant pairs that previous /compact runs re-injected.
+
+    Without this, every compact appends another
+    ``[Relevant memories recovered after compaction]`` block. Checkpoints
+    from 2026-07-15 showed 17→22 stacked copies and net token *growth*.
+
+    Mutates the list in place and returns it.
+    """
+    if not messages:
+        return messages
+
+    cleaned: list = []
+    i = 0
+    n = len(messages)
+    while i < n:
+        m = messages[i]
+        role = m.get("role")
+        content = m.get("content", "")
+        text = content if isinstance(content, str) else ""
+
+        # Drop memory reinjection system blobs entirely.
+        if role == "system" and any(marker in text for marker in _REINJECT_MARKERS):
+            i += 1
+            continue
+
+        # Drop plan-restore user+assistant pair.
+        if (
+            role == "user"
+            and "[Plan file restored after compaction:" in text
+        ):
+            i += 1
+            if i < n and messages[i].get("role") == "assistant":
+                i += 1
+            continue
+
+        cleaned.append(m)
+        i += 1
+
+    messages[:] = cleaned
     return messages
 
 
@@ -309,6 +483,33 @@ def _find_turn_aware_split(messages: list, min_recent_turns: int) -> int:
     return split
 
 
+def _effective_recent_turns(
+    messages: list,
+    requested: int,
+    *,
+    floor: int | None = None,
+) -> int:
+    """Clamp preserved turns so compact always has something to summarize.
+
+    If the chat has 12 user turns and we ask to preserve 20, the old logic
+    kept *everything* (split at first user) → /compact became a no-op that
+    only re-injected memories (net growth). We always leave at least ~40%
+    of turns (or 2 turns) eligible for summarization when possible.
+
+    ``floor`` defaults to MIN_RECENT_TURNS (classic). Lookback compact passes
+    LOOKBACK_MIN_RECENT_TURNS (1) so the live window can shrink near-zero.
+    """
+    floor = MIN_RECENT_TURNS if floor is None else max(1, int(floor))
+    user_turns = sum(1 for m in messages if m.get("role") == "user")
+    if user_turns <= floor:
+        return max(1, user_turns)
+    # Leave at least 2 turns (or 40% of turns) for the "old" side —
+    # except when floor==1 (lookback): leave at least 1 old turn if possible.
+    leave_old = max(1 if floor <= 1 else 2, user_turns * 2 // 5)
+    max_preserve = max(floor, user_turns - leave_old)
+    return max(floor, min(requested, max_preserve))
+
+
 def find_split_point(
     messages: list,
     keep_ratio: float = DEFAULT_KEEP_RATIO,
@@ -321,6 +522,9 @@ def find_split_point(
     The split is the MOST CONSERVATIVE of:
       - token-based split (~keep_ratio of tokens)
       - turn-based split (at least `min_recent_turns` complete turns)
+
+    ``min_recent_turns`` is clamped via ``_effective_recent_turns`` so a short
+    chat cannot force a no-op compact.
 
     This ensures `/compact` never summarizes the last N turns, which is what
     keeps Dulus aware of what the user is currently doing.
@@ -336,13 +540,20 @@ def find_split_point(
         Always returns an index that does not orphan a tool message from
         its assistant tool_calls partner.
     """
+    # Clamp so short chats still free room for the summarizer.
+    # When caller asks for 1 (lookback aggressive), honor that floor.
+    floor = LOOKBACK_MIN_RECENT_TURNS if min_recent_turns <= LOOKBACK_MIN_RECENT_TURNS else MIN_RECENT_TURNS
+    min_recent_turns = _effective_recent_turns(messages, min_recent_turns, floor=floor)
+
     # 1) Token-based split.
     total = estimate_tokens(messages, model=model, config=config)
     target = int(total * keep_ratio)
     running = 0
     token_split = 0
     for i in range(len(messages) - 1, -1, -1):
-        running += estimate_tokens([messages[i]], model=model, config=config)
+        # fast=True: NEVER hit the Kimi estimate endpoint per-message — this
+        # loop would otherwise fire one network request per history message.
+        running += estimate_tokens([messages[i]], model=model, config=config, fast=True)
         if running >= target:
             token_split = i
             break
@@ -387,37 +598,194 @@ def find_split_point(
     return split
 
 
+
+def _lookback_mode(config: dict | None) -> bool:
+    """True when lookback is ON — compact may go aggressive + archive to disk."""
+    if not config:
+        return False
+    try:
+        from lookback import lookback_enabled
+        return bool(lookback_enabled(config))
+    except Exception:
+        # Fallback: same truthy keys lookback.py uses
+        v = config.get("lookback")
+        if v is None:
+            v = config.get("lookback_turns")
+        if v is True:
+            return True
+        if isinstance(v, (int, float)) and int(v) > 0:
+            return True
+        if isinstance(v, str) and v.strip().lower() in {"1", "true", "on", "yes"}:
+            return True
+        return False
+
+
+def _session_key(state, config: dict | None) -> str:
+    sid = ""
+    if state is not None:
+        sid = str(getattr(state, "session_id", "") or "")
+    if not sid and config:
+        sid = str(config.get("session_id") or config.get("session") or "")
+    sid = re.sub(r"[^A-Za-z0-9._-]+", "_", sid)[:80]
+    return sid or "default"
+
+
+
+def enable_lookback_after_compact(config: dict | None, *, reason: str = "compact") -> bool:
+    """Force lookback ON for this session after a compact rewrote live context.
+
+    Quality rule (KevRojo): once we collapse live messages to a hint card +
+    last turn, the agent MUST have lookback/Loopback or it will invent the past
+    and quality tanks. Even if the user had lookback OFF, we flip it ON for the
+    rest of the session and persist via save_config when available.
+
+    Returns True if lookback was newly enabled (or already on).
+    """
+    if not isinstance(config, dict):
+        return False
+    already = bool(config.get("lookback"))
+    config["lookback"] = True
+    # Sensible window if unset / zero
+    try:
+        n = int(config.get("lookback_turns") or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if n < 2:
+        config["lookback_turns"] = 20
+    # Session-scoped flag so UI / /context can explain why it flipped
+    config["_lookback_forced_by_compact"] = True
+    config["_lookback_forced_reason"] = reason
+    # Clear stale anchors — message indices changed after rewrite
+    try:
+        from lookback import LOOKBACK_ANCHOR_KEY, LOOKBACK_ANCHOR_SIG_KEY
+        config.pop(LOOKBACK_ANCHOR_KEY, None)
+        config.pop(LOOKBACK_ANCHOR_SIG_KEY, None)
+    except Exception:
+        config.pop("_lookback_anchor", None)
+        config.pop("_lookback_anchor_sig", None)
+    # Persist so restart of same config keeps lookback ON
+    try:
+        from config import save_config
+        save_config(config)
+    except Exception:
+        pass
+    return True if not already else True
+
+
+def save_loopback_archive(messages: list, state=None, config: dict | None = None) -> Path | None:
+    """Persist the FULL pre-compact archive so Loopback still has it.
+
+    Writes ~/.dulus/loopback_archives/archive_<session>.json and binds
+    config["_loopback_archive_path"] + config["_loopback_archive"] (in-memory
+    copy) for the Loopback tool. Returns the path or None on failure.
+    """
+    if not messages:
+        return None
+    try:
+        LOOPBACK_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+        sid = _session_key(state, config)
+        path = LOOPBACK_ARCHIVE_DIR / f"archive_{sid}.json"
+        payload = {
+            "session_id": sid,
+            "timestamp": time.strftime("%Y%m%d_%H%M%S"),
+            "message_count": len(messages),
+            "messages": messages,
+        }
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+        # Keep only newest 20 archives (disk hygiene).
+        existing = sorted(
+            LOOPBACK_ARCHIVE_DIR.glob("archive_*.json"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        for old in existing[:-20]:
+            try:
+                old.unlink(missing_ok=True)
+            except Exception:
+                pass
+        if config is not None:
+            config["_loopback_archive_path"] = str(path)
+            # Hold a live copy so Loopback does not re-read disk every call.
+            config["_loopback_archive"] = list(messages)
+        return path
+    except Exception:
+        return None
+
+
+def load_loopback_archive(config: dict | None = None) -> list:
+    """Return the durable full archive for Loopback (memory or disk)."""
+    if not config:
+        return []
+    live = config.get("_loopback_archive")
+    if isinstance(live, list) and live:
+        return live
+    path = config.get("_loopback_archive_path") or ""
+    if not path:
+        # Fall back to newest archive for this session id
+        sid = _session_key(None, config)
+        candidate = LOOPBACK_ARCHIVE_DIR / f"archive_{sid}.json"
+        path = str(candidate) if candidate.exists() else ""
+    if not path:
+        return []
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        msgs = data.get("messages") if isinstance(data, dict) else None
+        if isinstance(msgs, list):
+            config["_loopback_archive"] = msgs
+            config["_loopback_archive_path"] = path
+            return msgs
+    except Exception:
+        return []
+    return []
+
+
 def compact_messages(messages: list, config: dict, focus: str = "") -> list:
     """Compress old messages into a summary via LLM call.
 
-    Splits at find_split_point, summarizes old portion, returns
-    [system_summary, ack, *pinned, *recent_messages].
+    Splits at find_split_point, summarizes old portion, returns a slim list.
 
-    Guarantees:
-      - The original system prompt (first message if role==system) is kept.
-      - The last RECENT_TURNS_TO_PRESERVE user turns are kept verbatim.
+    Lookback OFF (classic):
+      - Keep original system prompt.
+      - Keep last RECENT_TURNS_TO_PRESERVE user turns verbatim.
+      - Pin high-priority messages; summarize the rest.
+
+    Lookback ON (aggressive — the interesting case):
+      - Caller should have already saved the FULL archive via
+        ``save_loopback_archive`` so Loopback still has everything.
+      - Keep system header + ONE dense [LOOKBACK COMPACT] hint card +
+        last LOOKBACK_RECENT_TURNS turn(s) only.
+      - No pinned bulk, no fat summary essay — context aims near-zero.
+      - Card tells the model to use Loopback(action=search|show|head|status).
+
+    Guarantees always:
       - Assistant/tool-call pairs are never split.
-      - High-priority messages (errors, decisions, file refs) are kept.
-
-    Args:
-        messages: full message list
-        config: agent config dict (must contain "model")
-        focus: optional focus instructions for the summarizer
-    Returns:
-        new compacted message list
+      - Original system prompt (first message if role==system) is kept.
     """
     model = config.get("model", "")
-    split = find_split_point(messages, model=model, config=config)
+    lb = _lookback_mode(config)
+
+    if lb:
+        split = find_split_point(
+            messages,
+            keep_ratio=LOOKBACK_KEEP_RATIO,
+            model=model,
+            config=config,
+            min_recent_turns=LOOKBACK_RECENT_TURNS,
+        )
+        # Force floor of 1 recent turn when possible
+        split = max(split, 0)
+    else:
+        split = find_split_point(messages, model=model, config=config)
+
     if split <= 0:
         return messages
 
     # ── Protect the original system prompt ──
-    # The very first system message carries DULUS.md / identity / capabilities.
-    # We keep it verbatim and exclude it from summarization so it never gets lost.
     system_header: list[dict] = []
     if messages and messages[0].get("role") == "system":
         system_header = [messages[0]]
-        # If the split was 1, we have nothing old to summarize; just return.
         if split <= 1:
             return messages
         old = messages[1:split]
@@ -426,15 +794,97 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
 
     recent = messages[split:]
 
-    # ── Smart separation: keep high-priority messages verbatim ──
+    # ── LOOKBACK PATH: tiny card, no pinned bulk ──
+    if lb:
+        snippet = LOOKBACK_SUMMARY_SNIPPET
+        old_text = ""
+        for m in old:
+            # Skip pure tool noise in the summarizer feed — keep signal dense
+            role = m.get("role", "?")
+            if role == "tool":
+                text = _message_text(m)[: min(200, snippet)]
+            else:
+                text = _message_text(m)[:snippet]
+            if text.strip():
+                old_text += f"[{role}]: {text}\n"
+
+        archive_path = (config or {}).get("_loopback_archive_path") or str(
+            LOOPBACK_ARCHIVE_DIR / f"archive_{_session_key(None, config)}.json"
+        )
+        archive_n = len(messages)
+        try:
+            from lookback import count_user_turns
+            archive_u = count_user_turns(messages)
+        except Exception:
+            archive_u = sum(1 for m in messages if m.get("role") == "user")
+
+        summary_prompt = (
+            "You are writing a TINY recovery card for an agent that has Lookback ON.\n"
+            "The FULL conversation is already saved locally for the Loopback tool — "
+            "do NOT rewrite the history. Emit ONLY dense bullet facts the agent needs "
+            "to continue RIGHT NOW (paths, decisions, IDs, blockers).\n"
+            "Hard limit: ~15 short bullets, no prose, no tool dumps, no code blocks.\n"
+            f"Archive size: {archive_n} messages / {archive_u} user turns.\n"
+        )
+        if focus:
+            summary_prompt += f"Focus especially on: {focus}\n"
+        summary_prompt += "\nOLDER MESSAGES (snippets only):\n" + old_text
+
+        summary_text = ""
+        try:
+            for event in providers.stream(
+                model=config["model"],
+                system=(
+                    "Dense fact extractor. Output bullets only. "
+                    "No preamble. No restating that lookback exists."
+                ),
+                messages=[{"role": "user", "content": summary_prompt}],
+                tool_schemas=[],
+                config=config,
+            ):
+                if isinstance(event, providers.TextChunk):
+                    summary_text += event.text
+        except Exception as exc:
+            summary_text = f"(summarizer failed: {exc})"
+
+        summary_text = (summary_text or "").strip()
+        if len(summary_text) > LOOKBACK_SUMMARY_MAX_CHARS:
+            summary_text = summary_text[: LOOKBACK_SUMMARY_MAX_CHARS - 1] + "…"
+
+        card = (
+            "[LOOKBACK COMPACT]\n"
+            f"Live context was collapsed. FULL archive is local "
+            f"({archive_n} msgs / {archive_u} user turns).\n"
+            f"Archive file: {archive_path}\n"
+            "Retrieve anything you need with the Loopback tool — do NOT invent past events, "
+            "do NOT ask the user to run /loopback:\n"
+            "  Loopback(action='search', query='...')\n"
+            "  Loopback(action='show', limit=30)\n"
+            "  Loopback(action='head', limit=20)\n"
+            "  Loopback(action='status')\n"
+            "Key facts:\n"
+            f"{summary_text or '(no extra facts — use Loopback if needed)'}"
+        )
+        summary_msg = {"role": "system", "content": card}
+        ack_msg = {
+            "role": "assistant",
+            "content": (
+                "Understood. Live context is compact; full archive is on Loopback. "
+                "I will Loopback(search/show) if I need older facts. Let's continue."
+            ),
+        }
+        result = list(system_header)
+        result.append(summary_msg)
+        result.append(ack_msg)
+        result.extend(recent)
+        return result
+
+    # ── CLASSIC PATH (lookback OFF) ──
     pinned = []
     to_summarize = []
     for m in old:
         role = m.get("role", "")
         has_tool_calls = bool(m.get("tool_calls"))
-
-        # NEVER pin a lone tool message or a lone assistant tool-caller.
-        # Those must travel with their partner to avoid API 400s.
         if role == "tool" or has_tool_calls:
             to_summarize.append(m)
         elif _score_message_priority(m) >= 3:
@@ -442,8 +892,6 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
         else:
             to_summarize.append(m)
 
-    # Build summary request. Include pinned messages in the prompt so the
-    # summarizer does not duplicate or contradict them.
     old_text = ""
     for m in to_summarize:
         role = m.get("role", "?")
@@ -467,7 +915,6 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
             summary_prompt += f"[{m.get('role', '?')}]: {_message_text(m)[:300]}\n"
     summary_prompt += "\n\nOLDER MESSAGES TO SUMMARIZE:\n" + old_text
 
-    # Call LLM for summary
     summary_text = ""
     for event in providers.stream(
         model=config["model"],
@@ -488,7 +935,6 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
         "content": "Understood. I have the context from the previous conversation. Let's continue.",
     }
 
-    # Result: optional original system + summary + ack + pinned + recent
     result = list(system_header)
     result.append(summary_msg)
     result.append(ack_msg)
@@ -501,8 +947,6 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
     result.extend(recent)
     return result
 
-
-# ── Main entry ────────────────────────────────────────────────────────────
 
 def maybe_compact(state, config: dict) -> bool:
     """Check if context window is getting full and compress if needed.
@@ -532,17 +976,31 @@ def maybe_compact(state, config: dict) -> bool:
     if estimate_tokens(state.messages, model=model, config=config) <= threshold:
         return False
 
-    # Layer 1: snip old tool results
+    # Layer 1: snip old tool results + strip stale injected context
     snip_old_tool_results(state.messages)
+    strip_stale_injections(state.messages)
+    strip_compact_reinjections(state.messages)
 
     if estimate_tokens(state.messages, model=model, config=config) <= threshold:
         return True
 
-    # Layer 2: auto-compact (with checkpoint + memory recovery)
+    # Layer 2: auto-compact — always lookback-aggressive + force lookback ON
     _save_precompact_checkpoint(state, config)
+    save_loopback_archive(list(state.messages), state=state, config=config)
+    config["lookback"] = True
+    if not int(config.get("lookback_turns") or 0):
+        config["lookback_turns"] = 20
     state.messages = compact_messages(state.messages, config)
-    state.messages.extend(_memory_messages(_load_relevant_memories(config)))
-    state.messages.extend(_restore_plan_context(config))
+    enable_lookback_after_compact(config, reason="auto_compact")
+
+    # No fat memory reinject; restore plan context only
+    has_plan = any(
+        isinstance(m.get("content"), str)
+        and "[Plan file restored after compaction:" in m["content"]
+        for m in state.messages
+    )
+    if not has_plan:
+        state.messages.extend(_restore_plan_context(config))
     return True
 
 
@@ -648,8 +1106,9 @@ def _restore_plan_context(config: dict) -> list:
 def manual_compact(state, config: dict, focus: str = "") -> tuple[bool, str]:
     """User-triggered compaction via /compact. Not gated by threshold.
 
-    Preserves the last RECENT_TURNS_TO_PRESERVE user turns verbatim so the
-    agent does not forget what it was doing.
+    Preserves the last RECENT_TURNS_TO_PRESERVE user turns (clamped) so the
+    agent does not forget what it was doing. Strips prior compact reinjections
+    so repeated /compact cannot grow the context.
 
     Returns (success, info_message).
     """
@@ -663,12 +1122,49 @@ def manual_compact(state, config: dict, focus: str = "") -> tuple[bool, str]:
     checkpoint_path = _save_precompact_checkpoint(state, config)
 
     snip_old_tool_results(state.messages)
+    strip_stale_injections(state.messages)
+    # Critical: drop stacked memory/plan reinjections from previous /compacts.
+    strip_compact_reinjections(state.messages)
+
+    # Compact ALWAYS goes lookback-aggressive for quality:
+    # 1) dump full archive to disk for Loopback
+    # 2) collapse live context
+    # 3) force lookback ON for the rest of this session (even if it was OFF)
+    was_lb = _lookback_mode(config)
+    archive_path = save_loopback_archive(
+        list(state.messages), state=state, config=config
+    )
+    # Pretend lookback ON during compact_messages so we get the tiny card path
+    config["lookback"] = True
+    if not int(config.get("lookback_turns") or 0):
+        config["lookback_turns"] = 20
+
     state.messages = compact_messages(state.messages, config, focus=focus)
-    state.messages.extend(_memory_messages(_load_relevant_memories(config)))
-    state.messages.extend(_restore_plan_context(config))
+
+    enable_lookback_after_compact(config, reason="manual_compact")
+
+    # No fat memory reinject — archive lives on Loopback now
+    has_plan = any(
+        isinstance(m.get("content"), str)
+        and "[Plan file restored after compaction:" in m["content"]
+        for m in state.messages
+    )
+    if not has_plan:
+        state.messages.extend(_restore_plan_context(config))
+
     after = estimate_tokens(state.messages, model=model, config=config)
     saved = before - after
-    info = f"Compacted: ~{before} -> ~{after} tokens (~{saved} saved)"
+    mode = "lookback-aggressive"
+    forced = "" if was_lb else " | lookback FORCED ON for this session"
+    if saved >= 0:
+        info = f"Compacted ({mode}): ~{before} -> ~{after} tokens (~{saved} saved){forced}"
+    else:
+        info = (
+            f"Compacted ({mode}): ~{before} -> ~{after} tokens "
+            f"(~{abs(saved)} GREW — check summarizer / reinjections){forced}"
+        )
     if checkpoint_path:
         info += f" | checkpoint: {checkpoint_path.name}"
+    if archive_path:
+        info += f" | loopback archive: {Path(archive_path).name}"
     return True, info

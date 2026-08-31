@@ -395,7 +395,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.13.2"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.13.3"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -9609,18 +9609,26 @@ def cmd_compact(args: str, state, config) -> bool:
 
     /compact              — compact with default summarization
     /compact <focus>      — compact with focus instructions
+
+    Compact always goes lookback-aggressive: full archive → disk for Loopback,
+    live context → hint card + last turn. Lookback is FORCED ON for the rest
+    of this session even if it was off (quality: model must retrieve via Loopback).
     """
     from compaction import manual_compact
     focus = args.strip()
+    was_lb = bool(config.get("lookback"))
 
     if focus:
-        info(f"Compacting with focus: {focus}")
+        info(f"Compacting with focus: {focus} (archive→disk, live ~0, lookback ON)…")
     else:
-        info("Compacting conversation...")
+        info("Compacting (archive→disk, live context ~0, lookback forced ON)…")
 
     success, msg = manual_compact(state, config, focus=focus)
     if success:
         info(msg)
+        info("Loopback has the full archive — agent can Loopback(search/show/head/status).")
+        if not was_lb and config.get("lookback"):
+            info("Lookback was OFF → forced ON for this session so quality doesn't drop.")
     else:
         err(msg)
     return True
