@@ -100,6 +100,8 @@ Slash commands in REPL:
   /update status    Show installed version, latest, and auto-check setting
   /login dulus      Sign in to your Dulus account (OAuth PKCE — no API key; unlocks Fuel-metered Dulus models)
   /login dulus key  Mint a dulus_sk_* API key for CI/servers
+  /fuel             $DULUS Fuel balance + reload wallet QR (console-scannable)
+  /fuel deposit     Show reload wallet address + QR only
   /login claude     Claude Pro/Max subscription OAuth (no API key)
   /login chatgpt    ChatGPT Plus/Pro/Team via Codex OAuth
   /login kimi       Kimi membership via device OAuth (add `force` to switch accounts)
@@ -9624,6 +9626,44 @@ def cmd_compact(args: str, state, config) -> bool:
     return True
 
 
+
+def cmd_fuel(args: str, _state, config) -> bool:
+    """$DULUS Fuel balance and reload-wallet console QR.
+
+    /fuel            — balance + deposit address QR
+    /fuel deposit    — address + QR only
+    /fuel balance    — balance only
+    """
+    import dulus_account
+    sub = (args or "").strip().lower().split()
+    head = sub[0] if sub else ""
+
+    if head in ("balance", "bal", "b"):
+        bal = dulus_account.account_balance(notify=lambda m: print(clr(m, "yellow")))
+        if bal:
+            print(clr(f"⛽ Balance: {bal}", "green", "bold"))
+        else:
+            print(clr("No balance (signed out or control plane unreachable). Try `/login dulus`.", "yellow"))
+        return True
+
+    if head in ("deposit", "reload", "wallet", "qr", "address", "addr"):
+        addr = dulus_account.show_reload_wallet(notify=lambda m: print(clr(m, "cyan")))
+        if not addr:
+            print(clr("Could not load reload wallet. `/login dulus` first.", "yellow"))
+        return True
+
+    # default: balance + QR
+    bal = dulus_account.account_balance(notify=lambda m: None)
+    if bal:
+        print(clr(f"⛽ Balance: {bal}", "green", "bold"))
+    else:
+        print(clr("⛽ Balance unavailable — sign in with `/login dulus` if needed.", "yellow"))
+    addr = dulus_account.show_reload_wallet(notify=lambda m: print(clr(m, "cyan")))
+    if not addr and not bal:
+        print(clr("Usage: /fuel | /fuel deposit | /fuel balance", "yellow"))
+    return True
+
+
 def cmd_login(args: str, _state, config) -> bool:
     """Sign in to a provider — or to Dulus itself.
 
@@ -9657,7 +9697,11 @@ def cmd_login(args: str, _state, config) -> bool:
                 bal = dulus_account.account_balance(notify=lambda m: None)
                 if bal:
                     print(clr(f"⛽ Balance: {bal}", "green"))
-                print(clr("Use `/login dulus force` to sign in again, or `/login dulus key` to mint an API key.", "green"))
+                try:
+                    dulus_account.show_reload_wallet(notify=lambda m: print(clr(m, "cyan")))
+                except Exception as _qr_exc:
+                    print(clr(f"[dulus] reload QR skipped: {_qr_exc}", "yellow"))
+                print(clr("Use `/login dulus force` to sign in again, `/login dulus key` for API key, or `/fuel` anytime.", "green"))
                 return True
 
         if force:
@@ -9673,6 +9717,11 @@ def cmd_login(args: str, _state, config) -> bool:
             bal = dulus_account.account_balance(notify=lambda m: None)
             if bal:
                 print(clr(f"⛽ Balance: {bal}", "green"))
+            try:
+                dulus_account.show_reload_wallet(notify=lambda m: print(clr(m, "cyan")))
+            except Exception as _qr_exc:
+                print(clr(f"[dulus] reload QR skipped: {_qr_exc}", "yellow"))
+            print(clr("Tip: `/fuel` anytime for balance + reload QR. `/login dulus key` mints dulus_sk_*.", "green"))
             return True
         print(clr("Could not sign in. Re-run `/login dulus`.", "yellow"))
         return True
@@ -11518,6 +11567,9 @@ COMMANDS = {
     "skills":      cmd_skills,
     "skill":       cmd_skill,
     "login":            cmd_login,
+    "fuel":             cmd_fuel,
+    "reload":           cmd_fuel,
+    "deposit":          cmd_fuel,
     "login-claude":     cmd_login_claude,
     "claude-login":     cmd_login_claude,
     "login-chatgpt":    cmd_login_chatgpt,
@@ -11689,6 +11741,8 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
                                                            "todo", "in-progress", "done", "blocked"]),
     "proactive":   ("Manage proactive background watcher", ["off"]),
     "login":       ("Sign in to Dulus or a provider (OAuth, no API key)", ["dulus", "claude", "chatgpt", "kimi", "grok", "zai", "key", "force"]),
+    "fuel":        ("$DULUS Fuel balance + reload wallet QR", ["deposit", "balance", "reload"]),
+    "reload":      ("Alias of /fuel deposit — reload wallet QR", []),
     "daemon":      ("Toggle daemon — allow external triggers (Telegram) to spawn Dulus", ["on", "off"]),
     "bg":          ("Background Dulus — one detached daemon for CLI + Web + Telegram", ["start", "stop", "kill", "status", "attach"]),
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),

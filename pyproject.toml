@@ -90,6 +90,8 @@ dependencies = [
     # HTML parsing — used by web scraping flows, harvest commands,
     # and several plugins. Tiny dep; ship it by default.
     "beautifulsoup4>=4.12.0",
+    # Console QR for $DULUS reload wallets (post /login dulus)
+    "segno>=1.6.0",
     "sentry-sdk>=2.0.0",
     # OS trust store — fixes CERTIFICATE_VERIFY_FAILED behind corporate TLS
     # interceptors (Cloudflare Zero Trust/WARP, Zscaler, Netskope). Tiny dep.
