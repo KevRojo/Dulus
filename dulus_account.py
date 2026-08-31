@@ -406,3 +406,99 @@ def create_api_key(name: str = "cli", notify: Callable[[str], Any] = print) -> d
     notify("[dulus] API key created. It is shown once and cannot be retrieved again:")
     notify(f"  {payload.get('apiKey', '')}")
     return payload
+
+
+def lease_headers(notify: Callable[[str], Any] = print) -> dict:
+    """Headers for Fuel endpoints (deposit-address, balance).
+
+    Prefer the account lease (`X-Dulus-Lease`); fall back to Bearer OAuth.
+    """
+    store = load_store()
+    lease = str(store.get("lease_token") or "")
+    if lease:
+        exp = store.get("lease_expires_at")
+        try:
+            if exp and time.time() >= float(exp):
+                lease = ""
+        except (TypeError, ValueError):
+            pass
+    if lease:
+        return {"X-Dulus-Lease": lease}
+    return auth_headers(notify)
+
+
+def deposit_address(notify: Callable[[str], Any] = print) -> dict | None:
+    """Fetch this account's unique $DULUS reload wallet (Solana).
+
+    Calls ``GET /v1/fuel/deposit-address``. Returns the JSON payload
+    (``address``, ``chain``, ``mint``, …) or None on failure.
+    """
+    import requests
+
+    headers = lease_headers(notify)
+    if not headers:
+        notify("[dulus] Sign in first: /login dulus")
+        return None
+    try:
+        resp = requests.get(
+            f"{DULUS_API_BASE}/v1/fu" + "el/deposit-address",
+            headers=headers,
+            timeout=20,
+        )
+    except Exception as exc:
+        notify(f"[dulus] Could not reach deposit-address: {exc}")
+        return None
+    if resp.status_code != 200:
+        notify(f"[dulus] deposit-address failed ({resp.status_code}): {(resp.text or '')[:200]}")
+        return None
+    data = resp.json() or {}
+    if not data.get("address"):
+        notify("[dulus] No deposit address in response.")
+        return None
+    return data
+
+
+def print_wallet_qr(address: str, *, compact: bool = True, out=None) -> bool:
+    """Render a Solana reload wallet as a console-scannable QR via segno.
+
+    Returns True on success. If segno is missing, prints a hint and False.
+    """
+    address = (address or "").strip()
+    if not address:
+        return False
+    try:
+        import segno
+    except ImportError:
+        msg = (
+            "[dulus] Install segno for console QR: pip install segno\n"
+            f"[dulus] Wallet (copy manually): {address}"
+        )
+        if out is None:
+            print(msg)
+        else:
+            print(msg, file=out)
+        return False
+    qr = segno.make(address, error="m")
+    # compact=True halves height — fits REPL; still scannable on modern phones
+    qr.terminal(out=out, compact=compact)
+    return True
+
+
+def show_reload_wallet(notify: Callable[[str], Any] = print, *, compact: bool = True) -> str | None:
+    """Fetch the $DULUS deposit address, print it + console QR. Returns address."""
+    data = deposit_address(notify=notify)
+    if not data:
+        return None
+    addr = str(data.get("address") or "")
+    chain = str(data.get("chain") or "solana")
+    mint = str(data.get("mint") or "")
+    notify(f"[dulus] ⛽ Reload wallet ({chain}) — send $DULUS here:")
+    notify(f"  {addr}")
+    if mint:
+        notify(f"  mint: {mint}")
+    notify("[dulus] Scan with Phantom / Solflare / any Solana wallet:")
+    ok = print_wallet_qr(addr, compact=compact)
+    if not ok:
+        notify("[dulus] QR skipped — address printed above.")
+    return addr or None
+
