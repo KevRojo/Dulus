@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.1] - 2026-08-31
+
+### Fixed
+- `/load` now lists explicit `/save` sessions under `~/.dulus/sessions/` (root), not system auto-saves in `daily/`
+- GUI `scan_sessions()` uses the same default; auto-saves remain available via `/load daily` or `include_daily=True`
+
+
 ## [3.12.1] - 2026-08-28
 
 Follow-up to 3.12.0: the channel split and the frame vocabulary were correct,
