@@ -62,6 +62,35 @@ export OPENAI_BASE_URL='https://control.dulus.ai/v1'
   <a href="https://dulus.online"><strong>🚀 Platform → dulus.online</strong></a>
 </p>
 
+
+<p align="center">
+  <strong>⛽ $DULUS Fuel is LIVE in the CLI — <code>/fuel</code> is ready.</strong><br>
+  Sign in, get your <strong>reload wallet as a console QR</strong>, scan with Phantom / Solflare,<br>
+  send <strong>$DULUS</strong>, and Fuel credits hit your account. Utility coin that actually powers AI.
+</p>
+
+```bash
+pip install -U dulus
+dulus
+# inside the REPL:
+/login dulus     # sign in
+/fuel            # balance + scannable reload-wallet QR
+/fuel deposit    # QR only
+```
+
+<p align="center">
+  <em>Tested. Reloaded. Fuel credited.</em> We’re not playing points — this is on-chain gas for inference.<br>
+  <strong>$DULUS</strong> · <code>control.dulus.ai/v1</code> · 12+ models · spent by the token 🦅
+</p>
+
+<p align="center">
+  <a href="#fuel--reload-wallet-qr-ready"><strong>⛽ /fuel walkthrough →</strong></a>
+  ·
+  <a href="#get-your-dulus-api-key-no-website-required"><strong>🔑 API key from pip →</strong></a>
+  ·
+  <a href="https://dulus.online"><strong>🚀 dulus.online</strong></a>
+</p>
+
 <p align="center">
   <strong>🖥️ Prefer a desktop app?</strong> Download <strong>Dulus Premium</strong> — a signed, auto-updating build for Windows, macOS and Linux.<br>
   <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
@@ -80,6 +109,7 @@ export OPENAI_BASE_URL='https://control.dulus.ai/v1'
 <p align="center">
   <a href="#install-in-30-seconds"><strong>Install</strong></a> ·
   <a href="#get-your-dulus-api-key-no-website-required"><strong>API key</strong></a> ·
+  <a href="#fuel--reload-wallet-qr-ready"><strong>Fuel / QR</strong></a> ·
   <a href="#why-dulus"><strong>Why Dulus</strong></a> ·
   <a href="#one-runtime-every-model"><strong>Models</strong></a> ·
   <a href="#turn-any-python-repo-into-tools"><strong>Extensions</strong></a> ·
@@ -120,6 +150,40 @@ On a fresh machine that's the whole setup — Dulus boots straight into **Gemini
 Rather use keys, local models, or your own endpoint? Dulus does that too — **34 providers** in a single runtime (cloud API, local Ollama/LM Studio, OAuth, and web-session). But the free default is the whole point: **you shouldn't need a corporation's permission to have an agent.**
 
 ---
+
+---
+
+## Fuel + reload wallet QR (READY)
+
+**`/fuel` is ready.** Top up AI compute with **$DULUS** — the utility token that *is* your credit.
+
+```text
+/login dulus      # OAuth — browser opens
+/fuel             # ⛽ balance + console QR of YOUR reload wallet
+/fuel deposit     # address + QR only
+/fuel balance     # balance only
+```
+
+1. Run `/fuel` — Dulus prints your unique Solana deposit address **and a terminal QR** (segno, scannable).
+2. Open **Phantom / Solflare** → scan the QR → send **$DULUS**.
+3. Control plane credits **Fuel** to your account.
+4. Burn it on `dulus-*` models via the CLI or `https://control.dulus.ai/v1`.
+
+No website form. No waiting on a dashboard refresh to *see* the wallet. The QR is in your terminal the second you login.
+
+```bash
+pip install -U dulus   # includes segno for console QR
+dulus
+```
+
+| Command | What you get |
+|---|---|
+| `/login dulus` | Sign in + reload QR on success |
+| `/fuel` | Balance + reload wallet QR |
+| `/fuel deposit` | QR / address only |
+| `/login dulus key` | Mint `dulus_sk_*` for OpenAI SDK → same Fuel pool |
+
+**$DULUS** = on-chain gas for inference. Transferable. Spent by the token. Tested end-to-end — reload lands, Fuel credits. 🦅
 
 ---
 

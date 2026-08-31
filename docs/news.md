@@ -2,6 +2,9 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 31, 2026 (**v3.13.2**): **⛽ `/fuel` is READY — reload wallet as a console QR.** Sign in with `/login dulus`, run `/fuel`, scan the QR with Phantom/Solflare, send **$DULUS**, and Fuel credits hit your account. Real utility coin for real AI compute — not points, not a waitlist. `pip install -U dulus`. 🦅🇩🇴
+
+
 - August 31, 2026 (**v3.13.1**): **📂 `/load` shows your real saves again.** The menu was only listing system auto-saves under `sessions/daily/`, so the sessions you kept with `/save` never appeared. Default `/load` (and the GUI session list) now reads the root of `sessions/` — your explicit saves. Auto-saves stay opt-in with `/load daily`. `pip install --upgrade dulus`. 🦅🇩🇴
 
 

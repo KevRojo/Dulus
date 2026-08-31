@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.2] - 2026-08-31
+
+### Added
+- **`/fuel`** — $DULUS Fuel balance + console-scannable reload wallet QR (`segno`)
+- Post-`/login dulus` shows the deposit QR so you can top up from Phantom/Solflare immediately
+- Aliases: `/reload`, `/deposit`; subcommands `deposit` / `balance`
+- Dependency: `segno>=1.6.0` for terminal QR
+
+### Verified
+- End-to-end reload: send $DULUS → Fuel credited on control plane
+
+
 ## [3.13.1] - 2026-08-31
 
 ### Fixed
