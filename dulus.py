@@ -42,7 +42,7 @@ Slash commands in REPL:
   /model [m]  Show or set model
   /config     Show config / set key=value
   /save [f]   Save session to file
-  /load [f]   Load session from file
+  /load [f]   Load /save sessions (or /load daily)
   /history    Print conversation history
   /context    Show context window usage
   /cost       Show API cost this session
@@ -1162,7 +1162,7 @@ _HELP_PAGES = [
     ]),
     ("Session", [
         ("/save [name]",  "Save session to file (any name)"),
-        ("/load",         "Load session — paginated by day (*D*S syntax)"),
+        ("/load",         "Load /save sessions (*D*S); /load daily = auto-saves"),
         ("/history",      "Print conversation history"),
         ("/context",      "Show context window usage"),
         ("/cost",         "Show API cost this session"),
@@ -1979,51 +1979,197 @@ def save_latest(args: str, state, config=None, mode: str = "full") -> bool:
     ok(f"             → {daily_path}  (id: {sid})")
     ok(f"             → {SESSION_HIST_FILE}  ({len(hist['sessions'])} sessions / {hist['total_turns']} total turns)")
     return True
-def cmd_load(args: str, state, config) -> bool:
+def _session_skip_names() -> set[str]:
+    """Root files that are not user-loadable session snapshots."""
+    return {"session_latest.json", "history.json"}
+
+
+def _iter_user_session_files(sessions_dir: Path) -> list[Path]:
+    """Explicit user sessions from ``/save`` (SESSIONS_DIR root only).
+
+    daily/ holds system auto-saves on exit — those are NOT listed by default
+    in /load (use ``/load daily`` for that).
+    """
+    if not sessions_dir.exists():
+        return []
+    skip = _session_skip_names()
+    files: list[Path] = []
+    for p in sessions_dir.iterdir():
+        if not p.is_file() or p.suffix.lower() != ".json":
+            continue
+        if p.name in skip:
+            continue
+        files.append(p)
+    return files
+
+
+def _iter_daily_session_files(daily_dir: Path) -> list[Path]:
+    """System auto-saved sessions under daily/YYYY-MM-DD/."""
+    if not daily_dir.exists():
+        return []
+    files: list[Path] = []
+    for day_dir in sorted(daily_dir.iterdir(), reverse=True):
+        if not day_dir.is_dir():
+            continue
+        files.extend(sorted(day_dir.glob("session_*.json"), reverse=True))
+    return files
+
+
+def _session_date_and_sort_key(path: Path) -> tuple[str, str]:
+    """Return (YYYY-MM-DD, sort_key) for grouping/ordering a session file."""
+    date_label = ""
+    sort_key = ""
+    try:
+        meta = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        saved_at = (meta.get("saved_at") or "").strip()
+        if len(saved_at) >= 10:
+            date_label = saved_at[:10]
+            sort_key = saved_at
+    except Exception:
+        pass
+    if not date_label:
+        # session_YYYYMMDD_HHMMSS_sid.json
+        name = path.stem
+        if name.startswith("session_") and len(name) >= 16:
+            part = name[8:16]
+            if part.isdigit():
+                date_label = f"{part[:4]}-{part[4:6]}-{part[6:8]}"
+                sort_key = name
+    if not date_label:
+        try:
+            dt = datetime.fromtimestamp(path.stat().st_mtime)
+            date_label = dt.strftime("%Y-%m-%d")
+            sort_key = dt.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            date_label = "unknown"
+            sort_key = path.name
+    if not sort_key:
+        sort_key = path.name
+    return date_label, sort_key
+
+
+def _group_session_files_by_day(
+    files: list[Path],
+    per_day_show: int = 7,
+) -> list[tuple[str, list[Path], int]]:
+    """Group session files by day (newest day first). Returns (label, shown, hidden)."""
+    from collections import defaultdict
+
+    by_day: dict[str, list[tuple[str, Path]]] = defaultdict(list)
+    for p in files:
+        date_label, sort_key = _session_date_and_sort_key(p)
+        by_day[date_label].append((sort_key, p))
+
+    days: list[tuple[str, list[Path], int]] = []
+    for date_label in sorted(by_day.keys(), reverse=True):
+        items = sorted(by_day[date_label], key=lambda x: x[0], reverse=True)
+        paths = [p for _, p in items]
+        shown = paths[:per_day_show]
+        hidden = max(0, len(paths) - per_day_show)
+        days.append((date_label, shown, hidden))
+    return days
+
+
+def _format_session_menu_label(path: Path) -> str:
+    """Human label for a session entry in the /load menu."""
+    name = path.name
+    try:
+        meta = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        saved_at = (meta.get("saved_at", "") or "")
+        time_part = saved_at[11:19] if len(saved_at) >= 19 else (saved_at[-8:] if saved_at else "")
+        sid = meta.get("session_id", "")
+        turns = meta.get("turn_count", "?")
+        # Prefer a friendly name for explicit /save names (not session_*.json)
+        if not name.startswith("session_") or name.count("_") < 2:
+            display = path.stem
+        else:
+            display = time_part or name
+        bits = []
+        if display:
+            bits.append(display)
+        if sid:
+            bits.append(f"id:{sid}")
+        bits.append(f"turns:{turns}")
+        if time_part and display != time_part and not name.startswith("session_"):
+            bits.insert(1, time_part)
+        return "  ".join(bits)
+    except Exception:
+        return name
+
+
+def _build_load_days(source: str = "user") -> list[tuple[str, list[Path], int]]:
+    """Build the day-grouped menu source for /load.
+
+    source:
+      - "user"  → SESSIONS_DIR root (explicit /save)  [default]
+      - "daily" → daily/YYYY-MM-DD auto-saves
+    """
     from config import SESSIONS_DIR, DAILY_DIR
 
+    PER_DAY_SHOW = 7
+    if source == "daily":
+        files = _iter_daily_session_files(DAILY_DIR)
+    else:
+        files = _iter_user_session_files(SESSIONS_DIR)
+    return _group_session_files_by_day(files, per_day_show=PER_DAY_SHOW)
+
+
+def cmd_load(args: str, state, config) -> bool:
+    """Load a session. Default lists explicit ``/save`` files under SESSIONS_DIR.
+
+    System auto-saves live in daily/ and are intentionally NOT the default
+    listing (that was drowning real user saves). Use ``/load daily`` for those,
+    ``/resume`` for session_latest, or pass a filename/path directly.
+    """
+    from config import SESSIONS_DIR, DAILY_DIR
+
+    raw_args = args.strip()
     path = None
-    if not args.strip():
-        # Group sessions by day (newest day first). Each day shows at most
-        # PER_DAY_SHOW sessions (newest first); the rest are kept in `extras`
-        # and surfaced only if the user asks for that day's full list.
-        PER_DAY_SHOW = 7
-        days: list[tuple[str, list[Path], int]] = []  # (date_label, shown, hidden_count)
-        if DAILY_DIR.exists():
-            for day_dir in sorted(DAILY_DIR.iterdir(), reverse=True):
-                if not day_dir.is_dir():
-                    continue
-                all_in_day = sorted(day_dir.glob("session_*.json"), reverse=True)
-                if not all_in_day:
-                    continue
-                shown = all_in_day[:PER_DAY_SHOW]
-                hidden = max(0, len(all_in_day) - PER_DAY_SHOW)
-                days.append((day_dir.name, shown, hidden))
+    source = "user"
+    # ``/load daily`` → browse system auto-saves; anything else stays user saves
+    # or a direct filename/wildcard.
+    interactive = False
+    fname = raw_args
+    if not raw_args:
+        interactive = True
+    elif raw_args.lower() in ("daily", "--daily", "auto", "--auto"):
+        interactive = True
+        source = "daily"
+        fname = ""
+    elif raw_args.lower() in ("user", "--user", "saved", "--saved"):
+        interactive = True
+        source = "user"
+        fname = ""
+
+    if interactive:
+        days = _build_load_days(source=source)
 
         if not days:
-            info("No saved sessions found.")
+            if source == "daily":
+                info("No auto-saved (daily) sessions found.")
+                info("Tip: /load lists your explicit /save sessions by default.")
+            else:
+                info("No saved sessions found in sessions/ (from /save).")
+                info("Tip: /save <name> to keep a session · /load daily for auto-saves · /resume for latest")
             return True
 
         # ── Render menu (day-indexed, session-indexed within day) ───────
-        header = clr("  Select session(s) — syntax: *<day>*<session>, comma-separated", "cyan", "bold")
+        src_label = "auto-saves (daily/)" if source == "daily" else "your /save sessions"
+        header = clr(f"  Select session(s) — {src_label}  ·  syntax: *<day>*<session>", "cyan", "bold")
         print(header)
         print(clr("  Example: *1*3        → day 1, session 3", "dim"))
         print(clr("           *1*3,*2*7   → load both, merged in that order", "dim"))
+        if source == "user":
+            print(clr("  Also:    /load daily  → system auto-saves · /resume → latest", "dim"))
+        else:
+            print(clr("  Also:    /load        → your explicit /save sessions", "dim"))
         menu_buf = header
         for di, (date_label, shown, hidden) in enumerate(days, 1):
             day_hdr = f"\n  Day {di}  ── {date_label} ──"
             print(clr(day_hdr, "yellow", "bold"))
             menu_buf += "\n" + clr(day_hdr, "yellow", "bold")
             for si, s in enumerate(shown, 1):
-                label = s.name
-                try:
-                    meta     = json.loads(s.read_text(encoding="utf-8", errors="replace"))
-                    saved_at = (meta.get("saved_at", "") or "")[-8:]
-                    sid      = meta.get("session_id", "")
-                    turns    = meta.get("turn_count", "?")
-                    label    = f"{saved_at}  id:{sid}  turns:{turns}"
-                except Exception:
-                    pass
+                label = _format_session_menu_label(s)
                 line = "   " + clr(f"*{di}*{si}", "green") + "  " + label
                 print(line)
                 menu_buf += "\n" + line
@@ -2141,7 +2287,24 @@ def cmd_load(args: str, state, config) -> bool:
             return True
 
     if not path:
-        fname = args.strip()
+        # fname still holds the original args when not interactive
+        if not fname:
+            fname = raw_args
+        # Strip optional source prefix: /load daily *1*1
+        _src_for_wc = "user"
+        _low = fname.lower()
+        for prefix, src in (
+            ("daily ", "daily"),
+            ("--daily ", "daily"),
+            ("auto ", "daily"),
+            ("user ", "user"),
+            ("--user ", "user"),
+            ("saved ", "user"),
+        ):
+            if _low.startswith(prefix):
+                _src_for_wc = src
+                fname = fname[len(prefix):].strip()
+                break
 
         # ── Wildcard syntax handler (e.g. /load *1*1 or /load *1*1,*2*3) ──
         # Before treating the input as a literal filename, see if it's the
@@ -2152,30 +2315,22 @@ def cmd_load(args: str, state, config) -> bool:
         _wildcard_re = _re.compile(r"^\*(\d+)\*(\d+)$")
         _wc_tokens = [p.strip() for p in fname.split(",") if p.strip()]
         if _wc_tokens and all(_wildcard_re.match(p) for p in _wc_tokens):
-            # Build the same day list the menu builds.
-            _PER_DAY_SHOW = 7
-            _days: list[tuple[str, list[Path]]] = []
-            if DAILY_DIR.exists():
-                for _d in sorted(DAILY_DIR.iterdir(), reverse=True):
-                    if not _d.is_dir():
-                        continue
-                    _all = sorted(_d.glob("session_*.json"), reverse=True)
-                    if _all:
-                        _days.append((_d.name, _all[:_PER_DAY_SHOW]))
-            if not _days:
-                err("No saved sessions found.")
+            _days = _build_load_days(source=_src_for_wc)
+            # Drop hidden_count from tuples for indexing parity
+            _days_shown: list[tuple[str, list[Path]]] = [(lab, shown) for lab, shown, _h in _days]
+            if not _days_shown:
+                err("No saved sessions found." if _src_for_wc == "user" else "No auto-saved sessions found.")
                 return True
 
             _picked: list[Path] = []
             for _t in _wc_tokens:
                 _m = _wildcard_re.match(_t)
-                if _m is None:
-                    continue
+                assert _m is not None  # pre-filtered by all(...match...)
                 _di, _si = int(_m.group(1)), int(_m.group(2))
-                if _di < 1 or _di > len(_days):
-                    err(f"Day {_di} out of range (valid: 1-{len(_days)})")
+                if _di < 1 or _di > len(_days_shown):
+                    err(f"Day {_di} out of range (valid: 1-{len(_days_shown)})")
                     return True
-                _shown = _days[_di - 1][1]
+                _shown = _days_shown[_di - 1][1]
                 if _si < 1 or _si > len(_shown):
                     err(f"Session {_si} out of range for day {_di} (valid: 1-{len(_shown)})")
                     return True
@@ -2205,6 +2360,7 @@ def cmd_load(args: str, state, config) -> bool:
             # Legacy: treat as a literal filename (full path or basename).
             path = Path(fname) if "/" in fname or "\\" in fname else SESSIONS_DIR / fname
             if not path.exists() and ("/" not in fname and "\\" not in fname):
+                # Prefer root (user /save); fall back to daily/ auto-saves
                 for alt in [*(d / fname for d in DAILY_DIR.iterdir()
                               if DAILY_DIR.exists() and d.is_dir())]:
                     if alt.exists():
@@ -2212,7 +2368,7 @@ def cmd_load(args: str, state, config) -> bool:
                         break
             if not path.exists():
                 err(f"File not found: {path}")
-                info("Tip: also accepts wildcard syntax like `/load *1*1` (day 1, session 1)")
+                info("Tip: /load lists your /save sessions · /load daily for auto-saves · /load *1*1")
                 return True
 
     data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
@@ -2224,6 +2380,7 @@ def cmd_load(args: str, state, config) -> bool:
     state.total_cache_creation_tokens = data.get("total_cache_creation_tokens", 0)
     ok(f"Session loaded from {path} ({len(state.messages)} messages)")
     return True
+
 
 def cmd_resume(args: str, state, config) -> bool:
     from config import SESSIONS_DIR

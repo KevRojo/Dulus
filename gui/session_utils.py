@@ -59,19 +59,31 @@ def _read_session_meta(path: Path) -> dict | None:
         return None
 
 
-def scan_sessions() -> list[dict]:
-    """Scan daily session directories and return sorted list of metadata.
+def scan_sessions(include_daily: bool = False) -> list[dict]:
+    """Scan user-saved sessions and return sorted list of metadata.
 
-    Single source of truth for listing: only daily/ folder is scanned.
-    Other locations (root sessions/, checkpoints) continue to exist for
-    internal use but are not listed to avoid duplicates.
+    Default source of truth: SESSIONS_DIR root — the files written by explicit
+    ``/save`` (and equivalent GUI saves). System auto-saves under daily/ are
+    NOT listed by default (they drown real user saves); pass
+    ``include_daily=True`` only when the UI explicitly wants auto-saves too.
     """
     sessions: list[dict] = []
     seen: set[str] = set()
     files: list[Path] = []
+    skip = {"session_latest.json", "history.json"}
 
-    # Daily sessions only (newest first)
-    if DAILY_DIR.exists():
+    # 1. User /save sessions (SESSIONS_DIR root) — primary
+    if SESSIONS_DIR.exists():
+        root_files = [
+            p for p in SESSIONS_DIR.iterdir()
+            if p.is_file() and p.suffix.lower() == ".json" and p.name not in skip
+        ]
+        # Newest mtime first within root
+        root_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        files.extend(root_files)
+
+    # 2. Optional daily/ auto-saves
+    if include_daily and DAILY_DIR.exists():
         for day_dir in sorted(DAILY_DIR.iterdir(), reverse=True):
             if day_dir.is_dir():
                 files.extend(sorted(day_dir.glob("session_*.json"), reverse=True))
