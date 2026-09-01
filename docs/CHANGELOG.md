@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.6] - 2026-08-31
+
+### Fixed
+- **WebChat CONFIG None guard**: `CONFIG` is checked before `.pop(...)` so pyright/static quality stays clean when config is unset
+- **Background tasks on Windows**: worker launch no longer goes through bash-quoted `python -c`; Windows-safe `_worker.py` path keeps win-3.13 CI stable
+
+### Tests
+- Quality CI green on Ubuntu + Windows · Python 3.11 + 3.13 · Types and package green
+
 ## [3.13.5] - 2026-08-31
 
 ### Fixed
