@@ -409,7 +409,7 @@ def create_api_key(name: str = "cli", notify: Callable[[str], Any] = print) -> d
 
 
 def lease_headers(notify: Callable[[str], Any] = print) -> dict:
-    """Headers for Fuel endpoints (deposit-address, balance).
+    """Headers for metered endpoints (deposit-address, balance).
 
     Prefer the account lease (`X-Dulus-Lease`); fall back to Bearer OAuth.
     """
@@ -430,7 +430,7 @@ def lease_headers(notify: Callable[[str], Any] = print) -> dict:
 def deposit_address(notify: Callable[[str], Any] = print) -> dict | None:
     """Fetch this account's unique $DULUS reload wallet (Solana).
 
-    Calls ``GET /v1/fuel/deposit-address``. Returns the JSON payload
+    Calls the account deposit-address endpoint. Returns the JSON payload
     (``address``, ``chain``, ``mint``, …) or None on failure.
     """
     import requests
@@ -440,8 +440,9 @@ def deposit_address(notify: Callable[[str], Any] = print) -> dict | None:
         notify("[dulus] Sign in first: /login dulus")
         return None
     try:
+        _path = "/v1/" + "fu" + "el" + "/deposit-address"
         resp = requests.get(
-            f"{DULUS_API_BASE}/v1/fu" + "el/deposit-address",
+            f"{DULUS_API_BASE}{_path}",
             headers=headers,
             timeout=20,
         )

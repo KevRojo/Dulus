@@ -199,6 +199,7 @@ py-modules = [
     "steer_input",
     "subagent",
     "tmux_tools",
+    "token_budget",
     "tool_registry",
     "tools",
     "tools_background",
