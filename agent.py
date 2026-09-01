@@ -206,6 +206,19 @@ def run(
         except Exception:
             _api_source, _lb_meta = state.messages, {"enabled": False, "truncated": False}
 
+        # Strip GUI/REPL baseline display blobs (soul/gold/welcome). The model
+        # already has them via system prompt; leaving them as role:assistant
+        # made web-history consolidate drop everything before the last
+        # assistant (= the gold blob itself) on first turn.
+        try:
+            from memory import is_baseline_display_message
+            _api_source = [
+                m for m in _api_source
+                if not is_baseline_display_message(m)
+            ]
+        except Exception:
+            pass
+
         # Sanitize message contents before sending to API (surrogate safety)
         _safe_messages = []
         for m in _api_source:

@@ -3570,6 +3570,8 @@ def cmd_mem_palace(args: str, _state, config) -> bool:
     config["mem_palace"] = not config.get("mem_palace", True)
     state_str = "ON" if config["mem_palace"] else "OFF"
     ok(f"MemPalace auto-injection: {state_str}")
+    if not config["mem_palace"]:
+        info("Gold memories (incl. short_memory) still load at session start.")
     save_config(config)
     return True
 
@@ -12227,18 +12229,21 @@ def repl(config: dict, initial_prompt: str | None = None):
         except Exception as e:
             startup_status_msgs.append(clr(f"  ⚠ Schema inject skip: {e}", "yellow"))
 
-    # ── Gold Memories Auto-Load ───────────────────────────────────────────────
-    # Memories marked with `gold: true` (via /memory permanent) are injected
-    # at startup the same way as Soul.
+    # ── Gold Memories Auto-Load (GUI/REPL display copies) ─────────────────────
+    # Model source of truth is build_system_prompt → gold_system_fragment().
+    # These assistant-role copies are for the transcript/GUI only and get
+    # stripped before the provider call (agent.py + lookback). Never gated
+    # by /mem_palace (that toggle is only for per-turn semantic search).
     try:
-        from memory import load_index
-        gold_entries = [e for e in load_index("all") if getattr(e, "gold", False)]
-        for e in gold_entries:
-            state.messages.append({
-                "role": "assistant",
-                "content": f"[Golden Memory Loaded: {e.name}]\n\n{e.content}",
-            })
-            startup_status_msgs.append(clr(f"  🏆 Gold memory loaded: {e.name}", "yellow", "bold"))
+        from memory import gold_context_messages, gold_system_fragment
+        _gold_in_system = bool(gold_system_fragment())
+        for _msg in gold_context_messages():
+            state.messages.append(_msg)
+            _gold_name = _msg["content"].split("]", 1)[0].removeprefix("[Golden Memory Loaded: ")
+            _where = "system+GUI" if _gold_in_system else "GUI only"
+            startup_status_msgs.append(
+                clr(f"  🏆 Gold memory loaded ({_where}): {_gold_name}", "yellow", "bold")
+            )
     except Exception:
         pass
 
@@ -12735,6 +12740,18 @@ def repl(config: dict, initial_prompt: str | None = None):
                                 for _h in _raw_hits:
                                     _mp_log(f"  hit: score={float(_h.get('keyword_score', 0.0)):.3f}  {_h.get('name','?')}", "dim")
                             _kept = [h for h in _raw_hits if float(h.get("keyword_score", 0.0)) >= _MIN_SCORE]
+                            # Skip short_memory/soul — already in system-prompt baseline.
+                            try:
+                                from memory import is_baseline_memory_name
+                                _kept = [
+                                    h for h in _kept
+                                    if not is_baseline_memory_name(h.get("name"))
+                                    and not is_baseline_memory_name(
+                                        (h.get("description") or "").split()[:1][0] if h.get("description") else None
+                                    )
+                                ]
+                            except Exception:
+                                pass
                             # ── Dedup: skip memories already injected earlier in this session.
                             # Key by content hash (not name) because mempalace often returns
                             # generic names like "palace" for every hit in a wing — name-based

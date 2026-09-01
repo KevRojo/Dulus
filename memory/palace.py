@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .store import (
     MemoryEntry,
+    USER_MEMORY_DIR,
     get_memory_dir,
     has_stacked_frontmatter,
     parse_frontmatter,
@@ -265,6 +266,158 @@ def seed_insight_memories() -> bool:
         except Exception:
             continue
     return changed
+
+
+
+# ── Baseline display markers (GUI/REPL transcript only) ─────────────────────
+# These role:assistant blobs are for the human to see in the chat UI. The model
+# source of truth is gold_system_fragment() / soul_system_fragment() in the
+# system prompt. Agent + lookback strip these markers from the API payload.
+GOLD_MARKER = "[Golden Memory Loaded:"
+SOUL_MARKER = "[Identity Essence Loaded:"
+SOUL_RELOAD_MARKER = "[Identity Essence Reloaded:"
+WELCOME_MARKER = "<!-- dulus:welcome -->"
+BASELINE_DISPLAY_MARKERS = (
+    GOLD_MARKER,
+    SOUL_MARKER,
+    SOUL_RELOAD_MARKER,
+    WELCOME_MARKER,
+)
+
+
+def is_baseline_display_message(msg: dict | None) -> bool:
+    """True if *msg* is a GUI/REPL display blob for soul/gold/welcome."""
+    if not isinstance(msg, dict):
+        return False
+    content = msg.get("content") or ""
+    if not isinstance(content, str):
+        return False
+    s = content.lstrip()
+    return any(s.startswith(m) for m in BASELINE_DISPLAY_MARKERS)
+
+
+def is_baseline_memory_name(name: str | None) -> bool:
+    """True for memories that already ride in the system-prompt baseline.
+
+    MemPalace per-turn inject must skip these — re-injecting a truncated
+    ``short_memory`` on top of the full system copy is pure noise.
+    """
+    if not name:
+        return False
+    key = str(name).strip().lower().replace("-", "_").replace(" ", "_")
+    key = key.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0]
+    if key in {"short_memory", "shortmemory", "soul"}:
+        return True
+    if key.startswith("golden_memory") or "short_memory" in key:
+        return True
+    return False
+
+
+def _clamp_body(body: str, max_chars: int) -> str:
+    body = (body or "").strip()
+    if not body or len(body) <= max_chars:
+        return body
+    head = max_chars * 3 // 4
+    return (
+        body[:head]
+        + "\n\n[... gold memory clipped — file is oversized; "
+        "re-curate it with MemorySave ...]\n\n"
+        + body[-(max_chars - head):]
+    )
+
+
+def _iter_gold_entries(max_chars: int = 8000):
+    """Yield (name, body) for every gold memory, short_memory first."""
+    try:
+        ensure_short_memory(force_gold=True)
+    except Exception:
+        pass
+    try:
+        from .store import load_index
+        entries = [e for e in load_index("all") if getattr(e, "gold", False)]
+    except Exception:
+        return
+    def _sort_key(e):
+        name = (getattr(e, "name", "") or "").lower()
+        return (0 if name == "short_memory" else 1, name)
+
+    for entry in sorted(entries, key=_sort_key):
+        body = _clamp_body(getattr(entry, "content", "") or "", max_chars)
+        if not body:
+            continue
+        yield (getattr(entry, "name", "gold") or "gold", body)
+
+
+def gold_system_fragment(max_chars: int = 8000, max_total: int = 12000) -> str:
+    """Gold memories as a stable system-prompt block (model source of truth).
+
+    This is how the model actually *receives* short_memory and other gold
+    entries — not as ``role:assistant`` chat turns (those break web-history
+    consolidate, Anthropic role alternation, and lookback).
+
+    Deliberately NOT gated by ``mem_palace``. Called every turn from
+    ``build_system_prompt`` so edits to short_memory.md show up immediately.
+    """
+    parts: list[str] = []
+    total = 0
+    for name, body in _iter_gold_entries(max_chars=max_chars):
+        block = f"[Golden Memory Loaded: {name}]\n\n{body}"
+        if total and total + len(block) > max_total:
+            break
+        parts.append(block)
+        total += len(block) + 2
+    if not parts:
+        return ""
+    return (
+        "# ── Golden Memory (always-on baseline — NOT gated by /mem_palace) ──\n"
+        "These are curated essentials. Treat short_memory as the live scratchpad "
+        "of where we left off; do not ask the user to re-explain it.\n\n"
+        + "\n\n".join(parts)
+    )
+
+
+def soul_system_fragment(max_chars: int = 8000) -> str:
+    """Soul identity as a system-prompt block (same rationale as gold)."""
+    try:
+        path = USER_MEMORY_DIR / "soul.md"
+        if not path.exists():
+            return ""
+        raw = path.read_text(encoding="utf-8", errors="replace")
+        body = raw
+        if raw.lstrip().startswith("---"):
+            try:
+                from .store import parse_frontmatter
+                _, body = parse_frontmatter(raw)
+            except Exception:
+                body = raw
+        body = _clamp_body(body, max_chars)
+        if not body:
+            return ""
+        return (
+            "# ── Identity Essence (soul) ──\n"
+            f"[Identity Essence Loaded: soul]\n\n{body}"
+        )
+    except Exception:
+        return ""
+
+
+def gold_context_messages(max_chars: int = 8000) -> list[dict[str, str]]:
+    """GUI/REPL *display* copies of gold memories (NOT the model source of truth).
+
+    Kept as ``role:assistant`` so `/api/chat/history` and the desktop GUI can
+    render "🏆 Gold memory loaded" in the transcript. The agent loop strips
+    these markers before the provider call; the real baseline rides in the
+    system prompt via ``gold_system_fragment()``.
+
+    Deliberately NOT gated by the ``mem_palace`` config toggle.
+    """
+    messages: list[dict[str, str]] = []
+    for name, body in _iter_gold_entries(max_chars=max_chars):
+        messages.append({
+            "role": "assistant",
+            "content": f"[Golden Memory Loaded: {name}]\n\n{body}",
+        })
+    return messages
 
 
 def ensure_memory_palace() -> bool:

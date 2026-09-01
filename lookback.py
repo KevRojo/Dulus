@@ -155,6 +155,25 @@ def find_lookback_start(messages: list, turns: int) -> int:
     return start
 
 
+
+def _strip_baseline_display(messages: list) -> list:
+    """Drop soul/gold/welcome GUI display blobs from an API window.
+
+    Those ride in the system prompt now (see memory.gold_system_fragment /
+    soul_system_fragment). Keeping them as role:assistant in the API payload
+    made web-history consolidate treat gold as "last assistant reply".
+    """
+    if not messages:
+        return messages
+    try:
+        from memory import is_baseline_display_message
+    except Exception:
+        return messages
+    out = [m for m in messages if not is_baseline_display_message(m)]
+    # Preserve identity when nothing was stripped (callers/tests rely on it).
+    return messages if len(out) == len(messages) else out
+
+
 def apply_lookback_window(
     messages: list,
     config: dict | None = None,
@@ -166,6 +185,9 @@ def apply_lookback_window(
 
     Full ``messages`` is never mutated. When disabled or small enough, the
     original list is returned (same object) with meta.truncated=False.
+
+    Baseline display blobs (soul/gold/welcome) are always stripped from the
+    returned API window — they live in the system prompt, not chat turns.
     """
     msgs = messages or []
     on = lookback_enabled(config) if enabled is None else bool(enabled)
@@ -186,9 +208,20 @@ def apply_lookback_window(
         "start_index": 0,
         "hidden_messages": 0,
     }
+    def _api_window(window: list, meta: dict[str, Any]) -> tuple[list, dict[str, Any]]:
+        """Strip baseline display blobs and refresh window counts."""
+        cleaned = _strip_baseline_display(window)
+        if cleaned is window:
+            return window, meta
+        meta = dict(meta)
+        meta["window_messages"] = len(cleaned)
+        meta["window_user_turns"] = count_user_turns(cleaned)
+        meta["baseline_stripped"] = len(window) - len(cleaned)
+        return cleaned, meta
+
     if not on or total == 0:
         _clear_anchor(config)
-        return msgs, meta
+        return _api_window(msgs, meta)
 
     # Hysteresis: reuse the previous start (anchor) while its window still
     # holds n..n+slack user turns. The API prefix then stays append-only
@@ -211,7 +244,7 @@ def apply_lookback_window(
 
     if start <= 0:
         _clear_anchor(config)
-        return msgs, meta
+        return _api_window(msgs, meta)
 
     # Cache-aware gate: only truncate when the head we'd hide is meaningfully
     # bigger than the window we'd keep. Otherwise dropping the front busts the
@@ -242,7 +275,7 @@ def apply_lookback_window(
         "window_user_turns": count_user_turns(window),
         "hidden_messages": start,
     })
-    return window, meta
+    return _api_window(window, meta)
 
 
 def lookback_system_note(meta: dict[str, Any]) -> str:
