@@ -2164,6 +2164,33 @@ def execute_tool(
         if not _check(f"Edit notebook {inputs.get('notebook_path', '<unknown>')}"):
             return "Denied: user rejected notebook edit operation"
 
+    # --- Isolate gate (workspace write lock) ---
+    # When /isolate is ON, block mutations outside the frozen workspace root
+    # (+ /add-dir extras). Reads stay unrestricted. Runs AFTER the human
+    # permission prompt so a rejected isolate path never bothers the user.
+    try:
+        from dulus_tools.isolate import check_bash_command, check_write_path, is_isolate_on
+        if is_isolate_on(cfg):
+            if name == "Write":
+                denied = check_write_path(inputs.get("file_path", ""), cfg)
+                if denied:
+                    return denied
+            elif name == "Edit":
+                fp = inputs.get("file_path", inputs.get("filePath", ""))
+                denied = check_write_path(fp, cfg)
+                if denied:
+                    return denied
+            elif name == "NotebookEdit":
+                denied = check_write_path(inputs.get("notebook_path", ""), cfg)
+                if denied:
+                    return denied
+            elif name == "Bash":
+                denied = check_bash_command(inputs.get("command", "") or "", cfg)
+                if denied:
+                    return denied
+    except Exception:
+        pass  # never let isolate plumbing take the process down
+
     return _registry_execute(name, inputs, cfg, max_output=cfg.get("max_tool_output", 2500))
 
 
