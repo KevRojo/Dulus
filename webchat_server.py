@@ -3849,12 +3849,9 @@ restoreRt();
         with _LOCK:
             if STATE:
                 STATE.messages.clear()
-                # Allow next turn to re-seed gold display copies
-                try:
-                    CONFIG.pop("_gold_preloaded", None)
-                except Exception:
-                    pass
             if CONFIG:
+                # Allow next turn to re-seed gold display copies
+                CONFIG.pop("_gold_preloaded", None)
                 CONFIG.pop("_session_id", None)
         return jsonify(ok=True)
 
@@ -4306,13 +4303,11 @@ restoreRt();
                     CONFIG["_session_id"] = sid
                 if STATE:
                     STATE.messages.clear()
-                    # Allow next turn to re-seed gold display copies
-                    try:
-                        CONFIG.pop("_gold_preloaded", None)
-                    except Exception:
-                        pass
                     for m in msgs:
                         STATE.messages.append(m)
+                if CONFIG:
+                    # Allow next turn to re-seed gold display copies
+                    CONFIG.pop("_gold_preloaded", None)
         return jsonify(ok=True)
 
     @app.route("/api/sessions", methods=["GET"])
