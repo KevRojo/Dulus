@@ -64,6 +64,7 @@ Slash commands in REPL:
   /afk       Toggle AFK mode (auto-dismiss questions, auto-approve tools)
   /yolo      Toggle YOLO mode (auto-approve ALL actions without prompts)
   /cwd [path] Show or change working directory
+  /isolate [on|off|status]  Lock Write/Edit/Bash to the current workspace (toggle)
   /memory [query]         Search persistent memories
   /memory list            List all stored memories formatted
   /memory load [n|name]   Inject numbered memory (or multiple: 1,2,3) into context
@@ -1155,6 +1156,7 @@ _HELP_PAGES = [
         ("/model [m]",   "Show or set the active model"),
         ("/config",      "Show config / set key=value"),
         ("/cwd [path]",  "Show or change working directory"),
+        ("/isolate [on|off|status]", "Lock writes to the current workspace (toggle)"),
         ("/copy [file]", "Copy last response (or file) to clipboard"),
         ("/shell [cmd|on|off]", "Shell mode toggle or one-shot command"),
         ("/vim [on|off]", "Toggle VIM keybindings on the input line"),
@@ -1287,6 +1289,7 @@ def _render_toggle_footer(config) -> None:
         ("afk_mode",        False, "/afk",             "AFK mode (auto-approve tools)"),
         ("yolo_mode",       False, "/yolo",            "YOLO mode (auto-approve ALL)"),
         ("rtk_enabled",     True,  "/rtk",             "RTK shell command rewriting"),
+        ("isolate",         False, "/isolate",         "Lock Write/Edit/Bash to current workspace only"),
     ]
     print(clr("  ── Toggles ──", "cyan", "bold"))
     for key, default, cmd, desc in _toggles:
@@ -1306,6 +1309,18 @@ def _render_toggle_footer(config) -> None:
                 if val else
                 "API present-window OFF — full archive sent · /lookback on|N"
             )
+        elif key == "isolate" and val:
+            root = config.get("isolate_root") or ""
+            if root:
+                # Keep the footer one-line; show the leaf workspace name.
+                try:
+                    from pathlib import Path as _P
+                    leaf = _P(root).name or root
+                except Exception:
+                    leaf = root
+                desc = f"Writes locked to workspace `{leaf}` (+ /add-dir)"
+            else:
+                desc = "Writes locked to current workspace (+ /add-dir)"
         print(f"  [{state_str}]  {clr(cmd_label, 'magenta'):<28} {clr(desc, 'dim')}")
 
 
@@ -2674,6 +2689,67 @@ def cmd_rtk(args: str, _state, config) -> bool:
         except Exception:
             pass
     return True
+
+def cmd_isolate(args: str, _state, config) -> bool:
+    """Toggle workspace Isolate — block file mutations outside the current workspace.
+
+    /isolate           toggle
+    /isolate on|off    set explicitly
+    /isolate status    show locked root + extras
+
+    When ON, Write/Edit/NotebookEdit/Bash cannot modify files outside the
+    frozen workspace root (set at toggle-ON). Expand the bubble with /add-dir.
+    Reads outside the workspace stay allowed.
+    """
+    from config import save_config
+    from dulus_tools.isolate import (
+        freeze_isolate_root,
+        is_isolate_on,
+        status_lines,
+    )
+
+    arg = (args or "").strip().lower()
+    sub = arg.split()[0] if arg else ""
+
+    if sub in ("status", "show", "info", "?"):
+        lines_ = status_lines(config)
+        if lines_:
+            ok(lines_[0])
+            for line in lines_[1:]:
+                info(line)
+        return True
+
+    if sub in ("on", "true", "1", "yes"):
+        config["isolate"] = True
+        root = freeze_isolate_root(config)
+        save_config(config)
+        ok(f"Isolate: ON — writes locked to {root}")
+        info("  Write/Edit/Bash outside this root will be denied.")
+        info("  Expand with /add-dir <path> · disable with /isolate off")
+        return True
+
+    if sub in ("off", "false", "0", "no"):
+        config["isolate"] = False
+        # Keep isolate_root so re-enabling without a cwd change reuses the lock,
+        # but don't force it — freeze again on next ON.
+        save_config(config)
+        ok("Isolate: OFF — Dulus can modify files outside the workspace again.")
+        return True
+
+    # bare /isolate → toggle
+    if is_isolate_on(config):
+        config["isolate"] = False
+        save_config(config)
+        ok("Isolate: OFF — Dulus can modify files outside the workspace again.")
+    else:
+        config["isolate"] = True
+        root = freeze_isolate_root(config)
+        save_config(config)
+        ok(f"Isolate: ON — writes locked to {root}")
+        info("  Write/Edit/Bash outside this root will be denied.")
+        info("  Expand with /add-dir <path> · disable with /isolate off")
+    return True
+
 
 def cmd_git(_args: str, _state, config) -> bool:
     from config import save_config
@@ -11808,6 +11884,7 @@ COMMANDS = {
     "brave":       cmd_brave,
     "bocha":       cmd_bocha,
     "rtk":         cmd_rtk,
+    "isolate":     cmd_isolate,
     "image":       cmd_image,
     "img":         cmd_image,
     "video":       cmd_video,
@@ -11946,6 +12023,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "bg":          ("Background Dulus — one detached daemon for CLI + Web + Telegram", ["start", "stop", "kill", "status", "attach"]),
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),
     "rtk":         ("Toggle RTK token-optimized shell rewriting", ["on", "off"]),
+    "isolate":     ("Lock writes to current workspace only", ["on", "off", "status"]),
     "lookback":    ("Lookback: API window = last N user turns", ["on", "off", "status", "50", "150", "250"]),
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
     "tts":         ("Toggle automatic TTS + lang/provider/auto", ["lang", "provider", "voice", "auto"]),

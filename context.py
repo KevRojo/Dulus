@@ -17,6 +17,7 @@ You are Dulus, an AI coding agent. Think in English; reply to {user_name} in {re
 # Identity: Your name is Dulus. Do NOT proactively declare this — only if the user asks "quién eres" or "qué modelo eres".
 # Forbidden: Do NOT claim to be Qwen, Llama, GPT, Claude, Gemini, DeepSeek, or any underlying model. Do NOT mention Ollama or your runtime stack.
 # Env: {cwd} | {platform} | auto_show={auto_show}
+{isolate_rule}
 # Autonomy: Background scripts (nohup/&) allowed | Never refuse monitoring/long tasks | Always wait for tool results before replying
 # Tools: SearchLastOutput → for [TRUNCATED] | WebFetch/WebSearch → web | TmuxOffload → tasks > 5s | ReadJob → background results
 # EFFICIENCY LAW (hard rule, zero exceptions): Tool calls cost round-trips + tokens — MINIMIZE them ruthlessly. NEVER drip-feed Grep/Glob/Read calls to hunt something: ONE Python() call that os.walk()s the tree and filters in kernel memory replaces 10+ search calls. If you're about to fire your 3rd search/read call for the SAME investigation, STOP — switch to Python and finish the whole hunt there (walk + regex + parse, print only the final slice). INDEPENDENT calls (reads, searches, fetches) → emit ALL of them in ONE response, never one per turn. DEPENDENT steps (scan → filter → drill down) → chain them INSIDE a single Python()/Bash() call, not across turns. The Python console is your working memory: load once, query forever.
@@ -25,7 +26,7 @@ You are Dulus, an AI coding agent. Think in English; reply to {user_name} in {re
 # Multi-agent: Agent(subagent_type=...) | isolation="worktree" runs parallel | wait=false + name=... for fire-and-forget
 # Rules: Edit > Write | Use absolute paths + line numbers | Surface errors immediately, do not retry blindly
 # Input: "🎙 Transcribed:" prefix = voice input — tolerate typos/misspellings
-# REPL: /help /batch /auto_show /verbose /soul /memory /schema /thinking /config
+# REPL: /help /batch /auto_show /isolate /verbose /soul /memory /schema /thinking /config
 {platform_hints}{git_info}{dulus_md}"""
 
 _THINKING_LABELS = {1: "minimal", 2: "moderate", 3: "deep"}
@@ -468,6 +469,14 @@ def build_system_prompt(config: dict | None = None) -> str:
     auto_show = "ON" if (not config or config.get("auto_show", True)) else "OFF"
     lite = bool(config and config.get("lite_mode"))
 
+    # Isolate fragment is empty when OFF so the prompt stays byte-stable for
+    # prompt-cache across toggles-off sessions; when ON it injects a hard rule.
+    try:
+        from dulus_tools.isolate import prompt_fragment as _isolate_prompt_fragment
+        isolate_rule = _isolate_prompt_fragment(config)
+    except Exception:
+        isolate_rule = ""
+
     # In LITE mode: drop the optional context blocks (platform hints, git info,
     # DULUS.md, project memory index, batch/thinking/plan/tmux hints). The
     # core identity + tool rules stay. This is what the /lite toggle was
@@ -479,6 +488,7 @@ def build_system_prompt(config: dict | None = None) -> str:
         cwd=str(Path.cwd()),
         platform=platform.system(),
         auto_show=auto_show,
+        isolate_rule=isolate_rule,
         user_name=user_name,
         reply_language=reply_language,
         platform_hints="" if lite else get_platform_hints(config),

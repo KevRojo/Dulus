@@ -170,6 +170,11 @@ DEFAULTS = {
     # via the rtk binary for token-optimized output. Soft-fallback if rtk is
     # missing. Linux/Mac users: bash rtk/install.sh to fetch the binary.
     "rtk_enabled": True,
+    # Workspace Isolate — when ON, Write/Edit/NotebookEdit/Bash cannot modify
+    # files outside the locked workspace root (frozen into isolate_root on
+    # toggle-ON). Expand with /add-dir. OFF by default.
+    "isolate": False,
+    "isolate_root": "",
 }
 
 
