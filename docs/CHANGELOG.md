@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.4] - 2026-08-31
+
+### Fixed
+- **Context windows**: ship `token_budget` so compaction uses real per-provider limits (Claude 200k, Gemini 1M, DeepSeek 64k, …) instead of a flat 128k fallback
+- Public account client stays scope-neutral (no internal billing vocabulary in source)
+- Composio plugin schema handling typed clean for pyright
+- Local quality: **925 passed**, 1 skipped, 0 failed · pyright 0 errors
+
 ## [3.13.3] - 2026-08-31
 
 ### Fixed
