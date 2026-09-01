@@ -395,7 +395,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.13.6"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.13.7"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -1659,12 +1659,12 @@ def _theme_accent(config: dict):
 
 
 def _print_login_nag(config: dict) -> None:
-    """Freeware-style boot nudge shown when no Dulus account is signed in.
+    """Boot nudge: /fuel + OpenAI-compatible endpoint + live drops.
 
-    Invites the user to `/login dulus` — which unlocks the Fuel-metered Dulus
-    router (12 models on $DULUS). This is NOT a wall: local and web-session
-    models keep working without it; the router is gated server-side regardless.
-    Best-effort — never breaks boot.
+    No premium / binary / GUI pitch — public stays free. Points people at
+    `/fuel`, the OpenAI-compatible control plane, and today's model drop.
+    Best-effort — never breaks boot. Still skips when already signed in
+    (they already know the path).
     """
     try:
         import dulus_account
@@ -1672,31 +1672,28 @@ def _print_login_nag(config: dict) -> None:
         if store.get("access_token") and not dulus_account._token_expired(store):
             return  # signed in — no nag
     except Exception:
-        pass  # can't tell → show it (nudge toward the account)
+        pass  # can't tell → show it
     try:
         accent = _theme_accent(config) or "cyan"
     except Exception:
         accent = "cyan"
     try:
-        # Import gradient effect for URL
         from cli_animations.ansi import gradient_text, ORANGE, CYAN
-        # Create gradient URL
         dx_url = "https://tinyurl.com/DulusDexScreener"
         styled_dx_url = gradient_text(dx_url, ORANGE, CYAN)
-        
-        print(clr("  Dulus free - one step left: claim your free account.", accent))
-        print("     Run " + clr("/login dulus", "cyan", "bold")
-              + " for your AI username + the Dulus router (12 models on "
-              + clr("$DULUS", accent) + ").")
-        print("     Fuel is LIVE - buy " + clr("$DULUS", accent)
-              + " now and run " + clr("dulus-a-9b", "cyan") + ", "
-              + clr("dulus-b-27b", "cyan") + ", " + clr("dulus-x-397b", "cyan")
-              + " + the uncensored " + clr("dulus-f", "cyan") + ".")
-        print(clr("     Local & web models keep working without it.", "cyan"))
-        print()
-        print(clr("  Trial time! Go to https://dulus.ai/ and download the install binary", "green"))
-        print(clr("  according to your OS. Log in and use the Dulus GUI which brings", "green"))
-        print(clr("  2,000 MCPS + 60,000 skills!", "green"))
+        api_url = gradient_text("https://control.dulus.ai/v1", ORANGE, CYAN)
+
+        # Fuel + OpenAI-compatible + today's uncensored drop. No premium pitch.
+        print(clr("  ⛽ Fuel is LIVE — buy $DULUS, load Fuel, run the router.", accent))
+        print("     " + clr("/login dulus", "cyan", "bold")
+              + "  → free account  ·  "
+              + clr("/fuel", "cyan", "bold")
+              + "  → balance + reload QR (Phantom/Solflare)")
+        print("     OpenAI-compatible endpoint → " + api_url)
+        print("     " + clr("TODAY", "yellow", "bold")
+              + ": " + clr("Qwen UNCENSORED", "cyan", "bold")
+              + " drops on our endpoint. Stock Fuel now.")
+        print(clr("     Local & web models keep working without it.", "dim"))
         print()
         print("  Buy $DULUS now:")
         print(f"  {styled_dx_url}")
@@ -3895,6 +3892,238 @@ def _launch_harvest_browser(p, pw_profile, headless):
     return p.chromium.launch_persistent_context(**common)
 
 
+
+def _seed_google_consent_cookies(context) -> None:
+    """Pre-seed Google CONSENT/SOCS cookies so EEA walls often never appear.
+
+    Must run on the browser context BEFORE the first navigation to
+    gemini.google.com. Safe no-op if the context rejects the cookies.
+    """
+    try:
+        seed = []
+        for domain in (".google.com", ".gemini.google.com", ".youtube.com"):
+            seed.append({
+                "name": "CONSENT", "value": "YES+cb.20210328-17-p0.en+FX+710",
+                "domain": domain, "path": "/",
+            })
+            seed.append({
+                "name": "SOCS",
+                "value": "CAESHAgBEhJnd3NfMjAyNTA4MzEtMF9SQzIaAmVuIAEaBgiA_LWmBg",
+                "domain": domain, "path": "/",
+            })
+        context.add_cookies(seed)
+    except Exception:
+        pass
+
+
+def _dismiss_eu_privacy_gates(page, log=None) -> bool:
+    """Click through EU/GDPR consent walls that block Gemini on headless EU IPs.
+
+    Google (and gemini.google.com) show a "Before you continue" / cookie consent
+    dialog for EEA users. On a headless OVH/Hetzner/etc box there is no human to
+    press Accept — the chat composer never mounts, and the intercept times out.
+
+    Strategy (best-effort, multi-locale, multi-frame):
+      1. Seed CONSENT cookies so some Google properties skip the wall.
+      2. Click known Accept selectors on the main page + every consent iframe.
+      3. JS sweep: any button whose label matches Accept/Aceptar/Tout accepter/…
+    Returns True if something was clicked or cookies were seeded.
+    """
+    def _log(msg: str) -> None:
+        if log:
+            try:
+                log(msg)
+            except Exception:
+                pass
+
+    clicked = False
+
+    # ── 1) Seed consent cookies (domain-wide) ──────────────────────────────
+    # CONSENT=YES+… is the classic "already accepted" signal Google still
+    # honours on many properties. SOCS is the newer companion cookie; a
+    # permissive value stops the SOCS interstitial on recent Google UIs.
+    try:
+        ctx = page.context
+        seed = []
+        for domain in (".google.com", ".gemini.google.com", ".youtube.com"):
+            seed.append({
+                "name": "CONSENT", "value": "YES+cb.20210328-17-p0.en+FX+710",
+                "domain": domain, "path": "/",
+            })
+            seed.append({
+                "name": "SOCS",
+                "value": "CAESHAgBEhJnd3NfMjAyNTA4MzEtMF9SQzIaAmVuIAEaBgiA_LWmBg",
+                "domain": domain, "path": "/",
+            })
+        ctx.add_cookies(seed)
+        clicked = True  # cookies count as progress even if UI still shows
+    except Exception:
+        pass
+
+    # Labels Google actually paints on the Accept button across EEA locales.
+    # Keep these short + case-insensitive; we match as substring on button text.
+    _ACCEPT_LABELS = (
+        "accept all", "i agree", "agree", "accept", "got it", "continue",
+        "aceptar todo", "acepto", "aceptar", "de acuerdo", "continuar",
+        "tout accepter", "j'accepte", "accepter", "tout autoriser",
+        "alle akzeptieren", "ich stimme zu", "akzeptieren", "zustimmen",
+        "accetta tutto", "accetto", "accetta",
+        "aceitar tudo", "aceito", "aceitar",
+        "alles accepteren", "akkoord",
+        "zaakceptuj wszystko", "przyjmuję",
+        "přijmout vše", "přijmout",
+        "acceptați tot", "accept all cookies",
+        "alle ablehnen",  # never — we only click accept-side below
+    )
+    # Only the ACCEPT side — never "Reject all" / "Reject".
+    _ACCEPT_ONLY = tuple(
+        t for t in _ACCEPT_LABELS
+        if not t.startswith("alle ablehnen") and "reject" not in t and "ablehnen" not in t
+        and "rechazar" not in t and "refuser" not in t
+    )
+
+    _CSS_SELECTORS = (
+        "#L2AGLb",                          # classic Google "I agree"
+        "button#L2AGLb",
+        "button[aria-label*='Accept' i]",
+        "button[aria-label*='Aceptar' i]",
+        "button[aria-label*='Agree' i]",
+        "button[aria-label*='Akzeptieren' i]",
+        "button[aria-label*='Accetta' i]",
+        "button[aria-label*='Accepter' i]",
+        "form[action*='consent'] button",
+        "div[role='dialog'] button",
+        "[data-testid='accept-button']",
+        "button.tHlp3d",                    # Google consent CSS class (varies)
+    )
+
+    def _try_click_in(target) -> bool:
+        """Click Accept inside a Page or Frame. Returns True on success."""
+        # CSS selectors first (fast path)
+        for sel in _CSS_SELECTORS:
+            try:
+                loc = target.locator(sel).first
+                if loc.count() > 0 and loc.is_visible(timeout=400):
+                    txt = ""
+                    try:
+                        txt = (loc.inner_text(timeout=300) or "").strip().lower()
+                    except Exception:
+                        pass
+                    # Skip obvious Reject buttons if a selector was too broad
+                    if any(bad in txt for bad in ("reject", "rechazar", "refuser", "ablehnen", "rifiuta", "recusar")):
+                        continue
+                    loc.click(timeout=2000)
+                    return True
+            except Exception:
+                continue
+
+        # Text / aria-label sweep via JS (covers locale variants + shadow-ish UIs)
+        try:
+            labels = list(_ACCEPT_ONLY)
+            hit = target.evaluate(
+                r"""(labels) => {
+                    const bad = /reject|rechazar|refuser|ablehnen|rifiuta|recusar|nie\s+akcept/i;
+                    const nodes = [
+                      ...document.querySelectorAll('button, [role="button"], input[type="submit"], input[type="button"]')
+                    ];
+                    for (const el of nodes) {
+                      const t = (
+                        (el.innerText || el.textContent || el.value || '') + ' ' +
+                        (el.getAttribute('aria-label') || '') + ' ' +
+                        (el.getAttribute('data-mdc-dialog-action') || '')
+                      ).replace(/\s+/g, ' ').trim().toLowerCase();
+                      if (!t || bad.test(t)) continue;
+                      for (const lab of labels) {
+                        if (t === lab || t.includes(lab)) {
+                          el.click();
+                          return t.slice(0, 60);
+                        }
+                      }
+                    }
+                    const el = document.querySelector('#L2AGLb');
+                    if (el) { el.click(); return 'L2AGLb'; }
+                    return null;
+                }""",
+                labels,
+            )
+            if hit:
+                return True
+        except Exception:
+            pass
+        return False
+
+    # ── 2) Main page + consent iframes, a few rounds (dialog can re-paint) ──
+    for round_i in range(4):
+        try:
+            page.wait_for_timeout(600 if round_i == 0 else 900)
+        except Exception:
+            pass
+
+        # Main document
+        if _try_click_in(page):
+            clicked = True
+            _log(f"  EU consent dismissed (page, round {round_i + 1})")
+            try:
+                page.wait_for_timeout(800)
+            except Exception:
+                pass
+
+        # Iframes (consent.google.com often lives here)
+        try:
+            frames = list(page.frames)
+        except Exception:
+            frames = []
+        for fr in frames:
+            try:
+                fu = (fr.url or "").lower()
+            except Exception:
+                fu = ""
+            # Always try consent frames; also try unnamed frames on first rounds
+            if "consent" in fu or "accounts.google" in fu or round_i == 0:
+                if _try_click_in(fr):
+                    clicked = True
+                    _log(f"  EU consent dismissed (iframe, round {round_i + 1})")
+                    try:
+                        page.wait_for_timeout(800)
+                    except Exception:
+                        pass
+
+        # If we landed ON consent.google.com as top-level, Accept then wait for redirect back
+        try:
+            u = (page.url or "").lower()
+        except Exception:
+            u = ""
+        if "consent.google" in u or "consent.youtube" in u:
+            if _try_click_in(page):
+                clicked = True
+                _log("  EU consent page accepted — waiting for redirect...")
+                try:
+                    page.wait_for_url("**gemini.google.com**", timeout=15000)
+                except Exception:
+                    try:
+                        page.wait_for_timeout(2000)
+                    except Exception:
+                        pass
+
+        # Stop early once the Gemini composer is reachable (consent is gone)
+        try:
+            for sel in (
+                "rich-textarea .ql-editor",
+                "div.ql-editor[contenteditable='true']",
+                "div[contenteditable='true']",
+                "textarea",
+            ):
+                loc = page.locator(sel).first
+                if loc.count() > 0 and loc.is_visible(timeout=300):
+                    return True
+        except Exception:
+            pass
+
+    if clicked:
+        _log("  EU privacy gates handled (cookies and/or Accept click)")
+    return clicked
+
+
 def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
     """Harvest fresh session data from gemini.google.com using Playwright.
 
@@ -3934,6 +4163,10 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
             browser = _launch_harvest_browser(p, pw_profile, headless)
 
             page = browser.pages[0] if browser.pages else browser.new_page()
+            try:
+                _seed_google_consent_cookies(page.context)
+            except Exception:
+                pass
 
             intercepted = []
 
@@ -3961,6 +4194,14 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
                 page.goto("https://gemini.google.com/app", wait_until="domcontentloaded", timeout=60000)
             except Exception:
                 pass
+
+            # EU/EEA GDPR wall: without this, headless servers in Europe hang
+            # forever because the Accept button never gets pressed and the
+            # Gemini composer never mounts.
+            try:
+                _dismiss_eu_privacy_gates(page, log=info)
+            except Exception as _cg:
+                warn(f"  Consent dismiss skipped: {_cg}")
 
             # Auto-send "DULUS" so headless servers / VMs don't need a human in the browser.
             info("Sending 'DULUS' to Gemini chat (headless auto-send)...")
@@ -10172,24 +10413,215 @@ def cmd_update(args: str, state, config) -> bool:
     return True
 
 
-def cmd_news(args: str, state, config) -> bool:
-    """Show the latest news from docs/news.md."""
+def _load_news_entries() -> list[str]:
+    """Parse docs/news.md into ordered dispatch strings (newest first)."""
     news_file = Path(__file__).parent / "docs" / "news.md"
     if not news_file.exists():
-        err("News file not found.")
-        return True
-
+        return []
     try:
         content = news_file.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    entries: list[str] = []
+    buf: list[str] = []
+    for line in content.splitlines():
+        if line.startswith("- "):
+            if buf:
+                entries.append("\n".join(buf).strip())
+            buf = [line]
+        elif buf:
+            if line.startswith("#"):
+                entries.append("\n".join(buf).strip())
+                buf = []
+            else:
+                buf.append(line)
+    if buf:
+        entries.append("\n".join(buf).strip())
+    return entries
+
+
+def _news_strip_md(s: str) -> str:
+    s = s.replace("**", "").replace("__", "")
+    s = s.replace("`", "")
+    s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _news_parse_entry(entry: str) -> tuple[str, str, str, str]:
+    """Return (date, tag, headline, body) from a news bullet."""
+    text = entry[2:].strip() if entry.startswith("- ") else entry.strip()
+    text = text.replace("\n", " ")
+    date, tag, headline, body = "", "", "", text
+    m = re.match(
+        r"^(?P<date>.+?)\s*(?:\(\*\*(?P<tag>.*?)\*\*\)|\((?P<tag2>[^)]+)\))?\s*:\s*(?P<rest>.*)$",
+        text,
+    )
+    if m:
+        date = (m.group("date") or "").strip()
+        tag = (m.group("tag") or m.group("tag2") or "").strip()
+        rest = (m.group("rest") or "").strip()
+        hm = re.match(r"^\*\*(?P<head>.*?)\*\*\s*(?P<body>.*)$", rest)
+        if hm:
+            headline = hm.group("head").strip().rstrip(".")
+            body = hm.group("body").strip()
+        else:
+            parts = re.split(r"(?<=[.!?])\s+", rest, maxsplit=1)
+            headline = parts[0].strip().rstrip(".")
+            body = parts[1].strip() if len(parts) > 1 else ""
+    else:
+        headline = text[:80]
+        body = text[80:]
+    return (
+        _news_strip_md(date),
+        _news_strip_md(tag),
+        _news_strip_md(headline),
+        _news_strip_md(body),
+    )
+
+
+def _news_wrap(text: str, width: int = 72, max_chars: int = 360) -> list[str]:
+    text = (text or "").strip()
+    if not text:
+        return []
+    if len(text) > max_chars:
+        cut = text[: max_chars - 1]
+        sp = cut.rfind(" ")
+        if sp > max_chars // 2:
+            cut = cut[:sp]
+        text = cut.rstrip(".,;:") + "…"
+    words = text.split()
+    out: list[str] = []
+    cur = ""
+    for w in words:
+        trial = (cur + " " + w).strip()
+        if len(trial) > width and cur:
+            out.append(cur)
+            cur = w
+        else:
+            cur = trial
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _print_news_broadcast(
+    limit: int = 3,
+    *,
+    boot: bool = False,
+    quiet_footer: bool = False,
+) -> bool:
+    """Radio-format Dulus dispatch board. Used by /news and interactive boot.
+
+    boot=True → slightly tighter body (ON AIR teaser, still 3 tracks).
+    """
+    entries = _load_news_entries()
+    if not entries:
+        if not boot:
+            err("News file not found or empty.")
+        return False
+
+    limit = max(1, min(30, int(limit or 3)))
+    picked = entries[:limit]
+    total = len(entries)
+    # Boot stays punchy; manual /news lets the body breathe a bit more.
+    body_cap = 220 if boot else 420
+    width = 70 if boot else 74
+
+    rule = "━" * 48
+    print()
+    print(clr(f"  ◆{rule}◆", "cyan", "dim"))
+    print(
+        clr("    📡  DULUS RADIO", "cyan", "bold")
+        + clr("   ·  ON AIR", "green", "bold")
+        + clr(f"   ·  {len(picked)}/{total}", "dim")
+    )
+    print(clr(f"  ◆{rule}◆", "cyan", "dim"))
+    print()
+
+    for idx, entry in enumerate(picked, 1):
+        date, tag, headline, body = _news_parse_entry(entry)
+        label = "NOW" if idx == 1 else "WAS"
+        tag_bit = tag if tag else "dispatch"
+        # ♪  NOW  ·  Aug 31  ·  Community — EU & the world
+        meta = f"  ♪  {label}  ·  {date}"
+        if tag_bit:
+            meta += f"  ·  {tag_bit}"
+        print(clr(meta, "green", "bold"))
+        if headline:
+            print(clr(f"     » {headline}", "white", "bold"))
+        for bl in _news_wrap(body, width=width, max_chars=body_cap):
+            print(clr(f"       {bl}", "dim"))
+        if idx < len(picked):
+            print(clr("     · · · · · · · · · · · · · · · · · · · · · ·", "dim"))
+
+    print()
+    print(clr(f"  ◆{rule}◆", "cyan", "dim"))
+    if not quiet_footer:
+        if boot:
+            print(
+                clr("    stay tuned", "dim")
+                + clr("  ·  ", "dim")
+                + clr("/news", "cyan")
+                + clr(" more  ·  humans only  ·  ", "dim")
+                + clr("pip install -U dulus", "cyan")
+                + clr("  🦅", "dim")
+            )
+        else:
+            print(
+                clr("    /news", "cyan")
+                + clr("  ·  ", "dim")
+                + clr("/news 5", "cyan")
+                + clr("  ·  ", "dim")
+                + clr("/news more", "cyan")
+                + clr("  ·  ", "dim")
+                + clr("/news all", "yellow")
+                + clr("  ·  humans only  🦅", "dim")
+            )
+    print()
+    return True
+
+
+def cmd_news(args: str, state, config) -> bool:
+    """Dulus Radio — latest dispatches from docs/news.md.
+
+    /news           — latest 3 (radio console)  [also auto on boot]
+    /news 5         — latest N (1–30)
+    /news all       — full archive (opt-in; can be huge)
+    /news more      — latest 10
+    """
+    raw_arg = (args or "").strip().lower()
+    show_all = raw_arg in ("all", "full", "archive", "everything", "*")
+    if raw_arg in ("more", "long"):
+        limit = 10
+    elif raw_arg.isdigit():
+        limit = max(1, min(30, int(raw_arg)))
+    else:
+        limit = 3  # default radio: top 3 :)
+
+    if show_all:
+        news_file = Path(__file__).parent / "docs" / "news.md"
+        if not news_file.exists():
+            err("News file not found.")
+            return True
+        try:
+            content = news_file.read_text(encoding="utf-8")
+        except Exception as e:
+            err(f"Failed to read news: {e}")
+            return True
         if _RICH:
-            from rich.console import Console
-            from rich.markdown import Markdown
-            c = Console()
-            c.print(Markdown(content))
+            try:
+                from rich.console import Console
+                from rich.markdown import Markdown
+                Console().print(Markdown(content))
+            except Exception:
+                print(content)
         else:
             print(content)
-    except Exception as e:
-        err(f"Failed to read news: {e}")
+        print()
+        print(clr("  (full archive)  ·  /news  for Dulus Radio", "dim"))
+        return True
+
+    _print_news_broadcast(limit, boot=False)
     return True
 
 
@@ -11799,7 +12231,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "quit":        ("Exit (alias for /exit)",             []),
     "resume":      ("Resume last session",                []),
     "update":      ("Self-update Dulus from PyPI",        ["now", "check", "status", "on", "off"]),
-    "news":        ("Show latest project news",           []),
+    "news":        ("Dulus Radio — latest 3 (also auto on boot)", ["all", "more", "5"]),
     "claude_chats": ("List Claude.ai conversations",       ["all"]),
     "gemini_chats": ("Manage Gemini Web conversations",    ["new"]),
     "gemini_harvest": ("Harvest Gemini Web cookies (alias)", []),
@@ -12340,7 +12772,7 @@ def repl(config: dict, initial_prompt: str | None = None):
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⢾⣯⣧⣬⣭⣤⡶⠖⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
         ]
         _DULUS_LOGO.append("     " + clr("v" + VERSION, "green", "bold"))
-        _DULUS_LOGO.append("     " + clr("New: /lang — speak any language or role. Type /news", "cyan", "dim"))
+        _DULUS_LOGO.append("     " + clr("📡 Dulus Radio is ON AIR at boot — EU consent solver live", "cyan", "dim"))
         _DULUS_LOGO.append("                                                                 ")
 
         # Shared Dulus animation language for the short boot beat. Redirected
@@ -12424,10 +12856,18 @@ def repl(config: dict, initial_prompt: str | None = None):
                 print(msg)
         print()
 
-        # Freeware-style login nudge (every interactive boot until signed in).
-        # Not a wall — it just funnels anonymous users toward a free account.
+        # Fuel + OpenAI-compat + live drop nudge (until signed in).
+        # Premium / binary / GUI pitch intentionally removed — public stays free.
         try:
             _print_login_nag(config)
+        except Exception:
+            pass
+
+        # ── Dulus Radio ON AIR (default) ────────────────────────────────────
+        # Don't make humans type /news to hear us. Latest 3 dispatches, radio
+        # format, every interactive boot. /news still works for more/all.
+        try:
+            _print_news_broadcast(3, boot=True)
         except Exception:
             pass
 
