@@ -395,7 +395,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.13.7"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.13.8"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -3893,237 +3893,6 @@ def _launch_harvest_browser(p, pw_profile, headless):
 
 
 
-def _seed_google_consent_cookies(context) -> None:
-    """Pre-seed Google CONSENT/SOCS cookies so EEA walls often never appear.
-
-    Must run on the browser context BEFORE the first navigation to
-    gemini.google.com. Safe no-op if the context rejects the cookies.
-    """
-    try:
-        seed = []
-        for domain in (".google.com", ".gemini.google.com", ".youtube.com"):
-            seed.append({
-                "name": "CONSENT", "value": "YES+cb.20210328-17-p0.en+FX+710",
-                "domain": domain, "path": "/",
-            })
-            seed.append({
-                "name": "SOCS",
-                "value": "CAESHAgBEhJnd3NfMjAyNTA4MzEtMF9SQzIaAmVuIAEaBgiA_LWmBg",
-                "domain": domain, "path": "/",
-            })
-        context.add_cookies(seed)
-    except Exception:
-        pass
-
-
-def _dismiss_eu_privacy_gates(page, log=None) -> bool:
-    """Click through EU/GDPR consent walls that block Gemini on headless EU IPs.
-
-    Google (and gemini.google.com) show a "Before you continue" / cookie consent
-    dialog for EEA users. On a headless OVH/Hetzner/etc box there is no human to
-    press Accept — the chat composer never mounts, and the intercept times out.
-
-    Strategy (best-effort, multi-locale, multi-frame):
-      1. Seed CONSENT cookies so some Google properties skip the wall.
-      2. Click known Accept selectors on the main page + every consent iframe.
-      3. JS sweep: any button whose label matches Accept/Aceptar/Tout accepter/…
-    Returns True if something was clicked or cookies were seeded.
-    """
-    def _log(msg: str) -> None:
-        if log:
-            try:
-                log(msg)
-            except Exception:
-                pass
-
-    clicked = False
-
-    # ── 1) Seed consent cookies (domain-wide) ──────────────────────────────
-    # CONSENT=YES+… is the classic "already accepted" signal Google still
-    # honours on many properties. SOCS is the newer companion cookie; a
-    # permissive value stops the SOCS interstitial on recent Google UIs.
-    try:
-        ctx = page.context
-        seed = []
-        for domain in (".google.com", ".gemini.google.com", ".youtube.com"):
-            seed.append({
-                "name": "CONSENT", "value": "YES+cb.20210328-17-p0.en+FX+710",
-                "domain": domain, "path": "/",
-            })
-            seed.append({
-                "name": "SOCS",
-                "value": "CAESHAgBEhJnd3NfMjAyNTA4MzEtMF9SQzIaAmVuIAEaBgiA_LWmBg",
-                "domain": domain, "path": "/",
-            })
-        ctx.add_cookies(seed)
-        clicked = True  # cookies count as progress even if UI still shows
-    except Exception:
-        pass
-
-    # Labels Google actually paints on the Accept button across EEA locales.
-    # Keep these short + case-insensitive; we match as substring on button text.
-    _ACCEPT_LABELS = (
-        "accept all", "i agree", "agree", "accept", "got it", "continue",
-        "aceptar todo", "acepto", "aceptar", "de acuerdo", "continuar",
-        "tout accepter", "j'accepte", "accepter", "tout autoriser",
-        "alle akzeptieren", "ich stimme zu", "akzeptieren", "zustimmen",
-        "accetta tutto", "accetto", "accetta",
-        "aceitar tudo", "aceito", "aceitar",
-        "alles accepteren", "akkoord",
-        "zaakceptuj wszystko", "przyjmuję",
-        "přijmout vše", "přijmout",
-        "acceptați tot", "accept all cookies",
-        "alle ablehnen",  # never — we only click accept-side below
-    )
-    # Only the ACCEPT side — never "Reject all" / "Reject".
-    _ACCEPT_ONLY = tuple(
-        t for t in _ACCEPT_LABELS
-        if not t.startswith("alle ablehnen") and "reject" not in t and "ablehnen" not in t
-        and "rechazar" not in t and "refuser" not in t
-    )
-
-    _CSS_SELECTORS = (
-        "#L2AGLb",                          # classic Google "I agree"
-        "button#L2AGLb",
-        "button[aria-label*='Accept' i]",
-        "button[aria-label*='Aceptar' i]",
-        "button[aria-label*='Agree' i]",
-        "button[aria-label*='Akzeptieren' i]",
-        "button[aria-label*='Accetta' i]",
-        "button[aria-label*='Accepter' i]",
-        "form[action*='consent'] button",
-        "div[role='dialog'] button",
-        "[data-testid='accept-button']",
-        "button.tHlp3d",                    # Google consent CSS class (varies)
-    )
-
-    def _try_click_in(target) -> bool:
-        """Click Accept inside a Page or Frame. Returns True on success."""
-        # CSS selectors first (fast path)
-        for sel in _CSS_SELECTORS:
-            try:
-                loc = target.locator(sel).first
-                if loc.count() > 0 and loc.is_visible(timeout=400):
-                    txt = ""
-                    try:
-                        txt = (loc.inner_text(timeout=300) or "").strip().lower()
-                    except Exception:
-                        pass
-                    # Skip obvious Reject buttons if a selector was too broad
-                    if any(bad in txt for bad in ("reject", "rechazar", "refuser", "ablehnen", "rifiuta", "recusar")):
-                        continue
-                    loc.click(timeout=2000)
-                    return True
-            except Exception:
-                continue
-
-        # Text / aria-label sweep via JS (covers locale variants + shadow-ish UIs)
-        try:
-            labels = list(_ACCEPT_ONLY)
-            hit = target.evaluate(
-                r"""(labels) => {
-                    const bad = /reject|rechazar|refuser|ablehnen|rifiuta|recusar|nie\s+akcept/i;
-                    const nodes = [
-                      ...document.querySelectorAll('button, [role="button"], input[type="submit"], input[type="button"]')
-                    ];
-                    for (const el of nodes) {
-                      const t = (
-                        (el.innerText || el.textContent || el.value || '') + ' ' +
-                        (el.getAttribute('aria-label') || '') + ' ' +
-                        (el.getAttribute('data-mdc-dialog-action') || '')
-                      ).replace(/\s+/g, ' ').trim().toLowerCase();
-                      if (!t || bad.test(t)) continue;
-                      for (const lab of labels) {
-                        if (t === lab || t.includes(lab)) {
-                          el.click();
-                          return t.slice(0, 60);
-                        }
-                      }
-                    }
-                    const el = document.querySelector('#L2AGLb');
-                    if (el) { el.click(); return 'L2AGLb'; }
-                    return null;
-                }""",
-                labels,
-            )
-            if hit:
-                return True
-        except Exception:
-            pass
-        return False
-
-    # ── 2) Main page + consent iframes, a few rounds (dialog can re-paint) ──
-    for round_i in range(4):
-        try:
-            page.wait_for_timeout(600 if round_i == 0 else 900)
-        except Exception:
-            pass
-
-        # Main document
-        if _try_click_in(page):
-            clicked = True
-            _log(f"  EU consent dismissed (page, round {round_i + 1})")
-            try:
-                page.wait_for_timeout(800)
-            except Exception:
-                pass
-
-        # Iframes (consent.google.com often lives here)
-        try:
-            frames = list(page.frames)
-        except Exception:
-            frames = []
-        for fr in frames:
-            try:
-                fu = (fr.url or "").lower()
-            except Exception:
-                fu = ""
-            # Always try consent frames; also try unnamed frames on first rounds
-            if "consent" in fu or "accounts.google" in fu or round_i == 0:
-                if _try_click_in(fr):
-                    clicked = True
-                    _log(f"  EU consent dismissed (iframe, round {round_i + 1})")
-                    try:
-                        page.wait_for_timeout(800)
-                    except Exception:
-                        pass
-
-        # If we landed ON consent.google.com as top-level, Accept then wait for redirect back
-        try:
-            u = (page.url or "").lower()
-        except Exception:
-            u = ""
-        if "consent.google" in u or "consent.youtube" in u:
-            if _try_click_in(page):
-                clicked = True
-                _log("  EU consent page accepted — waiting for redirect...")
-                try:
-                    page.wait_for_url("**gemini.google.com**", timeout=15000)
-                except Exception:
-                    try:
-                        page.wait_for_timeout(2000)
-                    except Exception:
-                        pass
-
-        # Stop early once the Gemini composer is reachable (consent is gone)
-        try:
-            for sel in (
-                "rich-textarea .ql-editor",
-                "div.ql-editor[contenteditable='true']",
-                "div[contenteditable='true']",
-                "textarea",
-            ):
-                loc = page.locator(sel).first
-                if loc.count() > 0 and loc.is_visible(timeout=300):
-                    return True
-        except Exception:
-            pass
-
-    if clicked:
-        _log("  EU privacy gates handled (cookies and/or Accept click)")
-    return clicked
-
-
 def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
     """Harvest fresh session data from gemini.google.com using Playwright.
 
@@ -4163,10 +3932,6 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
             browser = _launch_harvest_browser(p, pw_profile, headless)
 
             page = browser.pages[0] if browser.pages else browser.new_page()
-            try:
-                _seed_google_consent_cookies(page.context)
-            except Exception:
-                pass
 
             intercepted = []
 
@@ -4194,14 +3959,6 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
                 page.goto("https://gemini.google.com/app", wait_until="domcontentloaded", timeout=60000)
             except Exception:
                 pass
-
-            # EU/EEA GDPR wall: without this, headless servers in Europe hang
-            # forever because the Accept button never gets pressed and the
-            # Gemini composer never mounts.
-            try:
-                _dismiss_eu_privacy_gates(page, log=info)
-            except Exception as _cg:
-                warn(f"  Consent dismiss skipped: {_cg}")
 
             # Auto-send "DULUS" so headless servers / VMs don't need a human in the browser.
             info("Sending 'DULUS' to Gemini chat (headless auto-send)...")
@@ -12772,7 +12529,7 @@ def repl(config: dict, initial_prompt: str | None = None):
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⢾⣯⣧⣬⣭⣤⡶⠖⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
         ]
         _DULUS_LOGO.append("     " + clr("v" + VERSION, "green", "bold"))
-        _DULUS_LOGO.append("     " + clr("📡 Dulus Radio is ON AIR at boot — EU consent solver live", "cyan", "dim"))
+        _DULUS_LOGO.append("     " + clr("📡 Dulus Radio is ON AIR at boot", "cyan", "dim"))
         _DULUS_LOGO.append("                                                                 ")
 
         # Shared Dulus animation language for the short boot beat. Redirected

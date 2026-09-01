@@ -5,6 +5,11 @@ All notable changes to Dulus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.13.8 — 2026-09-01
+
+- **fix(gemini-web):** revert EU consent helpers that broke harvest (composer never mounted / spray-clicked Gemini UI).
+- **docs:** README top nav under first 2 photos; community installs blurb → 100,000+.
+
 ## [Unreleased]
 
 ## [3.13.7] - 2026-09-01
