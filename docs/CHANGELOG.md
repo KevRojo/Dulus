@@ -5,6 +5,16 @@ All notable changes to Dulus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.13.9 — 2026-09-01
+
+### Added
+- **`/isolate [on|off|status]`**: locks Write / Edit / NotebookEdit and Bash mutations (`rm`, `mv`, `cp`, redirects, heredocs, pipes-to-file, etc.) to the frozen workspace root (+ dirs from `/add-dir`). Read-only tools stay free. Pure workspace bubble — no `/temp` escape hatch.
+- Module: `dulus_tools/isolate.py` · wired through `tools.py` execute gate, `dulus.py` slash dispatch, `context.py` system-prompt hint, `config.py` default `isolate: false`.
+- When blocked, Dulus tells you: *"/isolate no me deja trabajar fuera del workspace — escribe `/isolate off` si quieres que te ayude afuera"*.
+
+### Tests
+- Live-verified in tmux: writes outside DENY, writes inside OK; Bash mutations gated the same way.
+
 ## 3.13.8 — 2026-09-01
 
 - **fix(gemini-web):** revert EU consent helpers that broke harvest (composer never mounted / spray-clicked Gemini UI).
