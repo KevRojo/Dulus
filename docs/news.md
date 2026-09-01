@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 31, 2026 (**v3.13.6**): **CI quality locked green.** WebChat guards `CONFIG` before pop (pyright clean) and background workers launch Windows-safe without bash-quoted `python -c` — win-3.13 flake gone. Hotfix patch on top of 3.13.5. `pip install -U dulus`. 🦅
+
 - August 31, 2026 (**v3.13.5**): **🏆 short_memory stopped vanishing.** Gold memories + soul now live in the **system prompt** every turn (always-on — `/mem_palace off` no longer starves them). WebChat seeds gold for the transcript; the agent/lookback strip those display blobs before the provider call so first-turn consolidate can’t eat your context. Second `/compact` no longer wipes the Loopback archive. Engine + WebChat fix — not a desktop-GUI rewrite. `pip install -U dulus`. 🦅
 
 - August 31, 2026 (**v3.13.4**): **Context windows are honest again.** `token_budget` ships so compaction knows Claude is 200k, Gemini is 1M, DeepSeek is 64k — not a flat 128k for everyone. Quality CI: **925 passed**. `pip install -U dulus`. 🦅
