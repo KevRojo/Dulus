@@ -210,7 +210,8 @@ def composio_generate_tool_py(params: dict, config: dict) -> str:
                 arguments={"tool_slugs": [tool_slug], "session_id": session.session_id}
             )
             data = result.data if hasattr(result, "data") else result
-            schemas = data.get("schemas", []) if isinstance(data, dict) else []
+            raw_schemas = data.get("schemas", []) if isinstance(data, dict) else []
+            schemas = list(raw_schemas) if isinstance(raw_schemas, list) else []
             if schemas:
                 schema = schemas[0]
                 path = generate_tool_py(tool_slug, schema, Path(output_dir), user_id=user_id)
@@ -249,10 +250,13 @@ def composio_generate_plugin_tool_py(params: dict, config: dict) -> str:
             arguments={"tool_slugs": tool_slugs, "session_id": session.session_id}
         )
         data = result.data if hasattr(result, "data") else result
-        schemas = data.get("schemas", []) if isinstance(data, dict) else []
+        raw_schemas = data.get("schemas", []) if isinstance(data, dict) else []
+        schemas = list(raw_schemas) if isinstance(raw_schemas, list) else []
 
         tool_defs = []
         for s in schemas:
+            if not isinstance(s, dict):
+                continue
             tool_defs.append({
                 "slug": s.get("slug", s.get("name", "unknown")),
                 "description": s.get("description", ""),

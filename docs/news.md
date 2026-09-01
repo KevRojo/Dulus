@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- August 31, 2026 (**v3.13.4**): **Context windows are honest again.** `token_budget` ships so compaction knows Claude is 200k, Gemini is 1M, DeepSeek is 64k — not a flat 128k for everyone. Quality CI: **925 passed**. `pip install -U dulus`. 🦅
+
 - August 31, 2026 (**v3.13.3**): **`/compact` got serious.** Full archive → disk for Loopback, live context → ~0 with a dense hint card, and **lookback is forced ON** for that session even if it was off — so quality does not fall off a cliff after compact. `pip install -U dulus`. 🦅
 
 
