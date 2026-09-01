@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.7] - 2026-09-01
+
+### Added
+- **EU/GDPR Gemini consent solver**: pre-seed Google `CONSENT` + `SOCS` cookies; multi-locale Accept clicks across main page and consent iframes so headless EEA boxes (OVH/Hetzner/…) reach the chat composer
+- **`/news` Dulus Radio**: live broadcast console — latest 3 by default, `/news N` / `/news more` / `/news all` (archive opt-in); auto-shows on interactive boot
+- **Boot Fuel nudge**: points at `/fuel`, OpenAI-compatible endpoint `https://control.dulus.ai/v1`, and **Qwen UNCENSORED** drop — no premium/binary/GUI pitch
+
+### Changed
+- Public boot nag no longer pitches the install binary / Premium GUI / MCP-skills trial wall
+
 ## [3.13.6] - 2026-08-31
 
 ### Fixed
