@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- September 1, 2026 (**v3.13.9**): **🔒 `/isolate` — workspace bubble, on demand.** Flip `/isolate on` and Write / Edit / NotebookEdit + Bash mutations stay locked to the frozen workspace root (plus anything you added with `/add-dir`). Read-only tools keep flying free. No `/temp` backdoor — pure bubble. Blocked? Dulus tells you straight: write `/isolate off` if you want help outside. `pip install -U dulus`. 🦅
+
 - September 1, 2026 (**v3.13.8**): **Gemini-web harvest unblocked.** Reverted the EU/GDPR consent spray-click helpers (`_dismiss_eu_privacy_gates` / fabricated SOCS seed) that broke composer mount and left harvest hanging. Public `/harvest-gemini` is back to the pre-3.13.7 path. README top nav tightened under the first two photos; community blurb corrected to **100,000+ pip installs**. `pip install -U dulus`. 🦅
 
 - September 1, 2026 (**v3.13.7 — 🔥 TODAY — Qwen UNCENSORED on the endpoint**): **Stock Fuel. Now.** Run `/login dulus`, then `/fuel` for balance + a console QR you can scan with Phantom/Solflare. Our router is **OpenAI-compatible** at `https://control.dulus.ai/v1` — drop it into anything that speaks `/v1/chat/completions`. **Today** we put **Qwen UNCENSORED** on that endpoint. Buy `$DULUS`, load Fuel, go. No premium pitch, no binary wall — the open runtime stays free; Fuel pays for hosted compute. `pip install -U dulus`. 🦅🇩🇴⛽
