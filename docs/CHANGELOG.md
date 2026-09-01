@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.5] - 2026-08-31
+
+### Fixed
+- **Gold / short_memory baseline**: curated gold memories (incl. `short_memory`) and soul now ride in `build_system_prompt` every turn — always-on, **not** gated by `/mem_palace`
+- **First-turn amnesia**: agent + lookback strip GUI/REPL gold/soul/welcome *display* blobs before the provider call, so web-history consolidate no longer treats gold as “last assistant reply” and drops real context
+- **MemPalace dual-path noise**: per-turn inject (CLI + WebChat) skips `short_memory` / soul — already in the system prompt
+- **Second `/compact` archive wipe**: `save_loopback_archive` refuses to shrink; Loopback keeps the full pre-compact history across N compacts
+- **WebChat gold preload**: session seeds gold *display* copies for the transcript; model source of truth is still the system prompt (public GUI stays as-is — this is server/engine, not an Interant GUI port)
+
+### Tests
+- `test_gold_memory_preload` + `test_lookback_compact` (11 passed)
+
 ## [3.13.4] - 2026-08-31
 
 ### Fixed
