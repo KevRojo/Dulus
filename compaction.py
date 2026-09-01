@@ -678,6 +678,13 @@ def save_loopback_archive(messages: list, state=None, config: dict | None = None
     Writes ~/.dulus/loopback_archives/archive_<session>.json and binds
     config["_loopback_archive_path"] + config["_loopback_archive"] (in-memory
     copy) for the Loopback tool. Returns the path or None on failure.
+
+    CRITICAL — second-/Nth-compact guard:
+    A later ``/compact`` runs against an *already slimmed* ``state.messages``.
+    Naively rewriting the archive would overwrite the original full history
+    with the post-compact crumbs. We NEVER shrink a durable archive: if an
+    in-memory or on-disk copy is longer than ``messages``, keep the longer one
+    and only refresh the binding.
     """
     if not messages:
         return None
@@ -685,6 +692,29 @@ def save_loopback_archive(messages: list, state=None, config: dict | None = None
         LOOPBACK_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
         sid = _session_key(state, config)
         path = LOOPBACK_ARCHIVE_DIR / f"archive_{sid}.json"
+
+        # Resolve the longest known full archive for this session.
+        prev: list = []
+        if isinstance(config, dict):
+            live = config.get("_loopback_archive")
+            if isinstance(live, list) and live:
+                prev = live
+        if not prev and path.exists():
+            try:
+                disk = json.loads(path.read_text(encoding="utf-8"))
+                disk_msgs = disk.get("messages") if isinstance(disk, dict) else None
+                if isinstance(disk_msgs, list) and disk_msgs:
+                    prev = disk_msgs
+            except Exception:
+                prev = []
+
+        if prev and len(prev) > len(messages):
+            # Refuse to shrink. Keep the fuller archive as the durable source.
+            if isinstance(config, dict):
+                config["_loopback_archive"] = prev
+                config["_loopback_archive_path"] = str(path)
+            return path
+
         payload = {
             "session_id": sid,
             "timestamp": time.strftime("%Y%m%d_%H%M%S"),

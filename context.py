@@ -442,12 +442,28 @@ def _resolve_reply_language(config: dict | None) -> str:
     return raw
 
 
+
+def _append_baseline_fragments(prompt: str) -> str:
+    """Attach soul + gold system fragments (always-on baseline)."""
+    try:
+        from memory import soul_system_fragment, gold_system_fragment
+        _soul = soul_system_fragment()
+        if _soul:
+            prompt += "\n\n" + _soul
+        _gold = gold_system_fragment()
+        if _gold:
+            prompt += "\n\n" + _gold
+    except Exception:
+        pass
+    return prompt
+
+
 def build_system_prompt(config: dict | None = None) -> str:
     import platform
     model_lower = (config.get("model", "") if config else "").lower()
     is_deepseek_r1 = "deepseek-r1" in model_lower or "deepseek-reasoner" in model_lower
     if is_deepseek_r1 and config and config.get("deep_override", False):
-        return _build_ollama_system_prompt(config)
+        return _append_baseline_fragments(_build_ollama_system_prompt(config))
 
     auto_show = "ON" if (not config or config.get("auto_show", True)) else "OFF"
     lite = bool(config and config.get("lite_mode"))
@@ -470,8 +486,12 @@ def build_system_prompt(config: dict | None = None) -> str:
         dulus_md="" if lite else get_dulus_md(),
     )
 
+    # Soul + Gold baseline ALWAYS (even in lite) — model source of truth.
+    # Display copies in chat are GUI-only and get stripped before the API call.
+    prompt = _append_baseline_fragments(prompt)
+
     if lite:
-        # Bail early — minimal prompt only.
+        # Bail early — minimal prompt only (baseline already attached).
         return prompt
 
     try:

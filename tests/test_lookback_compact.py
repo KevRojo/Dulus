@@ -110,3 +110,56 @@ def test_compact_forces_lookback_even_when_off(tmp_path, monkeypatch):
     config["_state"] = state
     archive = lookback.get_archive_from_config(config)
     assert len(archive) == before_n
+
+
+def test_second_compact_does_not_shrink_loopback_archive(tmp_path, monkeypatch):
+    """Second /compact must NOT overwrite the full archive with slim crumbs.
+
+    Regression for the bug where each compact rewrote archive_<sid>.json with
+    the already-compacted state.messages, wiping the original full history.
+    """
+    monkeypatch.setattr(compaction, "LOOPBACK_ARCHIVE_DIR", tmp_path)
+    monkeypatch.setattr(compaction, "CHECKPOINT_DIR", tmp_path / "ck")
+    (tmp_path / "ck").mkdir()
+
+    full = _fat_history(12)
+    before_n = len(full)
+    state = SimpleNamespace(messages=list(full), session_id="second_compact")
+    config = {
+        "model": "test-model",
+        "lookback": True,
+        "lookback_turns": 20,
+        "session_id": "second_compact",
+    }
+
+    compaction.providers.TextChunk = _FakeText  # type: ignore
+    with patch.object(compaction.providers, "stream", side_effect=_fake_stream), \
+         patch("config.save_config", lambda cfg: None):
+        ok1, info1 = compaction.manual_compact(state, config)
+        assert ok1, info1
+        slim_n = len(state.messages)
+        assert slim_n < before_n // 3
+
+        # Second compact against the already-slim state
+        ok2, info2 = compaction.manual_compact(state, config)
+        # May succeed or say "not enough" — either way archive must stay full
+        _ = (ok2, info2)
+
+    path = Path(config["_loopback_archive_path"])
+    data = json.loads(path.read_text())
+    assert len(data["messages"]) == before_n, (
+        f"second compact shrank archive to {len(data['messages'])} "
+        f"(was {before_n})"
+    )
+    # In-memory binding also stays full
+    assert len(config.get("_loopback_archive") or []) == before_n
+
+    # Direct unit: save_loopback_archive refuses to shrink
+    path2 = compaction.save_loopback_archive(
+        [{"role": "user", "content": "crumb"}],
+        state=state,
+        config=config,
+    )
+    assert path2 is not None
+    data2 = json.loads(Path(path2).read_text())
+    assert len(data2["messages"]) == before_n

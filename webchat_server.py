@@ -352,6 +352,39 @@ def _strip_ansi(text: str) -> str:
     return _ANSI_RE.sub('', text)
 
 
+
+_GOLD_MARKER = "[Golden Memory Loaded:"
+_WELCOME_MARKER = "<!-- dulus:welcome -->"
+
+
+def _preload_gold_memories(state, cfg: dict) -> None:
+    """Seed a session with gold *display* copies for the GUI transcript.
+
+    Model source of truth is ``build_system_prompt`` → ``gold_system_fragment()``.
+    These assistant-role blobs only exist so the GUI can render gold in history;
+    agent.py + lookback strip them before the provider call.
+
+    Deliberately NOT gated by ``mem_palace``.
+    """
+    try:
+        for m in state.messages:
+            if isinstance(m, dict) and str(m.get("content", "")).startswith(_GOLD_MARKER):
+                return
+        token = str(cfg.get("_session_id") or "fresh")
+        if cfg.get("_gold_preloaded") == token:
+            return
+        cfg["_gold_preloaded"] = token
+        from memory import gold_context_messages
+        msgs = gold_context_messages()
+        if not msgs:
+            return
+        with _LOCK:
+            for offset, msg in enumerate(msgs):
+                state.messages.insert(offset, msg)
+    except Exception:
+        pass
+
+
 def _inject_mempalace(user_input: str, config: dict) -> str:
     """Inject relevant memories from MemPalace into the user message.
     Mirrors the logic in dulus.py REPL for consistent behavior.
@@ -394,6 +427,15 @@ def _inject_mempalace(user_input: str, config: dict) -> str:
             _raw_hits = find_relevant_memories(_q, max_results=3)
         _MIN_SCORE = 0.15
         _kept = [h for h in _raw_hits if float(h.get("keyword_score", 0.0)) >= _MIN_SCORE]
+        # Skip short_memory/soul — already in system-prompt baseline.
+        try:
+            from memory import is_baseline_memory_name
+            _kept = [
+                h for h in _kept
+                if not is_baseline_memory_name(h.get("name"))
+            ]
+        except Exception:
+            pass
         # Dedup against session cache
         import hashlib as _hashlib
         def _mp_dedup_key(h):
@@ -540,6 +582,9 @@ def _run_agent_mirror(user_message: str, cancel_check=None) -> Generator:
 
     user_input = _inject_mempalace(user_input, cfg)
 
+    # Gold display copies for GUI transcript (model gets them via system prompt).
+    _preload_gold_memories(state, cfg)
+
     system_prompt = build_system_prompt(cfg)
     cfg.pop("_in_telegram_turn", None)
     cfg["_last_interaction_time"] = time.time()
@@ -549,6 +594,11 @@ def _run_agent_mirror(user_message: str, cancel_check=None) -> Generator:
     if _PENDING_HISTORY:
         with _LOCK:
             state.messages.clear()
+            # Allow next turn to re-seed gold display copies
+            try:
+                CONFIG.pop("_gold_preloaded", None)
+            except Exception:
+                pass
             for m in _PENDING_HISTORY:
                 state.messages.append(m)
             cfg["_session_id"] = _PENDING_SESSION_ID
@@ -3799,6 +3849,11 @@ restoreRt();
         with _LOCK:
             if STATE:
                 STATE.messages.clear()
+                # Allow next turn to re-seed gold display copies
+                try:
+                    CONFIG.pop("_gold_preloaded", None)
+                except Exception:
+                    pass
             if CONFIG:
                 CONFIG.pop("_session_id", None)
         return jsonify(ok=True)
@@ -4251,6 +4306,11 @@ restoreRt();
                     CONFIG["_session_id"] = sid
                 if STATE:
                     STATE.messages.clear()
+                    # Allow next turn to re-seed gold display copies
+                    try:
+                        CONFIG.pop("_gold_preloaded", None)
+                    except Exception:
+                        pass
                     for m in msgs:
                         STATE.messages.append(m)
         return jsonify(ok=True)
