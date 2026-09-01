@@ -513,13 +513,21 @@ class BackgroundTaskManager:
         env["DULUS_BG_TASK"] = "1"
         env["DULUS_BG_TIMEOUT"] = str(timeout_s)
 
-        # Escape single quotes in the command to avoid breaking the wrapper
-        safe_command = command.replace("'", "'\"'\"'")
-        script = f"cd '{cwd}' && {safe_command}"
+        # Write a tiny runner script so cwd/command never pass through shell
+        # quoting (bash `'"'"'` tricks + Python -c single quotes break hard on
+        # Windows paths like C:\Users\... and on echo 'HELLO').
+        runner = task_dir / "_worker.py"
+        runner.write_text(
+            "import os, subprocess, sys\n"
+            f"os.chdir({cwd!r})\n"
+            f"raise SystemExit(subprocess.call({command!r}, shell=True))\n",
+            encoding="utf-8",
+        )
 
+        log_fh = open(task_dir / "output.log", "w", encoding="utf-8")
         kwargs: dict[str, Any] = {
             "stdin": subprocess.DEVNULL,
-            "stdout": open(task_dir / "output.log", "w", encoding="utf-8"),
+            "stdout": log_fh,
             "stderr": subprocess.STDOUT,
             "cwd": cwd,
             "env": env,
@@ -527,13 +535,13 @@ class BackgroundTaskManager:
 
         if os.name != "nt":
             kwargs["start_new_session"] = True
+        else:
+            # Detach from the console so the parent can exit cleanly on CI.
+            create_new = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            kwargs["creationflags"] = create_new
 
         process = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                f"import subprocess, sys; sys.exit(subprocess.call('{script}', shell=True))",
-            ],
+            [sys.executable, str(runner)],
             **kwargs,
         )
         return process.pid
