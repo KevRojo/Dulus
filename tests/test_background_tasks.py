@@ -513,27 +513,44 @@ class TestBackgroundTaskManager:
         assert path.exists()
 
     def test_launch_worker_creates_subprocess(self, tmp_manager: BackgroundTaskManager) -> None:
-        # Actually test subprocess creation (will create a real process)
-        view = tmp_manager.create_bash_task("echo 'HELLO_FROM_TEST'", "test echo")
+        # Actually test subprocess creation (will create a real process).
+        # No single quotes — Windows cmd treats them literally; the worker
+        # runner now uses repr()-safe Python, but keep the command portable.
+        view = tmp_manager.create_bash_task("echo HELLO_FROM_TEST", "test echo")
         assert view.runtime.worker_pid is not None
         assert view.runtime.worker_pid > 0
 
-        # Wait a bit for the process to complete
-        time.sleep(0.5)
-
-        # Check output
-        chunk = tmp_manager.read_output(view.spec.id)
-        assert "HELLO_FROM_TEST" in chunk.text
+        # Poll — CI Windows runners are slower than a fixed 0.5s sleep.
+        deadline = time.time() + 10.0
+        text = ""
+        while time.time() < deadline:
+            chunk = tmp_manager.read_output(view.spec.id)
+            text = chunk.text or ""
+            if "HELLO_FROM_TEST" in text:
+                break
+            time.sleep(0.1)
+        assert "HELLO_FROM_TEST" in text, f"worker output empty/missing marker: {text!r}"
 
     def test_launch_worker_with_cwd(self, tmp_manager: BackgroundTaskManager, tmp_path: Path) -> None:
         subdir = tmp_path / "subdir"
         subdir.mkdir()
 
-        view = tmp_manager.create_bash_task("pwd", "test cwd", cwd=str(subdir))
-        time.sleep(0.5)
-
-        chunk = tmp_manager.read_output(view.spec.id)
-        assert str(subdir) in chunk.text
+        # Portable cwd probe: Python prints the path on every OS (pwd is Unix-only).
+        view = tmp_manager.create_bash_task(
+            f'"{sys.executable}" -c "import os; print(os.getcwd())"',
+            "test cwd",
+            cwd=str(subdir),
+        )
+        deadline = time.time() + 10.0
+        text = ""
+        while time.time() < deadline:
+            chunk = tmp_manager.read_output(view.spec.id)
+            text = chunk.text or ""
+            if str(subdir) in text or subdir.name in text:
+                break
+            time.sleep(0.1)
+        # Normalize separators so Win paths still match.
+        assert str(subdir) in text or str(subdir).replace("\\", "/") in text.replace("\\", "/")
 
     def test_recovery_marks_stale_tasks(self, tmp_manager: BackgroundTaskManager) -> None:
         with patch.object(tmp_manager, "_launch_worker", return_value=12345):
