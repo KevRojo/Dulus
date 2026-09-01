@@ -9,6 +9,53 @@
 </p>
 
 <p align="center">
+  <a href="#fuel--reload-wallet-qr-ready"><strong>⛽ /fuel walkthrough →</strong></a>
+  ·
+  <a href="#get-your-dulus-api-key-no-website-required"><strong>🔑 API key from pip →</strong></a>
+  ·
+  <a href="https://dulus.online"><strong>🚀 dulus.online</strong></a>
+</p>
+
+<p align="center">
+  <strong>🖥️ Prefer a desktop app?</strong> Download <strong>Dulus Premium</strong> — a signed, auto-updating build for Windows, macOS and Linux.<br>
+  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="PyPI downloads"></a>
+  <a href="https://github.com/KevRojo/Dulus/releases"><img src="https://img.shields.io/github/v/release/KevRojo/Dulus?style=flat-square&color=ff6b1f&labelColor=07070a" alt="Latest release"></a>
+  <a href="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml"><img src="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml/badge.svg" alt="Quality checks"></a>
+  <a href="https://github.com/KevRojo/Dulus/pkgs/container/dulus"><img src="https://img.shields.io/badge/docker-ghcr.io%2Fkevrojo%2Fdulus-ff6b1f?style=flat-square&labelColor=07070a&logo=docker" alt="Docker image"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-ff6b1f?style=flat-square&labelColor=07070a&logo=python" alt="Python 3.10+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="GPLv3 license"></a>
+</p>
+
+<p align="center">
+  <a href="#install-in-30-seconds"><strong>Install</strong></a> ·
+  <a href="#get-your-dulus-api-key-no-website-required"><strong>API key</strong></a> ·
+  <a href="#fuel--reload-wallet-qr-ready"><strong>Fuel / QR</strong></a> ·
+  <a href="#why-dulus"><strong>Why Dulus</strong></a> ·
+  <a href="#one-runtime-every-model"><strong>Models</strong></a> ·
+  <a href="#turn-any-python-repo-into-tools"><strong>Extensions</strong></a> ·
+  <a href="#agents-that-can-work-without-disappearing"><strong>Agents</strong></a> ·
+  <a href="#one-engine-four-surfaces"><strong>Surfaces</strong></a> ·
+  <a href="#command-map"><strong>Commands</strong></a> ·
+  <a href="https://kevrojo.github.io/Dulus/"><strong>Live tour ↗</strong></a>
+</p>
+
+<p align="center">
+  <a href="docs/README_ES.md">Español</a> ·
+  <a href="docs/README_FR.md">Français</a> ·
+  <a href="docs/README_ZH.md">中文</a> ·
+  <a href="docs/README_JA.md">日本語</a> ·
+  <a href="docs/README_KO.md">한국어</a> ·
+  <a href="docs/README_PT.md">Português</a> ·
+  <a href="docs/README_RU.md">Русский</a> ·
+  <a href="docs/README_AR.md">العربية</a>
+</p>
+
+<p align="center">
   <strong>Agentic AI for everyone. No API key. No credit card. Just <code>pip install</code>.</strong>
 </p>
 
@@ -83,52 +130,6 @@ dulus
   <strong>$DULUS</strong> · <code>control.dulus.ai/v1</code> · 12+ models · spent by the token 🦅
 </p>
 
-<p align="center">
-  <a href="#fuel--reload-wallet-qr-ready"><strong>⛽ /fuel walkthrough →</strong></a>
-  ·
-  <a href="#get-your-dulus-api-key-no-website-required"><strong>🔑 API key from pip →</strong></a>
-  ·
-  <a href="https://dulus.online"><strong>🚀 dulus.online</strong></a>
-</p>
-
-<p align="center">
-  <strong>🖥️ Prefer a desktop app?</strong> Download <strong>Dulus Premium</strong> — a signed, auto-updating build for Windows, macOS and Linux.<br>
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
-</p>
-
-<p align="center">
-  <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="PyPI downloads"></a>
-  <a href="https://github.com/KevRojo/Dulus/releases"><img src="https://img.shields.io/github/v/release/KevRojo/Dulus?style=flat-square&color=ff6b1f&labelColor=07070a" alt="Latest release"></a>
-  <a href="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml"><img src="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml/badge.svg" alt="Quality checks"></a>
-  <a href="https://github.com/KevRojo/Dulus/pkgs/container/dulus"><img src="https://img.shields.io/badge/docker-ghcr.io%2Fkevrojo%2Fdulus-ff6b1f?style=flat-square&labelColor=07070a&logo=docker" alt="Docker image"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-ff6b1f?style=flat-square&labelColor=07070a&logo=python" alt="Python 3.10+">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="GPLv3 license"></a>
-</p>
-
-<p align="center">
-  <a href="#install-in-30-seconds"><strong>Install</strong></a> ·
-  <a href="#get-your-dulus-api-key-no-website-required"><strong>API key</strong></a> ·
-  <a href="#fuel--reload-wallet-qr-ready"><strong>Fuel / QR</strong></a> ·
-  <a href="#why-dulus"><strong>Why Dulus</strong></a> ·
-  <a href="#one-runtime-every-model"><strong>Models</strong></a> ·
-  <a href="#turn-any-python-repo-into-tools"><strong>Extensions</strong></a> ·
-  <a href="#agents-that-can-work-without-disappearing"><strong>Agents</strong></a> ·
-  <a href="#one-engine-four-surfaces"><strong>Surfaces</strong></a> ·
-  <a href="#command-map"><strong>Commands</strong></a> ·
-  <a href="https://kevrojo.github.io/Dulus/"><strong>Live tour ↗</strong></a>
-</p>
-
-<p align="center">
-  <a href="docs/README_ES.md">Español</a> ·
-  <a href="docs/README_FR.md">Français</a> ·
-  <a href="docs/README_ZH.md">中文</a> ·
-  <a href="docs/README_JA.md">日本語</a> ·
-  <a href="docs/README_KO.md">한국어</a> ·
-  <a href="docs/README_PT.md">Português</a> ·
-  <a href="docs/README_RU.md">Русский</a> ·
-  <a href="docs/README_AR.md">العربية</a>
-</p>
 
 ---
 
