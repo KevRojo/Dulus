@@ -180,11 +180,11 @@ class TestFindSplitPoint:
         assert idx == 0
 
     def test_split_preserves_recent(self):
-        # Recent portion should contain ~30% of tokens
+        # Turn-aware split keeps recent user turns verbatim; token ratio is a floor.
         msgs = [{"role": "user", "content": "X" * 100} for _ in range(10)]
         idx = find_split_point(msgs, keep_ratio=0.3)
         total = estimate_tokens(msgs)
         recent = estimate_tokens(msgs[idx:])
-        # Recent should be roughly 30% of total (allow some tolerance)
+        assert idx > 0
         assert recent >= total * 0.2
-        assert recent <= total * 0.5
+        assert recent < total
