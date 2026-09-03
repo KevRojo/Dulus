@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- September 2, 2026 (**v6.0.5**): **🚀 Dulus 6.0.5 is live.** The newest build just landed — same free open runtime, sharper and faster. No API key, no credit card, your machine. Grab it: `pip install -U dulus`. 🦅🇩🇴
+
 - September 1, 2026 (**v3.13.9**): **🔒 `/isolate` — workspace bubble, on demand.** Flip `/isolate on` and Write / Edit / NotebookEdit + Bash mutations stay locked to the frozen workspace root (plus anything you added with `/add-dir`). Read-only tools keep flying free. No `/temp` backdoor — pure bubble. Blocked? Dulus tells you straight: write `/isolate off` if you want help outside. `pip install -U dulus`. 🦅
 
 - September 1, 2026 (**v3.13.8**): **Gemini-web harvest unblocked.** Reverted the EU/GDPR consent spray-click helpers (`_dismiss_eu_privacy_gates` / fabricated SOCS seed) that broke composer mount and left harvest hanging. Public `/harvest-gemini` is back to the pre-3.13.7 path. README top nav tightened under the first two photos; community blurb corrected to **100,000+ pip installs**. `pip install -U dulus`. 🦅

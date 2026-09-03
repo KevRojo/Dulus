@@ -64,7 +64,7 @@
   talking to Gemini, Claude and GPT through their own web sessions, so you owe no one a key or a cent.<br>
   One runtime. Every model. Your machine. The whole world invited.
 
-  For a better version get the binaries from https://dulus.ai/ there are free models on my /dulus/dulus-* providers, love you guys!
+  Now on 6.0.5 🚀 — for the best experience get the binaries from https://dulus.ai/ there are free models on my /dulus/dulus-* providers, love you guys!
 
   God bless you! ♥
 </p>
