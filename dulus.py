@@ -396,7 +396,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.14.0"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.14.1"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -3667,14 +3667,8 @@ def cmd_harvest(_args: str, _state, config) -> bool:
     out_path = pathlib.Path.home() / ".dulus" / "claude_cookies.json"
     ok(f"Starting Playwright harvest → {out_path}")
 
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        import os
-        info("Installing playwright...")
-        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
-        os.system("playwright install chromium")
-        from playwright.sync_api import sync_playwright
+    _ensure_playwright_browser()
+    from playwright.sync_api import sync_playwright
 
     import os, time
     from datetime import datetime
@@ -3813,13 +3807,8 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
     out_path = pathlib.Path.home() / ".dulus" / "kimi_consumer.json"
     ok(f"Starting Kimi Harvester → {out_path}")
 
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        info("Installing playwright...")
-        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
-        os.system("playwright install chromium")
-        from playwright.sync_api import sync_playwright
+    _ensure_playwright_browser()
+    from playwright.sync_api import sync_playwright
 
     pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "kimi-consumer")
     os.makedirs(pw_profile, exist_ok=True)
@@ -3910,6 +3899,39 @@ def cmd_harvest_kimi(_args: str, _state, config) -> bool:
     return True
 
 
+def _ensure_playwright_browser():
+    """Guarantee BOTH the playwright package AND a browser binary are present.
+
+    The old per-harvest snippet only ran the installer inside `except
+    ImportError`, i.e. it keyed off the *pip package* being importable. But
+    the package and the *browser binary* are two separate installs: after the
+    first-run wizard installs the package, a later `/harvest-*` sees the import
+    succeed, skips the whole block, and never (re)installs the browser — so if
+    the Chromium/Chrome download was missing or half-done, the harvest launches
+    with no browser and fails. The welcome only "worked" because it was the
+    first run, where the import genuinely failed and the full install fired.
+
+    Fix: check the import, install the package if needed, and ALWAYS run
+    `playwright install chromium` — it's idempotent (a no-op when the browser
+    is already there, a real download when it isn't), so it's cheap to call
+    every time and closes the package-vs-browser gap for good.
+    """
+    import os, subprocess, sys as _sys
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+    except ImportError:
+        info("Installing playwright...")
+        subprocess.run(__import__("common").pip_install_cmd("playwright"))
+    # Idempotent: installs the browser only if it's missing. Runs every time so
+    # a present package with an absent/broken browser still gets fixed.
+    try:
+        subprocess.run([_sys.executable, "-m", "playwright", "install", "chromium"],
+                       check=False, timeout=600)
+    except Exception:
+        # Fallback to the plain CLI if `-m playwright` isn't on this interpreter.
+        os.system("playwright install chromium")
+
+
 def _launch_harvest_browser(p, pw_profile, headless):
     """Launch a persistent browser for harvesting, resilient to a bare box.
 
@@ -3985,13 +4007,8 @@ def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
     out_path = pathlib.Path.home() / ".dulus" / "gemini_web.json"
     ok(f"Starting Gemini Harvester → {out_path}")
 
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        info("Installing playwright...")
-        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
-        os.system("playwright install chromium")
-        from playwright.sync_api import sync_playwright
+    _ensure_playwright_browser()
+    from playwright.sync_api import sync_playwright
 
     # Reutiliza el perfil de Gemini para no loguear cada vez
     pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "gemini-interceptor")
@@ -4191,13 +4208,8 @@ def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
     # Optional: navigate directly to a specific chat session from arg
     start_url = _args.strip() if _args.strip().startswith("http") else "https://chat.deepseek.com/"
 
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        info("Installing playwright...")
-        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
-        os.system("playwright install chromium")
-        from playwright.sync_api import sync_playwright
+    _ensure_playwright_browser()
+    from playwright.sync_api import sync_playwright
 
     pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "deepseek-interceptor")
     os.makedirs(pw_profile, exist_ok=True)
@@ -4340,13 +4352,8 @@ def cmd_harvest_qwen(_args: str, _state, config) -> bool:
 
     start_url = _args.strip() if _args.strip().startswith("http") else "https://chat.qwen.ai/"
 
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        info("Installing playwright...")
-        __import__("subprocess").run(__import__("common").pip_install_cmd("playwright"))
-        os.system("playwright install chromium")
-        from playwright.sync_api import sync_playwright
+    _ensure_playwright_browser()
+    from playwright.sync_api import sync_playwright
 
     pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "qwen-interceptor")
     os.makedirs(pw_profile, exist_ok=True)

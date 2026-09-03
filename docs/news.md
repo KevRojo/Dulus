@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- September 2, 2026 (**v3.14.1**): **🌐 Web-harvest browser fix.** `/harvest-gemini` (and claude/kimi/qwen/deepseek) no longer launch without a browser after the first run. The installer used to key off the *pip package*, so once the wizard installed it, later harvests skipped the *browser* download entirely — leaving you with a package but no Chromium. Now a single idempotent guard ensures both the package and the browser are present every time. `pip install -U dulus`. 🦅
+
 - September 2, 2026 (**v6.0.5**): **🚀 Dulus 6.0.5 is live.** The newest build just landed — same free open runtime, sharper and faster. No API key, no credit card, your machine. Grab it: `pip install -U dulus`. 🦅🇩🇴
 
 - September 1, 2026 (**v3.13.9**): **🔒 `/isolate` — workspace bubble, on demand.** Flip `/isolate on` and Write / Edit / NotebookEdit + Bash mutations stay locked to the frozen workspace root (plus anything you added with `/add-dir`). Read-only tools keep flying free. No `/temp` backdoor — pure bubble. Blocked? Dulus tells you straight: write `/isolate off` if you want help outside. `pip install -U dulus`. 🦅
