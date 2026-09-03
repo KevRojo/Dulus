@@ -875,6 +875,19 @@ PROVIDERS: dict[str, dict] = {
             "fugu-mini", "fugu-ultra",
         ],
     },
+    # Meta AI (Muse Spark) — Responses-API-style SSE endpoint at api.meta.ai.
+    # Key via /config meta_api_key=... or export META_API_KEY.
+    # Pick models as 'meta/muse-spark-1.3' (or bare 'muse-spark-1.3').
+    "meta": {
+        "type":       "meta",
+        "api_key_env": "META_API_KEY",
+        "base_url":   "https://api.meta.ai/v1",
+        "context_limit": 128000,
+        "max_completion_tokens": 32000,
+        "models": [
+            "muse-spark-1.3", "muse-spark-1.3-contributor",
+        ],
+    },
 }
 
 # Cost per million tokens (approximate, fallback to 0 for unknown)
@@ -934,6 +947,9 @@ _PREFIXES = [
     ("gpt-5-codex",   "chatgpt-oauth"),
     ("codex-mini",    "chatgpt-oauth"),
     ("codex-auto",    "chatgpt-oauth"),
+    # Meta AI (Muse Spark) — api.meta.ai Responses-style SSE, key via META_API_KEY.
+    ("meta/",         "meta"),
+    ("muse-",         "meta"),
     ("claude-",       "anthropic"),
     ("gpt-",          "openai"),
     ("o1",            "openai"),
@@ -2835,6 +2851,236 @@ def stream_chatgpt_oauth(
         yield TextChunk(note)
 
     # Build final tool_calls list in arrival order
+    ordered_buf = {i: tool_buf[k] for i, k in enumerate(tool_order)} if tool_order else tool_buf
+    final_tool_calls = _finalize_tool_calls(ordered_buf)
+
+    yield AssistantTurn(text, final_tool_calls, in_tok, out_tok, thinking=thinking,
+                        cache_read_tokens=cached_tok)
+
+
+# ── Meta AI (Muse Spark) — API key, Responses-API-style SSE ────────────────
+META_API_BASE_URL = "https://api.meta.ai/v1"
+
+
+def stream_meta(
+    api_key: str,
+    model: str,
+    system: str,
+    messages: list,
+    tool_schemas: list,
+    config: dict,
+) -> Generator:
+    """Meta AI Muse Spark via api.meta.ai/v1/responses (SSE, OpenAI Responses
+    wire format). Key: /config meta_api_key=... or META_API_KEY.
+    Yields TextChunk / ThinkingChunk / AssistantTurn."""
+    import requests as _req
+
+    if not api_key:
+        yield TextChunk(
+            "[meta] No API key. Set one with `/config meta_api_key=...` "
+            "or export META_API_KEY."
+        )
+        yield AssistantTurn(
+            "[meta] No API key. Set META_API_KEY or /config meta_api_key=...",
+            [], 0, 0, error=True,
+        )
+        return
+
+    instructions, input_items = _chatgpt_messages_to_responses_input(system, messages)
+
+    body: dict[str, Any] = {
+        "model": model,
+        "input": input_items,
+        "stream": True,
+        "temperature": 1,
+        "max_output_tokens": 32000,
+        "top_p": 1,
+    }
+    if instructions:
+        body["instructions"] = instructions
+
+    tools = _chatgpt_tools_to_responses(tool_schemas)
+    if tools:
+        body["tools"] = tools
+        if not (config or {}).get("disable_tool_choice"):
+            body["tool_choice"] = "auto"
+
+    base = (PROVIDERS.get("meta", {}).get("base_url") or META_API_BASE_URL).rstrip("/")
+    url = base + "/responses"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+    }
+
+    text = ""
+    thinking = ""
+    in_tok = 0
+    out_tok = 0
+    cached_tok = 0
+    tool_buf: dict[str, dict] = {}
+    tool_order: list[str] = []
+    current_call_id: str | None = None
+    stream_interrupted = False
+    resp = None
+
+    def _ensure_tool(call_id: str | None, name: str | None = None) -> str:
+        nonlocal current_call_id
+        cid = call_id or current_call_id or f"call_{len(tool_order)}"
+        if cid not in tool_buf:
+            tool_buf[cid] = {"id": cid, "name": name or "", "args": ""}
+            tool_order.append(cid)
+        elif name and not tool_buf[cid].get("name"):
+            tool_buf[cid]["name"] = name
+        current_call_id = cid
+        return cid
+
+    try:
+        resp = _req.post(url, headers=headers, json=body, stream=True, timeout=300)
+
+        if resp.status_code in (401, 403):
+            body_preview = (resp.text or "")[:300]
+            yield TextChunk(
+                f"[meta] Auth error {resp.status_code}. Check your key: "
+                f"/config meta_api_key=... Detail: {body_preview}"
+            )
+            yield AssistantTurn(
+                f"[meta] Auth error {resp.status_code}. Check meta_api_key.",
+                [], 0, 0, error=True,
+            )
+            return
+        if resp.status_code >= 400:
+            body_preview = (resp.text or "")[:400]
+            yield TextChunk(f"[meta] HTTP {resp.status_code}: {body_preview}")
+            yield AssistantTurn(
+                f"[meta] HTTP {resp.status_code}: {body_preview}",
+                [], 0, 0, error=True,
+            )
+            return
+
+        event_type = ""
+        # NOTE: iterate RAW BYTES (no decode_unicode). requests defaults to
+        # ISO-8859-1 for text/event-stream when the server omits charset, which
+        # mangled UTF-8 accents (á→Ã¡, ñ→Ã±) in Spanish output. Decoding each
+        # line explicitly as UTF-8 fixes the mojibake.
+        for raw_line in resp.iter_lines():
+            if raw_line is None:
+                continue
+            line = raw_line.decode("utf-8", "replace").strip() if isinstance(raw_line, (bytes, bytearray)) else raw_line.strip()
+            if not line:
+                continue
+            if line.startswith(":"):
+                continue
+            if line.startswith("event:"):
+                event_type = line[6:].strip()
+                continue
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                event = json.loads(data)
+            except Exception:
+                continue
+            if not isinstance(event, dict):
+                continue
+            et = event.get("type") or event_type or ""
+
+            if et in ("response.output_text.delta", "response.refusal.delta"):
+                delta = event.get("delta") or ""
+                if delta:
+                    text += delta
+                    yield TextChunk(delta)
+                continue
+
+            if et in (
+                "response.reasoning_summary_text.delta",
+                "response.reasoning_text.delta",
+            ):
+                delta = event.get("delta") or ""
+                if delta:
+                    thinking += delta
+                    yield ThinkingChunk(delta)
+                continue
+
+            if et == "response.output_item.added":
+                item = event.get("item") or {}
+                if isinstance(item, dict) and item.get("type") == "function_call":
+                    _ensure_tool(item.get("call_id") or item.get("id"), item.get("name"))
+                continue
+
+            if et == "response.function_call_arguments.delta":
+                cid = event.get("call_id") or current_call_id
+                key = _ensure_tool(cid)
+                delta_args = event.get("delta") or ""
+                if delta_args:
+                    tool_buf[key]["args"] += delta_args
+                continue
+
+            if et == "response.function_call_arguments.done":
+                cid = event.get("call_id") or current_call_id
+                key = _ensure_tool(cid)
+                final_args = event.get("arguments")
+                if final_args is not None:
+                    tool_buf[key]["args"] = final_args
+                continue
+
+            if et == "response.output_item.done":
+                item = event.get("item") or {}
+                if isinstance(item, dict) and item.get("type") == "function_call":
+                    key = _ensure_tool(item.get("call_id") or item.get("id"), item.get("name"))
+                    if item.get("name"):
+                        tool_buf[key]["name"] = item["name"]
+                    if item.get("arguments") is not None:
+                        tool_buf[key]["args"] = item["arguments"]
+                    if item.get("call_id"):
+                        tool_buf[key]["id"] = item["call_id"]
+                continue
+
+            if et in ("response.completed", "response.incomplete"):
+                resp_obj = event.get("response") or {}
+                usage = resp_obj.get("usage") or event.get("usage") or {}
+                if isinstance(usage, dict):
+                    in_tok = int(usage.get("input_tokens") or usage.get("prompt_tokens") or in_tok or 0)
+                    out_tok = int(usage.get("output_tokens") or usage.get("completion_tokens") or out_tok or 0)
+                    _det = usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {}
+                    if isinstance(_det, dict):
+                        cached_tok = int(_det.get("cached_tokens") or cached_tok or 0)
+                continue
+
+            if et in ("response.failed", "error"):
+                err = event.get("error") or event.get("response", {}).get("error") or event
+                if isinstance(err, dict):
+                    msg = err.get("message") or err.get("code") or json.dumps(err)[:300]
+                else:
+                    msg = str(err)[:300]
+                note = f"\n\n_[meta error: {msg}]_"
+                text += note
+                yield TextChunk(note)
+                continue
+
+    except _req.exceptions.ChunkedEncodingError:
+        stream_interrupted = True
+    except _req.exceptions.ConnectionError:
+        stream_interrupted = True
+    except Exception as e:
+        msg = f"[meta] Error: {e}"
+        yield TextChunk(msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+        return
+    finally:
+        if resp is not None:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+    if stream_interrupted and not tool_buf:
+        note = "\n\n_[meta: el streaming se cortó a media respuesta — esto es parcial, reintenta]_"
+        text += note
+        yield TextChunk(note)
+
     ordered_buf = {i: tool_buf[k] for i, k in enumerate(tool_order)} if tool_order else tool_buf
     final_tool_calls = _finalize_tool_calls(ordered_buf)
 
@@ -7512,6 +7758,9 @@ def stream(
             # ChatGPT/Codex subscription OAuth (`/login chatgpt` or ~/.codex/auth.json)
             # → chatgpt.com/backend-api/codex/responses (Responses API, not chat/completions)
             yield from stream_chatgpt_oauth(model_name, system, messages, tool_schemas, config)
+        elif prov["type"] == "meta":
+            # Meta AI (Muse Spark) via api.meta.ai/v1/responses — API key (META_API_KEY).
+            yield from stream_meta(api_key, model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "gcloud":
             yield from stream_gcloud(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "litellm":
