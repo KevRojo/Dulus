@@ -1,10 +1,6 @@
 # Dulus
 
 <p align="center">
-  <img width="1382" height="938" alt="image" src="https://github.com/user-attachments/assets/a2b297e3-53f8-4fce-a91a-6123274c4fc4" />
-</p>
-
-<p align="center">
   <img width="1179" height="761" alt="image" src="https://github.com/user-attachments/assets/95c8a306-88e6-4f9d-a1aa-009ac38ebeaf" />
 </p>
 
@@ -55,9 +51,8 @@
   <a href="docs/README_AR.md">العربية</a>
 </p>
 
-<p align="center">
-  <strong>Agentic AI for everyone. No API key. No credit card. Just <code>pip install</code>.</strong>
-</p>
+<p align="center"> <img width="613" height="313" alt="image" src="https://github.com/user-attachments/assets/13e1bb03-6493-4679-9ed8-2dda0c836ff3" /> </p>
+
 
 <p align="center">
   Dulus is an open-source agent runtime that hands you a real AI agent the moment you install it —<br>
