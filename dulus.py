@@ -396,7 +396,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.14.3"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.14.4"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -12997,7 +12997,26 @@ def repl(config: dict, initial_prompt: str | None = None):
                                 from mempalace.searcher import search_memories as _mp_search
                                 from mempalace.config import MempalaceConfig as _MPCfg
                                 _palace = _MPCfg().palace_path
-                                _res = _mp_search(_q, _palace, n_results=3)
+                                # Hard timeout guard: chromadb can hang indefinitely on a
+                                # large/corrupt palace or a bad backend version, and a plain
+                                # try/except does NOT rescue a hang — it only catches raised
+                                # exceptions. Run the search on a worker thread and abandon it
+                                # if it doesn't answer fast, so a stuck palace can never freeze
+                                # the whole REPL. On timeout we fall through to local memory.
+                                # NOTE: deliberately NOT a `with` block — the executor's
+                                # __exit__ calls shutdown(wait=True), which would re-block the
+                                # turn until the stuck worker finishes, defeating the timeout.
+                                import concurrent.futures as _cf
+                                _MP_TIMEOUT_S = float(config.get("mem_palace_timeout", 3.0))
+                                _mp_ex = _cf.ThreadPoolExecutor(max_workers=1)
+                                _fut = _mp_ex.submit(_mp_search, _q, _palace, n_results=3)
+                                try:
+                                    _res = _fut.result(timeout=_MP_TIMEOUT_S)
+                                except _cf.TimeoutError:
+                                    _res = None
+                                    _mp_log(f"mempalace search timed out after {_MP_TIMEOUT_S:.1f}s → falling back to local", "yellow")
+                                finally:
+                                    _mp_ex.shutdown(wait=False)
                                 for _hit in (_res or {}).get("results", []):
                                     _meta = _hit.get("metadata") or {}
                                     _src = _meta.get("source_file") or _meta.get("name") or "palace"
