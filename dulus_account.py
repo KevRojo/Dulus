@@ -45,6 +45,52 @@ _AUTH0_SCOPES = "openid profile email"
 _EXPIRY_BUFFER_SECONDS = 60
 
 
+def _is_text_browser(name: str) -> bool:
+    """True for terminal browsers that hijack the TTY (w3m, lynx, links…)."""
+    n = (name or "").lower()
+    return any(t in n for t in (
+        "www-browser", "w3m", "lynx", "elinks", "links2", "links", "elvis",
+    ))
+
+
+def _open_url_gui(url: str) -> bool:
+    """Open *url* in a GRAPHICAL browser only — never hijack the terminal.
+
+    On a headless box, over SSH, or when the only registered browser is a
+    text-mode one (e.g. a Raspberry Pi where ``webbrowser`` falls back to
+    ``www-browser``/``w3m``), this does nothing and returns False. The caller
+    has already printed the URL + code, so the human just approves it from any
+    device — nothing has to reach this machine's display.
+    """
+    import sys
+    import threading
+    import webbrowser
+
+    # Linux/BSD: require a display server and refuse pure SSH sessions.
+    # macOS ("darwin") and Windows ("win32") always hand off to a real GUI.
+    if sys.platform not in ("darwin", "win32"):
+        has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+        is_ssh = bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
+        if not has_display or is_ssh:
+            return False
+
+    try:
+        try:
+            ctrl = webbrowser.get()
+        except Exception:
+            ctrl = None
+        name = getattr(ctrl, "name", "") or getattr(ctrl, "basename", "")
+        if _is_text_browser(name) or _is_text_browser(os.environ.get("BROWSER", "")):
+            return False
+        # Daemon thread: a slow or hanging launcher can never block the CLI.
+        threading.Thread(
+            target=lambda: webbrowser.open(url, new=2), daemon=True
+        ).start()
+        return True
+    except Exception:
+        return False
+
+
 def _store_path() -> pathlib.Path:
     home = pathlib.Path(os.environ.get("DULUS_HOME") or (pathlib.Path.home() / ".dulus"))
     home.mkdir(parents=True, exist_ok=True)
@@ -137,8 +183,13 @@ def refresh(refresh_token: str) -> dict | None:
         return None
 
 
-def login(notify: Callable[[str], Any] = print) -> str | None:
+def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> str | None:
     """Sign in via the device flow. Returns an access token, or None.
+
+    ``force_browser`` (the ``/login dulus --headless`` opt-in) tries the raw
+    ``webbrowser.open`` like the old behaviour, for boxes with a graphical
+    browser that our headless/SSH guard would otherwise skip. Off by default:
+    the safe path only opens a real GUI browser and never hijacks the terminal.
 
     The server has no browser consent page for the CLI: /v1/oauth/authorize
     is a POST-only API that expects an account lease. So the chain is:
@@ -150,7 +201,6 @@ def login(notify: Callable[[str], Any] = print) -> str | None:
       4. POST /v1/oauth/token (code + PKCE verifier) → CLI tokens.
     """
     import requests
-    import webbrowser
 
     # ── 1. Auth0 device code ────────────────────────────────────────────
     try:
@@ -172,11 +222,18 @@ def login(notify: Callable[[str], Any] = print) -> str | None:
         return None
 
     notify(f"[dulus] Go to {start.get('verification_uri') or verify_full} and enter: {user_code}")
-    notify(f"[dulus] If the browser didn't open, use:\n{verify_full}")
-    try:
-        webbrowser.open(verify_full)
-    except Exception:
-        pass
+    notify(f"[dulus] Or open this link on any device (phone, laptop):\n{verify_full}")
+    if force_browser:
+        # --headless opt-in: try the old raw open (may still no-op on a truly
+        # headless box, but we honour the explicit request).
+        try:
+            import webbrowser
+            webbrowser.open(verify_full, new=2)
+            notify("[dulus] Tried to open your browser (--headless).")
+        except Exception:
+            pass
+    elif _open_url_gui(verify_full):
+        notify("[dulus] Opened your browser — approve there, then come back.")
 
     interval = max(1, int(start.get("interval") or 5))
     deadline = time.time() + min(int(start.get("expires_in") or 300), _LOGIN_TIMEOUT_SECONDS)
