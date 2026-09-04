@@ -397,7 +397,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.14.6"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.14.7"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -9706,6 +9706,7 @@ def cmd_compact(args: str, state, config) -> bool:
         info(f"Compacting with focus: {focus} (archive→disk, live ~0, lookback ON)…")
     else:
         info("Compacting (archive→disk, live context ~0, lookback forced ON)…")
+    info("  summarizing… (may take a bit on slow/remote models; auto-skips if it stalls)")
 
     success, msg = manual_compact(state, config, focus=focus)
     if success:

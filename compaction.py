@@ -43,6 +43,82 @@ LOOKBACK_SUMMARY_MAX_CHARS = 1200  # hard cap on the summary card itself
 # Maximum chars of each old message fed into the summarizer.
 SUMMARY_SNIPPET_LEN = 1200
 
+# Hard wall-clock cap on the summarizer LLM call. A /compact used to hang
+# FOREVER when providers.stream() stalled (slow/unreachable model on a
+# Raspberry Pi, flaky network, local model still loading): the stream never
+# yields and never raises, so it just blocks. We now run it on a daemon thread
+# and give up after this many seconds, falling back to a trivial summary so
+# /compact always returns. Override with env DULUS_COMPACT_TIMEOUT.
+try:
+    import os as _os
+    SUMMARY_TIMEOUT_SECONDS = max(10, int(_os.environ.get("DULUS_COMPACT_TIMEOUT", "180")))
+except Exception:
+    SUMMARY_TIMEOUT_SECONDS = 180
+
+
+# Local/on-device backends: a slow summary here is the user's hardware, not a
+# network hang. We must NOT cut these off — an old Raspberry Pi running Ollama
+# can legitimately take minutes, and we don't know the user's patience. So the
+# timeout applies ONLY to cloud providers (where a stall means a dead socket).
+_LOCAL_PROVIDERS = {"ollama", "lmstudio", "llamacpp", "edge", "local"}
+
+
+def _is_local_model(config: dict) -> bool:
+    try:
+        return providers.detect_provider(config.get("model", "")) in _LOCAL_PROVIDERS
+    except Exception:
+        return False
+
+
+def _run_summarizer(system: str, summary_prompt: str, config: dict,
+                    timeout: float = SUMMARY_TIMEOUT_SECONDS) -> tuple[str, bool]:
+    """Stream a summary from the model with a HARD timeout — for CLOUD models.
+
+    Returns ``(text, timed_out)``. ``text`` is whatever streamed before the
+    deadline (possibly empty); ``timed_out`` is True when the model did not
+    finish in time or the stream raised. The worker runs on a daemon thread so
+    a permanently-stalled provider call can never freeze /compact — the thread
+    is simply abandoned and the process can still exit cleanly.
+
+    For LOCAL models (Ollama, LM Studio, llama.cpp, Dulus Edge) there is no
+    timeout at all: a slow local summary is the user's hardware, not a hang,
+    and we won't truncate it. It streams to completion like before.
+    """
+    import threading
+
+    # Local backend → block until done, no wall-clock cap.
+    effective_timeout = None if _is_local_model(config) else timeout
+
+    chunks: list[str] = []
+    done = threading.Event()
+    err_box: list[str] = []
+
+    def _worker():
+        try:
+            for event in providers.stream(
+                model=config["model"],
+                system=system,
+                messages=[{"role": "user", "content": summary_prompt}],
+                tool_schemas=[],
+                config=config,
+            ):
+                if isinstance(event, providers.TextChunk):
+                    chunks.append(event.text)
+        except Exception as exc:  # noqa: BLE001 — any provider error → fallback
+            err_box.append(str(exc))
+        finally:
+            done.set()
+
+    t = threading.Thread(target=_worker, daemon=True, name="compact-summarizer")
+    t.start()
+    finished = done.wait(effective_timeout)   # None ⇒ wait forever (local)
+    text = "".join(chunks).strip()
+    if not finished:
+        return text, True          # stalled — abandon the daemon thread
+    if err_box and not text:
+        return "", True            # provider error with nothing usable
+    return text, False
+
 # Where to store pre-compact checkpoints for possible rollback.
 # Derive from config.CONFIG_DIR (resolved once to a writable location) instead
 # of hardcoding ~/.dulus: on OEM/multi-user Windows boxes Path.home() points at
@@ -860,24 +936,16 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
             summary_prompt += f"Focus especially on: {focus}\n"
         summary_prompt += "\nOLDER MESSAGES (snippets only):\n" + old_text
 
-        summary_text = ""
-        try:
-            for event in providers.stream(
-                model=config["model"],
-                system=(
-                    "Dense fact extractor. Output bullets only. "
-                    "No preamble. No restating that lookback exists."
-                ),
-                messages=[{"role": "user", "content": summary_prompt}],
-                tool_schemas=[],
-                config=config,
-            ):
-                if isinstance(event, providers.TextChunk):
-                    summary_text += event.text
-        except Exception as exc:
-            summary_text = f"(summarizer failed: {exc})"
-
-        summary_text = (summary_text or "").strip()
+        summary_text, timed_out = _run_summarizer(
+            "Dense fact extractor. Output bullets only. "
+            "No preamble. No restating that lookback exists.",
+            summary_prompt,
+            config,
+        )
+        if timed_out and not summary_text:
+            # Summarizer stalled/failed — DON'T hang /compact. The full archive
+            # is already on disk for Loopback, so a placeholder card is fine.
+            summary_text = "(summary skipped — model was slow; full history is on Loopback)"
         if len(summary_text) > LOOKBACK_SUMMARY_MAX_CHARS:
             summary_text = summary_text[: LOOKBACK_SUMMARY_MAX_CHARS - 1] + "…"
 
@@ -945,16 +1013,16 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
             summary_prompt += f"[{m.get('role', '?')}]: {_message_text(m)[:300]}\n"
     summary_prompt += "\n\nOLDER MESSAGES TO SUMMARIZE:\n" + old_text
 
-    summary_text = ""
-    for event in providers.stream(
-        model=config["model"],
-        system="You are a concise summarizer. Keep facts dense and actionable.",
-        messages=[{"role": "user", "content": summary_prompt}],
-        tool_schemas=[],
-        config=config,
-    ):
-        if isinstance(event, providers.TextChunk):
-            summary_text += event.text
+    summary_text, timed_out = _run_summarizer(
+        "You are a concise summarizer. Keep facts dense and actionable.",
+        summary_prompt,
+        config,
+    )
+    if timed_out and not summary_text:
+        # Summarizer stalled/failed. Rather than hang /compact forever, keep the
+        # messages we were going to summarize verbatim — no data loss, just no
+        # compression this round.
+        summary_text = "(summary skipped — model was slow or unreachable; recent history preserved below)"
 
     summary_msg = {
         "role": "system",
