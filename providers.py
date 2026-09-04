@@ -73,10 +73,16 @@ class _ProviderRetry:
 
     Retries on: timeout, connection errors, 429 (rate limit), 5xx.
     Does NOT retry on: 4xx (client errors), auth failures.
+
+    MAX_RETRIES = 0 by design (Kev, 2026-09-03): automatic silent retries made
+    models "freeze out of nowhere" — the terminal stalled in a hidden sleep
+    while the user had no clue a transient error happened. We now surface the
+    error immediately and stop; the user re-sends or switches model. Bump this
+    back up ONLY if you also keep the retry visible (it now yields a warning).
     """
-    MAX_RETRIES: int = 3
-    BASE_DELAY: float = 1.0
-    MAX_DELAY: float = 30.0
+    MAX_RETRIES: int = 0
+    BASE_DELAY: float = 0.5
+    MAX_DELAY: float = 5.0
 
     @classmethod
     def is_retryable(cls, exc: Exception) -> bool:
@@ -112,19 +118,41 @@ class _ProviderRetry:
     def wrap_generator(cls, fn: Callable, *args, **kwargs) -> Generator:
         """Wrap a generator function with retry logic.
 
-        Yields through the generator; if it raises a retryable exception,
-        waits and retries up to MAX_RETRIES times.
+        If the request fails BEFORE yielding anything, waits and retries up to
+        MAX_RETRIES times. Once a stream has emitted output it is unsafe to
+        retry (would duplicate partial output), so a failure after the first
+        chunk always propagates.
         """
         last_exc: Exception | None = None
         for attempt in range(cls.MAX_RETRIES + 1):
+            emitted = False
             try:
-                yield from fn(*args, **kwargs)
+                for chunk in fn(*args, **kwargs):
+                    emitted = True
+                    yield chunk
                 return
             except Exception as exc:
                 last_exc = exc
-                if attempt >= cls.MAX_RETRIES or not cls.is_retryable(exc):
+                if (
+                    emitted
+                    or attempt >= cls.MAX_RETRIES
+                    or not cls.is_retryable(exc)
+                ):
                     raise
                 delay = cls.sleep_for_attempt(attempt)
+                # Announce the retry instead of freezing silently. A bare
+                # time.sleep() here is exactly what makes the terminal look
+                # "frozen out of nowhere" — the user has no idea a transient
+                # error (timeout / 429 / 5xx) happened and we're waiting.
+                try:
+                    _reason = friendly_api_error(exc)
+                except Exception:
+                    _reason = f"{type(exc).__name__}: {str(exc)[:120]}"
+                yield TextChunk(
+                    f"\n⚠️  Provider hiccup ({_reason}). "
+                    f"Retrying in {delay:.1f}s "
+                    f"(attempt {attempt + 2}/{cls.MAX_RETRIES + 1})…\n"
+                )
                 time.sleep(delay)
         # Should never reach here, but just in case
         if last_exc:
@@ -3964,10 +3992,13 @@ def stream_kimi_web(
     raw_content = ""   # accumulate full response before parsing
     parser = WebToolParser(auto_wrap_json=True)
 
-    for attempt in range(2):
-        # attempt 0: original try
-        # attempt 1: retry fresh thread if attempt 0 empty
-        
+    # Single attempt (Kev, 2026-09-03): the fresh-thread retry was reduced to
+    # one shot. On empty/error we surface it and stop instead of silently
+    # re-hammering the web session.
+    _KIMI_WEB_ATTEMPTS = 1
+    for attempt in range(_KIMI_WEB_ATTEMPTS):
+        # attempt 0: original try (reuse chat/parent if known)
+
         if attempt == 1:
             config.pop("kimi_web_chat_id", None)
             config.pop("kimi_web_parent_id", None)
@@ -4021,7 +4052,7 @@ def stream_kimi_web(
                 break
 
         except Exception as e:
-            if attempt == 0: continue
+            if attempt < _KIMI_WEB_ATTEMPTS - 1: continue
             msg = f"[kimi-web] Error: {e}"
             yield TextChunk(msg)
             yield AssistantTurn(msg, [], 0, 0, error=True)
@@ -4168,12 +4199,14 @@ def stream_gemini_web(
     text = ""
     parser = WebToolParser(auto_wrap_json=True)
 
-    for attempt in range(3):
+    # Single attempt (Kev, 2026-09-03): the 3× same/fresh-thread retry was
+    # reduced to one shot. On empty/HTTP error we surface it and stop instead
+    # of silently re-hammering the gemini web session.
+    _GEMINI_WEB_ATTEMPTS = 1
+    for attempt in range(_GEMINI_WEB_ATTEMPTS):
         raw_content = ""  # reset per attempt; previous attempt may have been incomplete
-        # attempt 0: original try
-        # attempt 1: same-thread retry (if attempt 0 was empty)
-        # attempt 2: fresh-thread retry (clear IDs if attempt 1 was empty)
-        
+        # attempt 0: original try (reuse thread IDs if known)
+
         if attempt == 1:
             yield TextChunk("[gemini-web] Empty response — retrying same thread...\n")
         elif attempt == 2:
@@ -4237,7 +4270,7 @@ def stream_gemini_web(
             )
 
             if response.status_code != 200:
-                if attempt < 2: continue # Retry on HTTP error too? maybe only on 429/500
+                if attempt < _GEMINI_WEB_ATTEMPTS - 1: continue
                 msg = f"[gemini-web] HTTP {response.status_code}: {response.text[:200]}"
                 yield TextChunk(msg)
                 yield AssistantTurn(msg, [], 0, 0, error=True)
@@ -4291,7 +4324,7 @@ def stream_gemini_web(
                             except: pass
                 except: continue
         except Exception as e:
-            if attempt < 2: continue
+            if attempt < _GEMINI_WEB_ATTEMPTS - 1: continue
             msg = f"[gemini-web] Protocol Error: {e}"
             yield TextChunk(msg)
             yield AssistantTurn(msg, [], 0, 0, error=True)
@@ -4806,7 +4839,11 @@ def stream_qwen_web(
 
     # ── 2-attempt loop: if chat was deleted server-side (404 / 400 / empty
     # stream) regenerate chat_id+parent_id once and retry as a fresh thread.
-    for attempt in range(2):
+    # Single attempt (Kev, 2026-09-03): the fresh-thread retry on a
+    # deleted/empty chat was reduced to one shot. On 400/404/empty we surface
+    # it and stop instead of silently regenerating the thread and retrying.
+    _QWEN_WEB_ATTEMPTS = 1
+    for attempt in range(_QWEN_WEB_ATTEMPTS):
         if attempt == 1:
             config.pop("qwen_web_chat_id", None)
             config.pop("qwen_web_parent_id", None)
@@ -4838,8 +4875,15 @@ def stream_qwen_web(
             yield AssistantTurn(msg, [], 0, 0, error=True)
             return
 
-        if response.status_code in (400, 404) and attempt == 0:
+        if response.status_code in (400, 404) and attempt < _QWEN_WEB_ATTEMPTS - 1:
             continue  # likely chat deleted — retry with fresh thread
+        if response.status_code in (400, 404):
+            msg = (f"[qwen-web] HTTP {response.status_code} — the chat may have been "
+                   "deleted server-side. Re-send (a fresh thread will be created) "
+                   "or run /harvest-qwen.")
+            yield TextChunk(msg)
+            yield AssistantTurn(msg, [], 0, 0, error=True)
+            return
 
         if response.status_code != 200:
             msg = f"[qwen-web] HTTP {response.status_code}: {response.text[:300]}"
@@ -4942,7 +4986,7 @@ def stream_qwen_web(
             return
 
         # If first attempt produced nothing, retry with a fresh thread once
-        if not raw_content and attempt == 0:
+        if not raw_content and attempt < _QWEN_WEB_ATTEMPTS - 1:
             continue
 
         break  # success — exit retry loop

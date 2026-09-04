@@ -184,8 +184,12 @@ def run(
     # Bounded retry for empty/stalled turns: a reasoning model (grok-4.5, k3,
     # DeepSeek) can emit only its <thinking> and end the stream — often on
     # finish_reason="length" (truncated) — before any answer or tool call.
+    # 0 by design (Kev, 2026-09-03): a silent stall-retry that nudges the model
+    # 3× invisibly is exactly what made turns "freeze out of nowhere". On the
+    # first empty/stalled turn we now surface a clear message and stop, instead
+    # of quietly re-prompting. The user re-sends or adjusts tokens/effort.
     _empty_retries = 0
-    _MAX_EMPTY_RETRIES = 3
+    _MAX_EMPTY_RETRIES = 0
     while True:
         if cancel_check and cancel_check():
             return
@@ -365,10 +369,13 @@ def run(
                 break   # real final answer
             _empty_retries += 1
             if _empty_retries > _MAX_EMPTY_RETRIES:
+                _fr = getattr(assistant_turn, "finish_reason", "") or ""
+                _cut = " — the message was cut off by the token limit" if _fr == "length" else ""
                 yield TextChunk(
-                    "\n⚠️  The model returned only reasoning with no answer or "
-                    "tool call repeatedly (usually truncated thinking — try a "
-                    "higher max_tokens or lower reasoning effort). Stopping.\n"
+                    "\n⚠️  The model produced only reasoning, with no answer and "
+                    "no tool call" + _cut + " (usually truncated thinking). "
+                    "Stopping — re-send, or try a higher max_tokens / lower "
+                    "reasoning effort.\n"
                 )
                 break
             _fr = getattr(assistant_turn, "finish_reason", "") or ""
