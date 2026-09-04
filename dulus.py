@@ -101,6 +101,7 @@ Slash commands in REPL:
   /update status    Show installed version, latest, and auto-check setting
   /login dulus      Sign in to your Dulus account (OAuth PKCE — no API key; unlocks Fuel-metered Dulus models)
   /login dulus key  Mint a dulus_sk_* API key for CI/servers
+  /login dulus --headless  Also try opening a browser locally (default just shows a URL + code)
   /fuel             $DULUS Fuel balance + reload wallet QR (console-scannable)
   /fuel deposit     Show reload wallet address + QR only
   /login claude     Claude Pro/Max subscription OAuth (no API key)
@@ -396,7 +397,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.14.5"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.14.6"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -9776,6 +9777,10 @@ def cmd_login(args: str, _state, config) -> bool:
 
         rest = (args or "").strip().split()
         force = "force" in rest
+        # --headless: opt back into the old "just try to open a browser"
+        # behaviour. The default is safe (only opens a real GUI browser, never
+        # hijacks an SSH/headless terminal); this flag is the escape hatch.
+        headless = any(t in ("--headless", "headless") for t in rest)
         if len(rest) > 1 and rest[1] in ("key", "apikey", "api-key"):
             name = rest[2] if len(rest) > 2 else "cli"
             dulus_account.create_api_key(name, notify=lambda m: print(clr(m, "cyan")))
@@ -9798,8 +9803,11 @@ def cmd_login(args: str, _state, config) -> bool:
         if force:
             dulus_account.clear_store()
         print(clr("Starting Dulus sign-in (OAuth 2.0 + PKCE)…", "cyan"))
+        if not headless:
+            print(clr("  tip: default shows a URL + code to approve from any device. "
+                      "Add --headless to also try opening a browser here.", "gray"))
         try:
-            token = dulus_account.login(notify=lambda m: print(clr(m, "cyan")))
+            token = dulus_account.login(notify=lambda m: print(clr(m, "cyan")), force_browser=headless)
         except Exception as e:
             token = None
             print(clr(f"Sign-in error: {e}", "red"))
