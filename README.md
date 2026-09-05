@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>🖥️ Prefer a desktop app?</strong> Download <strong>Dulus Premium</strong> — a signed, auto-updating build for Windows, macOS and Linux.<br>
+  <strong>🖥️ Prefer a desktop app?</strong> Download <strong>Dulus Premium</strong> — A version where i code without giving away my creativity for free.. 09/05/2026 read the last part of the readme file.<br>
   <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
 </p>
 
@@ -867,6 +867,67 @@ Dulus has received support through startup programs from Cloudflare, AWS Activat
 
 ---
 
+My commits in the last 3 days for our private Dulus Build... this is my last time showing my creativity...
+
+I will code it.
+
+🚀 Dulus v6.0.6 ➡️ v6.0.7 Changelog 🚀 
+
+✨ Nuevas Features & Core
+• 👁️ Control de Pantalla Nativo: Agregadas las herramientas ScreenGround y ScreenClick para uso nativo de la computadora. 
+
+• ♾️ Lookback Auto-Recall: Nuevo sistema push-RAG que le da contexto virtualmente "infinito" a los modelos locales pequeños. 
+
+• 🔒 Modo Isolate: El toggle /isolate ahora bloquea todas las herramientas de escritura, edición y Bash para que no salgan de tu workspace. 
+
+• ⏳ Waits Inteligentes: Ahora la IA prefiere usar Reminder en lugar de Bash('sleep N') para esperar, evitando bloquear el chat.
+
+🧠 Razonamiento y Memoria
+
+• 💭 Streaming Real: El comando /thinking vuelve a ser el control principal para el razonamiento, ahora con verdadero streaming. 
+
+• 🛡️ Memoria Robusta: Timeout guard implementado para mempalace y protección para evitar que el archivo de memoria se encoja. El baseline de gold/soul ahora va directo al system prompt. 
+
+• 🗣️ Verbose Thinking: Restaurado para proveedores como LiteLLM, DeepSeek y Qwen.
+
+🖥️ Interfaz y Experiencia (GUI)
+
+• 📁 Mejoras en el Workspace: Panel de contexto con auto-apertura y subidas de hasta 25MB directamente al workspace. 
+
+• 🖱️ El menú de /load ahora es clickeable y se eliminó el molesto bug del ícono duplicado en el Dock. 
+
+• 🔤 ¡Adiós acentos rotos (mojibake)! Decodificación UTF-8 estricta para el SSE de Meta y ChatGPT. 
+
+• ❄️ Solucionado el problema del escritorio congelado al arrancar (seeding correcto de memoria a corto plazo).
+
+🌐 Modelos y Proveedores
+
+• 🦙 Soporte añadido para Meta AI Muse Spark (http://api.meta.ai/v1/responses). • ✖️ Nuevo alias de proveedor x ➡️ xai-oauth (para Grok-4.5). 
+
+• 🤖 Configuración predeterminada actualizada: ahora por defecto usa el modelo dulus/dulus-a-9b, permission_mode=auto y webdrive_embed=always. 
+
+• 🪪 Ahora enviamos la identidad de Dulus en los headers al comunicarnos con los LLMs.
+
+🛠️ Infraestructura, DevOps & Fixes
+
+• 🛑 Fail Fast: Eliminados los reintentos silenciosos. 
+
+Si un modelo falla, lo hace rápido para evitar que el agente "se congele de la nada". 
+
+• ☁️ Migración Cloud: El provisionador de entornos para clientes ha sido portado de Azure a OVH MKS. 
+
+• 📊 Arena de Benchmarks: Nueva arena para comparar modelos con un sistema de evaluación basado en evidencias. 
+
+• ⚙️ Protocolo de salida en JSON (--output json) y flujo de early-cut mejorado (welcome/doctor).
+🔐 Seguridad & Agentes (Datadog-bits)
+
+• Parcheados múltiples vectores críticos: mitigada la inyección de prompts en el bucle de herramientas del Army worker. • Fix de Path Traversal de tenants vía X-Tenant-ID. • Prevención de filtrado de datos (leaks) en el endpoint de búsqueda de memoria y en el marketplace. • Validación estricta del código autogenerado para plugins antes de escribir en el sistema.
+
+⚡️ That's some homework for the industry!
+
+Building binaries!
+
+
 ## FAQ
 
 <details>
@@ -918,7 +979,7 @@ Dulus is licensed under [GPLv3](LICENSE). You can use it, study it, modify it, a
 If Dulus saves you tokens, time, or sanity:
 
 ```text
-BTC: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
+
 ```
 
 <p align="center">
@@ -928,5 +989,5 @@ BTC: 1JzatQDn9fMLnKTd3KYgztsLHC95bJEzSN
 <p align="center">
   <strong>Built by <a href="https://github.com/KevRojo">KevRojo</a> in the Dominican Republic.</strong><br>
   Named after the Cigua Palmera, not the rocket.<br>
-  <a href="https://x.com/KevRojo">@KevRojo</a> · <a href="https://t.me/dulusx">t.me/dulusx</a>
+  <a href="https://x.com/KevRojo">@KevRojox</a> · <a href="https://t.me/dulusx">t.me/dulusx</a>
 </p>
