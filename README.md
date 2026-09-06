@@ -1,3 +1,10 @@
+ALERT! USER THE BINARIES! https://github.com/Dulus-Ai/dulus-updates    < where i will keep launching new features 
+
+Pouring my soul into this...
+
+<img width="731" height="215" alt="image" src="https://github.com/user-attachments/assets/a45d1e05-77a1-4b15-9f41-cdcc4031c6e2" />
+
+
 # Dulus
 
 <p align="center">
