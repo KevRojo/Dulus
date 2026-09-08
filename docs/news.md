@@ -2,6 +2,8 @@
  
 ## 🔥🔥🔥 News (Pacific Time)
 
+- September 8, 2026 (**🖥️ v6.0.8 out!**): **The desktop is here — and it's solid.** The full Dulus desktop app just shipped as **v6.0.8**: the whole agent, the GUI orchestrator, offload panes, memory palace, voice, browser automation — packaged into one native installer, no Python setup, no API key. Grab the binary from the launch page above. The open runtime stays free forever; the desktop is the same soul with a face. `pip install -U dulus` for the CLI. 🦅🇩🇴
+
 - September 2, 2026 (**v3.14.1**): **🌐 Web-harvest browser fix.** `/harvest-gemini` (and claude/kimi/qwen/deepseek) no longer launch without a browser after the first run. The installer used to key off the *pip package*, so once the wizard installed it, later harvests skipped the *browser* download entirely — leaving you with a package but no Chromium. Now a single idempotent guard ensures both the package and the browser are present every time. `pip install -U dulus`. 🦅
 
 - September 3, 2026 (**v3.14.2**): **📦 One-shot install — everything's in the box now.** No more `dulus[full]` archaeology: `pip install dulus` now pulls the whole runtime by default — memory palace, voice, browser automation, LiteLLM routing and analytics all come along. Plus a new **Meta AI (Muse Spark)** provider (`meta/muse-spark-1.3`). Same free open runtime, your machine. `pip install -U dulus`. 🦅🇩🇴

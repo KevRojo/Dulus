@@ -1,4 +1,4 @@
-ALERT! USER THE BINARIES! https://github.com/Dulus-Ai/dulus-updates    < where i will keep launching new features 
+ALERT! 🖥️ v6.0.8 OUT! USE THE BINARIES! https://github.com/Dulus-Ai/dulus-updates    < where i will keep launching new features 
 
 Pouring my soul into this...
 
