@@ -1,5 +1,10 @@
 include pyproject.toml
-recursive-include docs *
+# Only ship the docs the runtime actually reads (news radio, webchat dashboard,
+# favicon). The rest of docs/ (api.html, readme images, landing page, changelog)
+# is for GitHub/Pages only and must NOT bloat every `pip install`.
+include docs/news.md
+include docs/dulus-bird.png
+recursive-include docs/dashboard *
 recursive-include data *
 recursive-include sandbox/dist *
 recursive-include webbridge *
