@@ -47,6 +47,37 @@ def _ensure_dist(rebuild: bool) -> None:
         print(f"[1/3] sandbox/dist already exists — skipping vite build")
 
 
+def _normalize_asset_names() -> None:
+    """Rename Vite's content-hashed assets to stable names.
+
+    Vite emits ``assets/index-AbC123Xy.js`` — every rebuild orphans the old
+    hashed file and grows git history by ~2 MB per bundle. Stable names
+    (``assets/sandbox.js`` / ``assets/sandbox.css``) let rebuilds overwrite
+    the same path, so unchanged content is a git no-op. Rewrites the refs in
+    ``dist/index.html`` accordingly.
+    """
+    assets_dir = DIST / "assets"
+    if not assets_dir.exists():
+        return
+    renames: dict[str, str] = {}
+    for pattern, stable in (("index-*.js", "sandbox.js"), ("index-*.css", "sandbox.css")):
+        stable_path = assets_dir / stable
+        for hit in sorted(assets_dir.glob(pattern)):
+            if hit.name == stable:
+                continue
+            renames[hit.name] = stable
+            if stable_path.exists():
+                stable_path.unlink()
+            hit.rename(stable_path)
+    if renames:
+        idx = DIST / "index.html"
+        html = idx.read_text(encoding="utf-8")
+        for old, new in renames.items():
+            html = html.replace(old, new)
+        idx.write_text(html, encoding="utf-8")
+        print(f"      Normalized: {', '.join(f'{a} -> {b}' for a, b in renames.items())}")
+
+
 def _build_tarball() -> None:
     """Pack sandbox/dist/* into _bundles/sandbox.tar.gz."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -95,6 +126,7 @@ def main() -> int:
     _ensure_dist(args.rebuild)
     if not (DIST / "index.html").exists():
         sys.exit(f"sandbox/dist/index.html still missing — vite build must have failed.")
+    _normalize_asset_names()
     _build_tarball()
     _summary()
     return 0
