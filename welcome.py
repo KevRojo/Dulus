@@ -6,7 +6,8 @@ not just a tool. Features:
   - Beautiful ASCII art of the Cigua Palmera
   - First-run vs. returning user detection
   - Animated bird spinner during setup
-  - Provider + model selection
+  - Provider + model selection (Dulus's own router leads the menu)
+  - Guided Dulus account sign-in (OAuth -- no API key to paste)
   - API key prompting (when needed)
   - Soul seeding with personalized personality
   - MemPalace initialization
@@ -90,6 +91,8 @@ _WELCOME_MESSAGES = {
         "tips": [
             "💡 Tip: Type /help anytime to see what I can do!",
             "💡 Tip: I remember our conversations -- just chat naturally!",
+            "💡 Tip: /login dulus puts you on my own models -- no API key!",
+            "💡 Tip: /fuel shows your $DULUS balance + a reload QR.",
             "💡 Tip: Use /harvest-gemini for free AI without any API key!",
             "💡 Tip: I'm open source -- customize me however you like!",
         ],
@@ -265,6 +268,7 @@ def _get_motivational_quote() -> str:
 # ---------------------------------------------------------------------------
 
 _PROVIDER_MENU = [
+    ("dulus",      "🦅 Dulus (ours!) -- sign in, no API key, $DULUS Fuel", "dulus-b-27b",  False),
     ("gemini-web", "Google Gemini Web (FREE - no API key, auto-setup)", "gemini-web/gemini-latest", False),
     ("ollama",     "Ollama (local, free)",                    "gemma3:latest",                  False),
     ("nvidia-web", "NVIDIA NIM (14 free models)",             "llama-3.3-70b-instruct",         True),
@@ -276,6 +280,19 @@ _PROVIDER_MENU = [
     ("deepseek",   "DeepSeek",                                 "deepseek-chat",                  True),
     ("litellm",    "LiteLLM gateway (100+ providers via one API)", "openrouter/anthropic/claude-3-5-sonnet", True),
 ]
+
+# The tiers the wizard shows for Dulus's own router. The full catalog lives in
+# providers.PROVIDERS["dulus"]["models"] (12 tiers) -- these four are the ones
+# worth a first flight, ordered from quick to flagship.
+# (model_tag, human_label)
+_DULUS_MODELS = [
+    ("dulus-a-9b",      "quick -- edits, questions, small refactors"),
+    ("dulus-b-27b",     "balanced -- the daily driver"),
+    ("dulus-coder-30b", "code-tuned -- reviews and big refactors"),
+    ("dulus-x-397b",    "flagship -- the heavy thinking"),
+]
+
+_DULUS_DEFAULT_MODEL = "dulus-b-27b"
 
 
 def _prompt(question: str, default: str = "") -> str:
@@ -518,16 +535,19 @@ def run_welcome_wizard(config: dict) -> dict:
     # LiteLLM special flow
     if provider == "litellm":
         _setup_litellm(config, default_model)
+    elif provider == "dulus":
+        _setup_dulus(config)
     elif provider == "gemini-web":
         _setup_gemini_web(config)
     else:
         _setup_standard_provider(config, provider, default_model, needs_key)
 
     # Free local AI (Ollama + Qwen) — only pitch it when the user did NOT already
-    # pick a free, self-connecting provider. gemini-web is free and auto-connects,
-    # so stacking a local-model download prompt on top of it is just confusing
-    # noise (and pulls Ollama into a flow that doesn't need it).
-    if provider != "gemini-web":
+    # pick a free, self-connecting provider. gemini-web is free and auto-connects
+    # and the Dulus router signs itself in, so stacking a local-model download
+    # prompt on top of either is just confusing noise (and pulls Ollama into a
+    # flow that doesn't need it).
+    if provider not in ("gemini-web", "dulus"):
         _setup_local_ai(config)
 
     # MemPalace initialization
@@ -640,6 +660,117 @@ def _setup_litellm(config: dict, default_model: str) -> None:
         if key:
             config[f"{backend}_api_key"] = key
             print(f"  OK Key saved as {backend}_api_key")
+
+
+def _dulus_show_balance() -> None:
+    """Print the $DULUS Fuel balance, or point at /fuel when it's unreachable."""
+    try:
+        import dulus_account
+        balance = dulus_account.account_balance(notify=lambda _m: None)
+    except Exception:
+        balance = None
+    if balance:
+        print(f"       ⛽ Fuel balance: {balance}")
+    else:
+        print("       ⛽ Run  /fuel  anytime for your balance + a reload QR.")
+
+
+def _dulus_sign_in() -> bool:
+    """Step 1 of the Dulus flow: get the account session in place.
+
+    Returns:
+        True when Dulus can already authenticate (existing session, fresh
+        sign-in, or a pasted ``dulus_sk_*`` key), False when the user skipped
+        it -- the wizard keeps going either way.
+    """
+    if os.environ.get("DULUS_API_KEY"):
+        print("  1/3  OK Using DULUS_API_KEY from your environment.")
+        return True
+
+    try:
+        import dulus_account
+    except Exception as e:
+        print(f"  1/3  (Sign-in unavailable here: {e})")
+        print("       Run  /login dulus  once Dulus is up.")
+        return False
+
+    store = dulus_account.load_store()
+    if store.get("access_token") and not dulus_account._token_expired(store):
+        print("  1/3  OK You're already signed in to your Dulus account.")
+        _dulus_show_balance()
+        return True
+
+    ans = _prompt("  1/3  Sign in now? (OAuth -- a link + code you approve)", "Y")
+    if not ans.lower().startswith(("y", "s")):
+        print("       Skipped -- sign in anytime with  /login dulus.")
+        key = _prompt_secret("       Already have a dulus_sk_* key? Paste it (Enter to skip)")
+        if key:
+            # Honest scope: the router reads DULUS_API_KEY, so this key works
+            # for the running session; persisting it is the shell's job.
+            os.environ["DULUS_API_KEY"] = key
+            print("       OK Using it for this session. To keep it, add to your shell:")
+            print("            export DULUS_API_KEY=dulus_sk_...")
+            return True
+        print("       (CI/servers:  /login dulus key  mints a dulus_sk_* key.)")
+        return False
+
+    try:
+        token = dulus_account.login(notify=lambda m: print(f"       {m}"))
+    except Exception as e:
+        token = None
+        print(f"       Sign-in error: {e}")
+    if token:
+        print("       ✅ Signed in! Every dulus-* tier is unlocked.")
+        _dulus_show_balance()
+        return True
+    print("       Couldn't finish the sign-in -- retry anytime with  /login dulus.")
+    return False
+
+
+def _setup_dulus(config: dict) -> None:
+    """Configure Dulus's own router -- the house engine, no API key to paste.
+
+    Three steps, and only the first one needs you:
+      1. Sign in to your Dulus account (OAuth 2.0 + PKCE, approve from any
+         device). CI and servers use ``/login dulus key`` or DULUS_API_KEY.
+      2. Pick a tier -- switch later with /model dulus-* at no cost.
+      3. Load $DULUS Fuel whenever you want more: ``/fuel`` prints the balance
+         and a console QR for the reload wallet.
+
+    Args:
+        config: The Dulus configuration dictionary to update.
+    """
+    print()
+    print("-" * 60)
+    print("  🦅 Dulus on Dulus -- my own router, and my favorite way to fly.")
+    print("     One sign-in, zero API keys: the control plane holds the")
+    print("     provider keys and meters $DULUS Fuel per token.")
+    print("     The open runtime stays free -- Fuel only pays for compute.")
+    print("-" * 60)
+    print()
+    print("  Flight plan:  1) sign in   2) pick a tier   3) fuel up")
+    print()
+
+    signed_in = _dulus_sign_in()
+
+    print()
+    print("  2/3  Pick your tier (change anytime with  /model dulus-*):")
+    for tag, why in _DULUS_MODELS:
+        marker = "→" if tag == _DULUS_DEFAULT_MODEL else " "
+        print(f"       {marker} {tag:<18} {why}")
+    print("       (12 tiers in all -- vision and OSS ones too; /model lists them.)")
+    model = _prompt("       Model", _DULUS_DEFAULT_MODEL).strip() or _DULUS_DEFAULT_MODEL
+    if "/" in model:
+        model = model.split("/", 1)[1]
+    config["model"] = f"dulus/{model}"
+    print(f"       OK You're flying on dulus/{model}.")
+
+    print()
+    if signed_in:
+        print("  3/3  ⛽ /fuel  -- balance + a console QR to reload with $DULUS.")
+    else:
+        print("  3/3  ⛽ /login dulus  first, then  /fuel  for balance + reload QR.")
+    print("       No card, no waitlist, no premium wall. Welcome aboard. 🇩🇴")
 
 
 def _setup_gemini_web(config: dict) -> None:
