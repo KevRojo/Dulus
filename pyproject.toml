@@ -107,6 +107,10 @@ dependencies = [
     # boxes (Docker, servers, CI) since it never imports Qt without a screen.
     # Off switch for anyone who dislikes it: DULUS_BAR=0 or /config dulus_bar=0.
     "dulus-bar>=0.3.7",
+    # Git — plugin installs/updates, checkpoints and repo introspection all
+    # ride on git. Shipping GitPython by default means those flows have a real
+    # library instead of parsing `git` stdout, and the wheel barely notices it.
+    "GitPython>=3.1.40",
     # Model Context Protocol (MCP) SDK & runtime utilities
     "mcp>=1.0.0",
     "uv>=0.4.0",
