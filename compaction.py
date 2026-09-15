@@ -19,26 +19,12 @@ except ImportError:  # public wheel may omit it
 # /compact can actually compress something (see find_split_point).
 RECENT_TURNS_TO_PRESERVE = 8
 
-# Absolute floor of recent turns kept even on aggressive compact (lookback OFF).
+# Absolute floor of recent turns kept verbatim, whatever the token math says.
 MIN_RECENT_TURNS = 3
 
 # Fraction of tokens to aim to keep in the recent portion (as a floor).
 # The turn-preservation rule is usually stricter, so this is a fallback.
 DEFAULT_KEEP_RATIO = 0.40
-
-# ── Lookback-aware compact (aggressive) ──────────────────────────────────
-# When lookback is ON the full archive already lives locally for Loopback.
-# Compact should leave the LIVE context near-empty and point the model at
-# the loopback archive file — not keep 8 fat turns + pinned dumps.
-LOOKBACK_RECENT_TURNS = 1          # only the active turn stays verbatim
-LOOKBACK_MIN_RECENT_TURNS = 1
-LOOKBACK_KEEP_RATIO = 0.02         # ~nothing from the old side by tokens
-LOOKBACK_SUMMARY_SNIPPET = 400     # denser, shorter snippets into summarizer
-LOOKBACK_SUMMARY_MAX_CHARS = 1200  # hard cap on the summary card itself
-
-# Durable full-archive store so Loopback still works after compact rewrites
-# state.messages. Sibling of compaction_backups.
-# LOOPBACK_ARCHIVE_DIR set below with CHECKPOINT_DIR (CONFIG_DIR-safe)
 
 # Maximum chars of each old message fed into the summarizer.
 SUMMARY_SNIPPET_LEN = 1200
@@ -127,7 +113,6 @@ def _run_summarizer(system: str, summary_prompt: str, config: dict,
 from config import CONFIG_DIR
 
 CHECKPOINT_DIR = CONFIG_DIR / "compaction_backups"
-LOOPBACK_ARCHIVE_DIR = CONFIG_DIR / "loopback_archives"
 
 # System/user markers that previous compact runs re-inject. Must be stripped
 # before compacting or every /compact STACKS another copy (net token growth).
@@ -138,19 +123,18 @@ _REINJECT_MARKERS = (
     "[Compacted conversation summary",
     "[Previous conversation summarized",
     "[Previous conversation summary]",
+    # Legacy cards written by older releases — still stripped so an upgraded
+    # session does not carry a stale summary forward.
     "[LOOKBACK COMPACT]",
     "[Lookback compact]",
 )
-for _d in (CHECKPOINT_DIR, LOOPBACK_ARCHIVE_DIR):
+for _d in (CHECKPOINT_DIR,):
     try:
         _d.mkdir(parents=True, exist_ok=True)
     except OSError:
-        # Checkpoint / archive writes are already wrapped — missing dir just
-        # disables rollback/archive, never fatal at import.
+        # Checkpoint writes are already wrapped — a missing dir just disables
+        # rollback, never fatal at import.
         pass
-
-# Keep module-level alias used by save_loopback_archive when CONFIG_DIR differs
-# from Path.home()/.dulus (Windows). Already set above.
 
 
 
@@ -572,16 +556,14 @@ def _effective_recent_turns(
     only re-injected memories (net growth). We always leave at least ~40%
     of turns (or 2 turns) eligible for summarization when possible.
 
-    ``floor`` defaults to MIN_RECENT_TURNS (classic). Lookback compact passes
-    LOOKBACK_MIN_RECENT_TURNS (1) so the live window can shrink near-zero.
+    ``floor`` defaults to MIN_RECENT_TURNS.
     """
     floor = MIN_RECENT_TURNS if floor is None else max(1, int(floor))
     user_turns = sum(1 for m in messages if m.get("role") == "user")
     if user_turns <= floor:
         return max(1, user_turns)
-    # Leave at least 2 turns (or 40% of turns) for the "old" side —
-    # except when floor==1 (lookback): leave at least 1 old turn if possible.
-    leave_old = max(1 if floor <= 1 else 2, user_turns * 2 // 5)
+    # Leave at least 2 turns (or 40% of turns) for the "old" side.
+    leave_old = max(2, user_turns * 2 // 5)
     max_preserve = max(floor, user_turns - leave_old)
     return max(floor, min(requested, max_preserve))
 
@@ -617,9 +599,7 @@ def find_split_point(
         its assistant tool_calls partner.
     """
     # Clamp so short chats still free room for the summarizer.
-    # When caller asks for 1 (lookback aggressive), honor that floor.
-    floor = LOOKBACK_MIN_RECENT_TURNS if min_recent_turns <= LOOKBACK_MIN_RECENT_TURNS else MIN_RECENT_TURNS
-    min_recent_turns = _effective_recent_turns(messages, min_recent_turns, floor=floor)
+    min_recent_turns = _effective_recent_turns(messages, min_recent_turns)
 
     # 1) Token-based split.
     total = estimate_tokens(messages, model=model, config=config)
@@ -675,27 +655,6 @@ def find_split_point(
 
 
 
-def _lookback_mode(config: dict | None) -> bool:
-    """True when lookback is ON — compact may go aggressive + archive to disk."""
-    if not config:
-        return False
-    try:
-        from lookback import lookback_enabled
-        return bool(lookback_enabled(config))
-    except Exception:
-        # Fallback: same truthy keys lookback.py uses
-        v = config.get("lookback")
-        if v is None:
-            v = config.get("lookback_turns")
-        if v is True:
-            return True
-        if isinstance(v, (int, float)) and int(v) > 0:
-            return True
-        if isinstance(v, str) and v.strip().lower() in {"1", "true", "on", "yes"}:
-            return True
-        return False
-
-
 def _session_key(state, config: dict | None) -> str:
     sid = ""
     if state is not None:
@@ -707,183 +666,18 @@ def _session_key(state, config: dict | None) -> str:
 
 
 
-def enable_lookback_after_compact(config: dict | None, *, reason: str = "compact") -> bool:
-    """Force lookback ON for this session after a compact rewrote live context.
-
-    Quality rule (KevRojo): once we collapse live messages to a hint card +
-    last turn, the agent MUST have lookback/Loopback or it will invent the past
-    and quality tanks. Even if the user had lookback OFF, we flip it ON for the
-    rest of the session and persist via save_config when available.
-
-    Returns True if lookback was newly enabled (or already on).
-    """
-    if not isinstance(config, dict):
-        return False
-    already = bool(config.get("lookback"))
-    config["lookback"] = True
-    # Sensible window if unset / zero
-    try:
-        n = int(config.get("lookback_turns") or 0)
-    except (TypeError, ValueError):
-        n = 0
-    if n < 2:
-        config["lookback_turns"] = 20
-    # Session-scoped flag so UI / /context can explain why it flipped
-    config["_lookback_forced_by_compact"] = True
-    config["_lookback_forced_reason"] = reason
-    # Clear stale anchors — message indices changed after rewrite
-    try:
-        from lookback import LOOKBACK_ANCHOR_KEY, LOOKBACK_ANCHOR_SIG_KEY
-        config.pop(LOOKBACK_ANCHOR_KEY, None)
-        config.pop(LOOKBACK_ANCHOR_SIG_KEY, None)
-    except Exception:
-        config.pop("_lookback_anchor", None)
-        config.pop("_lookback_anchor_sig", None)
-    # Persist so restart of same config keeps lookback ON
-    try:
-        from config import save_config
-        save_config(config)
-    except Exception:
-        pass
-    return True if not already else True
-
-
-def save_loopback_archive(messages: list, state=None, config: dict | None = None) -> Path | None:
-    """Persist the FULL pre-compact archive so Loopback still has it.
-
-    Writes ~/.dulus/loopback_archives/archive_<session>.json and binds
-    config["_loopback_archive_path"] + config["_loopback_archive"] (in-memory
-    copy) for the Loopback tool. Returns the path or None on failure.
-
-    CRITICAL — second-/Nth-compact guard:
-    A later ``/compact`` runs against an *already slimmed* ``state.messages``.
-    Naively rewriting the archive would overwrite the original full history
-    with the post-compact crumbs. We NEVER shrink a durable archive: if an
-    in-memory or on-disk copy is longer than ``messages``, keep the longer one
-    and only refresh the binding.
-    """
-    if not messages:
-        return None
-    try:
-        LOOPBACK_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-        sid = _session_key(state, config)
-        path = LOOPBACK_ARCHIVE_DIR / f"archive_{sid}.json"
-
-        # Resolve the longest known full archive for this session.
-        prev: list = []
-        if isinstance(config, dict):
-            live = config.get("_loopback_archive")
-            if isinstance(live, list) and live:
-                prev = live
-        if not prev and path.exists():
-            try:
-                disk = json.loads(path.read_text(encoding="utf-8"))
-                disk_msgs = disk.get("messages") if isinstance(disk, dict) else None
-                if isinstance(disk_msgs, list) and disk_msgs:
-                    prev = disk_msgs
-            except Exception:
-                prev = []
-
-        if prev and len(prev) > len(messages):
-            # Refuse to shrink. Keep the fuller archive as the durable source.
-            if isinstance(config, dict):
-                config["_loopback_archive"] = prev
-                config["_loopback_archive_path"] = str(path)
-            return path
-
-        payload = {
-            "session_id": sid,
-            "timestamp": time.strftime("%Y%m%d_%H%M%S"),
-            "message_count": len(messages),
-            "messages": messages,
-        }
-        path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2, default=str),
-            encoding="utf-8",
-        )
-        # Keep only newest 20 archives (disk hygiene).
-        existing = sorted(
-            LOOPBACK_ARCHIVE_DIR.glob("archive_*.json"),
-            key=lambda p: p.stat().st_mtime,
-        )
-        for old in existing[:-20]:
-            try:
-                old.unlink(missing_ok=True)
-            except Exception:
-                pass
-        if config is not None:
-            config["_loopback_archive_path"] = str(path)
-            # Hold a live copy so Loopback does not re-read disk every call.
-            config["_loopback_archive"] = list(messages)
-        return path
-    except Exception:
-        return None
-
-
-def load_loopback_archive(config: dict | None = None) -> list:
-    """Return the durable full archive for Loopback (memory or disk)."""
-    if not config:
-        return []
-    live = config.get("_loopback_archive")
-    if isinstance(live, list) and live:
-        return live
-    path = config.get("_loopback_archive_path") or ""
-    if not path:
-        # Fall back to newest archive for this session id
-        sid = _session_key(None, config)
-        candidate = LOOPBACK_ARCHIVE_DIR / f"archive_{sid}.json"
-        path = str(candidate) if candidate.exists() else ""
-    if not path:
-        return []
-    try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-        msgs = data.get("messages") if isinstance(data, dict) else None
-        if isinstance(msgs, list):
-            config["_loopback_archive"] = msgs
-            config["_loopback_archive_path"] = path
-            return msgs
-    except Exception:
-        return []
-    return []
-
-
 def compact_messages(messages: list, config: dict, focus: str = "") -> list:
     """Compress old messages into a summary via LLM call.
 
-    Splits at find_split_point, summarizes old portion, returns a slim list.
+    Older messages are summarized into one card; high-priority messages are
+    preserved verbatim after it.
 
-    Lookback OFF (classic):
-      - Keep original system prompt.
-      - Keep last RECENT_TURNS_TO_PRESERVE user turns verbatim.
-      - Pin high-priority messages; summarize the rest.
-
-    Lookback ON (aggressive — the interesting case):
-      - Caller should have already saved the FULL archive via
-        ``save_loopback_archive`` so Loopback still has everything.
-      - Keep system header + ONE dense [LOOKBACK COMPACT] hint card +
-        last LOOKBACK_RECENT_TURNS turn(s) only.
-      - No pinned bulk, no fat summary essay — context aims near-zero.
-      - Card tells the model to use Loopback(action=search|show|head|status).
-
-    Guarantees always:
+    Guarantees:
       - Assistant/tool-call pairs are never split.
       - Original system prompt (first message if role==system) is kept.
     """
     model = config.get("model", "")
-    lb = _lookback_mode(config)
-
-    if lb:
-        split = find_split_point(
-            messages,
-            keep_ratio=LOOKBACK_KEEP_RATIO,
-            model=model,
-            config=config,
-            min_recent_turns=LOOKBACK_RECENT_TURNS,
-        )
-        # Force floor of 1 recent turn when possible
-        split = max(split, 0)
-    else:
-        split = find_split_point(messages, model=model, config=config)
+    split = find_split_point(messages, model=model, config=config)
 
     if split <= 0:
         return messages
@@ -900,84 +694,7 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
 
     recent = messages[split:]
 
-    # ── LOOKBACK PATH: tiny card, no pinned bulk ──
-    if lb:
-        snippet = LOOKBACK_SUMMARY_SNIPPET
-        old_text = ""
-        for m in old:
-            # Skip pure tool noise in the summarizer feed — keep signal dense
-            role = m.get("role", "?")
-            if role == "tool":
-                text = _message_text(m)[: min(200, snippet)]
-            else:
-                text = _message_text(m)[:snippet]
-            if text.strip():
-                old_text += f"[{role}]: {text}\n"
-
-        archive_path = (config or {}).get("_loopback_archive_path") or str(
-            LOOPBACK_ARCHIVE_DIR / f"archive_{_session_key(None, config)}.json"
-        )
-        archive_n = len(messages)
-        try:
-            from lookback import count_user_turns
-            archive_u = count_user_turns(messages)
-        except Exception:
-            archive_u = sum(1 for m in messages if m.get("role") == "user")
-
-        summary_prompt = (
-            "You are writing a TINY recovery card for an agent that has Lookback ON.\n"
-            "The FULL conversation is already saved locally for the Loopback tool — "
-            "do NOT rewrite the history. Emit ONLY dense bullet facts the agent needs "
-            "to continue RIGHT NOW (paths, decisions, IDs, blockers).\n"
-            "Hard limit: ~15 short bullets, no prose, no tool dumps, no code blocks.\n"
-            f"Archive size: {archive_n} messages / {archive_u} user turns.\n"
-        )
-        if focus:
-            summary_prompt += f"Focus especially on: {focus}\n"
-        summary_prompt += "\nOLDER MESSAGES (snippets only):\n" + old_text
-
-        summary_text, timed_out = _run_summarizer(
-            "Dense fact extractor. Output bullets only. "
-            "No preamble. No restating that lookback exists.",
-            summary_prompt,
-            config,
-        )
-        if timed_out and not summary_text:
-            # Summarizer stalled/failed — DON'T hang /compact. The full archive
-            # is already on disk for Loopback, so a placeholder card is fine.
-            summary_text = "(summary skipped — model was slow; full history is on Loopback)"
-        if len(summary_text) > LOOKBACK_SUMMARY_MAX_CHARS:
-            summary_text = summary_text[: LOOKBACK_SUMMARY_MAX_CHARS - 1] + "…"
-
-        card = (
-            "[LOOKBACK COMPACT]\n"
-            f"Live context was collapsed. FULL archive is local "
-            f"({archive_n} msgs / {archive_u} user turns).\n"
-            f"Archive file: {archive_path}\n"
-            "Retrieve anything you need with the Loopback tool — do NOT invent past events, "
-            "do NOT ask the user to run /loopback:\n"
-            "  Loopback(action='search', query='...')\n"
-            "  Loopback(action='show', limit=30)\n"
-            "  Loopback(action='head', limit=20)\n"
-            "  Loopback(action='status')\n"
-            "Key facts:\n"
-            f"{summary_text or '(no extra facts — use Loopback if needed)'}"
-        )
-        summary_msg = {"role": "system", "content": card}
-        ack_msg = {
-            "role": "assistant",
-            "content": (
-                "Understood. Live context is compact; full archive is on Loopback. "
-                "I will Loopback(search/show) if I need older facts. Let's continue."
-            ),
-        }
-        result = list(system_header)
-        result.append(summary_msg)
-        result.append(ack_msg)
-        result.extend(recent)
-        return result
-
-    # ── CLASSIC PATH (lookback OFF) ──
+    # ── Summarize the old side ──
     pinned = []
     to_summarize = []
     for m in old:
@@ -1082,14 +799,9 @@ def maybe_compact(state, config: dict) -> bool:
     if estimate_tokens(state.messages, model=model, config=config) <= threshold:
         return True
 
-    # Layer 2: auto-compact — always lookback-aggressive + force lookback ON
+    # Layer 2: auto-compact behind a restorable checkpoint
     _save_precompact_checkpoint(state, config)
-    save_loopback_archive(list(state.messages), state=state, config=config)
-    config["lookback"] = True
-    if not int(config.get("lookback_turns") or 0):
-        config["lookback_turns"] = 20
     state.messages = compact_messages(state.messages, config)
-    enable_lookback_after_compact(config, reason="auto_compact")
 
     # No fat memory reinject; restore plan context only
     has_plan = any(
@@ -1224,24 +936,8 @@ def manual_compact(state, config: dict, focus: str = "") -> tuple[bool, str]:
     # Critical: drop stacked memory/plan reinjections from previous /compacts.
     strip_compact_reinjections(state.messages)
 
-    # Compact ALWAYS goes lookback-aggressive for quality:
-    # 1) dump full archive to disk for Loopback
-    # 2) collapse live context
-    # 3) force lookback ON for the rest of this session (even if it was OFF)
-    was_lb = _lookback_mode(config)
-    archive_path = save_loopback_archive(
-        list(state.messages), state=state, config=config
-    )
-    # Pretend lookback ON during compact_messages so we get the tiny card path
-    config["lookback"] = True
-    if not int(config.get("lookback_turns") or 0):
-        config["lookback_turns"] = 20
-
     state.messages = compact_messages(state.messages, config, focus=focus)
 
-    enable_lookback_after_compact(config, reason="manual_compact")
-
-    # No fat memory reinject — archive lives on Loopback now
     has_plan = any(
         isinstance(m.get("content"), str)
         and "[Plan file restored after compaction:" in m["content"]
@@ -1252,17 +948,13 @@ def manual_compact(state, config: dict, focus: str = "") -> tuple[bool, str]:
 
     after = estimate_tokens(state.messages, model=model, config=config)
     saved = before - after
-    mode = "lookback-aggressive"
-    forced = "" if was_lb else " | lookback FORCED ON for this session"
     if saved >= 0:
-        info = f"Compacted ({mode}): ~{before} -> ~{after} tokens (~{saved} saved){forced}"
+        info = f"Compacted: ~{before} -> ~{after} tokens (~{saved} saved)"
     else:
         info = (
-            f"Compacted ({mode}): ~{before} -> ~{after} tokens "
-            f"(~{abs(saved)} GREW — check summarizer / reinjections){forced}"
+            f"Compacted: ~{before} -> ~{after} tokens "
+            f"(~{abs(saved)} GREW — check summarizer / reinjections)"
         )
     if checkpoint_path:
         info += f" | checkpoint: {checkpoint_path.name}"
-    if archive_path:
-        info += f" | loopback archive: {Path(archive_path).name}"
     return True, info

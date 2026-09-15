@@ -94,7 +94,6 @@ docker compose up -d
 | Multi-Proveedor | 11 proveedores nativos + 100+ via LiteLLM |
 | Sin API Key | Captura sesiones gratuitas del navegador |
 | 30+ Herramientas | Archivos, shell, web, OCR, voz, y mas |
-| Auto-Adapter | Instala cualquier repo Python como plugin |
 | MemPalace | Memoria semantica con ChromaDB |
 | Voz I/O | STT offline via Whisper. TTS multi-engine |
 | Sub-Agentes | Agentes tipados en git worktrees aislados |
@@ -158,7 +157,7 @@ dulus.py  ── REPL, comandos slash, voz, Telegram, GUI
     |
     ├── skill/  ── Sistema de skills
     ├── checkpoint/  ── Snapshots + rewind
-    ├── plugin/  ── Sistema Auto-Adapter
+    ├── plugin/  ── Sistema de plugins
     ├── voice/  ── STT (Whisper) + TTS (multi-engine)
     ├── task/  ── Gestion de tareas
     ├── webbridge/  ── Automatizacion Playwright

@@ -1164,8 +1164,6 @@ _HELP_PAGES = [
         ("/history",      "Print conversation history"),
         ("/context",      "Show context window usage"),
         ("/cost",         "Show API cost this session"),
-        ("/lookback [on|off|N]", "Send only the last N turns to the API (saves tokens)"),
-        ("/loopback [show|search]", "Inspect/search the full local archive (loopback)"),
         ("/fork",         "Fork session at a given turn"),
         ("/undo",         "Undo last turn"),
         ("/workspace [cmd]", "Manage Dulus workspaces (switch/list/default/on/off)"),
@@ -1269,8 +1267,6 @@ def _render_toggle_footer(config) -> None:
         ("lite_mode",       False, "/lite",            "Lite mode (smaller system prompt)"),
         ("brave_search_enabled", False, "/brave",      "Brave Search API integration"),
         ("bocha_search_enabled", False, "/bocha",      "Bocha AI Search (博查, Chinese-optimized)"),
-        # lookback is special-cased below to show window size (N user turns)
-        ("lookback",        False, "/lookback",        "API present-window only; full archive stays local (loopback)"),
         ("tts_enabled",     False, "/tts",             "Automatic Text-to-Speech"),
         ("wake_enabled",    False, "/wake",            "Wake-word hotword detection"),
         ("daemon",          False, "/daemon",          "External triggers without REPL"),
@@ -1284,20 +1280,7 @@ def _render_toggle_footer(config) -> None:
         val = config.get(key, default)
         state_str = clr("ON ", "green") if val else clr("OFF", "red")
         cmd_label = cmd
-        # Lookback: surface the window size so /help shows e.g. /lookback 20
-        if key == "lookback":
-            try:
-                from lookback import lookback_turns
-                n = lookback_turns(config)
-            except Exception:
-                n = int(config.get("lookback_turns", 20) or 20)
-            cmd_label = f"/lookback {n}" if val else "/lookback"
-            desc = (
-                f"API window = last {n} user turns (full archive via /loopback)"
-                if val else
-                "API present-window OFF — full archive sent · /lookback on|N"
-            )
-        elif key == "isolate" and val:
+        if key == "isolate" and val:
             root = config.get("isolate_root") or ""
             if root:
                 # Keep the footer one-line; show the leaf workspace name.
@@ -2415,159 +2398,6 @@ def cmd_history(_args: str, state, config) -> bool:  # type: ignore[no-redef]
                 elif btype == "tool_result":
                     cval = block.get("content", "") if isinstance(block, dict) else block.content
                     print(f"[{i}] {role}: [tool_result: {str(cval)[:100]}]")
-    return True
-
-
-def cmd_lookback(args: str, state, config) -> bool:
-    """API sliding window — full history stays in state.messages (loopback).
-
-    /lookback              → status
-    /lookback on|off       → toggle (keeps current lookback_turns)
-    /lookback 20           → ON with N user turns in the API window
-    /lookback status       → same as bare /lookback
-    """
-    from config import save_config
-    from lookback import (
-        DEFAULT_LOOKBACK_TURNS,
-        MIN_LOOKBACK_TURNS,
-        MAX_LOOKBACK_TURNS,
-        apply_lookback_window,
-        count_user_turns,
-        lookback_enabled,
-        lookback_turns,
-    )
-    from compaction import estimate_tokens
-
-    raw = (args or "").strip().lower()
-    parts = raw.split()
-    sub = parts[0] if parts else "status"
-
-    def _show_status() -> None:
-        on = lookback_enabled(config)
-        n = lookback_turns(config)
-        archive_n = len(state.messages)
-        archive_u = count_user_turns(state.messages)
-        full_tok = estimate_tokens(state.messages, model=config.get("model", ""), config=config) if archive_n else 0
-        window, meta = apply_lookback_window(state.messages, config)
-        win_tok = estimate_tokens(window, model=config.get("model", ""), config=config) if window else 0
-        state_str = "ON" if on else "OFF"
-        ok(f"Lookback: {state_str} · window = last {n} user turns")
-        info(f"Archive (loopback): {archive_n} messages / {archive_u} user turns · ~{full_tok:,} tokens")
-        if on:
-            info(
-                f"API window:         {meta.get('window_messages', 0)} messages / "
-                f"{meta.get('window_user_turns', 0)} user turns · ~{win_tok:,} tokens"
-            )
-            if meta.get("truncated"):
-                info(f"Not sent to API:    {meta.get('hidden_messages', 0)} older messages "
-                     f"(~{max(0, full_tok - win_tok):,} tokens saved this turn)")
-            elif meta.get("gated"):
-                info("Not sent to API:    0 — cache-aware gate: archive too small vs "
-                     "window, sending full so the prompt cache keeps hitting")
-            else:
-                info("Not sent to API:    0 (archive still fits in the window)")
-        info("Past essence: short_memory (system) · Full past: /loopback show|search")
-        info("Usage: /lookback on|off|N|status   ·  /loopback show [N] | search <q> | status")
-
-    if sub in ("", "status", "stat"):
-        _show_status()
-        return True
-
-    if sub in ("on", "true", "1", "enable", "enabled"):
-        config["lookback"] = True
-        if len(parts) > 1 and parts[1].isdigit():
-            config["lookback_turns"] = max(MIN_LOOKBACK_TURNS, min(MAX_LOOKBACK_TURNS, int(parts[1])))
-        elif not config.get("lookback_turns"):
-            config["lookback_turns"] = DEFAULT_LOOKBACK_TURNS
-        save_config(config)
-        ok(f"Lookback ON · API sees last {lookback_turns(config)} user turns · full archive kept (loopback)")
-        return True
-
-    if sub in ("off", "false", "0", "disable", "disabled"):
-        config["lookback"] = False
-        save_config(config)
-        ok("Lookback OFF · full archive is sent to the API again")
-        return True
-
-    if sub.isdigit():
-        n = max(MIN_LOOKBACK_TURNS, min(MAX_LOOKBACK_TURNS, int(sub)))
-        config["lookback"] = True
-        config["lookback_turns"] = n
-        save_config(config)
-        ok(f"Lookback ON · window set to last {n} user turns (full history still saved)")
-        return True
-
-    err("Usage: /lookback [on|off|N|status]   e.g. /lookback 20")
-    return True
-
-
-def cmd_loopback(args: str, state, config) -> bool:
-    """Inspect / search the full local archive (never truncated by lookback).
-
-    /loopback                 → status
-    /loopback status          → status
-    /loopback show [N]        → print last N archive messages (default 30)
-    /loopback search <query>  → search full archive
-    /loopback head [N]        → print first N archive messages
-
-    The agent also has a native Loopback tool (same backend) so it can
-    retrieve the archive itself under lookback — no human slash required.
-    """
-    from lookback import (
-        format_loopback_search,
-        format_loopback_slice,
-        format_loopback_status,
-    )
-
-    raw = (args or "").strip()
-    parts = raw.split(None, 1)
-    sub = (parts[0].lower() if parts else "status")
-    rest = parts[1].strip() if len(parts) > 1 else ""
-
-    archive = state.messages or []
-
-    if sub in ("", "status", "stat"):
-        for line in format_loopback_status(archive, config).splitlines():
-            if line.startswith("Loopback archive:"):
-                ok(line)
-            else:
-                info(line)
-        info("Human slash: /loopback show [N] · /loopback search <query> · /loopback head [N]")
-        return True
-
-    if sub in ("show", "tail", "last"):
-        try:
-            n = int(rest) if rest else 30
-        except ValueError:
-            err("Usage: /loopback show [N]")
-            return True
-        print(format_loopback_slice(archive, which="show", limit=n))
-        return True
-
-    if sub in ("head", "first"):
-        try:
-            n = int(rest) if rest else 20
-        except ValueError:
-            err("Usage: /loopback head [N]")
-            return True
-        print(format_loopback_slice(archive, which="head", limit=n))
-        return True
-
-    if sub in ("search", "find", "grep"):
-        if not rest:
-            err("Usage: /loopback search <query>")
-            return True
-        out = format_loopback_search(archive, rest, limit=25)
-        if out.startswith("No loopback hits"):
-            info(out)
-        else:
-            lines = out.splitlines()
-            ok(lines[0])
-            for line in lines[1:]:
-                print(line)
-        return True
-
-    err("Usage: /loopback [status|show [N]|head [N]|search <query>]")
     return True
 
 
@@ -8560,26 +8390,22 @@ def cmd_compact(args: str, state, config) -> bool:
     /compact              — compact with default summarization
     /compact <focus>      — compact with focus instructions
 
-    Compact always goes lookback-aggressive: full archive → disk for Loopback,
-    live context → hint card + last turn. Lookback is FORCED ON for the rest
-    of this session even if it was off (quality: model must retrieve via Loopback).
+    Older turns collapse into a summary card while the most recent turns stay
+    verbatim. A pre-compact checkpoint is written first, so the full history
+    can be restored if the summary loses something important.
     """
     from compaction import manual_compact
     focus = args.strip()
-    was_lb = bool(config.get("lookback"))
 
     if focus:
-        info(f"Compacting with focus: {focus} (archive→disk, live ~0, lookback ON)…")
+        info(f"Compacting with focus: {focus}…")
     else:
-        info("Compacting (archive→disk, live context ~0, lookback forced ON)…")
+        info("Compacting conversation history…")
     info("  summarizing… (may take a bit on slow/remote models; auto-skips if it stalls)")
 
     success, msg = manual_compact(state, config, focus=focus)
     if success:
         info(msg)
-        info("Loopback has the full archive — agent can Loopback(search/show/head/status).")
-        if not was_lb and config.get("lookback"):
-            info("Lookback was OFF → forced ON for this session so quality doesn't drop.")
     else:
         err(msg)
     return True
@@ -10696,8 +10522,6 @@ COMMANDS = {
     "wake":        cmd_wake,
     "git":         cmd_git,
     "webchat":     cmd_webchat,
-    "lookback":    cmd_lookback,
-    "loopback":    cmd_loopback,
     "buy-dulus":   cmd_buy_dulus,   # temporary / undocumented — community test
     "buydulus":    cmd_buy_dulus,
     "buy_dulus":   cmd_buy_dulus,
@@ -10844,7 +10668,6 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "lite":        ("Toggle lite mode (reduce system prompt)", ["on", "off"]),
     "rtk":         ("Toggle RTK token-optimized shell rewriting", ["on", "off"]),
     "isolate":     ("Lock writes to current workspace only", ["on", "off", "status"]),
-    "lookback":    ("Lookback: API window = last N user turns", ["on", "off", "status", "50", "150", "250"]),
     "cloudsave":   ("Cloud-sync sessions to GitHub Gist", ["setup", "auto", "list", "load", "push"]),
     "tts":         ("Toggle automatic TTS + lang/provider/auto", ["lang", "provider", "voice", "auto"]),
     "voice":       ("Voice input (record → STT)",         ["lang", "status", "device"]),
@@ -11313,7 +11136,7 @@ def repl(config: dict, initial_prompt: str | None = None):
     # ── Gold Memories Auto-Load (GUI/REPL display copies) ─────────────────────
     # Model source of truth is build_system_prompt → gold_system_fragment().
     # These assistant-role copies are for the transcript/GUI only and get
-    # stripped before the provider call (agent.py + lookback). Never gated
+    # stripped before the provider call (agent.py). Never gated
     # by /mem_palace (that toggle is only for per-turn semantic search).
     try:
         from memory import gold_context_messages, gold_system_fragment

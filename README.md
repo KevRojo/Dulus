@@ -264,27 +264,6 @@ Real run: **101,619 files** scanned into a variable, then queried three ways acr
 
 ---
 
-## New — Lookback: keep 2,000 turns, pay for 20
-
-> 🧪 Fresh out of the private build. I'd love for you to try it and tell me how it feels.
-
-Long agent sessions bleed tokens: every turn replays the *entire* history to the model. **Lookback** splits what the model *sees* from what you *keep* — the API gets a sliding window of only the last N user turns, while the full conversation stays saved locally. That local archive is **loopback**: re-open or search it anytime with `/loopback`, and a gold `short_memory` rides alongside so the model never loses the thread.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/lookback_two_windows.png" alt="Lookback — the model sees a small window while the full archive stays local (loopback)" width="100%">
-</p>
-
-The clever part: the window is **anchored**, so the API prefix stays stable between jumps — a naively sliding window rewrites the prefix every turn, busts the provider's prompt cache, and costs *more* than it saves. Three months on my own machine, this discipline bought: **5.9B tokens through Claude · 98.8% cache hit rate · on a single $20 plan.**
-
-```bash
-/lookback on                                # send only the recent window to the API
-/loopback search "that thing we decided"    # pull anything back from the full archive
-```
-
-Try it and hit me with feedback — it's the token trick I'm proudest of.
-
----
-
 ## New — Signed binaries, maintained by me
 
 > 📢 The fastest way to run Dulus is the prebuilt app — I keep it updated myself.
@@ -309,8 +288,6 @@ I've poured months into Dulus. Some days it feels like building the loudest thin
 Because this isn't a toy demo. Dulus already does things the funded wrappers can't:
 
 - **frontier AI with no keys** (the web-session engine above),
-- a **Round Table** where several real models argue their way to a better answer,
-- an **auto-adapter** that installs its own missing tools when it hits a wall,
 - **2,186+ MCP tools**, **100,000 skills**, memory, voice, sub-agents,
 - one runtime driving a terminal, a browser, a desktop app, and a full sandbox OS.
 
@@ -448,7 +425,7 @@ flowchart LR
 | **Context engine** | Combines project instructions, conversation state, persistent memory, skills, and the active persona |
 | **Tool registry** | Makes core tools, MCP tools, plugin tools, and skills look like one coherent capability surface |
 | **Durable state** | Stores tasks, sessions, costs, memories, checkpoints, background jobs, and audit records |
-| **Interfaces** | Exposes the same runtime through CLI, WebChat, native desktop GUI, Telegram, and Dulus OS |
+| **Interfaces** | Exposes the same runtime through CLI, WebChat, Telegram, and Dulus OS |
 
 The core stays readable on purpose. There is no TypeScript monorepo hiding the agent loop behind six packages. Start with [`dulus.py`](dulus.py), [`agent.py`](agent.py), [`providers.py`](providers.py), [`tools.py`](tools.py), and [`tool_registry.py`](tool_registry.py).
 
@@ -505,32 +482,29 @@ Override the host/port for a phone on your LAN with `DULUS_EDGE_BASE_URL` or `/c
 
 ---
 
-## Turn any Python repo into tools
+## Extending the tool surface
 
-MCP is supported natively, but Dulus does not stop there.
-
-The **Auto-Adapter** can inspect an arbitrary Python repository, infer useful operations, generate a `plugin_tool.py`, install dependencies, validate the exports, and register the resulting tools in the current session.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/auto-adapter.png" alt="Dulus Auto-Adapter turning a Python repository into live tools" width="100%">
-</p>
+MCP is supported natively, and any Python repository that ships a plugin
+manifest installs straight into the running session.
 
 ```text
-/plugin install yfinance@https://github.com/ranaroussi/yfinance
+/plugin install name@https://github.com/user/repo
 /plugin reload
-
-> get the current prices of NVDA, TSLA, and the S&P 500
 ```
+
+Dulus reads the repository's `plugin.json` (or `PLUGIN.md`), installs the
+dependencies it declares, validates the exports, and registers the resulting
+tools in the current session.
 
 ### Three extension paths
 
 | Path | Best for | How it becomes available |
 |---|---|---|
 | **MCP** | Standard servers and remote integrations | Drop in `.mcp.json` or use `/mcp install` |
-| **Auto-Adapter plugins** | Existing Python repositories | `/plugin install name@https://repo` |
+| **Manifest plugins** | Python repositories that ship a `plugin.json` | `/plugin install name@https://repo` |
 | **Skills** | Reusable workflows, instructions, and tool bundles | `/skills` or install into the skill directory |
 
-The MCP marketplace indexes more than **2,000 servers**. Composio exposes **800+ ready-made skills and app integrations**. Auto-Adapter covers the long tail: code that nobody packaged for an agent.
+The MCP marketplace indexes more than **2,000 servers**. Composio exposes **800+ ready-made skills and app integrations**.
 
 ```json
 {
@@ -619,7 +593,6 @@ Dulus is terminal-native, not terminal-limited.
 |---|---|---|
 | **CLI** | `dulus` | Fastest path to the full agent runtime |
 | **WebChat** | `/webchat` | Streaming local web UI, mobile/LAN access, personas, and task manager |
-| **Desktop GUI** | `python dulus_gui.py` | Native desktop history, settings, tasks, personas, and tool inspection |
 | **Dulus OS** | `/os` or `dulus --os` | Browser desktop with windows, launcher, terminal, apps, memory, and agent controls |
 
 <p align="center">
@@ -635,7 +608,7 @@ The browser is not a separate demo backend. It drives the same agent, registry, 
   <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/task-board.png" alt="Dulus task board with assigned agents" width="49%">
 </p>
 
-Tasks can be created in the REPL, assigned to agents, viewed in WebChat, and completed from the desktop GUI:
+Tasks can be created in the REPL, assigned to agents, and viewed or completed in WebChat:
 
 ```text
 /task create "refactor auth"
@@ -812,7 +785,7 @@ dulus/
 ├── memory/              persistent memory and offloaded jobs
 ├── multi_agent/         sub-agents, messaging, worktrees
 ├── dulus_mcp/           MCP transports, config, marketplace
-├── plugin/              plugin loader and Auto-Adapter
+├── plugin/              plugin loader and registry
 ├── skill/               skill discovery and execution
 ├── checkpoint/          file and conversation rewind
 ├── task/                durable task tracking

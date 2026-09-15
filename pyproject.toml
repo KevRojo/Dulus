@@ -207,7 +207,6 @@ py-modules = [
     "governance",
     "input",
     "license_manager",
-    "lookback",
     "model_params",
     "paste_placeholders",
     "personality_config",

@@ -344,7 +344,7 @@ def _preload_gold_memories(state, cfg: dict) -> None:
 
     Model source of truth is ``build_system_prompt`` → ``gold_system_fragment()``.
     These assistant-role blobs only exist so the GUI can render gold in history;
-    agent.py + lookback strip them before the provider call.
+    agent.py strips them before the provider call.
 
     Deliberately NOT gated by ``mem_palace``.
     """

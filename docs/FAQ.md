@@ -88,7 +88,7 @@ Use a model that supports function calling: `qwen2.5-coder`, `llama3.3`, `mistra
 | **Voice** | No | Yes (offline Whisper) |
 | **Memory** | Basic | MemPalace semantic |
 | **Sub-agents** | No | Yes (the Flock) |
-| **Plugins** | No | Auto-Adapter |
+| **Plugins** | No | Manifest plugins |
 | **Cost** | $20+/month | $0 to start |
 
 ### Dulus vs AutoGPT
@@ -108,7 +108,7 @@ Use a model that supports function calling: `qwen2.5-coder`, `llama3.3`, `mistra
 | **Type** | IDE extension | Standalone agent |
 | **Interface** | Editor sidebar | REPL / Web / GUI / Telegram |
 | **Sub-agents** | No | Yes |
-| **Plugins** | Limited | Auto-Adapter (any Python repo) |
+| **Plugins** | Limited | Manifest plugins (any Python repo) |
 
 ---
 
