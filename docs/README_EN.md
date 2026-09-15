@@ -98,7 +98,6 @@ docker compose up -d
 | MemPalace | Semantic memory with ChromaDB — remembers across sessions, learns your preferences |
 | Voice I/O | Offline STT via Whisper. TTS via ElevenLabs, Azure, or local engines. `/voice` |
 | Sub-Agents | Typed agents (coder / reviewer / tester) in isolated git worktrees — the Flock |
-| Mesa Redonda | Multi-model debate — multiple AI models working the same problem simultaneously |
 | Sandbox OS | Full browser-based mini-OS with 58 apps. Runs entirely in your browser |
 | Telegram Bridge | Run Dulus from your phone. Multi-user, slash commands, vision, voice |
 | MCP Support | Model Context Protocol — connect any MCP server (stdio / SSE / HTTP) |

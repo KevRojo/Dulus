@@ -137,7 +137,6 @@ Slash commands in REPL:
   /shell [cmd|on|off] Toggle shell mode or execute shell command
   /copy [file]      Copy last response or file content to clipboard
   /batch            Manage Kimi Batch tasks (list, status, fetch)
-  /roundtable       Start a multi-model roundtable discussion
   /fork             Fork session at a given turn
   /undo             Undo last turn
   /workspace [cmd]  Manage Dulus workspaces (switch/list/default/on/off)
@@ -1179,7 +1178,6 @@ _HELP_PAGES = [
         ("/import <file>","Import conversation from file/session"),
         ("/add-dir [path]","Manage additional workspace directories"),
         ("/batch",        "Manage Kimi Batch tasks"),
-        ("/roundtable",   "Multi-model roundtable discussion"),
     ]),
     ("Memory & Soul", [
         ("/memory [query]",      "Search persistent memories"),
@@ -1868,26 +1866,6 @@ def _atomic_write_json(path: Path, data) -> None:
     # os.replace is atomic on both POSIX and Windows for files on the same fs.
     os.replace(tmp, path)
 
-
-def _save_roundtable_session(log: list, save_path=None):
-    """Save the full roundtable session log to a JSON file.
-
-    Sessions go under config.SESSIONS_DIR (~/.dulus/sessions/),
-    consistent with /save and other session artifacts. Pass an explicit
-    save_path to override (used to keep all turns of one debate in one file).
-    """
-    if not log:
-        return
-    if save_path is None:
-        from datetime import datetime as _dt
-        from config import SESSIONS_DIR
-        SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-        save_path = SESSIONS_DIR / f"round_table_{_dt.now().strftime('%Y%m%d_%H%M%S')}.json"
-    try:
-        _atomic_write_json(save_path, log)
-        ok(f"Sesión de Mesa Redonda guardada en: {save_path}")
-    except Exception as e:
-        warn(f"Error al guardar la sesión: {e}")
 
 def cmd_save(args: str, state, config) -> bool:
     from config import SESSIONS_DIR
@@ -5230,6 +5208,10 @@ def cmd_cloudsave(args: str, state, config) -> bool:
     /cloudsave list            — list your dulus Gists
     /cloudsave load <gist_id>  — download and load a session from Gist
     """
+    from license_manager import feature_unlocked
+    if not feature_unlocked("cloudsave", config):
+        return True
+
     from cloudsave import validate_token, upload_session, list_sessions, download_session
     from config import save_config
 
@@ -6588,6 +6570,10 @@ def cmd_mcp(args: str, _state, config) -> bool:
     /mcp add <name> <command> [args...] — add a stdio server to user config
     /mcp remove <name> — remove a server from user config
     """
+    from license_manager import feature_unlocked
+    if not feature_unlocked("mcp", config):
+        return True
+
     from dulus_mcp.client import get_mcp_manager
     from dulus_mcp.config import (load_mcp_configs, add_server_to_user_config,
                              remove_server_from_user_config, list_config_files)
@@ -8107,6 +8093,10 @@ def cmd_telegram(args: str, _state, config) -> bool:
     global _telegram_thread, _telegram_stop, _telegram_dashboard_bridge
     from config import save_config
 
+    from license_manager import feature_unlocked
+    if not feature_unlocked("telegram", config):
+        return True
+
     parts = args.strip().split()
 
     # ── /telegram add_id <chat_id> — append without wiping existing ───────
@@ -8538,6 +8528,10 @@ def cmd_voice(args: str, state, config) -> "bool | tuple":
     /voice device     — list and select input microphone
     """
     global _voice_language
+
+    from license_manager import feature_unlocked
+    if not feature_unlocked("voice", config):
+        return True
 
     subcmd = args.strip().lower().split()[0] if args.strip() else ""
     rest = args.strip()[len(subcmd):].strip()
@@ -11218,51 +11212,6 @@ def cmd_doctor(args: str, state, config) -> bool:
     return True
 
 
-def cmd_roundtable(args: str, _state, config) -> Union[bool, tuple]:
-    """Start a roundtable discussion among different models.
-
-    /roundtable               - Enter setup mode to define models
-    /roundtable stop          - Exit roundtable mode
-    /roundtable proactive 3m  - Auto-send 'ok ok' every 3m to keep the table alive
-    /roundtable proactive off  - Disable roundtable proactive
-    """
-    a = args.strip().lower()
-
-    if a in ("stop", "exit", "end"):
-        config["_roundtable_proactive_enabled"] = False
-        return ("__roundtable_stop__",)
-
-    # /roundtable proactive [interval|off]
-    if a.startswith("proactive"):
-        parts = a.split()
-        sub = parts[1] if len(parts) > 1 else ""
-        if sub == "off":
-            config["_roundtable_proactive_enabled"] = False
-            ok("Roundtable proactive: OFF")
-            return True
-        # Parse duration: 3m, 30s, 1h
-        val = 180  # default 3m
-        if sub:
-            try:
-                if sub.endswith("m"):
-                    val = int(sub[:-1]) * 60
-                elif sub.endswith("s"):
-                    val = int(sub[:-1])
-                elif sub.endswith("h"):
-                    val = int(sub[:-1]) * 3600
-                else:
-                    val = int(sub)
-            except ValueError:
-                err(f"Invalid duration '{sub}'. Use 30s, 3m, 1h.")
-                return True
-        config["_roundtable_proactive_enabled"] = True
-        config["_roundtable_proactive_interval"] = val
-        config["_roundtable_proactive_last_fire"] = time.time()
-        ok(f"Roundtable proactive: ON  (sending 'ok ok' every {val}s)")
-        return True
-
-    return ("__roundtable__",)
-
 def cmd_batch(args: str, _state, config) -> bool:
     """Manage Kimi Batch tasks.
     
@@ -11944,7 +11893,6 @@ COMMANDS = {
     "batch-claude": cmd_claude_batch,
     "anthropic_batch": cmd_claude_batch,
     "claude_chats": cmd_claude_chats,
-    "roundtable":  cmd_roundtable,
 }
 
 
@@ -11966,7 +11914,7 @@ def handle_slash(line: str, state, config) -> Union[bool, tuple]:
             pass
         result = handler(args, state, config)
         # cmd_voice/cmd_image/cmd_brainstorm/cmd_plan return sentinels to ask the REPL to run_query
-        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__", "__roundtable__", "__roundtable_stop__"):
+        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__"):
             return result
         return True
 
@@ -12053,7 +12001,6 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "batch":       ("Manage Kimi Batch tasks",            ["status", "list", "fetch"]),
     "claude_batch": ("Manage Claude (Anthropic) Batch tasks — 50% off", ["create", "list", "status", "fetch", "cancel"]),
     "claude-batch": ("Manage Claude (Anthropic) Batch tasks — 50% off", ["create", "list", "status", "fetch", "cancel"]),
-    "roundtable":  ("Start a multi-model roundtable discussion", ["stop"]),
     "brainstorm":  ("Multi-persona AI debate + auto tasks", []),
     "worker":      ("Auto-implement pending tasks",       []),
     "kill_tmux":   ("Kill all tmux/psmux servers",        []),
@@ -13620,13 +13567,6 @@ def repl(config: dict, initial_prompt: str | None = None):
     else:
         _PT_AVAILABLE = False
 
-    in_roundtable_setup = False
-    in_roundtable_active = False
-    roundtable_models = []
-    roundtable_log = []
-    roundtable_last_seen_idx = {}
-    roundtable_save_path = None  # fixed path for the session, set when table starts
-
     def _read_input(prompt: str) -> str:
         """Read one user turn, collecting multi-line pastes as a single string.
 
@@ -13751,40 +13691,6 @@ def repl(config: dict, initial_prompt: str | None = None):
     import uuid
 
     while True:
-        # ── Roundtable proactive: auto-inject "ok ok" to keep table alive ────
-        if in_roundtable_active and config.get("_roundtable_proactive_enabled"):
-            _rt_interval = config.get("_roundtable_proactive_interval", 180)
-            _rt_last = config.get("_roundtable_proactive_last_fire", 0)
-            if time.time() - _rt_last >= _rt_interval:
-                config["_roundtable_proactive_last_fire"] = time.time()
-                print(clr("\n  [roundtable proactive] → ok ok", "dim"), flush=True)
-                # Inject as if user typed "ok ok"
-                _rt_msg = "ok ok"
-                original_model = config.get("model")
-                for _rt_model in roundtable_models:
-                    print(clr(f"\n  ── TURNO DE: {_rt_model} ──", "yellow", "bold"))
-                    config["model"] = _rt_model
-                    _last_idx = roundtable_last_seen_idx.get(_rt_model, 0)
-                    _missed = roundtable_log[_last_idx:]
-                    _ctx = "".join(f"--- {a} dijo:\n{t}\n\n" for a, t in _missed)
-                    if _ctx:
-                        _p = f"(Mesa Redonda) El moderador dice: 'ok ok'. Continúa la discusión.\n\nÚltimo contexto:\n{_ctx}\nSigue con tu perspectiva."
-                    else:
-                        _p = "(Mesa Redonda) El moderador dice: 'ok ok'. Continúa la discusión con tu perspectiva."
-                    try:
-                        run_query(_p)
-                        if state.messages and hasattr(state.messages[-1], "get") and state.messages[-1].get("role") == "assistant":
-                            ans = state.messages[-1]["content"]
-                            if not ans.startswith(f"[Respuesta de {_rt_model}]"):
-                                state.messages[-1]["content"] = f"[Respuesta de {_rt_model}]:\n" + ans
-                            roundtable_log.append((_rt_model, ans))
-                            roundtable_last_seen_idx[_rt_model] = len(roundtable_log)
-                    except KeyboardInterrupt:
-                        _track_ctrl_c()
-                        break
-                _save_roundtable_session(roundtable_log, roundtable_save_path)
-                config["model"] = original_model
-
         # Show notifications and inject completions.
         # If any finished job was drained here (before the sentinel thread saw it),
         # fire the run_query callback ourselves so the agent wakes up just like
@@ -13996,82 +13902,6 @@ def repl(config: dict, initial_prompt: str | None = None):
         except Exception:
             pass
 
-        if in_roundtable_setup and not user_input.startswith("/"):
-            if user_input.strip() == '"""':
-                if 3 <= len(roundtable_models) <= 5:
-                    in_roundtable_setup = False
-                    in_roundtable_active = True
-                    # Asignar letra A-E a cada miembro automáticamente
-                    roundtable_models = [f"{m} {chr(65 + i)}" for i, m in enumerate(roundtable_models)]
-                    from datetime import datetime as _dt
-                    roundtable_save_path = Path.cwd() / f"round_table_{_dt.now().strftime('%Y%m%d_%H%M%S')}.json"
-                    ok(f"Mesa redonda iniciada con {len(roundtable_models)} modelos: {', '.join(roundtable_models)}")
-                    info("Escribe un mensaje y cada modelo responderá en orden sin usar tools. Escribe '/roundtable stop' para salir.")
-                else:
-                    err(f"Error: Requiere de 3 a 5 modelos. Tienes {len(roundtable_models)}. Entrando de nuevo a setup, por favor introduce modelos y termina con \"\"\".")
-                continue
-            else:
-                roundtable_models.append(user_input.strip())
-                continue
-
-        if in_roundtable_active and not user_input.startswith("/"):
-            user_msg = user_input.strip()
-            original_model = config.get("model")
-            # Tools are now enabled by default in roundtable mode per user request.
-            # To disable them for specific models, use model-specific config if available.
-            # original_no_tools = config.get("no_tools", False)
-            
-            for model_name in roundtable_models:
-                print(clr(f"\n  ── TURNO DE: {model_name} ──", "yellow", "bold"))
-                config["model"] = model_name
-                # config["no_tools"] = True  # Removed: allow tools in roundtable
-                
-                # Fetch what happened since this model last spoke
-                last_idx = roundtable_last_seen_idx.get(model_name, 0)
-                missed_turns = roundtable_log[last_idx:]
-                
-                accumulated_context = ""
-                for author, text in missed_turns:
-                    accumulated_context += f"--- {author} dijo:\n{text}\n\n"
-                
-                if not missed_turns:
-                    if len(roundtable_log) == 0:
-                        prompt_to_send = user_msg
-                    else:
-                        prompt_to_send = f"(Mesa Redonda) Eres {model_name}. El usuario dijo:\n\"{user_msg}\"\nAporta tu perspectiva al debate."
-                else:
-                    prompt_to_send = f"(Mesa Redonda) Eres {model_name}. El usuario dijo:\n\"{user_msg}\"\n\nMientras esperabas tu turno, se dijo esto:\n{accumulated_context}\nAgrega tu comentario o debate los puntos."
-                
-                try:
-                    run_query(prompt_to_send)
-                    
-                    # Auto-save config after each turn for web providers to persist session IDs
-                    model_low = config.get("model", "").lower()
-                    if any(p in model_low for p in ("gemini-web", "claude-web", "claude-code", "kimi-web")):
-                        from config import save_config
-                        save_config(config)
-                        
-                    # Inject model name into the assistant's response so context is clear for the next model
-                    if state.messages and hasattr(state.messages[-1], "get") and state.messages[-1].get("role") == "assistant":
-                        ans = state.messages[-1]["content"]
-                        if not ans.startswith(f"[Respuesta de {model_name}]"):
-                            state.messages[-1]["content"] = f"[Respuesta de {model_name}]:\n" + ans
-                            
-                        # Record response in global log and update cursor
-                        roundtable_log.append((model_name, ans))
-                        roundtable_last_seen_idx[model_name] = len(roundtable_log)
-                            
-                except KeyboardInterrupt:
-                    _track_ctrl_c()
-                    print(clr("\n  (interrupted)", "yellow"))
-                    break
-            
-            # Auto-save roundtable log after each complete round (overwrites same file)
-            _save_roundtable_session(roundtable_log, roundtable_save_path)
-            config["model"] = original_model
-            # config["no_tools"] = original_no_tools
-            continue
-
         # ── Kimi Batch Mode (triple-quote trigger) ─────────────────────────
         if user_input.strip() == '"""':
             if not in_batch_mode:
@@ -14280,25 +14110,6 @@ def repl(config: dict, initial_prompt: str | None = None):
         # Processes sentinel tuples returned by commands. SSJ-originated
         # sentinels loop back to the SSJ menu after completion.
         while isinstance(result, tuple):
-            if result[0] == "__roundtable__":
-                in_roundtable_setup = True
-                in_roundtable_active = False
-                roundtable_models = []
-                in_batch_mode = False
-                in_claude_batch_mode = False
-                ok("\nMesa Redonda Setup. Introduzca de 3 a 5 modelos (uno por linea). Termine con \"\"\" para empezar.")
-                break
-            if result[0] == "__roundtable_stop__":
-                in_roundtable_setup = False
-                in_roundtable_active = False
-                roundtable_models = []
-                _save_roundtable_session(roundtable_log, roundtable_save_path)
-                roundtable_log.clear()
-                roundtable_last_seen_idx.clear()
-                roundtable_save_path = None
-                ok("\nMesa redonda finalizada.")
-                break
-                
             # Voice sentinel: ("__voice__", transcribed_text)
             if result[0] == "__voice__":
                 _, voice_text = result

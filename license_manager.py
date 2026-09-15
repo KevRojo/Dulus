@@ -162,6 +162,46 @@ class LicenseManager:
         return f"[{self.tier.upper()}] Valid until {time.strftime('%Y-%m-%d', time.localtime(self.expiry))}"
 
 
+# ── Feature gate ───────────────────────────────────────────────────────────
+# The tier limits above used to be computed and then ignored: the runtime
+# copied them into config and never read them back, so every paid surface ran
+# wide open on the FREE tier. Paid surfaces now resolve through
+# feature_unlocked() so the policy lives in exactly one place.
+
+UPGRADE_URL = "https://dulus.ai/"
+
+# feature name -> (LicenseManager predicate, the command the user typed)
+_GATED_FEATURES: dict[str, tuple[str, str]] = {
+    "voice":     ("allow_voice",     "/voice"),
+    "cloudsave": ("allow_cloudsave", "/cloudsave"),
+    "mcp":       ("allow_mcp",       "/mcp"),
+    "telegram":  ("allow_telegram",  "/telegram"),
+}
+
+
+def feature_unlocked(feature: str, config: dict) -> bool:
+    """True when the active license covers `feature`.
+
+    Returns False — after printing where the feature is available — when it
+    does not, so a slash command can bail out in a single line.
+    """
+    lic = config.get("_license")
+    if not isinstance(lic, LicenseManager):
+        lic = LicenseManager(config.get("license_key", ""))
+
+    predicate, label = _GATED_FEATURES.get(feature, ("", feature))
+    allowed = bool(getattr(lic, predicate)()) if predicate else lic.can_use(feature)
+    if allowed:
+        return True
+
+    print(
+        f"\n  🔒 {label} is not in the free tier.\n"
+        f"     The signed desktop builds ship it set up and ready: {UPGRADE_URL}\n"
+        f"     Already hold a key?  /config license_key=DULUS-...\n"
+    )
+    return False
+
+
 # ── CLI helper for Kev ─────────────────────────────────────────────────────
 
 def _generate_key(tier: str, days: int, secret: str) -> str:

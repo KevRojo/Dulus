@@ -562,12 +562,6 @@ The MCP marketplace indexes more than **2,000 servers**. Composio exposes **800+
 
 Dulus can run typed sub-agents in isolated git worktrees, coordinate them through messages, and keep their work visible. A coder can implement while a reviewer inspects and a tester runs the suite.
 
-The **Mesa Redonda** pushes the same idea across models: multiple model personas debate a decision in parallel while you retain the ability to interrupt one participant, broadcast to the table, or stop the run.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/roundtable.png" alt="Dulus Mesa Redonda multi-model debate" width="100%">
-</p>
-
 ```text
 Agent(type="coder", task="implement the auth refactor")
 Agent(type="reviewer", task="review the auth refactor")
@@ -575,7 +569,6 @@ Agent(type="tester", task="run focused and integration tests")
 
 /agents
 /brainstorm "rewrite in Rust or keep Python?"
-/roundtable "design the migration plan"
 ```
 
 ### Long work belongs in the background

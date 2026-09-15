@@ -98,7 +98,6 @@ docker compose up -d
 | MemPalace | Memoria semantica con ChromaDB |
 | Voz I/O | STT offline via Whisper. TTS multi-engine |
 | Sub-Agentes | Agentes tipados en git worktrees aislados |
-| Mesa Redonda | Debate multi-modelo |
 | Sandbox OS | Mini-OS en el navegador con 58 apps |
 | Telegram Bridge | Corre Dulus desde tu telefono |
 | MCP | Model Context Protocol |
