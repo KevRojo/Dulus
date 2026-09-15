@@ -324,7 +324,7 @@ class DulusHandler(SimpleHTTPRequestHandler):
         # ── Themes ──
         if path == "/api/themes":
             try:
-                from gui.theme_pack import list_themes
+                from backend.theme_pack import list_themes
                 self._json_response({"themes": list_themes()})
             except Exception as e:
                 self._error(f"Theme pack unavailable: {e}", 500)
@@ -332,7 +332,7 @@ class DulusHandler(SimpleHTTPRequestHandler):
         if path.startswith("/api/themes/") and path.endswith("/css"):
             theme_name = path.split("/")[-2]
             try:
-                from gui.theme_pack import generate_css_variables
+                from backend.theme_pack import generate_css_variables
                 css = generate_css_variables(theme_name)
                 self._text_response(css, content_type="text/css; charset=utf-8")
             except Exception as e:

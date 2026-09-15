@@ -18,7 +18,7 @@ from backend.personas import create_persona, get_active_persona, get_all_persona
 from backend.plugins import load_all_plugins, get_plugin_info, start_watcher, stop_watcher, watcher_status, reload_plugin, unload_plugin
 from task import create_task as task_create, list_tasks as task_list, update_task as task_update, get_task as task_get, delete_task as task_delete
 from backend.marketplace import load_registry, search_plugins, get_stats as marketplace_stats, install_plugin, uninstall_plugin
-from gui.session_utils import scan_sessions, save_session, delete_session as _delete_session_disk
+from backend.session_utils import scan_sessions, save_session, delete_session as _delete_session_disk
 
 def _resolve_dashboard_dir() -> Path:
     """Find docs/dashboard whether running from source or installed package."""
@@ -2293,7 +2293,7 @@ setInterval(function(){ syncWithServer(); }, 5000);
     @app.route("/api/themes", methods=["GET"])
     def api_themes():
         try:
-            from gui.themes import THEMES
+            from backend.themes import THEMES
             theme_list = {name: f"{t['accent']} accent, {t['bg']} bg" for name, t in THEMES.items()}
             return jsonify({"themes": theme_list})
         except Exception:
@@ -2302,7 +2302,7 @@ setInterval(function(){ syncWithServer(); }, 5000);
     @app.route("/api/themes/<theme_name>/css", methods=["GET"])
     def api_theme_css(theme_name):
         try:
-            from gui.themes import THEMES
+            from backend.themes import THEMES
             t = THEMES.get(theme_name)
             if not t:
                 return Response("", mimetype="text/css")
