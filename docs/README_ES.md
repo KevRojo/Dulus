@@ -50,7 +50,7 @@
 
 **El problema:** Los agentes de IA hoy estan bloqueados a un solo proveedor (solo Claude, solo GPT) o requieren un doctorado en ingenieria ML para configurarlos. Y todos quieren tu tarjeta de credito antes de que puedas probarlos.
 
-**La solucion:** Dulus. Un agente autonomo en Python que se conecta a cualquier modelo — desde sesiones gratuitas en el navegador (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) hasta 100+ proveedores pagos via LiteLLM y modelos locales en tu propio hardware. ~56K lineas de Python propio. Sin build step. Sin gatekeeping. Solo garras.
+**La solucion:** Dulus. Un agente autonomo en Python que se conecta a cualquier modelo — desde el router alojado de Dulus y tu propia suscripcion via OAuth, hasta 100+ proveedores pagos via LiteLLM y modelos locales en tu propio hardware. ~56K lineas de Python propio. Sin build step. Sin gatekeeping. Solo garras.
 
 ---
 
@@ -118,11 +118,7 @@ docker compose up -d
 
 | Proveedor | Modelos | Setup |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | Abre navegador → escribe "hola" → listo |
-| **Claude.ai** | claude-sonnet-4-6 | Tu sesion de claude.ai existente |
-| **Kimi.com** | kimi-k2.5 | Tu sesion de kimi.com existente |
-| **Qwen** | qwen-max, qwen-plus | Tu sesion de qwen.ai existente |
-| **DeepSeek** | deepseek-chat, deepseek-reasoner | Tu sesion de deepseek existente |
+| **Router Dulus** | `dulus-*` (12 niveles) | `/login dulus` — OAuth, medido en Fuel |
 | **NVIDIA NIM** | 14 modelos, 40 RPM cada uno | Registro gratis en build.nvidia.com |
 | **Ollama** | Cualquier modelo local | `ollama pull qwen2.5-coder` |
 

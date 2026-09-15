@@ -195,7 +195,7 @@ def test_provider_auth_failure_is_a_failed_run() -> None:
     """
     state = SimpleNamespace(
         messages=[GOLD_MEMORY],
-        last_error="[gemini-web] Auth file not found: /x/auth.json. Run /harvest.",
+        last_error="[dulus] Not signed in. Run /login dulus.",
         last_reply=None,
     )
 
@@ -204,7 +204,7 @@ def test_provider_auth_failure_is_a_failed_run() -> None:
     assert code == 1
     assert frames == [{
         "type": "error",
-        "message": "[gemini-web] Auth file not found: /x/auth.json. Run /harvest.",
+        "message": "[dulus] Not signed in. Run /login dulus.",
     }]
     # The gold memory must not appear anywhere on the wire.
     assert "Golden Memory" not in json.dumps(frames)
@@ -385,8 +385,8 @@ def test_turn_error_message_prefers_the_most_specific_reason() -> None:
     # 1. The agent loop's verdict for an error=True turn wins.
     common.clear_last_error()
     common.err("something printed earlier")
-    state = SimpleNamespace(last_error="[gemini-web] Auth file not found: /x. Run /harvest.")
-    assert dulus._turn_error_message(state) == "[gemini-web] Auth file not found: /x. Run /harvest."
+    state = SimpleNamespace(last_error="[dulus] Not signed in. Run /login dulus.")
+    assert dulus._turn_error_message(state) == "[dulus] Not signed in. Run /login dulus."
 
     # 2. Otherwise the last thing reported to the human channel, from any module.
     common.clear_last_error()

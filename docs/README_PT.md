@@ -111,11 +111,7 @@ docker compose up -d
 
 | Provedor | Modelos | Configuracao |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | Abrir navegador → digitar "ola" → pronto |
-| **Claude.ai** | claude-sonnet-4-6 | Sua sessao claude.ai existente |
-| **Kimi.com** | kimi-k2.5 | Sua sessao kimi.com existente |
-| **Qwen** | qwen-max, qwen-plus | Sua sessao qwen.ai existente |
-| **DeepSeek** | deepseek-chat | Sua sessao deepseek existente |
+| **Router Dulus** | `dulus-*` (12 niveis) | `/login dulus` — OAuth, medido em Fuel |
 | **NVIDIA NIM** | 14 modelos, 40 RPM cada | Registro gratis em build.nvidia.com |
 | **Ollama** | Qualquer modelo local | `ollama pull qwen2.5-coder` |
 

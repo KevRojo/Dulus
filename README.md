@@ -135,22 +135,26 @@ dulus
 
 ---
 
-## Free frontier AI. No key, no catch.
+## One runtime, every provider.
 
-Every other AI tool starts the same way: *paste your API key, add a card, watch the meter run.* Dulus starts differently.
+Dulus is a single agent runtime that speaks to every major model provider, so
+you are not locked into one vendor's CLI.
 
 ```bash
 pip install dulus
 dulus
 ```
 
-On a fresh machine that's the whole setup — Dulus boots straight into **Gemini, free, with no API key and no account.** Here's the part nobody else does:
+On first run the setup wizard asks how you want to connect:
 
-- Dulus opens Gemini in a **headless browser**, captures the **anonymous web session** (it doesn't even ask you to sign in), and then talks to Gemini's real endpoint **as if you were the one typing in the tab.**
-- No API, no billing, no quota to buy. The same frontier model — reached the way a human reaches it.
-- The same trick works for **Claude, ChatGPT, DeepSeek, Qwen, Kimi.** Dulus harvests each service's web session and speaks its protocol, so your ChatGPT Plus or Claude subscription becomes an agent backend with **one command and zero keys.**
-
-Rather use keys, local models, or your own endpoint? Dulus does that too — **34 providers** in a single runtime (cloud API, local Ollama/LM Studio, OAuth, and web-session). But the free default is the whole point: **you shouldn't need a corporation's permission to have an agent.**
+- **Dulus account** — `/login dulus`, OAuth, no provider API key. Hosted models
+  metered in Fuel on the Dulus control plane. Sign up at [dulus.ai](https://dulus.ai).
+- **Bring your own key** — Anthropic, OpenAI, Gemini, Kimi, DeepSeek, Qwen,
+  Zhipu, MiniMax, NVIDIA NIM, Azure, and more.
+- **Your own subscription** — `/login claude`, `/login chatgpt`, `/login kimi`,
+  `/login grok` put your existing plan behind the agent via OAuth.
+- **Local & offline** — Ollama, LM Studio, or the on-device `edge` runtime.
+  No key, no account, no network.
 
 ---
 
@@ -417,7 +421,7 @@ dulus --model ollama/qwen2.5-coder
 git diff | dulus -p "review this diff and find the dangerous parts"
 ```
 
-No third-party key yet? Use **`/login dulus`** for the hosted router, start with Ollama, NVIDIA NIM's free tier, or a browser-backed provider from the welcome flow.
+No third-party key yet? Use **`/login dulus`** for the hosted router, or start with Ollama locally.
 
 ---
 
@@ -460,7 +464,6 @@ Dulus does not make model choice an architectural decision. Switch providers dur
 | **Unified gateway** | 100+ LiteLLM backends including OpenRouter, Groq, Together, Bedrock, Vertex AI, xAI, and Mistral |
 | **Local** | Ollama · LM Studio · vLLM · any OpenAI-compatible endpoint |
 | **Edge / on-device** | `edge/*` — small models on your phone or in Termux via llama.cpp / Ollama |
-| **Browser-backed** | Supported authenticated sessions for Claude, Gemini, Kimi, Qwen, and DeepSeek |
 | **Dulus router (`$DULUS` Fuel)** | `dulus-*` models on `https://control.dulus.ai/v1` — `/login dulus` or `dulus_sk_*` from `/login dulus key` |
 | **Free tier** | 14 models through NVIDIA NIM with automatic fallback |
 
@@ -701,7 +704,7 @@ Type `/` and press Tab inside the REPL to explore the live command list.
 | Area | Commands |
 |---|---|
 | Account / Fuel | `/login dulus` · `/login dulus key` (mint `dulus_sk_*`) |
-| Models | `/model` · `/nvidia` · `/ollama` · `dulus-*` on the router |
+| Models | `/model` · `/ollama` · `dulus-*` on the router |
 | Sessions | `/save` · `/load` · `/resume` · `/compact` |
 | Memory | `/remember` · `/memory` |
 | Work | `/task` · `/agents` · `/worker` · `/checkpoint` |
@@ -719,7 +722,7 @@ Type `/` and press Tab inside the REPL to explore the live command list.
 |---|---|
 | Files and code | `Read` · `Write` · `Edit` · `Glob` · `Grep` · diagnostics |
 | Execution | `Bash` · background tasks · `TmuxOffload` · `ReadJob` |
-| Web | `WebFetch` · `WebSearch` · browser-backed tools |
+| Web | `WebFetch` · `WebSearch` |
 | Memory | save · search · list · delete · consolidate |
 | Agents | spawn · message · inspect · collect result |
 | Tasks | create · update · assign · list |
@@ -801,7 +804,7 @@ pyright
 dulus/
 ├── dulus.py             entry point, REPL, commands, bridges
 ├── agent.py             streaming agent loop and tool dispatch
-├── providers.py         cloud, browser-backed, gateway, local providers
+├── providers.py         cloud, OAuth, gateway, local providers
 ├── tools.py             built-in tools and registry wiring
 ├── tool_registry.py     registration, validation, execution, persistence
 ├── context.py           system and project context assembly
@@ -933,7 +936,7 @@ Building binaries!
 <details>
 <summary><strong>Does Dulus require an API key?</strong></summary>
 
-No. Ollama and LM Studio run locally. NVIDIA NIM provides a free-tier route. Supported browser-backed providers can also be configured through the welcome flow. Cloud API keys remain available when you want direct paid access.
+Not necessarily. Ollama and LM Studio run locally with no key. `/login dulus` signs you into the hosted router with OAuth. `/login claude`, `/login chatgpt`, `/login kimi`, and `/login grok` reuse a subscription you already pay for. Cloud API keys remain available for direct paid access.
 
 </details>
 

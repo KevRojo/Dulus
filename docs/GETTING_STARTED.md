@@ -122,28 +122,31 @@ How should I call you? [amigo]
 
 ```
 Que proveedor queres usar de entrada?
-  1. Ollama (local, free)
-  2. NVIDIA NIM (14 free models)
-  3. Anthropic Claude
-  4. Kimi for Coding
-  5. Moonshot Kimi K2
-  6. OpenAI (GPT-4o / o3)
-  7. Google Gemini
-  8. DeepSeek
-  9. LiteLLM gateway (100+ providers)
+  1. Dulus account (hosted models, Fuel-metered)
+  2. Ollama (local, free)
+  3. NVIDIA NIM (14 free models)
+  4. Anthropic Claude
+  5. Kimi for Coding
+  6. Moonshot Kimi K2
+  7. OpenAI (GPT-4o / o3)
+  8. Google Gemini
+  9. DeepSeek
+ 10. LiteLLM gateway (100+ providers)
 ```
 
-### Step 3: Browser Harvest (Zero API Key)
+### Step 3: Sign In (Zero API Key)
+
+If you picked the Dulus account in Step 2, Dulus opens your browser for an
+OAuth sign-in and stores the token locally — nothing is pasted by hand:
 
 ```
-Feature clave de Dulus: IA AHORA, SIN api key, SIN cuenta.
-Abrimos un browser, escribis "hola" una vez, listo.
-(Works with Gemini guest / Claude.ai / Kimi / Qwen / DeepSeek.)
-
-Probamos AHORA con Gemini gratis (sin login)? [gemini]
+Dulus hosted models — no provider API key needed.
+Sign in now to activate them (opens your browser).
 ```
 
-Dulus opens your browser, you type one message, and Dulus harvests the session. No API key. No login. No credit card.
+Already paying for Claude, ChatGPT, Kimi, or Grok? Run `/login claude`,
+`/login chatgpt`, `/login kimi`, or `/login grok` instead and Dulus will use
+that subscription as the agent backend.
 
 ### Step 4: Optional Setup
 

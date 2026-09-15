@@ -84,17 +84,13 @@ _WELCOME_MESSAGES = {
             "Together, we'll turn your ideas into reality. Let's fly!",
         ],
         "no_api_key": [
-            "No API key? No problem! I work with free models out of the box. 🎉",
-            "I can run entirely locally with Ollama -- zero cost, total privacy.",
-            "Or try my web-harvest feature: free AI from your browser session!",
+            "No API key? Run me locally with Ollama -- zero cost, total privacy.",
+            "Or sign in with /login dulus to use the hosted Dulus models.",
         ],
         "tips": [
             "💡 Tip: Type /help anytime to see what I can do!",
             "💡 Tip: I remember our conversations -- just chat naturally!",
-            "💡 Tip: /login dulus puts you on my own models -- no API key!",
-            "💡 Tip: /fuel shows your $DULUS balance + a reload QR.",
-            "💡 Tip: Use /harvest-gemini for free AI without any API key!",
-            "💡 Tip: I'm open source -- customize me however you like!",
+            
         ],
     },
     "returning": {
@@ -268,8 +264,7 @@ def _get_motivational_quote() -> str:
 # ---------------------------------------------------------------------------
 
 _PROVIDER_MENU = [
-    ("dulus",      "🦅 Dulus (ours!) -- sign in, no API key, $DULUS Fuel", "dulus-b-27b",  False),
-    ("gemini-web", "Google Gemini Web (FREE - no API key, auto-setup)", "gemini-web/gemini-latest", False),
+    ("dulus",      "Dulus account (hosted models, Fuel-metered)", "dulus-b-27b",                 False),
     ("ollama",     "Ollama (local, free)",                    "gemma3:latest",                  False),
     ("nvidia-web", "NVIDIA NIM (14 free models)",             "llama-3.3-70b-instruct",         True),
     ("anthropic",  "Anthropic Claude",                         "claude-sonnet-4-6",              True),
@@ -489,9 +484,8 @@ def run_welcome_wizard(config: dict) -> dict:
       2. Name preference
       3. Provider + model selection
       4. API key prompting (when needed)
-      5. Web-harvest feature pitch
-      6. MemPalace initialization
-      7. Soul seeding with personalized personality
+      5. MemPalace initialization
+      6. Soul seeding with personalized personality
 
     Args:
         config: The Dulus configuration dictionary to populate.
@@ -536,18 +530,13 @@ def run_welcome_wizard(config: dict) -> dict:
     if provider == "litellm":
         _setup_litellm(config, default_model)
     elif provider == "dulus":
-        _setup_dulus(config)
-    elif provider == "gemini-web":
-        _setup_gemini_web(config)
+        _setup_dulus_account(config, default_model)
     else:
         _setup_standard_provider(config, provider, default_model, needs_key)
 
-    # Free local AI (Ollama + Qwen) — only pitch it when the user did NOT already
-    # pick a free, self-connecting provider. gemini-web is free and auto-connects
-    # and the Dulus router signs itself in, so stacking a local-model download
-    # prompt on top of either is just confusing noise (and pulls Ollama into a
-    # flow that doesn't need it).
-    if provider not in ("gemini-web", "dulus"):
+    # Free local AI (Ollama + Qwen) — skip when the user already picked a
+    # self-connecting route, so we don't stack a model download on top of it.
+    if provider not in ("dulus", "ollama"):
         _setup_local_ai(config)
 
     # MemPalace initialization
@@ -662,136 +651,22 @@ def _setup_litellm(config: dict, default_model: str) -> None:
             print(f"  OK Key saved as {backend}_api_key")
 
 
-def _dulus_show_balance() -> None:
-    """Print the $DULUS Fuel balance, or point at /fuel when it's unreachable."""
+def _setup_dulus_account(config: dict, default_model: str) -> None:
+    """Link a Dulus account and point the config at a hosted model.
+
+    No provider API key: `/login dulus` runs an OAuth PKCE flow and the
+    control plane meters Fuel per token. Sign-up happens at dulus.ai.
+    """
+    config["model"] = f"dulus/{default_model}"
+    print("\n  🦅 Dulus hosted models — no provider API key needed.")
+    print("  Sign in now to activate them (opens your browser).")
     try:
         import dulus_account
-        balance = dulus_account.account_balance(notify=lambda _m: None)
-    except Exception:
-        balance = None
-    if balance:
-        print(f"       ⛽ Fuel balance: {balance}")
-    else:
-        print("       ⛽ Run  /fuel  anytime for your balance + a reload QR.")
-
-
-def _dulus_sign_in() -> bool:
-    """Step 1 of the Dulus flow: get the account session in place.
-
-    Returns:
-        True when Dulus can already authenticate (existing session, fresh
-        sign-in, or a pasted ``dulus_sk_*`` key), False when the user skipped
-        it -- the wizard keeps going either way.
-    """
-    if os.environ.get("DULUS_API_KEY"):
-        print("  1/3  OK Using DULUS_API_KEY from your environment.")
-        return True
-
-    try:
-        import dulus_account
+        if dulus_account.login() is None:
+            print("  Sign-in incomplete. Run  /login dulus  any time to finish.")
     except Exception as e:
-        print(f"  1/3  (Sign-in unavailable here: {e})")
-        print("       Run  /login dulus  once Dulus is up.")
-        return False
-
-    store = dulus_account.load_store()
-    if store.get("access_token") and not dulus_account._token_expired(store):
-        print("  1/3  OK You're already signed in to your Dulus account.")
-        _dulus_show_balance()
-        return True
-
-    ans = _prompt("  1/3  Sign in now? (OAuth -- a link + code you approve)", "Y")
-    if not ans.lower().startswith(("y", "s")):
-        print("       Skipped -- sign in anytime with  /login dulus.")
-        key = _prompt_secret("       Already have a dulus_sk_* key? Paste it (Enter to skip)")
-        if key:
-            # Honest scope: the router reads DULUS_API_KEY, so this key works
-            # for the running session; persisting it is the shell's job.
-            os.environ["DULUS_API_KEY"] = key
-            print("       OK Using it for this session. To keep it, add to your shell:")
-            print("            export DULUS_API_KEY=dulus_sk_...")
-            return True
-        print("       (CI/servers:  /login dulus key  mints a dulus_sk_* key.)")
-        return False
-
-    try:
-        token = dulus_account.login(notify=lambda m: print(f"       {m}"))
-    except Exception as e:
-        token = None
-        print(f"       Sign-in error: {e}")
-    if token:
-        print("       ✅ Signed in! Every dulus-* tier is unlocked.")
-        _dulus_show_balance()
-        return True
-    print("       Couldn't finish the sign-in -- retry anytime with  /login dulus.")
-    return False
-
-
-def _setup_dulus(config: dict) -> None:
-    """Configure Dulus's own router -- the house engine, no API key to paste.
-
-    Three steps, and only the first one needs you:
-      1. Sign in to your Dulus account (OAuth 2.0 + PKCE, approve from any
-         device). CI and servers use ``/login dulus key`` or DULUS_API_KEY.
-      2. Pick a tier -- switch later with /model dulus-* at no cost.
-      3. Load $DULUS Fuel whenever you want more: ``/fuel`` prints the balance
-         and a console QR for the reload wallet.
-
-    Args:
-        config: The Dulus configuration dictionary to update.
-    """
-    print()
-    print("-" * 60)
-    print("  🦅 Dulus on Dulus -- my own router, and my favorite way to fly.")
-    print("     One sign-in, zero API keys: the control plane holds the")
-    print("     provider keys and meters $DULUS Fuel per token.")
-    print("     The open runtime stays free -- Fuel only pays for compute.")
-    print("-" * 60)
-    print()
-    print("  Flight plan:  1) sign in   2) pick a tier   3) fuel up")
-    print()
-
-    signed_in = _dulus_sign_in()
-
-    print()
-    print("  2/3  Pick your tier (change anytime with  /model dulus-*):")
-    for tag, why in _DULUS_MODELS:
-        marker = "→" if tag == _DULUS_DEFAULT_MODEL else " "
-        print(f"       {marker} {tag:<18} {why}")
-    print("       (12 tiers in all -- vision and OSS ones too; /model lists them.)")
-    model = _prompt("       Model", _DULUS_DEFAULT_MODEL).strip() or _DULUS_DEFAULT_MODEL
-    if "/" in model:
-        model = model.split("/", 1)[1]
-    config["model"] = f"dulus/{model}"
-    print(f"       OK You're flying on dulus/{model}.")
-
-    print()
-    if signed_in:
-        print("  3/3  ⛽ /fuel  -- balance + a console QR to reload with $DULUS.")
-    else:
-        print("  3/3  ⛽ /login dulus  first, then  /fuel  for balance + reload QR.")
-    print("       No card, no waitlist, no premium wall. Welcome aboard. 🇩🇴")
-
-
-def _setup_gemini_web(config: dict) -> None:
-    """Configure the FREE Gemini Web provider and auto-connect it.
-
-    No API key, no manual browser step: the harvester runs headless, opens
-    Gemini in the background, auto-sends a priming message, and captures the
-    session tokens. Set DULUS_GEMINI_HEADLESS=0 to watch the window (e.g. if
-    Google asks for a one-time sign-in).
-    """
-    config["model"] = "gemini-web/gemini-latest"
-    print("\n  🦅 Gemini Web is FREE and needs no API key.")
-    print("  Connecting it now (this runs in the background)...")
-    try:
-        from dulus import cmd_harvest_gemini
-        cmd_harvest_gemini("", None, config)
-        print("  If it didn't finish, run  /harvest-gemini  once (set "
-              "DULUS_GEMINI_HEADLESS=0 to sign in).")
-    except Exception as e:
-        print(f"  (Auto-connect skipped: {e})")
-        print("  You can connect it any time with:  /harvest-gemini")
+        print(f"  (Sign-in skipped: {e})")
+        print("  You can sign in any time with:  /login dulus")
 
 
 def _setup_standard_provider(config: dict, provider: str, default_model: str, needs_key: bool) -> None:
@@ -958,9 +833,8 @@ def _ollama_say_hola(model: str) -> "str | None":
 def _setup_local_ai(config: dict) -> None:
     """First-run local-AI setup: Ollama + a right-sized Qwen model.
 
-    Replaces the old browser web-harvest pitch (which needed Playwright and
-    was noisy — 'playwright not found' — when it wasn't installed). Local
-    models are free, private, and work offline: no API key, no browser.
+    Local models are free, private, and work offline: no API key, no
+    browser, no account.
     """
     print()
     print("-" * 60)
@@ -988,7 +862,7 @@ def _setup_local_ai(config: dict) -> None:
     ).strip()
     if choice.lower() in ("no", "n", "skip", "later"):
         print("  Skipped local AI. Set it up anytime with `dulus setup` or `/model`.")
-        print("  (Prefer a cloud key or the browser /harvest flow? Both still work.)")
+        print("  (Prefer a cloud key or a Dulus account? Both still work.)")
         return
 
     model = choice or rec_tag
@@ -1008,32 +882,3 @@ def _setup_local_ai(config: dict) -> None:
         print(f"  Model pulled. The hello test returned nothing, but it should work via /model.")
 
 
-def _pitch_web_harvest(config: dict) -> None:
-    """Pitch Dulus's killer web-harvest feature.
-
-    This is the wow moment: free AI from browser sessions with zero setup.
-
-    Args:
-        config: The Dulus configuration dictionary to update with harvest preference.
-    """
-    print()
-    print("-" * 60)
-    print("  ✨ Dulus's superpower: Free AI, right now, no API key needed!")
-    print()
-    print("     I can open your browser, you type 'hi' once, and boom --")
-    print("     free AI powered by Gemini guest / Claude.ai / Kimi / Qwen / DeepSeek.")
-    print("-" * 60)
-    harvest_choice = _prompt(
-        "Want to try it NOW with free Gemini (no login)? "
-        "[gemini] / claude / kimi / qwen / deepseek / no",
-        "gemini",
-    ).strip().lower()
-
-    if harvest_choice in ("claude", "kimi", "gemini", "qwen", "deepseek"):
-        config["pending_first_run_harvest"] = harvest_choice
-        print(f"  OK -- I'll run /harvest-{harvest_choice} as soon as the REPL starts!")
-    elif harvest_choice in ("yes", "si", "y", "s", ""):
-        config["pending_first_run_harvest"] = "gemini"
-        print("  OK -- I'll run /harvest-gemini as soon as the REPL starts!")
-    else:
-        print("  Skipped. You can run it anytime with /harvest-gemini (or /harvest, /harvest-kimi, etc.)")

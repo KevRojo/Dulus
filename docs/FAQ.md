@@ -12,7 +12,7 @@ Dulus is your AI companion — an autonomous Python agent that connects to any l
 
 ### Is Dulus free?
 
-**Yes.** The open-source REPL is free forever. No credit card required to start. Dulus can harvest free browser sessions (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) so you pay $0 for AI access. Optional extras (voice, MemPalace) are also free and open-source.
+**The engine is.** The open-source REPL is free forever and runs at $0 against a local Ollama model or NVIDIA NIM's free tier. Inference through the hosted Dulus router is metered in Fuel, and `/login claude`, `/login chatgpt`, `/login kimi`, and `/login grok` bill against a subscription you already pay for. Optional extras (voice, MemPalace) are free and open-source.
 
 ### What is the $DULUS token?
 
@@ -30,7 +30,7 @@ $DULUS is a utility token on Solana that powers the Dulus business layer (cloud 
 
 - **11 native providers:** Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Kimi, Zhipu, MiniMax, Ollama, LM Studio, Custom
 - **100+ via LiteLLM:** OpenRouter, Groq, Together, Bedrock, Vertex, Mistral, xAI, Fireworks, Azure, and more
-- **Free tier:** Gemini guest, Claude.ai, Kimi.com, Qwen, DeepSeek, NVIDIA NIM (14 models, 40 RPM)
+- **No API key:** Dulus router (`/login dulus`), Claude / ChatGPT / Kimi / Grok subscriptions via OAuth, NVIDIA NIM free tier (14 models, 40 RPM), local Ollama
 
 ### Does Dulus work offline?
 
@@ -61,9 +61,9 @@ Use a model that supports function calling: `qwen2.5-coder`, `llama3.3`, `mistra
 /cost
 ```
 
-### How does the browser harvest work?
+### How does subscription sign-in work?
 
-Dulus uses Playwright to open a browser window. You log in to your AI provider (or use Gemini guest without login), type one message, and Dulus captures the session cookie. It then uses that session to make requests on your behalf. Anthropic only sees text while you and Claude are writing poetry.
+`/login claude`, `/login chatgpt`, `/login kimi`, and `/login grok` each run the provider's official OAuth flow in your browser. Dulus stores the returned token locally and calls the provider's own API with it, so requests bill against the plan you already pay for. No API key is pasted by hand and no session cookie is scraped.
 
 ### Is my data safe?
 
@@ -82,7 +82,7 @@ Dulus uses Playwright to open a browser window. You log in to your AI provider (
 | | Claude Code | Dulus |
 |---|---|---|
 | **Model lock-in** | Claude only | 100+ providers |
-| **API key required** | Yes | No (browser harvest) |
+| **API key required** | Yes | Optional (OAuth or local models) |
 | **Lines of code** | ~100K+ (estimated) | ~31K |
 | **License** | Proprietary | GPLv3 |
 | **Voice** | No | Yes (offline Whisper) |
@@ -196,17 +196,17 @@ Dulus es tu companero de IA — un agente autonomo en Python que se conecta a cu
 
 ### Dulus es gratis?
 
-**Si.** El REPL open-source es gratis para siempre. No se requiere tarjeta de credito para empezar. Dulus puede capturar sesiones gratuitas del navegador (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) para que pagues $0 por acceso a IA.
+**El motor si.** El REPL open-source es gratis para siempre y corre a $0 con un modelo local de Ollama o con el tier gratuito de NVIDIA NIM. La inferencia por el router alojado de Dulus se mide en Fuel, y `/login claude`, `/login chatgpt`, `/login kimi` y `/login grok` cobran contra una suscripcion que ya pagas.
 
 ### Cuales modelos soporta?
 
 - **11 proveedores nativos:** Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Kimi, Zhipu, MiniMax, Ollama, LM Studio, Custom
 - **100+ via LiteLLM:** OpenRouter, Groq, Together, Bedrock, Vertex, Mistral, xAI, y mas
-- **Gratis:** Gemini guest, Claude.ai, Kimi.com, Qwen, DeepSeek, NVIDIA NIM (14 modelos)
+- **Sin API key:** router Dulus (`/login dulus`), suscripciones Claude / ChatGPT / Kimi / Grok via OAuth, tier gratuito de NVIDIA NIM (14 modelos), Ollama local
 
-### Como funciona el harvest del navegador?
+### Como funciona el login por suscripcion?
 
-Dulus usa Playwright para abrir una ventana del navegador. Inicias sesion en tu proveedor de IA (o usas Gemini guest sin login), escribes un mensaje, y Dulus captura la cookie de sesion. Luego usa esa sesion para hacer solicitudes en tu nombre.
+`/login claude`, `/login chatgpt`, `/login kimi` y `/login grok` ejecutan el flujo OAuth oficial de cada proveedor en tu navegador. Dulus guarda el token localmente y llama a la API del proveedor con el, asi que las solicitudes se cobran contra el plan que ya pagas. No pegas ninguna API key a mano ni se captura ninguna cookie de sesion.
 
 ### Mis datos estan seguros?
 

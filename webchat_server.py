@@ -135,8 +135,8 @@ _PENDING_PERMISSIONS: dict[str, tuple[PermissionRequest, threading.Event]] = {}
 # SSE event, and answer it via POST /question.
 _PENDING_QUESTIONS: dict[str, dict] = {}
 
-# Per-request cancellation tokens for the main WebChat, keeping concurrent
-# browser turns isolated by run_id.
+# Per-request cancellation tokens for the main WebChat. Concurrent browser
+# turns stay isolated by run_id.
 _WEBCHAT_STOP_EVENTS: dict[str, threading.Event] = {}
 _WEBCHAT_STOP_EVENTS_LOCK = threading.Lock()
 
@@ -314,8 +314,6 @@ def _require_auth():
     if _local_ui_exempt():
         return None
     return jsonify(error="unauthorized: token required (X-Dulus-Token)"), 401
-
-
 
 def _ensure_plugin_tools() -> None:
     try:
@@ -1651,7 +1649,6 @@ loadHist();
 setInterval(function(){ syncWithServer(); }, 5000);
 </script>
 </body></html>"""
-
 
     @app.route("/")
     def home() -> ResponseReturnValue:

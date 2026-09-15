@@ -83,7 +83,7 @@ OUTPUT_DIR        = CONFIG_DIR  / "output"         # WebFetch compressed cache
 MR_SESSION_DIR = SESSIONS_DIR / "mr_sessions"
 
 DEFAULTS = {
-    "model":            "gemini-web/gemini-latest",
+    "model":            "dulus/dulus-b-27b",
     # max_tokens is the max OUTPUT (completion) tokens per turn — NOT the context
     # window. Providers cap it down to their own output limit. To size the context
     # window (how much the model can READ), use context_limit below.
@@ -160,12 +160,6 @@ DEFAULTS = {
     # "qwen_api_key":      "..."
     # "zhipu_api_key":     "..."
     # "deepseek_api_key":  "..."
-    # License key (Pro / Enterprise)
-    "license_key": "",
-    # Qwen-web (chat.qwen.ai consumer session) — populated by /harvest-qwen
-    "qwen_web_auth_path": "",
-    "qwen_web_chat_id":   "",
-    "qwen_web_parent_id": "",
     # RTK (Rust Token Killer) — transparently rewrites covered shell commands
     # via the rtk binary for token-optimized output. Soft-fallback if rtk is
     # missing. Linux/Mac users: bash rtk/install.sh to fetch the binary.

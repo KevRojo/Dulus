@@ -1679,7 +1679,6 @@ footer{
 </section>
 
 
-
 <!-- ===== MOLTBOOK ===== -->
 <section id="moltbook" class="section" style="background:var(--bg)">
   <div class="container">
@@ -1918,108 +1917,6 @@ footer{
 
 <!-- ===== NEW STYLES ===== -->
 <style>
-/* ===== ROUNDTABLE ANATOMY ===== */
-.rt-full-layout{display:grid;grid-template-columns:1fr 280px;gap:20px;align-items:start}
-.rt-anatomy{
-  background:var(--bg);border:1px solid var(--dim2);
-  padding:20px;display:flex;flex-direction:column;gap:16px;
-  position:sticky;top:80px;
-}
-.rta-title{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent)}
-.rta-example{
-  background:#080810;border:1px solid var(--dim2);
-  padding:12px;font-size:12px;line-height:1.6;min-height:60px;color:var(--dim);
-}
-.rta-note{font-size:12px;color:var(--dim);line-height:1.6;border-left:2px solid var(--dim2);padding-left:12px}
-.rta-commands{display:flex;flex-direction:column;gap:8px}
-.rta-cmd-row{font-size:12px;display:flex;align-items:center;gap:8px}
-.rta-key{font-weight:700;min-width:44px;display:inline-block}
-/* controls strip (unused now but keep clean) */
-.rt-controls-strip{display:flex;gap:0;border:1px solid var(--dim2);background:var(--bg);flex-wrap:wrap;margin-bottom:24px}
-.rtc-item{padding:14px 20px;flex:1;min-width:140px}
-.rtc-cmd{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px}
-.rtc-arg{color:var(--dim)}
-.rtc-desc{font-size:11px;color:var(--dim)}
-.rtc-div{width:1px;background:var(--dim2)}
-/* input mock */
-.rt-input-mock{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 16px;border-top:1px solid var(--dim2);
-  background:#080810;flex-wrap:wrap;gap:8px;
-}
-.rt-input-prefix{color:var(--accent);font-weight:700;font-size:13px}
-.rt-input-text{font-size:13px;color:var(--ink);flex:1}
-.rt-input-cursor{color:var(--accent);animation:blink .9s infinite step-end}
-.rt-input-badge{font-size:10px;letter-spacing:.15em;padding:3px 8px;border:1px solid;text-transform:uppercase}
-@media(max-width:900px){.rt-full-layout{grid-template-columns:1fr}.rt-anatomy{display:none}}
-  border:1px solid var(--dim2);
-  background:var(--bg);
-  overflow:hidden;
-  max-width:800px;margin:0 auto;
-}
-.rt-topicbar{
-  background:#0f0f16;border-bottom:1px solid var(--dim2);
-  padding:14px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-}
-.rt-topic-label{font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase;white-space:nowrap}
-.rt-topic-text{font-size:13px;color:var(--ink);flex:1}
-.rt-status{font-size:10px;letter-spacing:.2em;color:var(--dim);display:flex;align-items:center;gap:6px;white-space:nowrap}
-.rt-live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse-g 1.5s infinite}
-.rt-participants{
-  display:flex;gap:0;border-bottom:1px solid var(--dim2);
-}
-.rt-participant{
-  flex:1;padding:14px 18px;border-right:1px solid var(--dim2);
-  display:flex;align-items:center;gap:10px;
-  transition:background .2s;
-}
-.rt-participant:last-child{border-right:none}
-.rt-participant.speaking{background:rgba(255,255,255,.03)}
-.rt-avatar{
-  width:36px;height:36px;border-radius:50%;
-  display:grid;place-items:center;
-  font-family:var(--display);font-size:16px;font-weight:900;
-  flex-shrink:0;
-}
-.rt-pname{font-size:13px;font-weight:700}
-.rt-ptag{font-size:10px;color:var(--dim);letter-spacing:.12em;margin-top:2px}
-.rt-feed{
-  padding:16px 20px;
-  min-height:280px;max-height:380px;overflow-y:auto;
-  display:flex;flex-direction:column;gap:14px;
-  scroll-behavior:smooth;
-}
-.rt-feed::-webkit-scrollbar{width:4px}
-.rt-feed::-webkit-scrollbar-thumb{background:var(--dim2)}
-.rt-msg{
-  display:flex;gap:12px;align-items:flex-start;
-  animation:msgIn .3s ease forwards;
-  opacity:0;transform:translateY(8px);
-}
-@keyframes msgIn{to{opacity:1;transform:none}}
-.rt-msg-avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:14px;flex-shrink:0;margin-top:2px}
-.rt-msg-content{}
-.rt-msg-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.rt-msg-name{font-size:12px;font-weight:700}
-.rt-msg-time{font-size:10px;color:var(--dim)}
-.rt-msg-bubble{
-  font-size:13px;line-height:1.65;color:var(--ink);
-  padding:10px 14px;border-left:2px solid;
-  background:rgba(255,255,255,.025);
-  max-width:580px;
-}
-.rt-typing-bar{
-  padding:12px 20px;border-top:1px solid var(--dim2);
-  display:flex;align-items:center;gap:10px;background:#0a0a0e;
-}
-.rt-typing-dots{display:flex;gap:4px;align-items:center}
-.rt-typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--dim);display:inline-block}
-.rt-typing-dots span:nth-child(1){animation:typeDot .9s .0s infinite}
-.rt-typing-dots span:nth-child(2){animation:typeDot .9s .2s infinite}
-.rt-typing-dots span:nth-child(3){animation:typeDot .9s .4s infinite}
-@keyframes typeDot{0%,60%,100%{opacity:.2;transform:scale(1)}30%{opacity:1;transform:scale(1.4)}}
-.rt-typing-name{font-size:11px;color:var(--dim);letter-spacing:.1em}
-
 /* ----- MOLTBOOK ----- */
 .moltbook-layout{
   display:grid;grid-template-columns:240px 1fr 260px;gap:1px;

@@ -49,7 +49,7 @@
 
 **문제:** 오늘날의 AI 에이전트는 단일 제공자에 잠겨 있거나 설정하려면 ML 공학 박사학위가 필요합니다. 그리고 모두가 시도하기 전에 신용카드를 요구합니다.
 
-**해결책:** Dulus. Python 자율 에이전트로, 어떤 모델에도 연결됩니다 —— 브라우저 세션(Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek)부터 LiteLLM 을 통한 100+ 유료 제공자, 자체 하드웨어의 로컬 모델까지. ~56K 줄의 퍼스트파티 Python. 빌드 단계 없음. 게이트키핑 없음. 발톱만.
+**해결책:** Dulus. Python 자율 에이전트로, 어떤 모델에도 연결됩니다 —— Dulus 호스팅 라우터와 OAuth 로 연결한 기존 구독부터 LiteLLM 을 통한 100+ 유료 제공자, 자체 하드웨어의 로컬 모델까지. ~56K 줄의 퍼스트파티 Python. 빌드 단계 없음. 게이트키핑 없음. 발톱만.
 
 ---
 
@@ -61,7 +61,7 @@
 pip install dulus && dulus
 ```
 
-끝입니다. 첫 실행 시 Dulus 는 브라우저를 열고 **Gemini guest 세션**을 캡처합니다(로그인 불필요, API 키 불필요, 신용카드 불필요). 30초 이내에 최첨단 AI 와 채팅할 수 있습니다.
+끝입니다. 첫 실행 시 설정 마법사가 연결 방식을 묻습니다 — **Dulus 계정**(`/login dulus`, OAuth), 직접 발급한 API 키, 기존 Claude/ChatGPT/Kimi/Grok 구독, 또는 로컬 Ollama 모델.
 
 ### 원라이너 설치 (권장)
 
@@ -112,11 +112,7 @@ docker compose up -d
 
 | 제공자 | 모델 | 설정 |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | 브라우저 열기 → "hola" 입력 → 완료 |
-| **Claude.ai** | claude-sonnet-4-6 | 기존 claude.ai 세션 |
-| **Kimi.com** | kimi-k2.5 | 기존 kimi.com 세션 |
-| **Qwen** | qwen-max, qwen-plus | 기존 qwen.ai 세션 |
-| **DeepSeek** | deepseek-chat | 기존 deepseek 세션 |
+| **Dulus 라우터** | `dulus-*` (12 티어) | `/login dulus` — OAuth, Fuel 과금 |
 | **NVIDIA NIM** | 14 모델, 각 40 RPM | build.nvidia.com 에서 묶음 등록 |
 | **Ollama** | 모든 로컬 모델 | `ollama pull qwen2.5-coder` |
 
