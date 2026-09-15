@@ -49,7 +49,7 @@
 
 **问题：** 如今的 AI 智能体要么锁定在单一提供商，要么需要 ML 工程博士学位才能配置。而且它们都想让你在试用前绑定信用卡。
 
-**解决方案：** Dulus。一个 Python 自主智能体，可连接任何模型 —— 从免费的浏览器会话（Gemini guest、Claude.ai、Kimi、Qwen、DeepSeek）到通过 LiteLLM 的 100+ 付费提供商，再到您自己硬件上的本地模型。~56K 行第一方 Python 代码。无需构建步骤。没有门槛。只有利爪。
+**解决方案：** Dulus。一个 Python 自主智能体，可连接任何模型 —— 从 Dulus 托管路由、通过 OAuth 复用您已有的订阅，到 LiteLLM 的 100+ 付费提供商，再到您自己硬件上的本地模型。~56K 行第一方 Python 代码。无需构建步骤。没有门槛。只有利爪。
 
 ---
 
@@ -112,11 +112,7 @@ docker compose up -d
 
 | 提供商 | 模型 | 设置 |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | 打开浏览器 → 输入"你好" → 完成 |
-| **Claude.ai** | claude-sonnet-4-6 | 您现有的 claude.ai 会话 |
-| **Kimi.com** | kimi-k2.5 | 您现有的 kimi.com 会话 |
-| **Qwen** | qwen-max, qwen-plus | 您现有的 qwen.ai 会话 |
-| **DeepSeek** | deepseek-chat | 您现有的 deepseek 会话 |
+| **Dulus 路由** | `dulus-*`（12 个档位） | `/login dulus` — OAuth，按 Fuel 计量 |
 | **NVIDIA NIM** | 14 个模型，每个 40 RPM | 在 build.nvidia.com 免费注册 |
 | **Ollama** | 任何本地模型 | `ollama pull qwen2.5-coder` |
 

@@ -25,7 +25,7 @@ prompt
   │
   ▼
 provider router ─── Anthropic · OpenAI · Gemini · NVIDIA · LiteLLM
-  │                Ollama · LM Studio · browser-backed providers
+  │                Ollama · LM Studio · OAuth subscriptions
   ▼
 agent loop
   ├── context ───── project instructions · memory · skills · persona

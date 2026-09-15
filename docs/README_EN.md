@@ -50,7 +50,7 @@
 
 **The problem:** AI agents today are either locked to one provider (Claude-only, GPT-only) or require a PhD in ML engineering to set up. And they all want your credit card before you can even try them.
 
-**The solution:** Dulus. A Python autonomous agent that connects to any model — from free browser-backed sessions (Gemini guest, Claude.ai, Kimi, Qwen, DeepSeek) to 100+ paid providers via LiteLLM, to local models on your own hardware. ~56K lines of first-party Python. No build step. No gatekeeping. Just talons.
+**The solution:** Dulus. A Python autonomous agent that connects to any model — the hosted Dulus router, your own subscription via OAuth, 100+ paid providers via LiteLLM, or local models on your own hardware. ~56K lines of first-party Python. No build step. No gatekeeping. Just talons.
 
 ---
 
@@ -62,7 +62,7 @@
 pip install dulus && dulus
 ```
 
-That is it. On first run, Dulus opens a browser, captures a **Gemini guest session** (no login, no API key, no credit card), and you are chatting with frontier AI in under 30 seconds.
+That is it. On first run the setup wizard asks how you want to connect — a **Dulus account** (`/login dulus`, OAuth, no API key to paste), your own provider key, an existing Claude/ChatGPT/Kimi/Grok subscription, or a local Ollama model.
 
 ### One-liner Installer (recommended)
 
@@ -92,13 +92,12 @@ docker compose up -d
 | Feature | Description |
 |---|---|
 | Multi-Provider | 11 native providers + 100+ via LiteLLM (OpenRouter, Groq, Together, Bedrock, Vertex, Mistral, xAI, Fireworks, Azure...) |
-| Zero-API-Key | Harvest free browser sessions from Gemini (guest), Claude.ai, Kimi.com, Qwen, DeepSeek |
+| No-Key Auth | OAuth into the Dulus router or an existing Claude / ChatGPT / Kimi / Grok subscription — no API key to paste |
 | 30+ Built-in Tools | Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, NotebookEdit, OCR, Voice, and more |
 | Auto-Adapter | Install any Python repo as a Dulus plugin — zero manifest required. `/plugin install yfinance@https://github.com/user/repo` |
 | MemPalace | Semantic memory with ChromaDB — remembers across sessions, learns your preferences |
 | Voice I/O | Offline STT via Whisper. TTS via ElevenLabs, Azure, or local engines. `/voice` |
 | Sub-Agents | Typed agents (coder / reviewer / tester) in isolated git worktrees — the Flock |
-| Mesa Redonda | Multi-model debate — multiple AI models working the same problem simultaneously |
 | Sandbox OS | Full browser-based mini-OS with 58 apps. Runs entirely in your browser |
 | Telegram Bridge | Run Dulus from your phone. Multi-user, slash commands, vision, voice |
 | MCP Support | Model Context Protocol — connect any MCP server (stdio / SSE / HTTP) |
@@ -115,15 +114,15 @@ docker compose up -d
 
 ## Providers
 
-### Free Tier (No API Key)
+### No API Key Required
 
 | Provider | Models | Setup |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | Open browser → type "hola" → done |
-| **Claude.ai** | claude-sonnet-4-6 | Your existing claude.ai session |
-| **Kimi.com** | kimi-k2.5 | Your existing kimi.com session |
-| **Qwen** | qwen-max, qwen-plus | Your existing qwen.ai session |
-| **DeepSeek** | deepseek-chat, deepseek-reasoner | Your existing deepseek session |
+| **Dulus router** | `dulus-*` (12 tiers) | `/login dulus` — OAuth, Fuel-metered |
+| **Claude subscription** | claude-opus-4-6, claude-sonnet-4-6 | `/login claude` |
+| **ChatGPT subscription** | gpt-5.6, codex-* | `/login chatgpt` |
+| **Kimi membership** | kimi-for-coding | `/login kimi` |
+| **Grok** | grok-* | `/login grok` |
 | **NVIDIA NIM** | 14 models, 40 RPM each | Free signup at build.nvidia.com |
 | **Ollama** | Any local model | `ollama pull qwen2.5-coder` |
 

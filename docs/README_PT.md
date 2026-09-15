@@ -91,7 +91,6 @@ docker compose up -d
 | MemPalace | Memoria semantica com ChromaDB |
 | Voz I/O | STT offline via Whisper. TTS multi-motor |
 | Sub-Agentes | Agentes tipados em git worktrees isolados —— o Bando |
-| Mesa Redonda | Debate multi-modelo |
 | Sandbox OS | Mini-OS baseado em navegador com 58 apps |
 | Ponte Telegram | Execute Dulus do seu celular |
 | MCP | Model Context Protocol |
@@ -112,11 +111,7 @@ docker compose up -d
 
 | Provedor | Modelos | Configuracao |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | Abrir navegador → digitar "ola" → pronto |
-| **Claude.ai** | claude-sonnet-4-6 | Sua sessao claude.ai existente |
-| **Kimi.com** | kimi-k2.5 | Sua sessao kimi.com existente |
-| **Qwen** | qwen-max, qwen-plus | Sua sessao qwen.ai existente |
-| **DeepSeek** | deepseek-chat | Sua sessao deepseek existente |
+| **Router Dulus** | `dulus-*` (12 niveis) | `/login dulus` — OAuth, medido em Fuel |
 | **NVIDIA NIM** | 14 modelos, 40 RPM cada | Registro gratis em build.nvidia.com |
 | **Ollama** | Qualquer modelo local | `ollama pull qwen2.5-coder` |
 

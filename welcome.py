@@ -83,14 +83,12 @@ _WELCOME_MESSAGES = {
             "Together, we'll turn your ideas into reality. Let's fly!",
         ],
         "no_api_key": [
-            "No API key? No problem! I work with free models out of the box. 🎉",
-            "I can run entirely locally with Ollama -- zero cost, total privacy.",
-            "Or try my web-harvest feature: free AI from your browser session!",
+            "No API key? Run me locally with Ollama -- zero cost, total privacy.",
+            "Or sign in with /login dulus to use the hosted Dulus models.",
         ],
         "tips": [
             "💡 Tip: Type /help anytime to see what I can do!",
             "💡 Tip: I remember our conversations -- just chat naturally!",
-            "💡 Tip: Use /harvest-gemini for free AI without any API key!",
             "💡 Tip: I'm open source -- customize me however you like!",
         ],
     },
@@ -265,7 +263,7 @@ def _get_motivational_quote() -> str:
 # ---------------------------------------------------------------------------
 
 _PROVIDER_MENU = [
-    ("gemini-web", "Google Gemini Web (FREE - no API key, auto-setup)", "gemini-web/gemini-latest", False),
+    ("dulus",      "Dulus account (hosted models, Fuel-metered)", "dulus-b-27b",                 False),
     ("ollama",     "Ollama (local, free)",                    "gemma3:latest",                  False),
     ("nvidia-web", "NVIDIA NIM (14 free models)",             "llama-3.3-70b-instruct",         True),
     ("anthropic",  "Anthropic Claude",                         "claude-sonnet-4-6",              True),
@@ -472,9 +470,8 @@ def run_welcome_wizard(config: dict) -> dict:
       2. Name preference
       3. Provider + model selection
       4. API key prompting (when needed)
-      5. Web-harvest feature pitch
-      6. MemPalace initialization
-      7. Soul seeding with personalized personality
+      5. MemPalace initialization
+      6. Soul seeding with personalized personality
 
     Args:
         config: The Dulus configuration dictionary to populate.
@@ -518,16 +515,14 @@ def run_welcome_wizard(config: dict) -> dict:
     # LiteLLM special flow
     if provider == "litellm":
         _setup_litellm(config, default_model)
-    elif provider == "gemini-web":
-        _setup_gemini_web(config)
+    elif provider == "dulus":
+        _setup_dulus_account(config, default_model)
     else:
         _setup_standard_provider(config, provider, default_model, needs_key)
 
-    # Free local AI (Ollama + Qwen) — only pitch it when the user did NOT already
-    # pick a free, self-connecting provider. gemini-web is free and auto-connects,
-    # so stacking a local-model download prompt on top of it is just confusing
-    # noise (and pulls Ollama into a flow that doesn't need it).
-    if provider != "gemini-web":
+    # Free local AI (Ollama + Qwen) — skip when the user already picked a
+    # self-connecting route, so we don't stack a model download on top of it.
+    if provider not in ("dulus", "ollama"):
         _setup_local_ai(config)
 
     # MemPalace initialization
@@ -642,25 +637,22 @@ def _setup_litellm(config: dict, default_model: str) -> None:
             print(f"  OK Key saved as {backend}_api_key")
 
 
-def _setup_gemini_web(config: dict) -> None:
-    """Configure the FREE Gemini Web provider and auto-connect it.
+def _setup_dulus_account(config: dict, default_model: str) -> None:
+    """Link a Dulus account and point the config at a hosted model.
 
-    No API key, no manual browser step: the harvester runs headless, opens
-    Gemini in the background, auto-sends a priming message, and captures the
-    session tokens. Set DULUS_GEMINI_HEADLESS=0 to watch the window (e.g. if
-    Google asks for a one-time sign-in).
+    No provider API key: `/login dulus` runs an OAuth PKCE flow and the
+    control plane meters Fuel per token. Sign-up happens at dulus.ai.
     """
-    config["model"] = "gemini-web/gemini-latest"
-    print("\n  🦅 Gemini Web is FREE and needs no API key.")
-    print("  Connecting it now (this runs in the background)...")
+    config["model"] = f"dulus/{default_model}"
+    print("\n  🦅 Dulus hosted models — no provider API key needed.")
+    print("  Sign in now to activate them (opens your browser).")
     try:
-        from dulus import cmd_harvest_gemini
-        cmd_harvest_gemini("", None, config)
-        print("  If it didn't finish, run  /harvest-gemini  once (set "
-              "DULUS_GEMINI_HEADLESS=0 to sign in).")
+        import dulus_account
+        if dulus_account.login() is None:
+            print("  Sign-in incomplete. Run  /login dulus  any time to finish.")
     except Exception as e:
-        print(f"  (Auto-connect skipped: {e})")
-        print("  You can connect it any time with:  /harvest-gemini")
+        print(f"  (Sign-in skipped: {e})")
+        print("  You can sign in any time with:  /login dulus")
 
 
 def _setup_standard_provider(config: dict, provider: str, default_model: str, needs_key: bool) -> None:
@@ -827,9 +819,8 @@ def _ollama_say_hola(model: str) -> "str | None":
 def _setup_local_ai(config: dict) -> None:
     """First-run local-AI setup: Ollama + a right-sized Qwen model.
 
-    Replaces the old browser web-harvest pitch (which needed Playwright and
-    was noisy — 'playwright not found' — when it wasn't installed). Local
-    models are free, private, and work offline: no API key, no browser.
+    Local models are free, private, and work offline: no API key, no
+    browser, no account.
     """
     print()
     print("-" * 60)
@@ -857,7 +848,7 @@ def _setup_local_ai(config: dict) -> None:
     ).strip()
     if choice.lower() in ("no", "n", "skip", "later"):
         print("  Skipped local AI. Set it up anytime with `dulus setup` or `/model`.")
-        print("  (Prefer a cloud key or the browser /harvest flow? Both still work.)")
+        print("  (Prefer a cloud key or a Dulus account? Both still work.)")
         return
 
     model = choice or rec_tag
@@ -877,32 +868,3 @@ def _setup_local_ai(config: dict) -> None:
         print(f"  Model pulled. The hello test returned nothing, but it should work via /model.")
 
 
-def _pitch_web_harvest(config: dict) -> None:
-    """Pitch Dulus's killer web-harvest feature.
-
-    This is the wow moment: free AI from browser sessions with zero setup.
-
-    Args:
-        config: The Dulus configuration dictionary to update with harvest preference.
-    """
-    print()
-    print("-" * 60)
-    print("  ✨ Dulus's superpower: Free AI, right now, no API key needed!")
-    print()
-    print("     I can open your browser, you type 'hi' once, and boom --")
-    print("     free AI powered by Gemini guest / Claude.ai / Kimi / Qwen / DeepSeek.")
-    print("-" * 60)
-    harvest_choice = _prompt(
-        "Want to try it NOW with free Gemini (no login)? "
-        "[gemini] / claude / kimi / qwen / deepseek / no",
-        "gemini",
-    ).strip().lower()
-
-    if harvest_choice in ("claude", "kimi", "gemini", "qwen", "deepseek"):
-        config["pending_first_run_harvest"] = harvest_choice
-        print(f"  OK -- I'll run /harvest-{harvest_choice} as soon as the REPL starts!")
-    elif harvest_choice in ("yes", "si", "y", "s", ""):
-        config["pending_first_run_harvest"] = "gemini"
-        print("  OK -- I'll run /harvest-gemini as soon as the REPL starts!")
-    else:
-        print("  Skipped. You can run it anytime with /harvest-gemini (or /harvest, /harvest-kimi, etc.)")

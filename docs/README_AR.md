@@ -112,11 +112,7 @@ docker compose up -d
 
 | المزود | النماذج | الإعداد |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | افتح المتصفح → اكتب "مرحباً" → تم |
-| **Claude.ai** | claude-sonnet-4-6 | جلستك الحالية على claude.ai |
-| **Kimi.com** | kimi-k2.5 | جلستك الحالية على kimi.com |
-| **Qwen** | qwen-max, qwen-plus | جلستك الحالية على qwen.ai |
-| **DeepSeek** | deepseek-chat | جلستك الحالية على deepseek |
+| **موجّه Dulus** | `dulus-*` (12 مستوى) | `/login dulus` — OAuth، محاسبة بـ Fuel |
 | **NVIDIA NIM** | 14 نموذجاً، 40 RPM لكل منها | تسجيل مجاني على build.nvidia.com |
 | **Ollama** | أي نموذج محلي | `ollama pull qwen2.5-coder` |
 
