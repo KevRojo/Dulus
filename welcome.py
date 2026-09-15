@@ -6,7 +6,8 @@ not just a tool. Features:
   - Beautiful ASCII art of the Cigua Palmera
   - First-run vs. returning user detection
   - Animated bird spinner during setup
-  - Provider + model selection
+  - Provider + model selection (Dulus's own router leads the menu)
+  - Guided Dulus account sign-in (OAuth -- no API key to paste)
   - API key prompting (when needed)
   - Soul seeding with personalized personality
   - MemPalace initialization
@@ -89,7 +90,7 @@ _WELCOME_MESSAGES = {
         "tips": [
             "💡 Tip: Type /help anytime to see what I can do!",
             "💡 Tip: I remember our conversations -- just chat naturally!",
-            "💡 Tip: I'm open source -- customize me however you like!",
+            
         ],
     },
     "returning": {
@@ -274,6 +275,19 @@ _PROVIDER_MENU = [
     ("deepseek",   "DeepSeek",                                 "deepseek-chat",                  True),
     ("litellm",    "LiteLLM gateway (100+ providers via one API)", "openrouter/anthropic/claude-3-5-sonnet", True),
 ]
+
+# The tiers the wizard shows for Dulus's own router. The full catalog lives in
+# providers.PROVIDERS["dulus"]["models"] (12 tiers) -- these four are the ones
+# worth a first flight, ordered from quick to flagship.
+# (model_tag, human_label)
+_DULUS_MODELS = [
+    ("dulus-a-9b",      "quick -- edits, questions, small refactors"),
+    ("dulus-b-27b",     "balanced -- the daily driver"),
+    ("dulus-coder-30b", "code-tuned -- reviews and big refactors"),
+    ("dulus-x-397b",    "flagship -- the heavy thinking"),
+]
+
+_DULUS_DEFAULT_MODEL = "dulus-b-27b"
 
 
 def _prompt(question: str, default: str = "") -> str:
