@@ -59,19 +59,8 @@ DEFAULT_BUCKETS = [
         "description": "Major architectural decisions, milestones, and inside context.",
         "content": (
             "Dulus evolved from a set of hardening fixes into a full-fledged agentic persona. "
-            "**Significant Milestones:** Implementation of the Auto-Adapter, Verbose-Gating, "
-            "Soul Memory auto-loading, and the Sleep Trigger self-reflection system."
-        )
-    },
-    {
-        "name": "Adaptation_Guides",
-        "type": "feedback",
-        "hall": "advice",
-        "description": "Hints for the Auto-Adapter on handling various repository types.",
-        "content": (
-            "- For legacy repos (Python < 3.8): Prioritize dependency fixes and unpinned installs. "
-            "- For AI-focused repos: Ensure model constants and provider configs are correctly detected. "
-            "- For GUI/Visual repos: Look for platform-specific clipboard or display needs (e.g. WSL fallback)."
+            "**Significant Milestones:** Verbose-Gating, Soul Memory auto-loading, "
+            "and the Sleep Trigger self-reflection system."
         )
     },
     {

@@ -3090,25 +3090,6 @@ def cmd_sandbox(args: str, state, config) -> bool:
     info("Mini OS running in your browser. Use /sandbox stop to shut down the server.")
     return True
 
-def cmd_max_fix(args: str, _state, config) -> bool:
-    from config import save_config
-    current = config.get("adapter_max_fix_attempts", 20)
-    if not args.strip():
-        info(f"adapter_max_fix_attempts: {current}  (fix attempts per task in autoadapter)")
-        info("Usage: /max_fix <number>   e.g. /max_fix 30")
-        return True
-    try:
-        n = int(args.strip())
-        if n < 1:
-            err("Value must be >= 1")
-            return True
-        config["adapter_max_fix_attempts"] = n
-        save_config(config)
-        ok(f"adapter_max_fix_attempts set to {n}")
-    except ValueError:
-        err(f"Invalid number: {args.strip()!r}")
-    return True
-
 
 def cmd_menu(_args: str, state, config) -> bool:
     """Open the quick menu (same popup as double-tapping ↓ ↓) and run the pick."""
@@ -9057,7 +9038,7 @@ def cmd_profile(args: str, state, config) -> bool:
         success, msg = P.set_inherit_core(iparts[0], value)
         (ok if success else err)(msg)
         if success:
-            info("Note: self-improvement tools (autoadapter, MarketplaceSearch/Install, mr_dulus, Skill) are always on either way.")
+            info("Note: self-improvement tools (MarketplaceSearch/Install, mr_dulus, Skill) are always on either way.")
         return True
 
     info("Usage: /profile [list|show|create|switch|delete|inherit]")
@@ -10658,7 +10639,6 @@ COMMANDS = {
     "context":     cmd_context,
     "cost":        cmd_cost,
     "verbose":     cmd_verbose,
-    "max_fix":     cmd_max_fix,
     "thinking":    cmd_thinking,
     "menu":        cmd_menu,
     "effort":      cmd_effort,
@@ -13015,8 +12995,8 @@ def repl(config: dict, initial_prompt: str | None = None):
                     run_query(
                         f"(System Event): The plugin '{plugin_name}'{source_hint} has just been installed via "
                         f"`/plugin install ... --main-agent`. The user wants you — the main agent — to take over "
-                        f"from here. Review the plugin, verify/adapt its manifest if needed (you may use the "
-                        f"autoadapter or do it manually), and integrate it so it's ready to use. Report back "
+                        f"from here. Review the plugin, verify or write its manifest if needed, "
+                        f"and integrate it so it's ready to use. Report back "
                         f"concisely once it's wired up."
                     )
                 except KeyboardInterrupt:
