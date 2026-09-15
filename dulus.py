@@ -3090,24 +3090,6 @@ def cmd_sandbox(args: str, state, config) -> bool:
     info("Mini OS running in your browser. Use /sandbox stop to shut down the server.")
     return True
 
-def cmd_gui(_args: str, _state, config) -> bool:
-    """Launch the desktop GUI from the REPL."""
-    try:
-        from dulus_gui import launch_gui
-        info("Launching Dulus GUI...")
-        # Run GUI in a separate thread so the REPL stays alive
-        import threading
-        t = threading.Thread(
-            target=launch_gui,
-            kwargs={"config": config, "initial_prompt": None},
-            daemon=True,
-        )
-        t.start()
-        ok("GUI launched in background. Use --gui flag to run GUI-only mode.")
-    except ImportError as exc:
-        err(f"GUI dependencies missing: {exc}. Run: pip install customtkinter")
-    return True
-
 def cmd_max_fix(args: str, _state, config) -> bool:
     from config import save_config
     current = config.get("adapter_max_fix_attempts", 20)
@@ -10741,7 +10723,6 @@ COMMANDS = {
     "buy_dulus":   cmd_buy_dulus,
     "webbridge":   cmd_webbridge,
     "sandbox":     cmd_sandbox,
-    "gui":         cmd_gui,
     "brave":       cmd_brave,
     "bocha":       cmd_bocha,
     "rtk":         cmd_rtk,
@@ -10928,7 +10909,6 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "webchat":       ("Spawn web chat UI",                 ["stop", "lan"]),
     "webbridge":     ("Control WebBridge browser",          ["status", "open", "click", "type", "screenshot", "extract", "scroll", "newtab", "switchtab", "closetab", "listtabs", "close", "help"]),
     "sandbox":       ("Open Dulus Sandbox OS in browser",  ["stop"]),
-    "gui":           ("Launch desktop GUI",                 []),
 }
 
 
@@ -13296,10 +13276,6 @@ def main():
     # Direct command execution mode (e.g., --cmd "plugin reload", --cmd "checkpoint clear")
     parser.add_argument("-c", "--cmd", dest="exec_cmd", nargs='+',
                         help="Execute a Dulus command and exit (e.g., --cmd \"plugin reload\")")
-    parser.add_argument("--gui", action="store_true",
-                        help="Launch the desktop GUI instead of the terminal REPL")
-    parser.add_argument("--gui-classic", action="store_true",
-                        help="Alias for --gui (kept for backward compatibility)")
     parser.add_argument("--daemon", action="store_true",
                         help="Daemon mode — keep Dulus alive in the background for Telegram/webhook bridges")
     parser.add_argument("--output", choices=["text", "json"], default="text",
@@ -13576,8 +13552,6 @@ def main():
     # exit 0 having emitted no frames at all.
     if (initial
         and not args.daemon
-        and not args.gui
-        and not getattr(args, "gui_classic", False)
         and not args.exec_cmd
         and not args.run_tool
         and not args.job_id
@@ -13596,14 +13570,6 @@ def main():
         _run_daemon(config)
         return
 
-    # ── Launch desktop GUI ──
-    if args.gui or getattr(args, "gui_classic", False):
-        try:
-            from dulus_gui import launch_gui
-            launch_gui(config=config, initial_prompt=initial)
-        except ImportError as exc:
-            err(f"GUI dependencies missing: {exc}. Run: pip install customtkinter")
-        return
     if args.print_mode and not initial:
         err("--print requires a prompt argument")
         sys.exit(1)
