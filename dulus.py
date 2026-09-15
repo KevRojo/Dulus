@@ -7231,12 +7231,27 @@ def cmd_voice(args: str, state, config) -> "bool | tuple":
     """
     global _voice_language
 
+    subcmd = args.strip().lower().split()[0] if args.strip() else ""
+    rest = args.strip()[len(subcmd):].strip()
+
+    # ── /voice lang <code> ── (free: local preference, no audio needed)
+    if subcmd == "lang":
+        if not rest:
+            info(f"Current STT language: {_voice_language}  (use '/voice lang auto' to reset)")
+            return True
+        _voice_language = rest.lower()
+        config["voice_lang"] = _voice_language
+        try:
+            from config import save_config
+            save_config(config)
+        except Exception as e:
+            warn(f"Could not persist voice_lang: {e}")
+        ok(f"STT language set to '{_voice_language}'")
+        return True
+
     from license_manager import feature_unlocked
     if not feature_unlocked("voice", config):
         return True
-
-    subcmd = args.strip().lower().split()[0] if args.strip() else ""
-    rest = args.strip()[len(subcmd):].strip()
 
     # ── /voice device ──
     if subcmd == "device":
@@ -7276,21 +7291,6 @@ def cmd_voice(args: str, state, config) -> "bool | tuple":
                     pass
             else:
                 err(f"Invalid device index: {idx}")
-        return True
-
-    # ── /voice lang <code> ──
-    if subcmd == "lang":
-        if not rest:
-            info(f"Current STT language: {_voice_language}  (use '/voice lang auto' to reset)")
-            return True
-        _voice_language = rest.lower()
-        config["voice_lang"] = _voice_language
-        try:
-            from config import save_config
-            save_config(config)
-        except Exception as e:
-            warn(f"Could not persist voice_lang: {e}")
-        ok(f"STT language set to '{_voice_language}'")
         return True
 
     # ── /voice status ──
