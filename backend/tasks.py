@@ -147,21 +147,6 @@ DEFAULT_TASKS = [
             "description": "Backfill tests for context, tasks, githook, and compressor modules."
         }
     },
-    {
-        "id": "T-010",
-        "subject": "Multi-Agent Mesa Redonda",
-        "status": "in_progress",
-        "owner": "Dulus",
-        "created_at": "2026-04-26",
-        "updated_at": "2026-04-26",
-        "metadata": {
-            "phase": "Core",
-            "priority": "high",
-            "blocked_by": [],
-            "tags": ["multi-agent", "collaboration", "orchestration"],
-            "description": "Round-table mode for parallel agent collaboration with proactive work loops."
-        }
-    }
 ]
 
 

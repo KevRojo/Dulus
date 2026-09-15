@@ -1398,7 +1398,6 @@ function buildCmdItems() {
     { group: 'View', name: 'Toggle Theme',      desc: 'Cycle dark/light/system',   key: 'Ctrl+T',       icon: '◑',  action: cycleTheme },
     { group: 'Chat', name: 'Export Chat',       desc: 'Download chat transcript',  key: 'Ctrl+E',       icon: '⬇', action: openExportModal },
     { group: 'Chat', name: 'Voice Input',       desc: 'Start voice recording',     key: 'Ctrl+M',       icon: '🎙', action: toggleVoice },
-    { group: 'Nav',  name: 'Go to Roundtable',  desc: 'Open Mesa Redonda',         key: '',             icon: '⬡',  action: () => window.location.href = '/roundtable' },
     { group: 'Nav',  name: 'Go to Dashboard',   desc: 'Open Task Manager',         key: '',             icon: '✔',  action: () => window.location.href = '/dashboard' },
     { group: 'Chat', name: 'Refresh Sessions',  desc: 'Reload chat history',       key: 'Ctrl+R',       icon: '↻',  action: refreshSessions },
   ];

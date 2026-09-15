@@ -49,7 +49,7 @@
 
 **問題：** 今日の AI エージェントは単一プロバイダにロックされているか、ML 工学の博士号が必要です。そしてすべてが試す前にクレジットカードを求めます。
 
-**解決策：** Dulus。どんなモデルにも接続できる Python 自律エージェント —— 無料のブラウザセッション（Gemini guest、Claude.ai、Kimi、Qwen、DeepSeek）から LiteLLM 経由の 100+ 有料プロバイダ、ご自身のハードウェア上のローカルモデルまで。~56K 行のファーストパーティ Python。ビルドステップなし。ゲートキーピングなし。爪だけ。
+**解決策：** Dulus。どんなモデルにも接続できる Python 自律エージェント —— Dulus ホステッドルーターや OAuth で連携した既存サブスクリプションから、LiteLLM 経由の 100+ 有料プロバイダ、ご自身のハードウェア上のローカルモデルまで。~56K 行のファーストパーティ Python。ビルドステップなし。ゲートキーピングなし。爪だけ。
 
 ---
 
@@ -61,7 +61,7 @@
 pip install dulus && dulus
 ```
 
-以上です。初回実行時、Dulus はブラウザを開き、**Gemini guest セッション**をキャプチャします（ログイン不要、API キー不要、クレカ不要）。30 秒以内に最先端 AI とチャットできます。
+以上です。初回実行時、セットアップウィザードが接続方法を尋ねます —— **Dulus アカウント**（`/login dulus`、OAuth）、ご自身の API キー、既存の Claude/ChatGPT/Kimi/Grok サブスクリプション、またはローカルの Ollama モデル。
 
 ### ワンライナーインストール（推奨）
 
@@ -112,11 +112,7 @@ docker compose up -d
 
 | プロバイダ | モデル | セットアップ |
 |---|---|---|
-| **Gemini Guest** | gemini-2.0-flash | ブラウザを開く → "hola" を入力 → 完了 |
-| **Claude.ai** | claude-sonnet-4-6 | 既存の claude.ai セッション |
-| **Kimi.com** | kimi-k2.5 | 既存の kimi.com セッション |
-| **Qwen** | qwen-max, qwen-plus | 既存の qwen.ai セッション |
-| **DeepSeek** | deepseek-chat | 既存の deepseek セッション |
+| **Dulus ルーター** | `dulus-*`（12 ティア） | `/login dulus` — OAuth、Fuel 従量課金 |
 | **NVIDIA NIM** | 14 モデル、各 40 RPM | build.nvidia.com で無料登録 |
 | **Ollama** | 任意のローカルモデル | `ollama pull qwen2.5-coder` |
 

@@ -5,6 +5,46 @@ All notable changes to Dulus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Removed
+- **Mesa Redonda / `/roundtable`** — the multi-model round-table is gone end to
+  end: the `/roundtable` slash command and its REPL setup, active-turn and
+  proactive keep-alive loops; `_save_roundtable_session`; the WebChat
+  `RoundtableAgent`, `/roundtable` page and all six `/roundtable/*` HTTP
+  endpoints; the WebChat header button, command-palette action and quick-menu
+  entry; and the landing-page section. This also clears ~1.9k lines of
+  unreachable `RT_PAGE` duplicates in `webchat_server.py` (the variable was
+  assigned three times; only the last one was ever served).
+- **Browser-session harvest providers** — `gemini-web`, `claude-web`,
+  `claude-code`, `kimi-web`, `deepseek-web` and `qwen-web` are removed, along
+  with their `/harvest*` commands, the `/gemini_chats`, `/kimi_chats` and
+  `/claude_chats` session managers, the DeepSeek proof-of-work solver, the
+  first-run auto-harvest step and the harvest onboarding pitch. These scraped
+  consumer web sessions and spoke each vendor's private protocol, which is
+  outside those vendors' terms of service.
+
+### Changed
+- **Default model is now `dulus/dulus-b-27b`** (was `gemini-web/gemini-latest`).
+  Fresh installs land on the hosted Dulus router and the welcome wizard offers
+  `/login dulus` first.
+- Welcome wizard: the `gemini-web` option is replaced by a **Dulus account**
+  option that runs the OAuth sign-in; the returning-user tip now points at
+  `/login dulus` or `/config <provider>_api_key=…`.
+- Supported no-API-key routes are now the Dulus router plus subscription OAuth
+  (`/login claude`, `/login chatgpt`, `/login kimi`, `/login grok`), NVIDIA
+  NIM's free tier, and local Ollama / LM Studio / `edge`.
+
+### Fixed
+- `config.py` declared `license_key` twice in `DEFAULTS`; removed the duplicate.
+- Regenerated `docs/api.html`, which was stale well before this change.
+
+### Migration
+Configs pinned to a removed provider (e.g. `gemini-web/gemini-latest`) no longer
+resolve to it. `gemini-web/*` now falls through prefix detection to the paid
+`gemini` API and will report a missing `GEMINI_API_KEY`. Run `/login dulus`,
+set a provider key, or `/model ollama/<name>` to pick a supported route.
+
 ## 3.13.9 — 2026-09-01
 
 ### Added

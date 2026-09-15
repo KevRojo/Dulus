@@ -56,7 +56,6 @@ _OPTIONS_BOTTOM: list[_OPTION] = [
     ("🎙  /voice", "/voice"),
     ("💾  /memory", "/memory"),
     ("📋  /tasks", "/tasks"),
-    ("⚡  /roundtable", "/roundtable"),
     ("🚪  Exit menu", None),
 ]
 

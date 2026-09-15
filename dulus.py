@@ -137,18 +137,11 @@ Slash commands in REPL:
   /shell [cmd|on|off] Toggle shell mode or execute shell command
   /copy [file]      Copy last response or file content to clipboard
   /batch            Manage Kimi Batch tasks (list, status, fetch)
-  /roundtable       Start a multi-model roundtable discussion
   /fork             Fork session at a given turn
   /undo             Undo last turn
   /workspace [cmd]  Manage Dulus workspaces (switch/list/default/on/off)
   /add-dir [path]   Manage additional workspace directories
   /import <file>    Import conversation from file or session
-  /harvest          Harvest Claude.ai cookies (alias: /harvest-claude)
-  /harvest-claude   Harvest Claude.ai cookies
-  /harvest-kimi     Harvest Kimi.com (Consumer) session/gRPC tokens
-  /harvest-gemini   Harvest Gemini (Consumer) session tokens
-  /harvest-qwen     Harvest Qwen (chat.qwen.ai) session tokens
-  /kimi_chats       List recent Kimi conversations
   /webchat [port]   Spawn web chat UI (background Flask server)
   /webchat stop     Kill the webchat server
   /sandbox          Open Dulus Sandbox OS in browser (starts webchat if needed)
@@ -1179,7 +1172,6 @@ _HELP_PAGES = [
         ("/import <file>","Import conversation from file/session"),
         ("/add-dir [path]","Manage additional workspace directories"),
         ("/batch",        "Manage Kimi Batch tasks"),
-        ("/roundtable",   "Multi-model roundtable discussion"),
     ]),
     ("Memory & Soul", [
         ("/memory [query]",      "Search persistent memories"),
@@ -1227,7 +1219,7 @@ _HELP_PAGES = [
         ("/wake threshold <n>",     "Tune mic sensitivity (0.001–1.0)"),
         ("/wake feedback on|off",   "TTS reply on wake (off = beep only)"),
     ]),
-    ("Web · Sandbox · Cloud · Harvest", [
+    ("Web · Sandbox · Cloud", [
         ("/webchat [port]",         "Spawn web chat UI (Flask)"),
         ("/webchat stop",           "Kill the webchat server"),
         ("/sandbox",                "Open Dulus Sandbox OS in browser"),
@@ -1237,11 +1229,6 @@ _HELP_PAGES = [
         ("/cloudsave auto on|off",  "Toggle auto-upload on exit"),
         ("/cloudsave list",         "List your Dulus Gists"),
         ("/cloudsave load <id>",    "Download + load a session from Gist"),
-        ("/harvest",                "Harvest Claude.ai cookies"),
-        ("/harvest-kimi",           "Harvest Kimi consumer tokens"),
-        ("/harvest-gemini",         "Harvest Gemini consumer tokens"),
-        ("/harvest-qwen",           "Harvest Qwen tokens"),
-        ("/kimi_chats",             "List recent Kimi conversations"),
     ]),
     ("Advanced", [
         ("/animations [section]",   "Dulus CLI visual showcase (all/banners/effects/…)"),
@@ -1868,26 +1855,6 @@ def _atomic_write_json(path: Path, data) -> None:
     # os.replace is atomic on both POSIX and Windows for files on the same fs.
     os.replace(tmp, path)
 
-
-def _save_roundtable_session(log: list, save_path=None):
-    """Save the full roundtable session log to a JSON file.
-
-    Sessions go under config.SESSIONS_DIR (~/.dulus/sessions/),
-    consistent with /save and other session artifacts. Pass an explicit
-    save_path to override (used to keep all turns of one debate in one file).
-    """
-    if not log:
-        return
-    if save_path is None:
-        from datetime import datetime as _dt
-        from config import SESSIONS_DIR
-        SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-        save_path = SESSIONS_DIR / f"round_table_{_dt.now().strftime('%Y%m%d_%H%M%S')}.json"
-    try:
-        _atomic_write_json(save_path, log)
-        ok(f"Sesión de Mesa Redonda guardada en: {save_path}")
-    except Exception as e:
-        warn(f"Error al guardar la sesión: {e}")
 
 def cmd_save(args: str, state, config) -> bool:
     from config import SESSIONS_DIR
@@ -3653,1105 +3620,25 @@ def cmd_mem_palace(args: str, _state, config) -> bool:
     return True
 
 
-def cmd_harvest(_args: str, _state, config) -> bool:
-    """Harvest fresh cookies from claude.ai using Playwright.
 
-    Opens a visible Chrome window with a persistent profile.
-    If already logged in, cookies are collected automatically.
-    If not, log in manually then press ENTER in the terminal.
-    Cookies are saved to ~/.dulus/claude_cookies.json and any
-    active claude-web conversation is reset so the new cookies
-    take effect immediately.
-    """
-    import pathlib, json as _json
 
-    out_path = pathlib.Path.home() / ".dulus" / "claude_cookies.json"
-    ok(f"Starting Playwright harvest → {out_path}")
 
-    _ensure_playwright_browser()
-    from playwright.sync_api import sync_playwright
 
-    import os, time
-    from datetime import datetime
 
-    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "claude")
-    os.makedirs(pw_profile, exist_ok=True)
 
-    try:
-        cookies = []
-        headers_data: dict = {}
-        conversation_ids: list = []
-        user_agent = ""
 
-        try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch_persistent_context(
-                    user_data_dir=pw_profile,
-                    channel="chrome",
-                    headless=False,
-                    args=[
-                        "--no-sandbox",
-                        "--disable-blink-features=AutomationControlled",
-                        "--no-first-run",
-                        "--no-default-browser-check",
-                        "--window-size=1400,900",
-                    ],
-                    viewport={"width": 1400, "height": 900},
-                    timeout=60000,
-                )
 
-                page = browser.pages[0] if browser.pages else browser.new_page()
-                info("Navigating to claude.ai ...")
-                page.goto("https://claude.ai", wait_until="networkidle")
-                time.sleep(3)
 
-                if "login" in page.url.lower() or "signin" in page.url.lower():
-                    info("Login page detected. Please log in manually, then press ENTER here...")
-                    input()
 
-                page.goto("https://claude.ai/new", wait_until="networkidle")
-                time.sleep(2)
 
-                user_agent = page.evaluate("navigator.userAgent") if browser.pages else ""
 
-                def _handle_req(req):
-                    if "claude.ai/api" in req.url:
-                        headers_data["url"]     = req.url
-                        headers_data["headers"] = dict(req.headers)
-                        if "chat_conversations" in req.url:
-                            parts = req.url.split("/")
-                            for i, part in enumerate(parts):
-                                if part == "chat_conversations" and i + 1 < len(parts):
-                                    cid = parts[i + 1].split("?")[0]
-                                    if cid and len(cid) > 10:
-                                        conversation_ids.append(cid)
 
-                page.on("request", _handle_req)
-                try:
-                    page.click('div[contenteditable="true"]', timeout=4000)
-                    time.sleep(1)
-                except Exception:
-                    pass
 
-                cookies = browser.cookies()
-                try:
-                    browser.close()
-                except BaseException:
-                    pass
-        except KeyboardInterrupt:
-            info("Harvest interrupted — saving cookies collected so far...")
-        except Exception as _e:
-            if cookies:
-                info(f"Browser error ({_e}) — saving cookies collected so far...")
-            else:
-                raise
 
-        if not cookies:
-            err("No cookies collected. Try /harvest again.")
-            return True
 
-        # ── Test cookies before overwriting the working ones ─────────────
-        info("Testing new cookies before saving...")
-        try:
-            import requests as _rq
-            _s = _rq.Session()
-            for c in cookies:
-                _s.cookies.set(c["name"], c["value"],  # type: ignore[typeddict-item]
-                               domain=c.get("domain", "claude.ai"),
-                               path=c.get("path", "/"))
-            _s.headers["User-Agent"] = user_agent or "Mozilla/5.0"
-            _s.headers["anthropic-client-platform"] = "web_claude_ai"
-            _s.headers["Origin"] = "https://claude.ai"
-            _r = _s.get("https://claude.ai/api/organizations", timeout=10)
-            if _r.status_code != 200:
-                err(f"New cookies failed test ({_r.status_code}) — keeping old cookies intact.")
-                return True
-            info(f"Cookies valid ✓ (org check: {_r.status_code})")
-        except Exception as _te:
-            err(f"Cookie test error: {_te} — keeping old cookies intact.")
-            return True
 
-        data = {
-            "cookies":          cookies,
-            "headers":          headers_data.get("headers", {}),
-            "conversation_ids": list(set(conversation_ids)),
-            "harvested_at":     datetime.now().isoformat(),
-            "user_agent":       user_agent,
-        }
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
-            _json.dump(data, f, indent=2)
 
-        # Reset active conversation so new cookies are used next turn
-        config.pop("claude_web_conv_id", None)
-        config.pop("_claude_web_org_id",  None)
 
-        ok(f"Harvested {len(cookies)} cookies → {out_path}")
-        ok("claude-web session reset — next message will use fresh cookies.")
-    except Exception as e:
-        err(f"Harvest failed: {e}")
-
-    return True
-
-
-def cmd_harvest_kimi(_args: str, _state, config) -> bool:
-    """Harvest fresh gRPC tokens from kimi.com (Consumer) using Playwright.
-
-    Opens a visible Chrome window and navigates to kimi.com.
-    You must send a single message in the browser chat for the script
-    to intercept the necessary gRPC-Web (Connect) headers and payloads.
-    Data is saved to ~/.dulus/kimi_consumer.json for use by kimi-web.
-    """
-    import pathlib, json as _json, time, os, struct, re
-    from datetime import datetime
-
-    out_path = pathlib.Path.home() / ".dulus" / "kimi_consumer.json"
-    ok(f"Starting Kimi Harvester → {out_path}")
-
-    _ensure_playwright_browser()
-    from playwright.sync_api import sync_playwright
-
-    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "kimi-consumer")
-    os.makedirs(pw_profile, exist_ok=True)
-    
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch_persistent_context(
-                user_data_dir=pw_profile,
-                channel="chrome",
-                headless=False,
-                args=[
-                    "--no-sandbox",
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-first-run",
-                    "--no-default-browser-check",
-                    "--window-size=1400,900",
-                ],
-                viewport={"width": 1400, "height": 900},
-                timeout=60000,
-            )
-
-            page = browser.pages[0] if browser.pages else browser.new_page()
-            
-            intercepted_auth = {}
-            last_payload = {}
-
-            def _handle_req(request):
-                if "ChatService/Chat" in request.url:
-                    try:
-                        raw = request.post_data_buffer
-                        if raw:
-                            text = raw.decode('utf-8', errors='ignore')
-                            match = re.search(r'(\{.*"chat_id".*\})', text)
-                            if match:
-                                nonlocal last_payload
-                                last_payload = _json.loads(match.group(0))
-                                intercepted_auth['headers'] = dict(request.headers)
-                                intercepted_auth['url'] = request.url
-                                ok("¡Kimi Payload intercepted! 🎯")
-                    except Exception:
-                        pass
-
-            page.on("request", _handle_req)
-
-            info("Navigating to www.kimi.com ...")
-            page.goto("https://www.kimi.com", wait_until="networkidle")
-            
-            warn("🚨  ACTION REQUIRED:")
-            warn("  1. Make sure you are logged in.")
-            warn("  2. Type and SEND a single message in the Kimi chat.")
-            warn("  Waiting for interception (timeout 3 min)...")
-
-            timeout_limit = 180
-            start_t = time.time()
-            while time.time() - start_t < timeout_limit:
-                if 'url' in intercepted_auth:
-                    break
-                page.wait_for_timeout(1000)
-
-            if 'url' not in intercepted_auth:
-                err("Harvest timeout or window closed before interception.")
-                browser.close()
-                return True
-
-            cookies = browser.cookies()
-            browser.close()
-
-        data = {
-            "cookies":          cookies,
-            "headers":          intercepted_auth.get("headers", {}),
-            "url":              intercepted_auth.get("url"),
-            "last_payload":     last_payload,
-            "harvested_at":     datetime.now().isoformat(),
-        }
-        
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
-            _json.dump(data, f, indent=2)
-
-        # Clear state so new parent_id etc are picked up
-        config.pop("_kimi_web_parent_id", None)
-        
-        ok(f"Harvested Kimi tokens → {out_path}")
-        ok("kimi-web provider updated — next message will use fresh tokens.")
-    except Exception as e:
-        err(f"Kimi Harvest failed: {e}")
-
-    return True
-
-
-def _ensure_playwright_browser():
-    """Guarantee BOTH the playwright package AND a browser binary are present.
-
-    The old per-harvest snippet only ran the installer inside `except
-    ImportError`, i.e. it keyed off the *pip package* being importable. But
-    the package and the *browser binary* are two separate installs: after the
-    first-run wizard installs the package, a later `/harvest-*` sees the import
-    succeed, skips the whole block, and never (re)installs the browser — so if
-    the Chromium/Chrome download was missing or half-done, the harvest launches
-    with no browser and fails. The welcome only "worked" because it was the
-    first run, where the import genuinely failed and the full install fired.
-
-    Fix: check the import, install the package if needed, and ALWAYS run
-    `playwright install chromium` — it's idempotent (a no-op when the browser
-    is already there, a real download when it isn't), so it's cheap to call
-    every time and closes the package-vs-browser gap for good.
-    """
-    import os, subprocess, sys as _sys
-    try:
-        from playwright.sync_api import sync_playwright  # noqa: F401
-    except ImportError:
-        info("Installing playwright...")
-        subprocess.run(__import__("common").pip_install_cmd("playwright"))
-    # Idempotent: installs the browser only if it's missing. Runs every time so
-    # a present package with an absent/broken browser still gets fixed.
-    try:
-        subprocess.run([_sys.executable, "-m", "playwright", "install", "chromium"],
-                       check=False, timeout=600)
-    except Exception:
-        # Fallback to the plain CLI if `-m playwright` isn't on this interpreter.
-        os.system("playwright install chromium")
-
-
-def _launch_harvest_browser(p, pw_profile, headless):
-    """Launch a persistent browser for harvesting, resilient to a bare box.
-
-    Uses system Google Chrome (channel="chrome"). If it's missing — the common
-    case on fresh servers/containers — it installs *Google Chrome*, not plain
-    Chromium: the google-chrome package pulls the system libraries
-    (libnss3/libatk/libgbm/…) that a raw Chromium download leaves out, which is
-    the whole reason a bare Ubuntu can't launch the browser. `--with-deps` makes
-    Playwright apt-install those libs. Raises the real error if nothing launches,
-    so the caller can print an actionable fix instead of failing silently.
-    """
-    import subprocess, sys as _sys
-
-    common = dict(
-        user_data_dir=pw_profile,
-        headless=headless,
-        ignore_default_args=["--enable-automation"],
-        args=[
-            "--no-sandbox",
-            "--disable-blink-features=AutomationControlled",
-            "--disable-infobars",
-            "--no-default-browser-check",
-            "--disable-dev-shm-usage",  # small /dev/shm in containers crashes Chrome
-        ],
-        # No user_agent override — channel="chrome" runs real Chrome, so letting
-        # it report its own current UA keeps sites from bouncing the harvest to
-        # an "unsupported/outdated browser" page (a hardcoded Chrome/123 read as
-        # years out of date).
-        viewport={"width": 1400, "height": 900},
-        timeout=60000,
-    )
-
-    # 1) System Google Chrome, if the box already has it.
-    try:
-        return p.chromium.launch_persistent_context(channel="chrome", **common)
-    except Exception as e_chrome:
-        info(f"  Google Chrome not found ({str(e_chrome).splitlines()[0][:60]}); installing it (pulls the missing libs)...")
-
-    # 2) Install Google Chrome + its system libraries, then retry. --with-deps
-    #    is what drags in libnss3/libatk/libgbm — installing chromium alone does
-    #    NOT, which is why the bare box failed. Fall back to a plain chrome
-    #    install if --with-deps can't run (e.g. no root for apt).
-    for extra in (["--with-deps", "chrome"], ["chrome"]):
-        try:
-            subprocess.run([_sys.executable, "-m", "playwright", "install", *extra],
-                           check=False, timeout=600)
-        except Exception:
-            continue
-        try:
-            return p.chromium.launch_persistent_context(channel="chrome", **common)
-        except Exception:
-            continue
-
-    # 3) Last resort: whatever bundled Chromium exists (may still lack libs, but
-    #    let it raise the real error for the caller's actionable message).
-    return p.chromium.launch_persistent_context(**common)
-
-
-
-def cmd_harvest_gemini(_args: str, _state, config) -> "bool | None":
-    """Harvest fresh session data from gemini.google.com using Playwright.
-
-    Runs Chrome headless by default (set DULUS_GEMINI_HEADLESS=0 to show
-    the window). It navigates to gemini.google.com, auto-types and sends the
-    word "DULUS" in the chat, then intercepts the internal API request to
-    capture headers/cookies for the gemini-web provider.
-
-    Data is saved to ~/.dulus/gemini_web.json for use by gemini-web.
-    """
-    import pathlib, json as _json, time, os, re
-    from datetime import datetime
-
-    out_path = pathlib.Path.home() / ".dulus" / "gemini_web.json"
-    ok(f"Starting Gemini Harvester → {out_path}")
-
-    _ensure_playwright_browser()
-    from playwright.sync_api import sync_playwright
-
-    # Reutiliza el perfil de Gemini para no loguear cada vez
-    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "gemini-interceptor")
-    os.makedirs(pw_profile, exist_ok=True)
-
-    # Headless por defecto para que funcione en VMs/servidores sin display.
-    # Si Google detecta headless y bloquea, el usuario puede forzar ventana visible.
-    headless = os.getenv("DULUS_GEMINI_HEADLESS", "1").lower() not in ("0", "false", "no", "off")
-    if not headless:
-        info("DULUS_GEMINI_HEADLESS=0 — using visible Chrome window.")
-
-    try:
-        with sync_playwright() as p:
-            browser = _launch_harvest_browser(p, pw_profile, headless)
-
-            page = browser.pages[0] if browser.pages else browser.new_page()
-
-            intercepted = []
-
-            def _handle_req(request):
-                # Captura cualquier POST a gemini.google.com que tenga f.req y "dulus"
-                if "gemini.google.com" in request.url and request.method == "POST":
-                    try:
-                        pd = request.post_data or ""
-                    except Exception:
-                        pd = ""
-                    if "f.req" in pd and "dulus" in pd.lower():
-                        if not intercepted:
-                            intercepted.append({
-                                "url": request.url,
-                                "headers": dict(request.headers),
-                                "method": request.method,
-                                "post_data": pd[:15000],
-                            })
-                            ok("¡Gemini Payload intercepted! 🎯")
-
-            page.on("request", _handle_req)
-
-            info("Navigating to gemini.google.com ...")
-            try:
-                page.goto("https://gemini.google.com/app", wait_until="domcontentloaded", timeout=60000)
-            except Exception:
-                pass
-
-            # Auto-send "DULUS" so headless servers / VMs don't need a human in the browser.
-            info("Sending 'DULUS' to Gemini chat (headless auto-send)...")
-            auto_send_ok = False
-            try:
-                input_selectors = [
-                    'textarea[placeholder*="Ask Gemini"]',
-                    'textarea[placeholder*="ask"]',
-                    'textarea[aria-label*="Chat"]',
-                    'textarea[aria-label*="Message"]',
-                    'textarea[aria-label*="Chat input"]',
-                    'div[contenteditable="true"][aria-label*="Chat"]',
-                    'div[contenteditable="true"][aria-label*="Message"]',
-                    'div[contenteditable="true"]',
-                    '[data-test-id="chat-input"]',
-                    'textarea',
-                ]
-                chat_input = None
-                # Retry: Gemini's UI can be slow/lazy in headless mode
-                for attempt in range(3):
-                    page.wait_for_timeout(2000 + attempt * 1500)
-                    for sel in input_selectors:
-                        try:
-                            chat_input = page.wait_for_selector(sel, timeout=5000, state="visible")
-                            if chat_input and chat_input.is_visible() and chat_input.is_enabled():
-                                break
-                        except Exception:
-                            chat_input = None
-                    if chat_input:
-                        break
-                    warn(f"  Gemini input not found yet (attempt {attempt + 1}/3)...")
-                if chat_input:
-                    chat_input.click()
-                    chat_input.fill("DULUS")
-                    page.wait_for_timeout(500)
-                    chat_input.press("Enter")
-                    page.wait_for_timeout(1500)
-                    auto_send_ok = True
-                else:
-                    warn("No se encontró el input del chat de Gemini después de 3 intentos.")
-            except Exception as e:
-                warn(f"Auto-send falló: {e}")
-
-            if not auto_send_ok and not headless:
-                warn("🚨  ACTION REQUIRED:")
-                warn("  1. Make sure you are logged in to Google.")
-                warn('  2. Type and SEND the exact word  DULUS  in the Gemini chat.')
-
-            if not auto_send_ok and headless:
-                warn("Waiting for any existing interception (timeout 3 min)...")
-
-            timeout_limit = 180
-            start_t = time.time()
-            while time.time() - start_t < timeout_limit:
-                if intercepted:
-                    break
-                page.wait_for_timeout(1000)
-
-            if not intercepted:
-                err("No se interceptaron requests. Asegúrate de haber enviado 'DULUS'.")
-                browser.close()
-                return True
-
-            # Extraemos SNlM0e (token de seguridad de Google)
-            snlm0e = None
-            try:
-                # Use a small timeout for SNlM0e capture to avoid hangs
-                snlm0e = page.evaluate("window.WIZ_global_data?.SNlM0e")
-                if not snlm0e:
-                    # Fallback: check HTML without full content dump if possible
-                    # but simple re.search on page.content() is usually okay
-                    match = re.search(r'"SNlM0e":"(.*?)"', page.content())
-                    if match:
-                        snlm0e = match.group(1)
-                
-                if snlm0e:
-                    ok(f"¡SNlM0e captured! 🔑 ({snlm0e[:10]}...)")
-                else:
-                    warn("Could not capture SNlM0e. Some requests might fail.")
-            except Exception as e:
-                warn(f"SNlM0e capture failed/timed out: {e}")
-
-            cookies = browser.cookies()
-            try:
-                browser.close()
-            except Exception as e:
-                warn(f"browser.close failed: {e}")
-
-        data = {
-            "cookies":          cookies,
-            "snlm0e":           snlm0e,
-            "intercepted_requests": intercepted[-5:],
-            "harvested_at":     datetime.now().isoformat(),
-        }
-        
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
-            _json.dump(data, f, indent=2)
-
-        # Start the next real message on a FRESH thread. The harvest primes the
-        # session with a throwaway "DULUS" message; reusing that thread's IDs
-        # makes the first two real requests come back empty (an anonymous Gemini
-        # thread won't accept a continuation from a different payload), forcing a
-        # slow 2-retry cascade on every new conversation. Clear the ids — set ""
-        # rather than pop(), since save_config() re-merges the on-disk file and a
-        # popped key resurrects its old value. stream_gemini_web re-captures the
-        # real thread's ids from the first successful response, so continuity is
-        # kept from message one onward.
-        try:
-            config["gemini_web_c_id"] = ""
-            config["gemini_web_r_id"] = ""
-            config["gemini_web_rc_id"] = ""
-            from config import save_config
-            save_config(config)
-        except Exception:
-            pass
-
-        ok(f"Harvested Gemini tokens → {out_path}")
-        ok("gemini-web provider updated — next message will use the selected chat.")
-    except Exception as e:
-        # Never swallow silently — a bare server showed "nothing happened".
-        low = str(e).lower()
-        err(f"Gemini harvest failed: {str(e).splitlines()[0][:160] if str(e) else repr(e)}")
-        if "executable doesn't exist" in low or "install" in low or "distribution" in low or "shared librar" in low:
-            err("  Fix: run  playwright install --with-deps chrome  "
-                "(installing Google Chrome pulls the system libs a bare box is missing).")
-        elif "space" in low:
-            err("  Fix: free disk space in ~/.dulus and ~/.cache, then retry.")
-        elif "permission" in low or "writable" in low or "read-only" in low:
-            err("  Fix: ~/.dulus isn't writable — set DULUS_CONFIG_DIR to a writable path.")
-        else:
-            err("  Fix: ensure a browser is available (playwright install --with-deps chromium) and retry /harvest-gemini.")
-        return True
-
-
-def cmd_harvest_deepseek(_args: str, _state, config) -> bool:
-    """Harvest fresh session data from chat.deepseek.com using Playwright.
-
-    Opens a visible Chrome window and navigates to chat.deepseek.com.
-    The script intercepts the Authorization Bearer token and cookies
-    automatically on the first chat response.
-    Data is saved to ~/.dulus/deepseek_web.json for use by deepseek-web.
-
-    Usage:
-        /harvest-deepseek
-        /harvest-deepseek https://chat.deepseek.com/a/chat/s/<session_id>
-    """
-    import pathlib, json as _json, time, os
-    from datetime import datetime
-
-    out_path = pathlib.Path.home() / ".dulus" / "deepseek_web.json"
-    ok(f"Starting DeepSeek Harvester → {out_path}")
-
-    # Optional: navigate directly to a specific chat session from arg
-    start_url = _args.strip() if _args.strip().startswith("http") else "https://chat.deepseek.com/"
-
-    _ensure_playwright_browser()
-    from playwright.sync_api import sync_playwright
-
-    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "deepseek-interceptor")
-    os.makedirs(pw_profile, exist_ok=True)
-
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch_persistent_context(
-                user_data_dir=pw_profile,
-                channel="chrome",
-                headless=False,
-                ignore_default_args=["--enable-automation"],
-                args=[
-                    "--no-sandbox",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                ],
-                # No user_agent override — real Chrome reports its own current
-                # UA, so sites don't reject the harvest as an outdated browser.
-                viewport={"width": 1400, "height": 900},
-                timeout=60000,
-            )
-
-            page = browser.pages[0] if browser.pages else browser.new_page()
-
-            captured_token: list[Any] = [None]
-            captured_model: list[Any] = [None]
-            captured_session_id: list[Any] = [None]
-            captured_headers = [{}]
-
-            def _handle_req(request):
-                """Intercept DeepSeek completion requests to grab Bearer token."""
-                url = request.url
-                if "chat.deepseek.com" in url and "/chat/completion" in url and request.method == "POST":
-                    try:
-                        hdrs = dict(request.headers)
-                        auth = hdrs.get("authorization", "")
-                        if auth and not captured_token[0]:
-                            captured_token[0] = auth.replace("Bearer ", "").strip()
-                            captured_headers[0] = hdrs
-                            ok(f"Bearer token captured! 🔑 ({captured_token[0][:20]}...)")
-                        # Try to grab model and session_id from body
-                        try:
-                            body = request.post_data
-                            if body:
-                                body_json = _json.loads(body)
-                                if not captured_model[0]:
-                                    captured_model[0] = body_json.get("model", "deepseek_v3")
-                                if not captured_session_id[0]:
-                                    captured_session_id[0] = body_json.get("chat_session_id")
-                        except Exception:
-                            pass
-                    except Exception:
-                        pass
-
-            page.on("request", _handle_req)
-
-            info(f"Navigating to {start_url} ...")
-            try:
-                page.goto(start_url, wait_until="domcontentloaded", timeout=60000)
-            except Exception:
-                pass
-
-            warn("🚨  ACTION REQUIRED:")
-            warn("  1. Make sure you are logged in to DeepSeek.")
-            warn("  2. Send ANY message in the chat.")
-            warn("  Waiting for token interception (timeout 3 min)...")
-
-            timeout_limit = 180
-            start_t = time.time()
-            while time.time() - start_t < timeout_limit:
-                if captured_token[0]:
-                    break
-                page.wait_for_timeout(1000)
-
-            if not captured_token[0]:
-                err("No token intercepted. Make sure you sent a message and are logged in.")
-                browser.close()
-                return True
-
-            cookies = browser.cookies()
-            try:
-                browser.close()
-            except Exception:
-                pass
-
-        # Extract session ID from URL if not captured from request body
-        if not captured_session_id[0] and "/s/" in start_url:
-            captured_session_id[0] = start_url.split("/s/")[-1].split("?")[0].strip()
-
-        data = {
-            "token":            captured_token[0],
-            "model":            captured_model[0] or "deepseek_v3",
-            "chat_session_id":  captured_session_id[0],
-            "cookies":          cookies,
-            "headers":          {
-                k: v for k, v in captured_headers[0].items()
-                if k.lower() not in ("authorization", "content-length", "accept-encoding")
-            },
-            "url":              "https://chat.deepseek.com/api/v0/chat/completion",
-            "harvested_at":     datetime.now().isoformat(),
-        }
-
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
-            _json.dump(data, f, indent=2)
-
-        # Sync session ID into config for continuity
-        if captured_session_id[0]:
-            config["deepseek_web_session_id"] = captured_session_id[0]
-            from config import save_config
-            save_config(config)
-            ok(f"Session synced → {captured_session_id[0]}")
-
-        ok(f"Harvested DeepSeek tokens → {out_path}")
-        ok("deepseek-web provider ready — use model: deepseek-web/deepseek-v3 or deepseek-web/deepseek-r1")
-
-    except Exception as e:
-        err(f"Harvest failed: {e}")
-
-    return True
-
-
-def cmd_harvest_qwen(_args: str, _state, config) -> bool:
-    """Harvest fresh session data from chat.qwen.ai using Playwright.
-
-    Opens a visible Chrome window and navigates to chat.qwen.ai. The
-    script intercepts the JWT `token` cookie and POST headers/cookies the
-    first time you send a message in the chat. Data is saved to
-    ~/.dulus/qwen_web.json for the qwen-web provider.
-
-    Usage:
-        /harvest-qwen
-        /harvest-qwen https://chat.qwen.ai/c/<chat_id>
-    """
-    import pathlib, json as _json, time, os
-    from datetime import datetime
-
-    out_path = pathlib.Path.home() / ".dulus" / "qwen_web.json"
-    ok(f"Starting Qwen Harvester → {out_path}")
-
-    start_url = _args.strip() if _args.strip().startswith("http") else "https://chat.qwen.ai/"
-
-    _ensure_playwright_browser()
-    from playwright.sync_api import sync_playwright
-
-    pw_profile = os.path.join(os.path.expanduser("~"), ".dulus", "playwright", "qwen-interceptor")
-    os.makedirs(pw_profile, exist_ok=True)
-
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch_persistent_context(
-                user_data_dir=pw_profile,
-                channel="chrome",
-                headless=False,
-                ignore_default_args=["--enable-automation"],
-                args=[
-                    "--no-sandbox",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                ],
-                # No user_agent override — real Chrome reports its own current
-                # UA, so sites don't reject the harvest as an outdated browser.
-                viewport={"width": 1400, "height": 900},
-                timeout=60000,
-            )
-
-            page = browser.pages[0] if browser.pages else browser.new_page()
-
-            captured_token: list[Any] = [None]
-            captured_model: list[Any] = [None]
-            captured_chat_id: list[Any] = [None]
-            captured_parent_id: list[Any] = [None]
-            captured_headers = [{}]
-
-            def _handle_req(request):
-                """Intercept Qwen completion requests to grab JWT and metadata."""
-                url = request.url
-                if "chat.qwen.ai" in url and "/chat/completions" in url and request.method == "POST":
-                    try:
-                        hdrs = dict(request.headers)
-                        if not captured_headers[0]:
-                            captured_headers[0] = hdrs
-                        try:
-                            body = request.post_data
-                            if body:
-                                body_json = _json.loads(body)
-                                if not captured_model[0]:
-                                    captured_model[0] = body_json.get("model", "qwen3.6-plus")
-                                if not captured_chat_id[0]:
-                                    captured_chat_id[0] = body_json.get("chat_id")
-                                if not captured_parent_id[0]:
-                                    captured_parent_id[0] = body_json.get("parent_id")
-                        except Exception:
-                            pass
-                    except Exception:
-                        pass
-
-            page.on("request", _handle_req)
-
-            info(f"Navigating to {start_url} ...")
-            try:
-                page.goto(start_url, wait_until="domcontentloaded", timeout=60000)
-            except Exception:
-                pass
-
-            warn("🚨  ACTION REQUIRED:")
-            warn("  1. Make sure you are logged in to Qwen.")
-            warn("  2. Send ANY message in the chat.")
-            warn("  Waiting for token interception (timeout 3 min)...")
-
-            timeout_limit = 180
-            start_t = time.time()
-            while time.time() - start_t < timeout_limit:
-                # Pull the JWT cookie as soon as it's set
-                if not captured_token[0]:
-                    for c in browser.cookies():
-                        if c.get("name") == "token" and c.get("value"):
-                            captured_token[0] = c.get("value") or ""
-                            ok(f"JWT token captured! 🔑 ({captured_token[0][:20]}...)")
-                            break
-                # We also need at least one POST to grab chat_id
-                if captured_token[0] and captured_chat_id[0]:
-                    break
-                page.wait_for_timeout(1000)
-
-            if not captured_token[0]:
-                err("No token cookie found. Make sure you are logged in to Qwen.")
-                browser.close()
-                return True
-
-            cookies = browser.cookies()
-            try:
-                browser.close()
-            except Exception:
-                pass
-
-        # Fallback: extract chat_id from URL
-        if not captured_chat_id[0] and "/c/" in start_url:
-            captured_chat_id[0] = start_url.split("/c/")[-1].split("?")[0].strip()
-
-        data = {
-            "token":      captured_token[0],
-            "model":      captured_model[0] or "qwen3.6-plus",
-            "chat_id":    captured_chat_id[0],
-            "parent_id":  captured_parent_id[0],
-            "cookies":    cookies,
-            "headers":    {
-                k: v for k, v in captured_headers[0].items()
-                if k.lower() not in ("content-length", "accept-encoding", "cookie")
-            },
-            "url":        "https://chat.qwen.ai/api/v2/chat/completions",
-            "harvested_at": datetime.now().isoformat(),
-        }
-
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
-            _json.dump(data, f, indent=2)
-
-        if captured_chat_id[0]:
-            config["qwen_web_chat_id"] = captured_chat_id[0]
-        if captured_parent_id[0]:
-            config["qwen_web_parent_id"] = captured_parent_id[0]
-        from config import save_config
-        save_config(config)
-
-        ok(f"Harvested Qwen session → {out_path}")
-        ok("qwen-web provider ready — use model: qwen-web/qwen3.6-plus (or qwen-max, qwen-turbo, qwen-plus)")
-
-    except Exception as e:
-        err(f"Harvest failed: {e}")
-
-    return True
-
-
-def cmd_gemini_chats(args: str, _state, config) -> bool:
-    """Manage Gemini Web conversations.
-    
-    /gemini_chats         — show current conversation IDs
-    /gemini_chats new     — start a fresh conversation
-    """
-    from config import save_config
-    arg = args.strip().lower()
-    if arg == "new":
-        # Set "" instead of pop(): save_config() re-merges the on-disk file, so
-        # a popped key resurrects its old value. Empty string persists and reads
-        # as "no active thread" (every reader gates on `if c_id and r_id`).
-        config["gemini_web_c_id"] = ""
-        config["gemini_web_r_id"] = ""
-        config["gemini_web_rc_id"] = ""
-        save_config(config)
-        ok("Gemini context cleared. Next message will start a new chat.")
-        return True
-    
-    c_id = config.get("gemini_web_c_id") or "—"
-    r_id = config.get("gemini_web_r_id") or "—"
-    rc_id = config.get("gemini_web_rc_id") or "—"
-    
-    print(clr("\n  Gemini Web Session info:", "cyan", "bold"))
-    print(f"  Conversation ID: {clr(c_id, 'yellow')}")
-    print(f"  Response ID:     {clr(r_id, 'dim')}")
-    print(f"  Candidate ID:    {clr(rc_id, 'dim')}")
-    print()
-    info("Use '/gemini_chats new' to start a fresh thread.")
-    return True
-
-
-def cmd_kimi_chats(args: str, _state, config) -> bool:
-    """List and select Kimi.com chats.
-
-    /kimi_chats            — show last 20 chats (numbered)
-    /kimi_chats all        — show up to 200 chats
-    /kimi_chats use <N>    — switch to chat #N from the list
-    /kimi_chats use <id>   — switch to chat by id prefix
-    /kimi_chats new        — clear current chat (next message creates a new one)
-    """
-    import pathlib
-    import json as _json
-    from providers import _web_auth_path, _kimi_web_list_chats
-    from config import save_config
-
-    a = args.strip()
-
-    apath = pathlib.Path(_web_auth_path(config, "kimi_web_auth_path", "kimi_consumer.json"))
-
-    def _persist_kimi_chat(chat_id: str | None):
-        """Sync chat_id (and clear parent_id) into both config AND kimi_consumer.json.
-
-        Required because stream_kimi_web reads the harvested last_payload.chat_id
-        as a fallback and the parent_id only re-uses config when chat_ids match.
-        Leaving them out of sync causes the next stream to inherit a stale
-        parent_id from the OLD chat and break threading.
-        """
-        if chat_id:
-            config["kimi_web_chat_id"] = chat_id
-        else:
-            config.pop("kimi_web_chat_id", None)
-        config.pop("kimi_web_parent_id", None)
-        save_config(config)
-
-        try:
-            if apath.exists():
-                with open(apath, encoding="utf-8") as fh:
-                    blob = _json.load(fh)
-                lp = blob.setdefault("last_payload", {})
-                lp["chat_id"] = chat_id or ""
-                msg = lp.setdefault("message", {})
-                msg["parent_id"] = ""
-                # Reset blocks too so harvested user-text doesn't leak in
-                msg["blocks"] = [{"message_id": "", "text": {"content": ""}}]
-                with open(apath, "w", encoding="utf-8") as fh:
-                    _json.dump(blob, fh, indent=2, ensure_ascii=False)
-        except Exception as exc:
-            err(f"Warning: could not update {apath.name}: {exc}")
-
-    # /kimi_chats new — reset to a fresh chat
-    if a.lower() == "new":
-        _persist_kimi_chat(None)
-        ok("Kimi-web will create a new chat on the next message.")
-        return True
-
-    if not apath.exists():
-        err(f"No Kimi auth file at {apath}. Run /harvest first.")
-        return True
-
-    with open(apath, encoding="utf-8") as f:
-        auth_data = _json.load(f)
-
-    # Pagination — kimi gives a page_token; we fetch up to 200 in "all" mode.
-    limit = 200 if a.lower() == "all" else 20
-    chats = []
-    page_token = ""
-    try:
-        while len(chats) < limit:
-            data = _kimi_web_list_chats(auth_data, page_size=min(50, limit - len(chats)),
-                                        page_token=page_token)
-            batch = data.get("chats") or data.get("items") or []
-            if not batch:
-                break
-            chats.extend(batch)
-            page_token = data.get("next_page_token") or data.get("nextPageToken") or ""
-            if not page_token:
-                break
-    except Exception as e:
-        err(f"Failed to fetch chats: {e}. Cookies may be expired — run /harvest.")
-        return True
-
-    if not chats:
-        info("No chats found.")
-        return True
-
-    # /kimi_chats use <N or id-prefix>
-    if a.lower().startswith("use "):
-        selector = a[4:].strip()
-        chosen = None
-        if selector.isdigit():
-            idx = int(selector) - 1
-            if 0 <= idx < len(chats):
-                chosen = chats[idx]
-            else:
-                err(f"No chat #{selector} in list (only {len(chats)} shown).")
-                return True
-        else:
-            for c in chats:
-                cid = c.get("id") or c.get("chat_id") or ""
-                if cid.startswith(selector):
-                    chosen = c
-                    break
-            if not chosen:
-                err(f"No chat matching '{selector}'.")
-                return True
-
-        chat_id = chosen.get("id") or chosen.get("chat_id") or ""
-        name = chosen.get("name") or chosen.get("title") or "(untitled)"
-        _persist_kimi_chat(chat_id)
-        ok(f"Switched to: {clr(name, 'cyan')}  {clr(chat_id[:12], 'yellow')}")
-        return True
-
-    # Default: list chats
-    current = config.get("kimi_web_chat_id", "")
-    print(clr(f"\n  Kimi.com Chats ({len(chats)} shown):", "cyan", "bold"))
-    print(clr("  " + "-" * 70, "dim"))
-    for i, c in enumerate(chats, 1):
-        cid     = c.get("id") or c.get("chat_id") or ""
-        name    = c.get("name") or c.get("title") or "(untitled)"
-        updated = (c.get("updateTime") or c.get("createTime")
-                   or c.get("updated_at") or c.get("created_at") or "")[:16]
-        if len(name) > 52:
-            name = name[:49] + "..."
-        active = clr(" ◀", "green", "bold") if current and cid.startswith(current[:8]) else ""
-        num = clr(f"{i:>3}.", "dim")
-        print(f"  {num} {clr(cid[:12], 'yellow')}  {name}  {clr(updated, 'dim')}{active}")
-    print(clr("  " + "-" * 70, "dim"))
-    cur_display = current[:12] if current else "none (will create new)"
-    info(f"Current: {cur_display}  |  Switch: /kimi_chats use <#>  |  New: /kimi_chats new")
-
-    return True
-
-
-def cmd_claude_chats(args: str, _state, config) -> bool:
-    """List and select Claude.ai conversations.
-
-    /claude_chats            — show last 20 conversations (numbered)
-    /claude_chats all        — show all conversations
-    /claude_chats use <N>    — switch to conversation #N from the list
-    /claude_chats use <uuid> — switch to conversation by UUID prefix
-    /claude_chats new        — clear current conv (next message creates a new one)
-    """
-    import pathlib, json as _json, urllib.request, urllib.error
-    from providers import (
-        _web_auth_path, _claude_web_org_id, _claude_web_headers,
-    )
-    from config import save_config
-
-    a = args.strip()
-
-    # /claude_chats new — reset to a fresh conversation
-    if a.lower() == "new":
-        config.pop("claude_web_conv_id", None)
-        save_config(config)
-        ok("Claude-web will create a new conversation on the next message.")
-        return True
-
-    cpath = pathlib.Path(_web_auth_path(config, "claude_web_cookies", "claude_cookies.json"))
-    if not cpath.exists():
-        err(f"No cookies file found at {cpath}. Run /harvest first.")
-        return True
-
-    with open(cpath, encoding="utf-8") as f:
-        cookies_data = _json.load(f)
-
-    org_id = _claude_web_org_id(cookies_data, config)
-    if not org_id:
-        err("Could not determine org ID. Run /harvest.")
-        return True
-
-    limit = 9999 if a.lower() == "all" else 20
-    url = f"https://claude.ai/api/organizations/{org_id}/chat_conversations?limit={limit}"
-    headers = _claude_web_headers(cookies_data)
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            convos = _json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        err(f"HTTP {e.code} fetching conversations. Cookies may be expired — run /harvest.")
-        return True
-    except Exception as e:
-        err(f"Failed to fetch conversations: {e}")
-        return True
-
-    if not convos:
-        info("No conversations found.")
-        return True
-
-    # /claude_chats use <N or uuid>
-    if a.lower().startswith("use "):
-        selector = a[4:].strip()
-        chosen = None
-        if selector.isdigit():
-            idx = int(selector) - 1
-            if 0 <= idx < len(convos):
-                chosen = convos[idx]
-            else:
-                err(f"No conversation #{selector} in list (only {len(convos)} shown).")
-                return True
-        else:
-            # Match by UUID prefix
-            for c in convos:
-                if c.get("uuid", "").startswith(selector):
-                    chosen = c
-                    break
-            if not chosen:
-                err(f"No conversation matching '{selector}'.")
-                return True
-
-        full_uuid = chosen.get("uuid", "")
-        name = chosen.get("name") or chosen.get("title") or "(untitled)"
-        config["claude_web_conv_id"] = full_uuid
-        save_config(config)
-        ok(f"Switched to: {clr(name, 'cyan')}  {clr(full_uuid[:12], 'yellow')}")
-        return True
-
-    # Default: list conversations
-    current = config.get("claude_web_conv_id", "")
-    print(clr(f"\n  Claude.ai Conversations ({len(convos)} shown):", "cyan", "bold"))
-    print(clr("  " + "-" * 70, "dim"))
-    for i, c in enumerate(convos, 1):
-        cid   = c.get("uuid", "")
-        name  = c.get("name") or c.get("title") or "(untitled)"
-        model = c.get("model", "")
-        updated = (c.get("updated_at") or c.get("created_at") or "")[:16]
-        if len(name) > 52:
-            name = name[:49] + "..."
-        model_tag = f" [{model}]" if model else ""
-        active = clr(" ◀", "green", "bold") if current and cid.startswith(current[:8]) else ""
-        num = clr(f"{i:>3}.", "dim")
-        print(f"  {num} {clr(cid[:12], 'yellow')}  {name}  {clr(updated, 'dim')}{clr(model_tag, 'dim')}{active}")
-    print(clr("  " + "-" * 70, "dim"))
-    cur_display = current[:12] if current else "none (will create new)"
-    info(f"Current: {cur_display}  |  Switch: /claude_chats use <#>  |  New: /claude_chats new")
-
-    return True
 
 
 def cmd_hide_sender(_args: str, _state, config) -> bool:
@@ -11218,51 +10105,6 @@ def cmd_doctor(args: str, state, config) -> bool:
     return True
 
 
-def cmd_roundtable(args: str, _state, config) -> Union[bool, tuple]:
-    """Start a roundtable discussion among different models.
-
-    /roundtable               - Enter setup mode to define models
-    /roundtable stop          - Exit roundtable mode
-    /roundtable proactive 3m  - Auto-send 'ok ok' every 3m to keep the table alive
-    /roundtable proactive off  - Disable roundtable proactive
-    """
-    a = args.strip().lower()
-
-    if a in ("stop", "exit", "end"):
-        config["_roundtable_proactive_enabled"] = False
-        return ("__roundtable_stop__",)
-
-    # /roundtable proactive [interval|off]
-    if a.startswith("proactive"):
-        parts = a.split()
-        sub = parts[1] if len(parts) > 1 else ""
-        if sub == "off":
-            config["_roundtable_proactive_enabled"] = False
-            ok("Roundtable proactive: OFF")
-            return True
-        # Parse duration: 3m, 30s, 1h
-        val = 180  # default 3m
-        if sub:
-            try:
-                if sub.endswith("m"):
-                    val = int(sub[:-1]) * 60
-                elif sub.endswith("s"):
-                    val = int(sub[:-1])
-                elif sub.endswith("h"):
-                    val = int(sub[:-1]) * 3600
-                else:
-                    val = int(sub)
-            except ValueError:
-                err(f"Invalid duration '{sub}'. Use 30s, 3m, 1h.")
-                return True
-        config["_roundtable_proactive_enabled"] = True
-        config["_roundtable_proactive_interval"] = val
-        config["_roundtable_proactive_last_fire"] = time.time()
-        ok(f"Roundtable proactive: ON  (sending 'ok ok' every {val}s)")
-        return True
-
-    return ("__roundtable__",)
-
 def cmd_batch(args: str, _state, config) -> bool:
     """Manage Kimi Batch tasks.
     
@@ -11836,19 +10678,6 @@ COMMANDS = {
     "theme": cmd_theme,
     "history":     cmd_history,
     "mem_palace":  cmd_mem_palace,
-    "harvest":  cmd_harvest,
-    "harvest-claude": cmd_harvest,
-    "claude-harvest": cmd_harvest,
-    "harvest-kimi": cmd_harvest_kimi,
-    "harvest-gemini": cmd_harvest_gemini,
-    "gemini-harvest": cmd_harvest_gemini,
-    "gemini_harvest": cmd_harvest_gemini,
-    "harvest-deepseek": cmd_harvest_deepseek,
-    "deepseek-harvest": cmd_harvest_deepseek,
-    "harvest-qwen":     cmd_harvest_qwen,
-    "qwen-harvest":     cmd_harvest_qwen,
-    "gemini_chats": cmd_gemini_chats,
-    "kimi_chats": cmd_kimi_chats,
     "schema_autoload": cmd_schema_autoload,
     "ultra_search": cmd_ultra_search,
     "permissions": cmd_permissions,
@@ -11943,8 +10772,6 @@ COMMANDS = {
     "batch_claude": cmd_claude_batch,
     "batch-claude": cmd_claude_batch,
     "anthropic_batch": cmd_claude_batch,
-    "claude_chats": cmd_claude_chats,
-    "roundtable":  cmd_roundtable,
 }
 
 
@@ -11966,7 +10793,7 @@ def handle_slash(line: str, state, config) -> Union[bool, tuple]:
             pass
         result = handler(args, state, config)
         # cmd_voice/cmd_image/cmd_brainstorm/cmd_plan return sentinels to ask the REPL to run_query
-        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__", "__roundtable__", "__roundtable_stop__"):
+        if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__"):
             return result
         return True
 
@@ -12053,7 +10880,6 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "batch":       ("Manage Kimi Batch tasks",            ["status", "list", "fetch"]),
     "claude_batch": ("Manage Claude (Anthropic) Batch tasks — 50% off", ["create", "list", "status", "fetch", "cancel"]),
     "claude-batch": ("Manage Claude (Anthropic) Batch tasks — 50% off", ["create", "list", "status", "fetch", "cancel"]),
-    "roundtable":  ("Start a multi-model roundtable discussion", ["stop"]),
     "brainstorm":  ("Multi-persona AI debate + auto tasks", []),
     "worker":      ("Auto-implement pending tasks",       []),
     "kill_tmux":   ("Kill all tmux/psmux servers",        []),
@@ -12083,10 +10909,6 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "resume":      ("Resume last session",                []),
     "update":      ("Self-update Dulus from PyPI",        ["now", "check", "status", "on", "off"]),
     "news":        ("Dulus Radio — latest 3 (also auto on boot)", ["all", "more", "5"]),
-    "claude_chats": ("List Claude.ai conversations",       ["all"]),
-    "gemini_chats": ("Manage Gemini Web conversations",    ["new"]),
-    "gemini_harvest": ("Harvest Gemini Web cookies (alias)", []),
-    "harvest-claude": ("Harvest Claude.ai cookies (alias)", []),
     "webchat":       ("Spawn web chat UI",                 ["stop", "lan"]),
     "webbridge":     ("Control WebBridge browser",          ["status", "open", "click", "type", "screenshot", "extract", "scroll", "newtab", "switchtab", "closetab", "listtabs", "close", "help"]),
     "sandbox":       ("Open Dulus Sandbox OS in browser",  ["stop"]),
@@ -12771,60 +11593,27 @@ def repl(config: dict, initial_prompt: str | None = None):
             except Exception:
                 pass  # never let the update check break the boot
 
-        # First-run /harvest — wizard sets `pending_first_run_harvest` to
-        # the provider name the user picked (claude / kimi / gemini / qwen /
-        # deepseek). We auto-fire the matching command so they actually
-        # SEE the killer feature instead of reading about it on the docs.
-        # Runs AFTER /doctor so the health snapshot is the last thing on
-        # screen before the harvest's own messaging takes over.
-        _pending_harvest = config.pop("pending_first_run_harvest", "")
-        if _pending_harvest:
-            print()
-            ok(f"  ▶ Corriendo /harvest-{_pending_harvest}...")
-            print()
-            _harvest_map = {
-                "claude":   cmd_harvest,
-                "kimi":     cmd_harvest_kimi,
-                "gemini":   cmd_harvest_gemini,
-                "qwen":     globals().get("cmd_harvest_qwen"),
-                "deepseek": globals().get("cmd_harvest_deepseek"),
-            }
-            _fn = _harvest_map.get(_pending_harvest)
-            if _fn:
-                try:
-                    _fn("", state, config)
-                except Exception as _e:
-                    err(f"  Harvest failed: {_e}. Podés reintentar manual con /harvest-{_pending_harvest}.")
-            else:
-                warn(f"  (no harvest function for '{_pending_harvest}' — saltado)")
-            try:
-                from config import save_config as _save_cfg
-                _save_cfg(config)
-            except Exception:
-                pass
-
-        # Soft gentle nudge for returning users who never harvested. If
-        # NO harvest auth file exists in ~/.dulus AND no cloud API key
-        # is configured, hint at the feature so it stops being invisible.
+        # Soft nudge for users with no usable model route configured. If no
+        # cloud API key is set and no Dulus account is linked, point at the
+        # two supported paths instead of leaving them on a dead default.
         # Only fires on the standard REPL start (not when bg/daemon).
         try:
-            from pathlib import Path as _P
-            _home_dulus = _P.home() / ".dulus"
-            _harvest_files = [
-                "claude_cookies.json", "kimi_consumer.json",
-                "gemini_auth.json",    "qwen_auth.json",
-                "deepseek_auth.json",
-            ]
-            _has_any_harvest = any((_home_dulus / f).exists() for f in _harvest_files)
             _has_any_api_key = any(
                 config.get(f"{p}_api_key") for p in
                 ("anthropic", "openai", "gemini", "kimi", "deepseek", "moonshot")
             )
-            if not _has_any_harvest and not _has_any_api_key and not _first_run_doctor_pending:
+            try:
+                import dulus_account as _acct
+                _has_account = bool(_acct.load_store().get("access_token"))
+            except Exception:
+                _has_account = False
+            if not _has_any_api_key and not _has_account and not _first_run_doctor_pending:
                 print()
-                print(clr("  💡 Tip: usá Claude/Kimi/Gemini SIN api key — corré ", "yellow") +
-                      clr("/harvest", "yellow", "bold") +
-                      clr(" (o /harvest-kimi, /harvest-gemini, /harvest-qwen).", "yellow"))
+                print(clr("  💡 No model route configured yet — run ", "yellow") +
+                      clr("/login dulus", "yellow", "bold") +
+                      clr(" for a Dulus account, or ", "yellow") +
+                      clr("/config <provider>_api_key=…", "yellow", "bold") +
+                      clr(" to bring your own key.", "yellow"))
         except Exception:
             pass
 
@@ -13620,13 +12409,6 @@ def repl(config: dict, initial_prompt: str | None = None):
     else:
         _PT_AVAILABLE = False
 
-    in_roundtable_setup = False
-    in_roundtable_active = False
-    roundtable_models = []
-    roundtable_log = []
-    roundtable_last_seen_idx = {}
-    roundtable_save_path = None  # fixed path for the session, set when table starts
-
     def _read_input(prompt: str) -> str:
         """Read one user turn, collecting multi-line pastes as a single string.
 
@@ -13751,40 +12533,6 @@ def repl(config: dict, initial_prompt: str | None = None):
     import uuid
 
     while True:
-        # ── Roundtable proactive: auto-inject "ok ok" to keep table alive ────
-        if in_roundtable_active and config.get("_roundtable_proactive_enabled"):
-            _rt_interval = config.get("_roundtable_proactive_interval", 180)
-            _rt_last = config.get("_roundtable_proactive_last_fire", 0)
-            if time.time() - _rt_last >= _rt_interval:
-                config["_roundtable_proactive_last_fire"] = time.time()
-                print(clr("\n  [roundtable proactive] → ok ok", "dim"), flush=True)
-                # Inject as if user typed "ok ok"
-                _rt_msg = "ok ok"
-                original_model = config.get("model")
-                for _rt_model in roundtable_models:
-                    print(clr(f"\n  ── TURNO DE: {_rt_model} ──", "yellow", "bold"))
-                    config["model"] = _rt_model
-                    _last_idx = roundtable_last_seen_idx.get(_rt_model, 0)
-                    _missed = roundtable_log[_last_idx:]
-                    _ctx = "".join(f"--- {a} dijo:\n{t}\n\n" for a, t in _missed)
-                    if _ctx:
-                        _p = f"(Mesa Redonda) El moderador dice: 'ok ok'. Continúa la discusión.\n\nÚltimo contexto:\n{_ctx}\nSigue con tu perspectiva."
-                    else:
-                        _p = "(Mesa Redonda) El moderador dice: 'ok ok'. Continúa la discusión con tu perspectiva."
-                    try:
-                        run_query(_p)
-                        if state.messages and hasattr(state.messages[-1], "get") and state.messages[-1].get("role") == "assistant":
-                            ans = state.messages[-1]["content"]
-                            if not ans.startswith(f"[Respuesta de {_rt_model}]"):
-                                state.messages[-1]["content"] = f"[Respuesta de {_rt_model}]:\n" + ans
-                            roundtable_log.append((_rt_model, ans))
-                            roundtable_last_seen_idx[_rt_model] = len(roundtable_log)
-                    except KeyboardInterrupt:
-                        _track_ctrl_c()
-                        break
-                _save_roundtable_session(roundtable_log, roundtable_save_path)
-                config["model"] = original_model
-
         # Show notifications and inject completions.
         # If any finished job was drained here (before the sentinel thread saw it),
         # fire the run_query callback ourselves so the agent wakes up just like
@@ -13996,82 +12744,6 @@ def repl(config: dict, initial_prompt: str | None = None):
         except Exception:
             pass
 
-        if in_roundtable_setup and not user_input.startswith("/"):
-            if user_input.strip() == '"""':
-                if 3 <= len(roundtable_models) <= 5:
-                    in_roundtable_setup = False
-                    in_roundtable_active = True
-                    # Asignar letra A-E a cada miembro automáticamente
-                    roundtable_models = [f"{m} {chr(65 + i)}" for i, m in enumerate(roundtable_models)]
-                    from datetime import datetime as _dt
-                    roundtable_save_path = Path.cwd() / f"round_table_{_dt.now().strftime('%Y%m%d_%H%M%S')}.json"
-                    ok(f"Mesa redonda iniciada con {len(roundtable_models)} modelos: {', '.join(roundtable_models)}")
-                    info("Escribe un mensaje y cada modelo responderá en orden sin usar tools. Escribe '/roundtable stop' para salir.")
-                else:
-                    err(f"Error: Requiere de 3 a 5 modelos. Tienes {len(roundtable_models)}. Entrando de nuevo a setup, por favor introduce modelos y termina con \"\"\".")
-                continue
-            else:
-                roundtable_models.append(user_input.strip())
-                continue
-
-        if in_roundtable_active and not user_input.startswith("/"):
-            user_msg = user_input.strip()
-            original_model = config.get("model")
-            # Tools are now enabled by default in roundtable mode per user request.
-            # To disable them for specific models, use model-specific config if available.
-            # original_no_tools = config.get("no_tools", False)
-            
-            for model_name in roundtable_models:
-                print(clr(f"\n  ── TURNO DE: {model_name} ──", "yellow", "bold"))
-                config["model"] = model_name
-                # config["no_tools"] = True  # Removed: allow tools in roundtable
-                
-                # Fetch what happened since this model last spoke
-                last_idx = roundtable_last_seen_idx.get(model_name, 0)
-                missed_turns = roundtable_log[last_idx:]
-                
-                accumulated_context = ""
-                for author, text in missed_turns:
-                    accumulated_context += f"--- {author} dijo:\n{text}\n\n"
-                
-                if not missed_turns:
-                    if len(roundtable_log) == 0:
-                        prompt_to_send = user_msg
-                    else:
-                        prompt_to_send = f"(Mesa Redonda) Eres {model_name}. El usuario dijo:\n\"{user_msg}\"\nAporta tu perspectiva al debate."
-                else:
-                    prompt_to_send = f"(Mesa Redonda) Eres {model_name}. El usuario dijo:\n\"{user_msg}\"\n\nMientras esperabas tu turno, se dijo esto:\n{accumulated_context}\nAgrega tu comentario o debate los puntos."
-                
-                try:
-                    run_query(prompt_to_send)
-                    
-                    # Auto-save config after each turn for web providers to persist session IDs
-                    model_low = config.get("model", "").lower()
-                    if any(p in model_low for p in ("gemini-web", "claude-web", "claude-code", "kimi-web")):
-                        from config import save_config
-                        save_config(config)
-                        
-                    # Inject model name into the assistant's response so context is clear for the next model
-                    if state.messages and hasattr(state.messages[-1], "get") and state.messages[-1].get("role") == "assistant":
-                        ans = state.messages[-1]["content"]
-                        if not ans.startswith(f"[Respuesta de {model_name}]"):
-                            state.messages[-1]["content"] = f"[Respuesta de {model_name}]:\n" + ans
-                            
-                        # Record response in global log and update cursor
-                        roundtable_log.append((model_name, ans))
-                        roundtable_last_seen_idx[model_name] = len(roundtable_log)
-                            
-                except KeyboardInterrupt:
-                    _track_ctrl_c()
-                    print(clr("\n  (interrupted)", "yellow"))
-                    break
-            
-            # Auto-save roundtable log after each complete round (overwrites same file)
-            _save_roundtable_session(roundtable_log, roundtable_save_path)
-            config["model"] = original_model
-            # config["no_tools"] = original_no_tools
-            continue
-
         # ── Kimi Batch Mode (triple-quote trigger) ─────────────────────────
         if user_input.strip() == '"""':
             if not in_batch_mode:
@@ -14280,25 +12952,6 @@ def repl(config: dict, initial_prompt: str | None = None):
         # Processes sentinel tuples returned by commands. SSJ-originated
         # sentinels loop back to the SSJ menu after completion.
         while isinstance(result, tuple):
-            if result[0] == "__roundtable__":
-                in_roundtable_setup = True
-                in_roundtable_active = False
-                roundtable_models = []
-                in_batch_mode = False
-                in_claude_batch_mode = False
-                ok("\nMesa Redonda Setup. Introduzca de 3 a 5 modelos (uno por linea). Termine con \"\"\" para empezar.")
-                break
-            if result[0] == "__roundtable_stop__":
-                in_roundtable_setup = False
-                in_roundtable_active = False
-                roundtable_models = []
-                _save_roundtable_session(roundtable_log, roundtable_save_path)
-                roundtable_log.clear()
-                roundtable_last_seen_idx.clear()
-                roundtable_save_path = None
-                ok("\nMesa redonda finalizada.")
-                break
-                
             # Voice sentinel: ("__voice__", transcribed_text)
             if result[0] == "__voice__":
                 _, voice_text = result
@@ -14588,12 +13241,7 @@ def repl(config: dict, initial_prompt: str | None = None):
                 print(clr("  🧙 Sage mode — studying the request before acting…", "dim"))
                 user_input = _sage_wrap(user_input)
             run_query(user_input)
-            
-            # Auto-save config after each turn for web providers to persist session IDs
-            model_low = config.get("model", "").lower()
-            if any(p in model_low for p in ("gemini-web", "claude-web", "claude-code", "kimi-web")):
-                from config import save_config
-                save_config(config)
+
         except KeyboardInterrupt:
             _track_ctrl_c()
             print(clr("\n  (interrupted)", "yellow"))
