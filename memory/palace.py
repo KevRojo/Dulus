@@ -59,19 +59,8 @@ DEFAULT_BUCKETS = [
         "description": "Major architectural decisions, milestones, and inside context.",
         "content": (
             "Dulus evolved from a set of hardening fixes into a full-fledged agentic persona. "
-            "**Significant Milestones:** Implementation of the Auto-Adapter, Verbose-Gating, "
-            "Soul Memory auto-loading, and the Sleep Trigger self-reflection system."
-        )
-    },
-    {
-        "name": "Adaptation_Guides",
-        "type": "feedback",
-        "hall": "advice",
-        "description": "Hints for the Auto-Adapter on handling various repository types.",
-        "content": (
-            "- For legacy repos (Python < 3.8): Prioritize dependency fixes and unpinned installs. "
-            "- For AI-focused repos: Ensure model constants and provider configs are correctly detected. "
-            "- For GUI/Visual repos: Look for platform-specific clipboard or display needs (e.g. WSL fallback)."
+            "**Significant Milestones:** Verbose-Gating, Soul Memory auto-loading, "
+            "and the Sleep Trigger self-reflection system."
         )
     },
     {
@@ -272,7 +261,7 @@ def seed_insight_memories() -> bool:
 # ── Baseline display markers (GUI/REPL transcript only) ─────────────────────
 # These role:assistant blobs are for the human to see in the chat UI. The model
 # source of truth is gold_system_fragment() / soul_system_fragment() in the
-# system prompt. Agent + lookback strip these markers from the API payload.
+# system prompt. agent.py strips these markers from the API payload.
 GOLD_MARKER = "[Golden Memory Loaded:"
 SOUL_MARKER = "[Identity Essence Loaded:"
 SOUL_RELOAD_MARKER = "[Identity Essence Reloaded:"
@@ -353,7 +342,7 @@ def gold_system_fragment(max_chars: int = 8000, max_total: int = 12000) -> str:
 
     This is how the model actually *receives* short_memory and other gold
     entries — not as ``role:assistant`` chat turns (those break web-history
-    consolidate, Anthropic role alternation, and lookback).
+    consolidate and Anthropic role alternation).
 
     Deliberately NOT gated by ``mem_palace``. Called every turn from
     ``build_system_prompt`` so edits to short_memory.md show up immediately.

@@ -388,48 +388,21 @@ def install_plugin(
         # Load and validate manifest
         manifest = PluginManifest.from_plugin_dir(plugin_dir)
         if manifest is None:
-            # No plugin.json / PLUGIN.md — ask user before auto-adapting
-            print()
+            # No plugin.json / PLUGIN.md, so there is nothing to install from.
+            # Deriving a manifest by reading arbitrary repository source is a
+            # signed-build feature; drop the checkout and say what is missing.
+            def _force_remove(func, path, _exc_info):
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
             try:
-                answer = input(
-                    "No plugin manifest found. "
-                    "Would you like Dulus to auto-adapt this repository?\n"
-                    "This uses AI to analyze the repo and generate a plugin manifest.\n"
-                    "It may take a few minutes. [Y/n] "
-                ).strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                answer = "n"
+                shutil.rmtree(plugin_dir, onexc=_force_remove)  # type: ignore[call-arg]
+            except Exception:
+                pass
+            return False, (
+                f"No plugin manifest found for '{safe_name}'. Add a plugin.json "
+                "or PLUGIN.md to the repository, then install again."
+            )
 
-            if answer in ("", "y", "yes"):
-                from .autoadapter import autoadapt_if_needed
-                from config import load_config
-                adapted_ok = autoadapt_if_needed(plugin_dir, safe_name, load_config())
-                if not adapted_ok:
-                    print()
-                    try:
-                        keep = input(f"Auto-adaptation for '{safe_name}' failed. Keep partially adapted files for manual fixing? [y/N] ").strip().lower()
-                    except (EOFError, KeyboardInterrupt):
-                        keep = "n"
-                    
-                    if keep not in ("y", "yes"):
-                        # Clean up the cloned repo
-                        def _force_remove(func, path, _exc_info):
-                            os.chmod(path, stat.S_IWRITE)
-                            func(path)
-                        try:
-                            shutil.rmtree(plugin_dir, onexc=_force_remove)  # type: ignore[call-arg]
-                        except Exception:
-                            pass
-                        return False, f"Auto-adaptation failed for '{safe_name}'. Plugin directory removed."
-                    else:
-                        return False, f"Auto-adaptation failed for '{safe_name}'. Files kept in {plugin_dir}. Set enabled=true in plugin.json manually if you fix it."
-                manifest = PluginManifest.from_plugin_dir(plugin_dir)
-            else:
-                print("Skipping auto-adaptation.")
-
-        if manifest is None:
-            manifest = PluginManifest(name=safe_name, description="(no manifest)")
-        
         if manifest.dependencies:
             deps_to_install.extend(manifest.dependencies)
 

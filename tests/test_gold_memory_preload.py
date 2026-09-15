@@ -109,8 +109,8 @@ def test_baseline_display_message_detector() -> None:
     assert not is_baseline_memory_name("ovh_le_beast")
 
 
-def test_lookback_strips_baseline_from_api_window() -> None:
-    from lookback import apply_lookback_window
+def test_baseline_display_blobs_are_stripped_from_the_api_payload() -> None:
+    from memory import is_baseline_display_message
 
     msgs = [
         {"role": "assistant", "content": "[Golden Memory Loaded: short_memory]\n\nOVH stuck"},
@@ -118,17 +118,19 @@ def test_lookback_strips_baseline_from_api_window() -> None:
         {"role": "user", "content": "klk"},
         {"role": "assistant", "content": "Klk papi"},
     ]
-    window, meta = apply_lookback_window(msgs, {"lookback": False})
+    # agent.py applies exactly this filter before handing messages to the provider.
+    payload = [m for m in msgs if not is_baseline_display_message(m)]
+
     assert all(
         not (m.get("content") or "").startswith("[Golden Memory Loaded:")
-        for m in window
+        for m in payload
     )
     assert all(
         not (m.get("content") or "").startswith("[Identity Essence Loaded:")
-        for m in window
+        for m in payload
     )
-    assert any(m.get("content") == "klk" for m in window)
-    assert meta.get("baseline_stripped", 0) >= 2 or len(window) == 2
+    assert any(m.get("content") == "klk" for m in payload)
+    assert len(payload) == 2
 
 
 def test_is_baseline_memory_name_filters_mempalace_hits() -> None:

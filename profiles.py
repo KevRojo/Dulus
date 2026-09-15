@@ -204,7 +204,7 @@ def create_profile(name: str, description: str = "", persona: Optional[str] = No
             "description": description,
             "persona": persona,
             # Lean by default = a clean agent (own plugins/skills + baseline).
-            # Native self-improvement tools (autoadapter, MarketplaceSearch/Install,
+            # Native self-improvement tools (MarketplaceSearch/Install,
             # mr_dulus, Skill, plugin/skill install) are ALWAYS available regardless,
             # so a lean profile can still grow itself. Set true for full inheritance.
             "inherit_core": False,

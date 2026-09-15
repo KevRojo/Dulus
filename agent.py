@@ -170,9 +170,7 @@ def run(
         pass
     state.messages.append(user_msg)
 
-    # Inject runtime metadata into config so tools (e.g. Agent, Loopback) can access it.
-    # Loopback MUST see the live archive via config["_state"].messages — without this
-    # the agent cannot retrieve history outside the lookback window.
+    # Inject runtime metadata into config so tools (e.g. Agent) can access it.
     config.update({"_depth": depth, "_system_prompt": system_prompt, "_state": state})
 
     # Governance layer (opt-in via config["governance"]). Built once per session
@@ -199,16 +197,7 @@ def run(
         # Compact context if approaching window limit
         maybe_compact(state, config)
 
-        # ── Lookback window (API only; full archive stays in state.messages) ──
-        # Full history is always saved locally (loopback). When lookback is ON,
-        # only the last N user turns go to the provider — big token savings.
-        # short_memory in the system prompt keeps essential past beside the model.
-        try:
-            from lookback import apply_lookback_window, lookback_system_note
-            _api_source, _lb_meta = apply_lookback_window(state.messages, config)
-            config["_lookback_meta"] = _lb_meta
-        except Exception:
-            _api_source, _lb_meta = state.messages, {"enabled": False, "truncated": False}
+        _api_source = state.messages
 
         # Strip GUI/REPL baseline display blobs (soul/gold/welcome). The model
         # already has them via system prompt; leaving them as role:assistant
@@ -254,16 +243,6 @@ def run(
                     "'Short memory check: nothing new to save.' and continue normally.\n\n"
                     "Current short_memory.md:\n---\n" + _short_mem_text + "\n---"
                 )
-        except Exception:
-            pass
-
-        # Tell the model about lookback so it doesn't invent older events.
-        # lookback_system_note() is byte-stable (no live counters), so this
-        # append never changes between calls and the system cache keeps hitting.
-        try:
-            _lb_note = lookback_system_note(_lb_meta)
-            if _lb_note:
-                _effective_system = _effective_system + _lb_note
         except Exception:
             pass
 

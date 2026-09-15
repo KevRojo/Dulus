@@ -94,7 +94,6 @@ docker compose up -d
 | Multi-Provider | 11 native providers + 100+ via LiteLLM (OpenRouter, Groq, Together, Bedrock, Vertex, Mistral, xAI, Fireworks, Azure...) |
 | No-Key Auth | OAuth into the Dulus router or an existing Claude / ChatGPT / Kimi / Grok subscription — no API key to paste |
 | 30+ Built-in Tools | Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, NotebookEdit, OCR, Voice, and more |
-| Auto-Adapter | Install any Python repo as a Dulus plugin — zero manifest required. `/plugin install yfinance@https://github.com/user/repo` |
 | MemPalace | Semantic memory with ChromaDB — remembers across sessions, learns your preferences |
 | Voice I/O | Offline STT via Whisper. TTS via ElevenLabs, Azure, or local engines. `/voice` |
 | Sub-Agents | Typed agents (coder / reviewer / tester) in isolated git worktrees — the Flock |
@@ -173,7 +172,7 @@ dulus.py  ── REPL, slash commands, voice, Telegram, GUI
     |
     ├── skill/  ── Markdown skill loading + execution
     ├── checkpoint/  ── Session snapshots + rewind
-    ├── plugin/  ── Auto-Adapter plugin system
+    ├── plugin/  ── plugin system
     ├── voice/  ── STT (Whisper) + TTS (multi-engine)
     ├── task/  ── Task management
     ├── webbridge/  ── Playwright browser automation

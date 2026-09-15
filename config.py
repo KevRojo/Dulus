@@ -118,7 +118,6 @@ DEFAULTS = {
     "max_tool_output":  2500,
     "max_agent_depth":  3,
     "max_concurrent_agents": 3,
-    "adapter_max_fix_attempts": 20,  # max fix attempts per task in autoadapter worker
     "session_limit_daily":   10,    # max sessions kept per day in daily/
     "session_limit_history": 200,  # max sessions kept in history.json
     "license_key":          "",    # Dulus license key (PRO/ENTERPRISE)

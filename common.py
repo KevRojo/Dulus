@@ -227,7 +227,7 @@ def pip_install_cmd(*packages: str) -> list[str]:
             # --break-system-packages: PEP 668 externally-managed opt-out.
             # --ignore-installed: force-install even when a distro/system package
             #   "already satisfies" a dep but isn't usable in the target location
-            #   (e.g. plugin deps via the autoadapter) - without it pip skips them
+            #   (e.g. deps a plugin manifest declares) - without it pip skips them
             #   and the import fails at runtime.
             cmd += ["--break-system-packages", "--ignore-installed"]
     except Exception:
