@@ -57,14 +57,13 @@ dulus/
   welcome.py            # First-run wizard (~290 lines)
   webchat.py            # WebChat server (~430 lines)
   webchat_server.py     # Production webchat (~4,300 lines)
-  dulus_gui.py          # Desktop GUI (~385 lines)
   batch_api.py          # Batch processor (~470 lines)
   common.py             # Shared utilities (~210 lines)
   input.py              # Input handling (~1,150 lines)
   memory/               # MemPalace semantic memory
   skill/                # Skill system
   multi_agent/          # Sub-agent system
-  plugin/               # Auto-Adapter plugin system
+  plugin/               # Plugin system
   voice/                # STT (Whisper) + TTS
   checkpoint/           # Session snapshots
   task/                 # Task management

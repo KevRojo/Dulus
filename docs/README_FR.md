@@ -87,12 +87,11 @@ docker compose up -d
 | Multi-Fournisseur | 11 natifs + 100+ via LiteLLM |
 | Sans Cle API | Capture des sessions navigateur gratuites |
 | 30+ Outils Integres | Fichiers, shell, web, OCR, voix, et plus |
-| Auto-Adapter | Installe n'importe quel repo Python comme plugin |
+| Plugins | Installe un plugin depuis un repo Git via son manifeste |
 | MemPalace | Memoire semantique avec ChromaDB |
 | Voix I/O | STT hors ligne via Whisper. TTS multi-moteur |
 | Sous-Agents | Agents types dans des git worktrees isoles — la Vollee |
 | Table Ronde | Debat multi-modeles |
-| Sandbox OS | Mini-OS dans le navigateur avec 58 apps |
 | Pont Telegram | Executez Dulus depuis votre telephone |
 | MCP | Model Context Protocol |
 | Brainstorm | Conseil d'experts IA |
@@ -152,7 +151,7 @@ dulus.py  ── REPL, commandes slash, voix, Telegram, GUI
     |
     ├── skill/  ── Systeme de skills
     ├── checkpoint/  ── Snapshots + rewind
-    ├── plugin/  ── Systeme Auto-Adapter
+    ├── plugin/  ── Systeme de plugins
     ├── voice/  ── STT (Whisper) + TTS (multi-moteur)
     ├── task/  ── Gestion de taches
     ├── webbridge/  ── Automatisation Playwright

@@ -7,8 +7,6 @@
     "**/venv",
     "**/dist",
     "**/build",
-    "sandbox",
-    "sandbox/**",
     "brand-assets",
     "assets",
     "checkpoint",

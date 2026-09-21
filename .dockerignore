@@ -33,9 +33,8 @@ env/
 .gitignore
 .github/
 
-# Node (sandbox build outputs ship inside the wheel; the source tree is heavy)
+# Node
 node_modules/
-sandbox/node_modules/
 
 # Dulus runtime state — do NOT bake user data into images
 .dulus/

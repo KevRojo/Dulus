@@ -385,7 +385,9 @@ def _inject_mempalace(user_input: str, config: dict) -> str:
         _raw_hits = []
         # Primary: query the real MemPalace (~/.mempalace/palace)
         try:
-            from mempalace.searcher import search_memories as _mp_search
+            # mempalace >=3.10 exec()s `search_memories` into the searcher
+            # package globals, so it resolves at runtime but not statically.
+            from mempalace.searcher import search_memories as _mp_search  # type: ignore[attr-defined]
             from mempalace.config import MempalaceConfig as _MPCfg
             _palace = _MPCfg().palace_path
             _res = _mp_search(_q, _palace, n_results=3)
@@ -1674,21 +1676,13 @@ setInterval(function(){ syncWithServer(); }, 5000);
                                        mimetype="image/png")
         return Response(status=404)
 
-    # ── Sandbox (Mini OS) ─────────────────────────────────────────────────────
-    # The sandbox/dist tree ships directly inside the wheel; webchat
-    # serves /sandbox/ straight from site-packages (no extract step).
-    from sandbox_bootstrap import ensure_sandbox as _ensure_sandbox
+    # The Mini OS frontend (`/sandbox/`, served from the bundled sandbox/dist
+    # tree) is not part of the public runtime, so the static routes and their
+    # sandbox_bootstrap resolver are gone. The filesystem/exec API below is a
+    # separate, still-supported WebChat surface: it operates on the project
+    # root rather than on the removed asset bundle.
 
-    @app.route("/sandbox")
-    @app.route("/sandbox/")
-    def sandbox_index() -> ResponseReturnValue:
-        return send_from_directory(_ensure_sandbox(), "index.html")
-
-    @app.route("/sandbox/<path:path>")
-    def sandbox_static(path) -> ResponseReturnValue:
-        return send_from_directory(_ensure_sandbox(), path)
-
-    # ── Sandbox Filesystem API ────────────────────────────────────────────────
+    # ── Workspace Filesystem API ──────────────────────────────────────────────
     import os as _os
 
     @app.route("/api/sandbox/fs/list", methods=["GET"])

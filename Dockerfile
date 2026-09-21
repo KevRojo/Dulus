@@ -80,12 +80,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # `OSError: PortAudio library not found` on first /voice call.
 ARG WITH_VOICE=0
 
-# Build with --build-arg WITH_GUI=1 to bundle tkinter for the desktop GUI
-# (`dulus-gui` / customtkinter). Not needed for the REPL or the webchat
-# HTTP server thanks to lazy GUI imports in 0.2.76+. Default off so the
-# slim image stays slim.
-ARG WITH_GUI=0
-
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -93,9 +87,6 @@ RUN set -eux; \
     if [ "$WITH_VOICE" = "1" ]; then \
         apt-get install -y --no-install-recommends \
             libportaudio2 portaudio19-dev libasound2-dev; \
-    fi; \
-    if [ "$WITH_GUI" = "1" ]; then \
-        apt-get install -y --no-install-recommends python3-tk; \
     fi; \
     rm -rf /var/lib/apt/lists/*
 

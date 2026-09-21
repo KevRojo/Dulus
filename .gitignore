@@ -22,31 +22,11 @@ sha3_wasm_bg.*.wasm
 # Local Context
 .dulus-context/
 
-# Sandbox — only the compiled bundle ships publicly.
-# The React/TypeScript sources are kept private; Flask, the GUI and
-# sandbox_bootstrap.py all read from sandbox/dist/ and never touch src/, so
-# the public tree stays runnable without carrying the source.
-sandbox/node_modules/
-sandbox/vite.log
-sandbox/src/
-sandbox/public/
-sandbox/package.json
-sandbox/package-lock.json
-sandbox/pnpm-lock.yaml
-sandbox/vite.config.ts
-sandbox/tsconfig*.json
-sandbox/tailwind.config.js
-sandbox/postcss.config.js
-sandbox/eslint.config.js
-sandbox/components.json
-sandbox/index.html
-!sandbox/dist/
-
-# Web GUI (React) — node_modules ignored; dist/ IS tracked (like sandbox/dist)
-# so pip installs ship a ready-to-run GUI without needing Node.
-gui/dulus_orchestrator/node_modules/
-gui/dulus_orchestrator/dist/desktop-pet.html
-gui/dulus_orchestrator/dist/runtime-state.js
+# Sandbox (Dulus OS) and the desktop GUI are not part of the public runtime.
+# Both trees are kept private, so ignore them wholesale: a local working copy
+# must never be committable into the public repo.
+sandbox/
+gui/
 
 # Local MCP configs (may contain secrets/tokens)
 .mcp.json
@@ -67,9 +47,6 @@ data/mempalace_cache.json
 data/context.json
 # Runtime state (regenerated at runtime — never commit)
 data/*.json
-# NOTE: sandbox/dist/ is NOT ignored — it contains the compiled static assets
-# (index.html, JS/CSS bundles, wallpapers) that Flask serves at /sandbox.
-# It must be tracked so pip installs include the Mini OS frontend.
 
 _pyright_*.json
 _*.json

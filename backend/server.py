@@ -372,34 +372,6 @@ class DulusHandler(SimpleHTTPRequestHandler):
                 self._error(f"Marketplace error: {e}", 500)
             return
 
-        # ── Static files from Sandbox (Web OS) ──
-        SANDBOX_DIR = Path(__file__).parent.parent / "sandbox" / "dist"
-        if path.startswith("/sandbox/"):
-            sandbox_path = path[len("/sandbox/"):]
-            if sandbox_path == "" or sandbox_path.endswith("/"):
-                sandbox_path = "index.html"
-            target = SANDBOX_DIR / sandbox_path
-            if target.exists() and target.is_file():
-                self.send_response(200)
-                ctype = "text/html"
-                if path.endswith(".css"):
-                    ctype = "text/css"
-                elif path.endswith(".js"):
-                    ctype = "application/javascript"
-                elif path.endswith(".json"):
-                    ctype = "application/json"
-                elif path.endswith(".png"):
-                    ctype = "image/png"
-                elif path.endswith(".jpg") or path.endswith(".jpeg"):
-                    ctype = "image/jpeg"
-                self.send_header("Content-Type", ctype)
-                self.end_headers()
-                with open(target, "rb") as f:
-                    self.wfile.write(f.read())
-                return
-            self.send_error(404)
-            return
-
         # ── Static files from dashboard ──
         if path == "/" or path == "/index.html":
             target = DASHBOARD_DIR / "index.html"

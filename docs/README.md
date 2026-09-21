@@ -29,9 +29,9 @@ provider router ─── Anthropic · OpenAI · Gemini · NVIDIA · LiteLLM
   ▼
 agent loop
   ├── context ───── project instructions · memory · skills · persona
-  ├── tools ─────── core registry · MCP · plugins · Auto-Adapter
+  ├── tools ─────── core registry · MCP · plugins
   ├── state ─────── sessions · tasks · checkpoints · jobs · costs
-  └── surfaces ──── CLI · WebChat · desktop GUI · Telegram · Dulus OS
+  └── surfaces ──── CLI · WebChat · Telegram
 ```
 
 The shortest route through the implementation is:
@@ -50,14 +50,12 @@ The shortest route through the implementation is:
 | Persistent memory and background jobs | [`memory/`](../memory/) |
 | Multi-agent worktrees and messaging | [`multi_agent/`](../multi_agent/) |
 | MCP transports and marketplace | [`dulus_mcp/`](../dulus_mcp/) |
-| Plugins and repository Auto-Adapter | [`plugin/`](../plugin/) |
+| Plugins | [`plugin/`](../plugin/) |
 | Reusable skills | [`skill/`](../skill/) |
 | File and conversation checkpoints | [`checkpoint/`](../checkpoint/) |
 | Durable task tracking | [`task/`](../task/) |
 | Speech, TTS, and wake words | [`voice/`](../voice/) |
-| Native desktop interface | [`gui/`](../gui/) |
 | Local browser interface | [`webchat_ui/`](../webchat_ui/) |
-| Dulus OS | [`sandbox/`](../sandbox/) |
 
 ## Development baseline
 

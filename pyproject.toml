@@ -35,9 +35,8 @@ classifiers = [
     # sat at "4 - Beta" long after that stopped being true, and the Beta badge
     # is the first thing anyone reads on the PyPI page.
     "Development Status :: 5 - Production/Stable",
-    # Dulus is not console-only: it ships a desktop GUI (pywebview), a Qt
-    # status bar, a Flask webchat and Dulus OS. Listing just Console hid every
-    # one of those surfaces.
+    # Dulus is not console-only: it also ships a Qt status bar (dulus-bar)
+    # and a Flask webchat. Listing just Console hid both of those surfaces.
     "Environment :: Console",
     "Environment :: Web Environment",
     "Environment :: X11 Applications :: Qt",
@@ -213,7 +212,6 @@ py-modules = [
     "profiles",
     "providers",
     "pyconsole",
-    "sandbox_bootstrap",
     "skills",
     "soul",
     "spinner",
@@ -241,7 +239,6 @@ include = [
     "cli_animations*",
     "data*",
     "docs*",
-    "gui*",
     "dulus_mcp*",
     "dulus_tools*",
     "memory*",
@@ -253,24 +250,14 @@ include = [
     "voice*",
     "webbridge*",
     "webchat_ui*",
-    # sandbox/dist/ ships in the wheel so webchat serves /sandbox/ directly
-    # (back to the 0.2.81 layout — no tarball, no extract-on-first-run).
-    # GitHub Linguist won't double-count: .gitattributes marks sandbox/**
-    # as linguist-vendored=true.
-    "sandbox*",
 ]
 exclude = [
     "tests*",
     "__pycache__*",
-    # Don't ship sandbox sources / node_modules / vite cache — only dist/.
-    "sandbox.src*",
-    "sandbox.node_modules*",
-    "sandbox.public*",
 ]
 
 [tool.setuptools.package-data]
 "*" = ["*.html", "*.css", "*.js", "*.jsx", "*.ts", "*.tsx", "*.svg", "*.json", "*.md", "*.png", "*.jpg", "*.jpeg", "*.txt", "*.py"]
-"sandbox" = ["dist/**/*", "dist/**/.*"]
 # Bundled Agent Skills shipped with Dulus (kepano's obsidian-skills suite,
 # etc.). Each lives at `skill/bundled/<name>/SKILL.md` with optional
 # `references/*.md` files the skill body links to.

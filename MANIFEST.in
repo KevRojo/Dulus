@@ -6,7 +6,6 @@ include docs/news.md
 include docs/dulus-bird.png
 recursive-include docs/dashboard *
 recursive-include data *
-recursive-include sandbox/dist *
 recursive-include webbridge *
 recursive-include webchat_ui *.html *.css *.js
 global-exclude __pycache__/*

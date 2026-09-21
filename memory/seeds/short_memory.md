@@ -19,7 +19,7 @@ Updated: (seed) · Fill this on first real session.
 | What | Path |
 |---|---|
 | CLI/REPL | `dulus` / `dulus.py` |
-| Desktop GUI host | `dulus --gui` → pywebview |
+| WebChat host | `/webchat` → Flask server |
 | Runtime home | `~/.dulus/` (`DULUS_HOME`) |
 | This file | `~/.dulus/memory/short_memory.md` |
 

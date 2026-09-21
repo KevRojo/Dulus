@@ -42,7 +42,7 @@ User Input
     +-------------+
     |  context.py |----> memory/ (MemPalace)
     | (sys prompt)|      skill/  (skills)
-    +-------------+      plugin/ (Auto-Adapter)
+    +-------------+      plugin/ (plugins)
                          voice/  (STT/TTS)
                          checkpoint/ (snapshots)
                          task/   (task mgmt)
@@ -69,7 +69,6 @@ The heart of Dulus. Contains:
 - **Slash commands** — 30+ commands (`/model`, `/memory`, `/voice`, `/brainstorm`, etc.)
 - **SSJ mode** — 10 workflow shortcuts (plan, worker, review, commit, ship)
 - **Telegram bridge** — Multi-user bot integration
-- **GUI integration** — tkinter desktop GUI launcher
 - **Event rendering** — ANSI-colored output for tool calls, diffs, spinners
 
 ### `agent.py` — Core Agent Loop (~420 lines)
@@ -156,7 +155,7 @@ Contains 30+ core tools:
 **Tasks:** TaskCreate, TaskUpdate, TaskGet, TaskList
 **Skills:** Skill, SkillList
 **Voice:** VoiceRecord, VoiceSpeak
-**Other:** AskUserQuestion, SleepTimer, EnterPlanMode, ExitPlanMode, LaunchSandbox
+**Other:** AskUserQuestion, SleepTimer, EnterPlanMode, ExitPlanMode
 **OCR:** ExtractTextFromImage
 
 ### `compaction.py` — Context Window Management (~375 lines)
@@ -285,17 +284,21 @@ Search is ranked by **confidence x recency**. Mark a memory as "gold" to pin it 
 
 ---
 
-## Plugin System (Auto-Adapter)
+## Plugin System
 
-Dulus's Auto-Adapter reads any Python repository and generates tool adapters — no `plugin.yaml` required.
+Plugins are manifest-driven: a plugin declares what it exposes in `PLUGIN.md`
+YAML frontmatter or `plugin.json`, and Dulus loads it from there.
 
 ### How It Works
 
 1. User runs `/plugin install my-plugin@https://github.com/user/repo`
-2. Auto-Adapter clones the repo, analyzes its structure
-3. Generates adapter code mapping repo functions to ToolDef schemas
+2. Dulus clones the repo and installs the manifest's `dependencies`
+3. The manifest's `tools` modules are imported and mapped to ToolDef schemas
 4. Registers tools live — no restart required
 5. New tools appear as `plugin__<name>__<function>`
+
+A manifest may also contribute `skills` (skill `.md` files) and
+`mcp_servers` (MCP server configs) alongside its tools.
 
 ### Adding a Tool Manually
 
@@ -374,10 +377,6 @@ The optional governance system (`governance.py`) provides:
 - **Capability policies** — Restrict available tools per session
 - **Token budgets** — Hard limits to protect your wallet
 - **Audit hooks** — `pre_tool` and `post_tool` for logging
-
-### Sandbox
-
-The `sandbox/` directory contains Dulus OS — a browser-based mini-OS for isolated tool execution. Runs entirely client-side. Experimental but actively developed.
 
 ---
 

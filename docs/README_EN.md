@@ -97,7 +97,6 @@ docker compose up -d
 | MemPalace | Semantic memory with ChromaDB — remembers across sessions, learns your preferences |
 | Voice I/O | Offline STT via Whisper. TTS via ElevenLabs, Azure, or local engines. `/voice` |
 | Sub-Agents | Typed agents (coder / reviewer / tester) in isolated git worktrees — the Flock |
-| Sandbox OS | Full browser-based mini-OS with 58 apps. Runs entirely in your browser |
 | Telegram Bridge | Run Dulus from your phone. Multi-user, slash commands, vision, voice |
 | MCP Support | Model Context Protocol — connect any MCP server (stdio / SSE / HTTP) |
 | Brainstorm | AI council of ghosts — auto-generated expert personas debate and distill |
@@ -249,7 +248,7 @@ Switch anytime: `/permissions auto` or `/permissions plan`.
 **Tasks:** TaskCreate · TaskUpdate · TaskGet · TaskList
 **Skills:** Skill · SkillList
 **Voice:** VoiceRecord · VoiceSpeak
-**Other:** AskUserQuestion · SleepTimer · EnterPlanMode · ExitPlanMode · LaunchSandbox
+**Other:** AskUserQuestion · SleepTimer · EnterPlanMode · ExitPlanMode
 **OCR:** ExtractTextFromImage
 **WebBridge:** WebBridgeNavigate · WebBridgeClick · WebBridgeType · WebBridgeEvaluate · WebBridgeScreenshot
 **tmux:** 11 tools for driving tmux sessions

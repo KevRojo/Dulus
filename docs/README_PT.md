@@ -90,7 +90,6 @@ docker compose up -d
 | MemPalace | Memoria semantica com ChromaDB |
 | Voz I/O | STT offline via Whisper. TTS multi-motor |
 | Sub-Agentes | Agentes tipados em git worktrees isolados —— o Bando |
-| Sandbox OS | Mini-OS baseado em navegador com 58 apps |
 | Ponte Telegram | Execute Dulus do seu celular |
 | MCP | Model Context Protocol |
 | Brainstorm | Conselho de especialistas IA |

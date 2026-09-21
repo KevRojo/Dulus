@@ -144,8 +144,6 @@ Slash commands in REPL:
   /import <file>    Import conversation from file or session
   /webchat [port]   Spawn web chat UI (background Flask server)
   /webchat stop     Kill the webchat server
-  /sandbox          Open Dulus Sandbox OS in browser (starts webchat if needed)
-  /sandbox stop     Stop the webchat server
   /rtk [on|off]     Toggle RTK token-optimized shell command rewriting
   /exit /quit Exit
 """
@@ -240,19 +238,6 @@ except ImportError:
 
 # ── License gate (KevRojo — tu esfuerzo, tu leche) ──────────────────────────
 from license_manager import LicenseManager, LicenseTier
-
-# Eagerly extract the sandbox bundle on Dulus boot in a daemon thread, so by
-# the time the user (or the webchat server, or a sub-agent) asks for
-# /sandbox/ the static files are already sitting at ~/.dulus/sandbox/.
-# Silent, no prompt, no notification — exactly the UX we want.
-def _eager_extract_sandbox() -> None:
-    try:
-        import threading as _th
-        from sandbox_bootstrap import ensure_sandbox as _es
-        _th.Thread(target=_es, daemon=True, name="sandbox-extract").start()
-    except Exception:
-        pass  # missing bundle on dev/source runs is fine — fallback handles it
-_eager_extract_sandbox()
 
 import argparse
 import atexit
@@ -1217,11 +1202,9 @@ _HELP_PAGES = [
         ("/wake threshold <n>",     "Tune mic sensitivity (0.001–1.0)"),
         ("/wake feedback on|off",   "TTS reply on wake (off = beep only)"),
     ]),
-    ("Web · Sandbox · Cloud", [
+    ("Web · Cloud", [
         ("/webchat [port]",         "Spawn web chat UI (Flask)"),
         ("/webchat stop",           "Kill the webchat server"),
-        ("/sandbox",                "Open Dulus Sandbox OS in browser"),
-        ("/sandbox stop",           "Stop the sandbox server"),
         ("/cloudsave",              "Upload current session to GitHub Gist"),
         ("/cloudsave setup <token>","Configure GitHub token"),
         ("/cloudsave auto on|off",  "Toggle auto-upload on exit"),
@@ -2878,46 +2861,6 @@ def cmd_webchat(args: str, state, config) -> bool:
                 config.pop("_webchat_proc", None)
                 return True
     info(f"WebChat spawn timed out -- try opening {local_url} manually or check :{port}")
-    return True
-
-
-def cmd_sandbox(args: str, state, config) -> bool:
-    """Open the Dulus Sandbox OS in the browser.
-
-    /sandbox          — Ensure webchat is running, open /sandbox in browser
-    /sandbox stop     — Alias for /webchat stop
-    """
-    import webbrowser, time, urllib.request
-
-    arg = (args or "").strip().lower()
-
-    if arg in ("stop", "kill", "off"):
-        return cmd_webchat("stop", state, config)
-
-    # Make sure webchat is running first
-    import webchat_server
-    port = config.get("_webchat_port", 5000)
-
-    def _wc_alive(p):
-        try:
-            urllib.request.urlopen(f"http://127.0.0.1:{p}/api/health", timeout=0.5).read(1)
-            return True
-        except Exception:
-            return False
-
-    if not _wc_alive(port):
-        ok("Starting WebChat first...")
-        cmd_webchat("", state, config)
-        # Wait up to 5s for it to be ready
-        for _ in range(20):
-            if _wc_alive(port):
-                break
-            time.sleep(0.25)
-
-    sandbox_url = f"http://127.0.0.1:{port}/sandbox"
-    ok(f"Opening Sandbox OS -> {sandbox_url}")
-    webbrowser.open(sandbox_url)
-    info("Mini OS running in your browser. Use /sandbox stop to shut down the server.")
     return True
 
 
@@ -9819,19 +9762,12 @@ def cmd_doctor(args: str, state, config) -> bool:
         ("PIL", "Pillow (clipboard image /image)"),
         ("sounddevice", "sounddevice (voice recording)"),
         ("faster_whisper", "faster-whisper (local STT)"),
-        ("tkinter", "tkinter (GUI / webchat eager-load)"),
     ]:
         try:
             __import__(mod)
             ok(desc)
         except ImportError as e:
-            if mod == "tkinter":
-                warn(f"{desc}: missing system library.")
-                info("  Fix on Linux/WSL:")
-                info("    sudo apt install python3-tk")
-                info("  (tkinter is bundled on Windows/macOS; only Linux ships it as a separate apt package.)")
-            else:
-                warn(f"{desc}: not installed")
+            warn(f"{desc}: not installed")
         except OSError as e:
             # sounddevice can import but fail at runtime if PortAudio is
             # missing — common on fresh WSL/Ubuntu installs because the
@@ -10526,7 +10462,6 @@ COMMANDS = {
     "buydulus":    cmd_buy_dulus,
     "buy_dulus":   cmd_buy_dulus,
     "webbridge":   cmd_webbridge,
-    "sandbox":     cmd_sandbox,
     "brave":       cmd_brave,
     "bocha":       cmd_bocha,
     "rtk":         cmd_rtk,
@@ -10711,7 +10646,6 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "news":        ("Dulus Radio — latest 3 (also auto on boot)", ["all", "more", "5"]),
     "webchat":       ("Spawn web chat UI",                 ["stop", "lan"]),
     "webbridge":     ("Control WebBridge browser",          ["status", "open", "click", "type", "screenshot", "extract", "scroll", "newtab", "switchtab", "closetab", "listtabs", "close", "help"]),
-    "sandbox":       ("Open Dulus Sandbox OS in browser",  ["stop"]),
 }
 
 
@@ -11475,7 +11409,10 @@ def repl(config: dict, initial_prompt: str | None = None):
     if config.get("mem_palace", True):
         def _prewarm_mempalace():
             try:
-                from mempalace.searcher import search_memories as _pw_search
+                # mempalace >=3.10 assembles `mempalace.searcher` by exec()'ing
+                # fragment files into the package globals, so `search_memories`
+                # exists at runtime but is invisible to static analysis.
+                from mempalace.searcher import search_memories as _pw_search  # type: ignore[attr-defined]
                 from mempalace.config import MempalaceConfig as _PWCfg
                 _pw_search("warmup", _PWCfg().palace_path, n_results=1)
             except Exception:
@@ -11591,7 +11528,10 @@ def repl(config: dict, initial_prompt: str | None = None):
                             # which is a tiny slice and was the reason the same 3 generic files
                             # kept getting injected on every turn.
                             try:
-                                from mempalace.searcher import search_memories as _mp_search
+                                # See _prewarm_mempalace: `search_memories` is
+                                # exec()'d into the package namespace upstream,
+                                # so static analysis cannot see it.
+                                from mempalace.searcher import search_memories as _mp_search  # type: ignore[attr-defined]
                                 from mempalace.config import MempalaceConfig as _MPCfg
                                 _palace = _MPCfg().palace_path
                                 # Hard timeout guard: chromadb can hang indefinitely on a

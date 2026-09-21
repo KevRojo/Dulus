@@ -125,7 +125,7 @@ def _short_memory_seed_body() -> tuple[str, str]:
         "| What | Path |\n"
         "|---|---|\n"
         "| CLI/REPL | `dulus` / `dulus.py` |\n"
-        "| Desktop GUI host | `dulus --gui` → pywebview |\n"
+        "| WebChat host | `/webchat` → Flask server |\n"
         "| Runtime home | `~/.dulus/` (`DULUS_HOME`) |\n"
         "| This file | `~/.dulus/memory/short_memory.md` |\n\n"
         "## Working notes\n"
@@ -391,9 +391,9 @@ def soul_system_fragment(max_chars: int = 8000) -> str:
 
 
 def gold_context_messages(max_chars: int = 8000) -> list[dict[str, str]]:
-    """GUI/REPL *display* copies of gold memories (NOT the model source of truth).
+    """WebChat/REPL *display* copies of gold memories (NOT the model source of truth).
 
-    Kept as ``role:assistant`` so `/api/chat/history` and the desktop GUI can
+    Kept as ``role:assistant`` so `/api/chat/history` and the WebChat UI can
     render "🏆 Gold memory loaded" in the transcript. The agent loop strips
     these markers before the provider call; the real baseline rides in the
     system prompt via ``gold_system_fragment()``.

@@ -289,7 +289,7 @@ Because this isn't a toy demo. Dulus already does things the funded wrappers can
 
 - **frontier AI with no keys** (the web-session engine above),
 - **2,186+ MCP tools**, **100,000 skills**, memory, voice, sub-agents,
-- one runtime driving a terminal, a browser, a desktop app, and a full sandbox OS.
+- one runtime driving a terminal, a browser, and a local web UI.
 
 My goal is simple and stubborn: **put a real agentic AI in the hands of anyone with a terminal — for free — while the door is still open.** If that mission means something to you, star the repo, run one command, tell one person. Help the Cigua fly. 🦅
 
@@ -301,7 +301,7 @@ My goal is simple and stubborn: **put a real agentic AI in the hands of anyone w
 
 Most coding agents begin with a model and bolt tools around it. Dulus starts with the runtime.
 
-The model can change mid-session. The tools can come from the core, MCP, a skill, or a Python repository that had never heard of Dulus five minutes earlier. Memory survives the session. Checkpoints cover both conversation and files. Long-running work moves into background jobs. The same engine can be operated from a terminal, browser, desktop app, Telegram, or Dulus OS.
+The model can change mid-session. The tools can come from the core, MCP, a skill, or a Python repository that had never heard of Dulus five minutes earlier. Memory survives the session. Checkpoints cover both conversation and files. Long-running work moves into background jobs. The same engine can be operated from a terminal, browser, desktop app, or Telegram.
 
 That changes what the product is:
 
@@ -790,9 +790,7 @@ dulus/
 ├── checkpoint/          file and conversation rewind
 ├── task/                durable task tracking
 ├── voice/               STT, TTS, wake words
-├── gui/                 native desktop application
 ├── webchat_ui/          local browser interface
-├── sandbox/             Dulus OS source and built frontend
 └── tests/               unit and integration coverage
 ```
 

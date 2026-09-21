@@ -227,7 +227,7 @@ Agent(type="reviewer", task="review #042")
 Agent(type="tester",   task="run e2e")
 ```
 
-### Plugins (Auto-Adapter)
+### Plugins
 
 ```
 /plugin install yfinance@https://github.com/ranaroussi/yfinance
@@ -244,16 +244,10 @@ Agent(type="tester",   task="run e2e")
 /checkpoint clear           # reclaim disk
 ```
 
-### WebChat GUI
+### WebChat
 
 ```
 /webchat                    # open browser UI at localhost:5050
-```
-
-Or use the desktop GUI:
-
-```bash
-dulus-gui                   # tkinter-based desktop GUI
 ```
 
 ### Telegram Bridge
@@ -347,15 +341,6 @@ Your Python is older than 3.11 (common on stock Ubuntu 20.04/22.04). pip hides p
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
-```
-
-### "No module named 'tkinter'"
-
-```bash
-# Linux / WSL
-sudo apt install python3-tk
-
-# macOS and Windows: tkinter is bundled
 ```
 
 ### "PortAudio library not found"
