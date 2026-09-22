@@ -670,7 +670,7 @@ def _ocr_extract(image_path: str, languages: str = "en,es") -> str:
         langs = [l.strip() for l in (languages or "en").split(",") if l.strip()] or ["en"]
         reader = easyocr.Reader(langs, gpu=False, verbose=False)
         chunks = reader.readtext(image_path, detail=0)
-        text = "\n".join(chunks).rstrip()
+        text = "\n".join(str(c) for c in chunks).rstrip()
         if text:
             return f"[engine: easyocr, languages: {','.join(langs)}]\n\n{text}"
         return f"[engine: easyocr] ran but extracted no text — image may be too small/blurry or have no readable text."

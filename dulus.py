@@ -8012,7 +8012,7 @@ def cmd_ocr(args: str, state, config) -> Union[bool, tuple]:
             info("(tesseract unavailable, falling back to easyocr — first run downloads ~100MB)")
             reader = easyocr.Reader(["en", "es"], gpu=False, verbose=False)
             chunks = reader.readtext(image_source, detail=0)
-            text = "\n".join(chunks).rstrip()
+            text = "\n".join(str(c) for c in chunks).rstrip()
             engine_used = "easyocr"
         except ImportError:
             pass
