@@ -117,7 +117,7 @@ dependencies = [
     # Product analytics — usage/telemetry (respects opt-out). Nobody runs
     # `pip install dulus[full]`, so shipping it here is the only way metrics
     # actually reach us from real installs.
-    "posthog>=3.0.0",
+    "posthog>=7.69.0",
     # Memory Palace — per-turn semantic memory injection. Shipped in core on
     # purpose: it's a first-class Dulus feature (mem_palace is ON by default)
     # and the chromadb wheels resolve fine on regular targets. The per-turn
