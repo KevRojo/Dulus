@@ -36,7 +36,7 @@ import random
 import functools
 import subprocess
 import platform
-from typing import Generator, Any, Callable
+from typing import Generator, Any, Callable, Iterable, cast
 
 
 # ── TLS: trust the OS certificate store ──────────────────────────────────
@@ -4530,7 +4530,11 @@ def stream_litellm(
     in_tok = out_tok = -1
 
     try:
-        response = litellm.completion(**kwargs)
+        # litellm>=1.105 types completion() as ChatResult | Coroutine[...]
+        # (a coroutine only comes back for acompletion=True, never passed
+        # here); with stream=True this synchronously returns an iterable
+        # CustomStreamWrapper, so narrow the union for the type checker.
+        response = cast(Iterable[Any], litellm.completion(**kwargs))
     except Exception as e:
         msg = f"[litellm] {type(e).__name__}: {e}"
         yield TextChunk(msg)
