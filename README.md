@@ -1,4 +1,6 @@
-ALERT! 🖥️ v6.1.2 OUT! USE THE BINARIES! https://github.com/Dulus-Ai/dulus-updates    < where dulus is maintained actively — new features launch there first
+ALERT! 🖥️ v6.2.6 OUT NOW — and the next build is already cooking! USE THE BINARIES! https://github.com/Dulus-Ai/dulus-updates    < where Dulus is maintained actively — new features launch there first
+
+> **🔥 October 14, 2026 — Still building, louder than ever.** The desktop builds are where Dulus lives now: **v6.2.6** is the latest public release, and the next one is in the oven with Gemini Web chats living inside your conversation (streaming answers + generated images inline), a faster GUI, and a big security-hardening pass. This repo stays the open-source home of the Python runtime — the signed desktop installers get the newest features first. Watch [dulus-updates](https://github.com/Dulus-Ai/dulus-updates/releases/latest) for the drop. 🦅🇩🇴
 
 Pouring my soul into this...
 
