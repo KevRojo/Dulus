@@ -1,7 +1,8 @@
 anthropic>=0.40.0
 openai>=1.30.0
-httpx>=0.27.0
-requests>=2.31.0
+# SOCKS proxy support: httpx needs socksio; requests needs PySocks.
+httpx[socks]>=0.27.0
+requests[socks]>=2.31.0
 rich>=13.0.0
 prompt_toolkit>=3.0.0
 mempalace>=3.3.4

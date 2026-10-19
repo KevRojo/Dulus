@@ -72,8 +72,12 @@ classifiers = [
 dependencies = [
     "anthropic>=0.40.0",
     "openai>=1.30.0",
-    "httpx>=0.27.0",
-    "requests>=2.31.0",
+    # [socks] brings socksio and PySocks. With a socks5:// proxy in ALL_PROXY or
+    # HTTPS_PROXY, httpx and httpx2 (OpenAI, Anthropic and MCP SDKs) raise
+    # ImportError in every client constructor without socksio, and requests
+    # fails every call without PySocks, so no provider works behind that proxy.
+    "httpx[socks]>=0.27.0",
+    "requests[socks]>=2.31.0",
     'tomli>=2.0; python_version < "3.11"',  # stdlib tomllib is 3.11+; backport for 3.10
     "rich>=13.0.0",
     "prompt_toolkit>=3.0.0",
