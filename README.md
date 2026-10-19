@@ -27,6 +27,13 @@ Pouring my soul into this...
 </p>
 
 <p align="center">
+  <strong>📄 Dulus AI Whitepaper:</strong>
+  <a href="docs/Dulus_AI_Whitepaper_EN.pdf">English</a>
+  ·
+  <a href="docs/Dulus_AI_Whitepaper_ES.pdf">Español</a>
+</p>
+
+<p align="center">
   <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="PyPI version"></a>
   <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="PyPI downloads"></a>
   <a href="https://github.com/KevRojo/Dulus/releases"><img src="https://img.shields.io/github/v/release/KevRojo/Dulus?style=flat-square&color=ff6b1f&labelColor=07070a" alt="Latest release"></a>
