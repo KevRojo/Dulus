@@ -1,6 +1,6 @@
-ALERT! 🖥️ v6.2.8 OUT NOW — USE THE BINARIES! https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.2.8    < where Dulus is actively maintained — new features launch there first
+ALERT! 🖥️ v6.3.0 OUT NOW — WINDOWS + macOS BINARIES! https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.3.0    < where Dulus is actively maintained — new features launch there first
 
-> **🔥 October 17, 2026 — Still building, louder than ever.** The desktop builds are where Dulus lives now: **v6.2.8** is the latest public release, and the next one is already cooking. This repo stays the open-source home of the Python runtime — the signed desktop installers get the newest features first. Watch [dulus-updates](https://github.com/Dulus-Ai/dulus-updates/releases/latest) for the drop. 🦅🇩🇴
+> **🔥 October 19, 2026 — v6.3.0 is live.** The signed Windows and macOS ARM64 desktop builds are available now; Linux is coming soon. This repo remains the open-source home of the Python runtime, while the desktop builds receive the newest features first. Download [v6.3.0 from dulus-updates](https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.3.0). 🦅🇩🇴
 
 Pouring my soul into this...
 
