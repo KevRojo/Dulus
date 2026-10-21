@@ -36,6 +36,8 @@ import random
 import functools
 import subprocess
 import platform
+import os
+import uuid
 from typing import Generator, Any, Callable, Iterable, cast
 
 
@@ -823,14 +825,24 @@ PROVIDERS: dict[str, dict] = {
         "type":       "chatgpt-oauth",
         "api_key_env": None,
         "base_url":   "https://chatgpt.com/backend-api/codex",
-        "context_limit": 200000,
+        "context_limit": 272000,
         "models": [
             # Keep model IDs bare. The picker adds `chatgpt-oauth/`; embedding
             # `chatgpt/` here produced malformed `chatgpt-oauth/chatgpt/...`.
-            "gpt-5.6-sol", "gpt-5.6-sol-pro", "gpt-5.6-terra", "gpt-5.6-luna",
-            "gpt-5.5", "gpt-5.4", "gpt-5.4-mini",
-            "gpt-5.1-codex", "gpt-5.1-codex-mini",
-            "codex-mini-latest", "o3", "o4-mini",
+            #
+            # ONLY the models the ChatGPT/Codex backend still serves for a
+            # ChatGPT-account subscription (verified live against this build).
+            # Everything older — gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.6-sol-pro,
+            # gpt-5.1-codex(-mini), codex-mini-latest, o3, o4-mini — now answers
+            #   400 "The '<id>' model is not supported when using Codex with a
+            #        ChatGPT account."
+            # and the official CLI 0.161.0 gets the same 400, so they are gone
+            # from the backend, not broken here.
+            #
+            # GPT-6 needs codex >= 0.153/0.155 — see CHATGPT_OAUTH_CLIENT_VER.
+            # Bare "gpt-6" is NOT a model id.
+            "gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+            "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
         ],
     },
     "xiaomi": {
@@ -920,6 +932,10 @@ _PREFIXES = [
     ("chatgpt-",      "chatgpt-oauth"),
     ("codex/",        "chatgpt-oauth"),
     ("codex-",        "chatgpt-oauth"),
+    # GPT-6 subscription models (gpt-6-sol / -astra / -luna / 6.1-sol). A bare
+    # "gpt-6" is not a real id and the backend rejects it, but routing it here
+    # keeps the error honest instead of silently trying api.openai.com.
+    ("gpt-6",         "chatgpt-oauth"),
     ("gpt-5.6",       "chatgpt-oauth"),
     ("gpt-5.5",       "chatgpt-oauth"),
     ("gpt-5.4",       "chatgpt-oauth"),
@@ -1930,8 +1946,68 @@ CHATGPT_OAUTH_REDIRECT_URI  = "http://localhost:1455/auth/callback"
 CHATGPT_OAUTH_SCOPE         = "openid profile email offline_access"
 CHATGPT_OAUTH_BASE_URL      = "https://chatgpt.com/backend-api/codex"
 CHATGPT_OAUTH_ORIGINATOR    = "codex_cli_rs"
-CHATGPT_OAUTH_CLIENT_VER    = "0.144.0"  # client version for the current model set
-CHATGPT_OAUTH_USER_AGENT    = f"codex_cli_rs/{CHATGPT_OAUTH_CLIENT_VER}"
+# Codex CLI build we impersonate. The ChatGPT backend gates model access on
+# this header (and on the User-Agent), NOT on the account plan alone: the
+# catalog bundled in codex 0.161.0 (`models-manager/src/model_info.rs`) declares
+#   gpt-5.6-*        -> minimal_client_version 0.144.0
+#   gpt-6-astra      -> 0.153.0
+#   gpt-6.1-sol      -> 0.153.0
+#   gpt-6-sol        -> 0.155.0
+#   gpt-6-luna       -> 0.155.0
+# so anything below 0.155.0 gets "model is not supported when using Codex with
+# a ChatGPT account" for the whole GPT-6 family. Keep this in sync with the
+# installed `codex --version`.
+CHATGPT_OAUTH_CLIENT_VER    = "0.161.0"
+
+
+def _codex_ua_platform() -> str:
+    """``{os} {os_version}; {arch}`` — mirrors codex's ``os_info`` crate."""
+    system = platform.system() or "unknown"
+    machine = (platform.machine() or "").lower()
+    arch = {
+        "amd64": "x86_64", "x86_64": "x86_64",
+        "arm64": "aarch64", "aarch64": "aarch64",
+    }.get(machine, machine or "unknown")
+    if system == "Windows":
+        try:
+            build = int(platform.version().split(".")[-1])
+            version = "11" if build >= 22000 else "10"
+        except Exception:
+            version = "10"
+        return f"{system} {version}; {arch}"
+    if system == "Darwin":
+        return f"Mac OS {platform.mac_ver()[0] or 'unknown'}; {arch}"
+    return f"{system} {platform.release() or 'unknown'}; {arch}"
+
+
+def _codex_terminal_token() -> str:
+    """Terminal suffix codex appends to its User-Agent (``codex-terminal-detection``)."""
+    if os.environ.get("WT_SESSION"):
+        return "WindowsTerminal"
+    program = (os.environ.get("TERM_PROGRAM") or "").strip()
+    if program:
+        version = (os.environ.get("TERM_PROGRAM_VERSION") or "").strip()
+        return f"{program}/{version}" if version else program
+    if os.environ.get("TMUX"):
+        return "tmux"
+    return "unknown"
+
+
+def _codex_user_agent(terminal: str | None = None) -> str:
+    """Codex CLI 0.161 User-Agent.
+
+    ``{originator}/{version} ({os} {os_version}; {arch}) {terminal}``
+    e.g. ``codex_cli_rs/0.161.0 (Windows 11; x86_64) WindowsTerminal``.
+    """
+    base = (
+        f"{CHATGPT_OAUTH_ORIGINATOR}/{CHATGPT_OAUTH_CLIENT_VER} "
+        f"({_codex_ua_platform()})"
+    )
+    token = (terminal if terminal is not None else _codex_terminal_token()).strip()
+    return f"{base} {token}" if token else base
+
+
+CHATGPT_OAUTH_USER_AGENT    = _codex_user_agent()
 # Local loopback capture (Codex CLI default port). If 1455 is busy we fall
 # back to paste-the-callback-URL mode, same as Claude/Z.ai.
 CHATGPT_OAUTH_REDIRECT_PORT = 1455
@@ -2361,7 +2437,14 @@ def _chatgpt_oauth_get_token(config: dict | None = None) -> str:
 
 
 def _chatgpt_oauth_headers(session: dict) -> dict:
-    """Build the headers Codex CLI sends to chatgpt.com/backend-api/codex."""
+    """Build the headers Codex CLI 0.161 sends to chatgpt.com/backend-api/codex.
+
+    Mirrors `codex_login::default_client` (originator + User-Agent) plus the
+    per-request headers `codex-core::client` adds:
+      * ``session_id``        — stable per account; ChatGPT derives cache affinity
+                                from it, so it must NOT be a fresh uuid per call.
+      * ``x-client-request-id`` — fresh uuid4 per request (tracing only).
+    """
     headers = {
         "Authorization": f"Bearer {session.get('access_token', '')}",
         "Content-Type": "application/json",
@@ -2370,12 +2453,16 @@ def _chatgpt_oauth_headers(session: dict) -> dict:
         "originator": CHATGPT_OAUTH_ORIGINATOR,
         "User-Agent": CHATGPT_OAUTH_USER_AGENT,
         "version": CHATGPT_OAUTH_CLIENT_VER,
+        "x-client-request-id": str(uuid.uuid4()),
     }
     account_id = session.get("account_id") or _chatgpt_extract_account_id(
         session.get("id_token"), session.get("access_token")
     )
     if account_id:
         headers["ChatGPT-Account-Id"] = account_id
+        # Stable per account — a per-call uuid here would scatter the
+        # subscription's prompt cache across buckets.
+        headers["session_id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"dulus-chatgpt-{account_id}"))
     return headers
 
 
