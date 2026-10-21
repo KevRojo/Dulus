@@ -1,11 +1,4 @@
-ALERT! 🖥️ v6.3.0 OUT NOW — WINDOWS + macOS BINARIES! https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.3.0    < where Dulus is actively maintained — new features launch there first
-
-> **🔥 October 19, 2026 — v6.3.0 is live.** The signed Windows and macOS ARM64 desktop builds are available now; Linux is coming soon. This repo remains the open-source home of the Python runtime, while the desktop builds receive the newest features first. Download [v6.3.0 from dulus-updates](https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.3.0). 🦅🇩🇴
-
-Pouring my soul into this...
-
-<img width="731" height="215" alt="image" src="https://github.com/user-attachments/assets/a45d1e05-77a1-4b15-9f41-cdcc4031c6e2" />
-
+> **🔥 v6.3.1 is live (Oct 21, 2026).** Signed Windows and macOS (Apple Silicon) desktop builds are out; Linux is coming soon. This repo is the open-source home of the Python runtime — desktop builds get new features first. [Download v6.3.1 →](https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.3.1) 🦅🇩🇴
 
 # Dulus
 
@@ -22,7 +15,7 @@ Pouring my soul into this...
 </p>
 
 <p align="center">
-  <strong>🖥️ Prefer a desktop app?</strong> Download <strong>Dulus Premium</strong> — A version where i code without giving away my creativity for free.. 09/05/2026 read the last part of the readme file.<br>
+  <strong>🖥️ Prefer a desktop app?</strong> Get the signed, auto-updating desktop build — no Python setup needed.<br>
   <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
 </p>
 
@@ -75,9 +68,6 @@ Pouring my soul into this...
   talking to Gemini, Claude and GPT through their own web sessions, so you owe no one a key or a cent.<br>
   One runtime. Every model. Your machine. The whole world invited.
 
-  Now on 6.0.5 🚀 — for the best experience get the binaries from https://dulus.ai/ there are free models on my /dulus/dulus-* providers, love you guys!
-
-  God bless you! ♥
 </p>
 
 <p align="center">
