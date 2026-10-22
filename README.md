@@ -60,7 +60,8 @@
   <a href="docs/README_AR.md">العربية</a>
 </p>
 
-<p align="center"> <img width="613" height="313" alt="image" src="https://github.com/user-attachments/assets/13e1bb03-6493-4679-9ed8-2dda0c836ff3" /> </p>
+<img width="1183" height="854" alt="image" src="https://github.com/user-attachments/assets/907f4dd2-476f-4715-86d0-6cf4a9576339" />
+
 
 
 <p align="center">
