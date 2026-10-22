@@ -108,7 +108,7 @@ dependencies = [
     # with the island out of the box; a silent no-op on headless/no-display
     # boxes (Docker, servers, CI) since it never imports Qt without a screen.
     # Off switch for anyone who dislikes it: DULUS_BAR=0 or /config dulus_bar=0.
-    "dulus-bar>=0.3.7",
+    "dulus-bar>=0.5.1",
     # Git — plugin installs/updates, checkpoints and repo introspection all
     # ride on git. Shipping GitPython by default means those flows have a real
     # library instead of parsing `git` stdout, and the wheel barely notices it.

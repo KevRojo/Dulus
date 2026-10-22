@@ -47,7 +47,7 @@ pyttsx3
 bubblewrap-cli>=1.0.0
 
 # ── Dulus Bar (floating Dynamic Island) ───────────────────────────────────
-dulus-bar>=0.3.7
+dulus-bar>=0.5.1
 
 # ── Desktop GUI (optional) ────────────────────────────────────────────────
 Pillow>=10.0.0
