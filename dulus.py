@@ -10511,8 +10511,27 @@ COMMANDS = {
 }
 
 
-def handle_slash(line: str, state, config) -> Union[bool, tuple]:
-    """Handle /command [args]. Returns True if handled, tuple (skill, args) for skill match."""
+def _report_unexpected_error(exc: BaseException, where: str, config: dict | None = None) -> None:
+    """Tell the user an unexpected error was absorbed and the session lives on.
+
+    Call it from inside the ``except`` block: err() forwards the live exception
+    to Sentry as a handled event. The traceback is only printed in verbose
+    mode, where it is what a bug report needs.
+    """
+    err(f"Unexpected error in {where}: {type(exc).__name__}: {exc}")
+    if (config or {}).get("verbose"):
+        import traceback as _tb
+        print(clr(_tb.format_exc().rstrip(), "dim"))
+    info("  Dulus is still running and your conversation is intact.")
+
+
+def handle_slash(line: str, state, config, *, raise_errors: bool = False) -> Union[bool, tuple]:
+    """Handle /command [args]. Returns True if handled, tuple (skill, args) for skill match.
+
+    A failing or Ctrl+C'd command is reported and counts as handled, so one
+    broken command cannot take the whole session down. ``raise_errors=True``
+    keeps the exception for callers that must exit non-zero (``--cmd``).
+    """
     if not line.startswith("/"):
         return False
     parts = line[1:].split(None, 1)
@@ -10527,7 +10546,18 @@ def handle_slash(line: str, state, config) -> Union[bool, tuple]:
             _telemetry.track_command_used(cmd)
         except Exception:
             pass
-        result = handler(args, state, config)
+        try:
+            result = handler(args, state, config)
+        except KeyboardInterrupt:
+            if raise_errors:
+                raise
+            print(clr("\n  (interrupted)", "yellow"))
+            return True
+        except Exception as e:
+            if raise_errors:
+                raise
+            _report_unexpected_error(e, f"/{cmd}", config)
+            return True
         # cmd_voice/cmd_image/cmd_brainstorm/cmd_plan return sentinels to ask the REPL to run_query
         if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__"):
             return result
@@ -11422,6 +11452,24 @@ def repl(config: dict, initial_prompt: str | None = None):
         ).start()
 
     def run_query(user_input: str, is_background: bool = False):
+        """Run one turn. In an interactive session nothing raised here may end it.
+
+        Only openai/anthropic APIError used to be handled; anything else — a bug
+        in a tool or provider adapter, a broken post-turn step — unwound out of
+        repl() and killed the process with the unsaved conversation.
+        """
+        try:
+            return _run_turn(user_input, is_background)
+        except Exception as e:
+            # A one-shot run (`dulus "..."`, -p, --output json) must still fail
+            # loudly with a non-zero exit.
+            if initial_prompt or _protocol_enabled():
+                raise
+            _stop_tool_spinner()
+            flush_response()
+            _report_unexpected_error(e, "this turn", config)
+
+    def _run_turn(user_input: str, is_background: bool = False):
         nonlocal verbose
 
         # ── Expand paste placeholders before the agent sees them ─────────────
@@ -11873,7 +11921,12 @@ def repl(config: dict, initial_prompt: str | None = None):
                             _emit_error(friendly_api_error(e))
                             sys.exit(1)
                         return
-                    raise e
+                    # Anything else is a bug or an environment problem; run_query()
+                    # reports it. Roll back the dangling user message first,
+                    # while we still know which one it is.
+                    if state.messages and state.messages[-1]["role"] == "user" and user_input == state.messages[-1].get("content"):
+                        state.messages.pop()
+                    raise
 
                 _stop_tool_spinner()
                 flush_response()  # stop Live, commit any remaining text
@@ -13182,8 +13235,8 @@ def main():
         
         print(clr(f"\n  [Dulus Command] Executing: {cmd_str}", "cyan", "bold"))
         
-        # Execute the command
-        result = handle_slash(cmd_str, state, config)
+        # Execute the command (a crash must still exit non-zero for scripts)
+        result = handle_slash(cmd_str, state, config, raise_errors=True)
         
         # Check if command returned a tuple (skill execution request)
         if isinstance(result, tuple):
