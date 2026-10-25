@@ -516,6 +516,8 @@ _SAFE_PREFIXES = (
 )
 
 def _is_safe_bash(cmd: str) -> bool:
+    if not isinstance(cmd, str):
+        return False
     c = cmd.strip()
     return any(c.startswith(p) for p in _SAFE_PREFIXES)
 
@@ -774,16 +776,23 @@ def _search_last_output(pattern: str | None = None, context: int = 2) -> str:
 
 def _write(file_path: str, content: str) -> str:
     p = Path(file_path)
+    if not isinstance(content, str):
+        return (f"Error: content must be a string, got {type(content).__name__}. "
+                "For JSON or other structured files, pass the serialized text.")
+    try:
+        # Encode BEFORE opening: open("w") truncates, so a failure after it
+        # (a lone surrogate) left the user's file empty.
+        data = content.encode("utf-8")
+    except UnicodeEncodeError as e:
+        return f"Error: content is not valid text ({e}); the file was not touched."
     try:
         is_new = not p.exists()
         # Ensure utf-8 and newline="" for reading existing content to generate diff
         old_content = "" if is_new else p.open("r", encoding="utf-8", errors="replace", newline="").read()
         p.parent.mkdir(parents=True, exist_ok=True)
-        # Always write as utf-8 with newline="" to prevent double CRLF on Windows.
-        # Use open().write() (not Path.write_text(newline=…), which is 3.10+) so it
-        # works on every Python 3 — newline="" on open() is universal.
-        with p.open("w", encoding="utf-8", newline="") as _f:
-            _f.write(content)
+        # Bytes, so no newline translation: CRLF stays CRLF on Windows.
+        with p.open("wb") as _f:
+            _f.write(data)
         if is_new:
             lc = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
             return f"Created {file_path} ({lc} lines)"
@@ -797,14 +806,35 @@ def _write(file_path: str, content: str) -> str:
         return f"Error: {e}"
 
 
+def _as_bool(value) -> bool:
+    """Strict bool for model-supplied flags: the string "false" is truthy."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes", "y", "on")
+    return bool(value)
+
+
 def _edit(file_path: str, old_string: str, new_string: str, replace_all: bool = False) -> str:
     p = Path(file_path)
     if not p.exists():
         return f"Error: file not found: {file_path}"
+    if not isinstance(old_string, str) or not isinstance(new_string, str):
+        return "Error: old_string and new_string must be strings."
+    replace_all = _as_bool(replace_all)
     try:
-        # Read with newline="" to get original line endings
-        content = p.open("r", encoding="utf-8", errors="replace", newline="").read()
-        
+        raw = p.read_bytes()
+        try:
+            content = raw.decode("utf-8")
+            codec_errors = "strict"
+        except UnicodeDecodeError:
+            # Not UTF-8 (cp1252/latin-1 legacy files). Decoding with "replace"
+            # and writing back turned every non-ASCII byte in the whole file
+            # into U+FFFD. surrogateescape round-trips the bytes the edit does
+            # not touch exactly as they were.
+            content = raw.decode("utf-8", errors="surrogateescape")
+            codec_errors = "surrogateescape"
+        if not old_string and content:
+            return "Error: old_string must not be empty — it would insert new_string between every character."
+
         # Detect original line endings: only treat as pure CRLF if every \n is part of \r\n
         crlf_count = content.count("\r\n")
         lf_count = content.count("\n")
@@ -834,11 +864,18 @@ def _edit(file_path: str, old_string: str, new_string: str, replace_all: bool = 
             final_content = new_content_norm
             old_content_final = content_norm
                       
-        # Write with newline="" to prevent double CRLF translation on Windows.
-        # open().write() (not Path.write_text(newline=…), 3.10+) works on every Py3.
-        with p.open("w", encoding="utf-8", newline="") as _f:
-            _f.write(final_content)
+        # Encode before opening (see _write); bytes keep line endings as-is.
+        try:
+            data = final_content.encode("utf-8", errors=codec_errors)
+        except UnicodeEncodeError as e:
+            return f"Error: new_string is not valid text ({e}); the file was not touched."
+        with p.open("wb") as _f:
+            _f.write(data)
         filename = p.name
+        if codec_errors != "strict":
+            # Show undecodable bytes as U+FFFD; raw surrogates break printing.
+            old_content_final = old_content_final.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+            final_content = final_content.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
         diff = generate_unified_diff(old_content_final, final_content, filename)
         # Truncate like _write does: a large Edit returns a large diff, and that
         # diff stays in context and is re-billed on EVERY subsequent turn. An
@@ -859,7 +896,12 @@ def _kill_proc_tree(pid: int):
     else:
         import signal
         try:
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
+            pgid = os.getpgid(pid)
+            # A child that shares our process group must be killed alone:
+            # killpg on our own group SIGKILLs Dulus itself.
+            if pgid == os.getpgrp():
+                raise PermissionError
+            os.killpg(pgid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             try:
                 os.kill(pid, signal.SIGKILL)
@@ -1063,9 +1105,23 @@ def _maybe_rewrite_with_rtk(command: str) -> str:
     return command
 
 
+def _bash_timeout(value) -> int:
+    """Seconds to wait for a Bash call. None/garbage used to mean "wait forever"
+    (or a TypeError after the command had already started)."""
+    try:
+        seconds = int(float(value))
+    except (TypeError, ValueError):
+        return 30
+    return seconds if seconds > 0 else 30
+
+
 def _bash(command: str, timeout: int = 30) -> str:
     import sys as _sys
     import shutil
+
+    if not isinstance(command, str) or not command.strip():
+        return "Error: command must be a non-empty string."
+    timeout = _bash_timeout(timeout)
 
     # ── Sandbox check ──
     safe, reason = _is_bash_safe(command)
@@ -1136,8 +1192,9 @@ def _bash(command: str, timeout: int = 30) -> str:
         if forced_path and Path(forced_path).exists():
             args = [forced_path, "-c", command]
             kwargs = dict(shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, text=True, 
-                          encoding='utf-8', errors='replace', cwd=cwd)
+                          stderr=subprocess.PIPE, text=True,
+                          encoding='utf-8', errors='replace', cwd=cwd,
+                          start_new_session=True)
         else:
             args = command
             kwargs = dict(shell=True, stdout=subprocess.PIPE,
@@ -1147,6 +1204,10 @@ def _bash(command: str, timeout: int = 30) -> str:
 
     try:
         _popen_kwargs: dict[str, Any] = dict(kwargs)  # heterogeneous Popen opts
+        # Never hand the child the REPL's terminal: a prompt (pip uninstall,
+        # npx "Ok to proceed?") blocked invisibly until the timeout and ate
+        # the user's keystrokes. With no stdin it reads EOF and moves on.
+        _popen_kwargs["stdin"] = subprocess.DEVNULL
         proc = subprocess.Popen(args, **_popen_kwargs)
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -1154,6 +1215,11 @@ def _bash(command: str, timeout: int = 30) -> str:
             _kill_proc_tree(proc.pid)
             proc.wait()
             return f"Error: timed out after {timeout}s (process killed)"
+        except BaseException:
+            # Ctrl+C: the child runs in its own session and never saw the
+            # SIGINT — stop it instead of leaving it running unsupervised.
+            _kill_proc_tree(proc.pid)
+            raise
         out = stdout
         if stderr:
             # Strip rtk hook-status warnings (noise — already rate-limited by rtk to 1x/day)
@@ -1297,6 +1363,10 @@ def _grep(pattern: str, path: str | None = None, glob: str | None = None,
     # grep needs -r for directories (rg handles both automatically)
     if not use_rg and search_path.is_dir():
         cmd.append("-r")
+    # "--" ends the options: a pattern like "-> None" was read as a flag, and
+    # "--pre=sh" made rg execute every file it searched — from a tool that is
+    # auto-approved.
+    cmd.append("--")
     cmd.append(pattern)
     cmd.append(str(search_path))
     try:
@@ -1582,6 +1652,13 @@ def _parse_cell_id(cell_id: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def _write_notebook(p: Path, nb: dict) -> None:
+    # Encode before opening: write_text() truncates first, so a lone surrogate
+    # in new_source left the notebook empty.
+    data = json.dumps(nb, indent=1, ensure_ascii=False).encode("utf-8")
+    p.write_bytes(data)
+
+
 def _notebook_edit(
     notebook_path: str,
     new_source: str,
@@ -1671,13 +1748,13 @@ def _notebook_edit(
             return f"Error: cell '{cell_id}' not found"
         cells.pop(idx)
         nb["cells"] = cells
-        p.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
+        _write_notebook(p, nb)
         return f"Deleted cell '{cell_id}' from {notebook_path}"
     else:
         return f"Error: unknown edit_mode '{edit_mode}' — use replace, insert, or delete"
 
     nb["cells"] = cells
-    p.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
+    _write_notebook(p, nb)
     return f"NotebookEdit({edit_mode}) applied to cell '{cell_id}' in {notebook_path}"
 
 
@@ -1806,9 +1883,15 @@ def _ask_user_question(
     """
     event = threading.Event()
     result_holder: list[str] = []
+    # Models often send options as plain strings (["Yes", "No"]). The drain
+    # loop calls .get() on each; one bad entry raised there and dropped every
+    # other queued question, leaving background agents waiting 300s.
+    raw_options: Any = options
+    if isinstance(raw_options, (str, dict)):
+        raw_options = [raw_options]
     entry = {
         "question": question,
-        "options": options or [],
+        "options": [o if isinstance(o, dict) else {"label": str(o)} for o in (raw_options or [])],
         "allow_freetext": allow_freetext,
         "event": event,
         "result": result_holder,
@@ -1956,7 +2039,7 @@ def drain_pending_questions(config: dict) -> bool:
                 if raw.isdigit():
                     idx = int(raw)
                     if 1 <= idx <= len(options):
-                        raw = options[idx - 1]["label"]
+                        raw = options[idx - 1].get("label", "")
                         break
                     elif idx == 0 and allow_ft:
                         raw = ask_input_interactive("  ❯ ", config, menu_text=question).strip()
