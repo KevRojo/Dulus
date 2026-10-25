@@ -1,6 +1,7 @@
 """Core agent loop: neutral message format, multi-provider streaming."""
 from __future__ import annotations
 
+import json
 import os
 import queue
 import threading
@@ -23,30 +24,58 @@ def _interruptible_stream(gen):
     """Run a generator in a daemon thread, yield events via Queue.
     Ctrl+C (KeyboardInterrupt) is always deliverable because the main
     thread only blocks on queue.get(timeout=0.1) — never on a raw socket.
+
+    When the consumer stops early (Ctrl+C, cancel_check, an error while
+    rendering) nobody drains the queue any more. The producer used to block
+    on a full queue forever, leaking one thread and one open HTTP stream per
+    interrupted turn. It now notices the consumer is gone, stops, and closes
+    the provider generator so its HTTP response is released.
     """
     q: queue.Queue = queue.Queue(maxsize=64)
+    consumer_gone = threading.Event()
+
+    def _put(item) -> bool:
+        while not consumer_gone.is_set():
+            try:
+                q.put(item, timeout=0.1)
+                return True
+            except queue.Full:
+                continue
+        return False
 
     def _producer():
         try:
             for event in gen:
-                q.put(event)
+                if not _put(event):
+                    break
         except Exception as exc:
-            q.put(exc)
+            _put(exc)
         finally:
-            q.put(_SENTINEL)
+            # Close on this thread: a generator can only be closed by the
+            # thread running it, and closing runs the provider's own cleanup.
+            try:
+                close = getattr(gen, "close", None)
+                if close is not None:
+                    close()
+            except Exception:
+                pass
+            _put(_SENTINEL)
 
     t = threading.Thread(target=_producer, daemon=True)
     t.start()
-    while True:
-        try:
-            item = q.get(timeout=0.1)
-        except queue.Empty:
-            continue
-        if item is _SENTINEL:
-            break
-        if isinstance(item, BaseException):
-            raise item
-        yield item
+    try:
+        while True:
+            try:
+                item = q.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if item is _SENTINEL:
+                break
+            if isinstance(item, BaseException):
+                raise item
+            yield item
+    finally:
+        consumer_gone.set()
 
 # ── Re-export event types (used by dulus) ─────────────────────────────────
 __all__ = [
@@ -272,6 +301,11 @@ def run(
             while len(state.messages) > initial_msg_count:
                 state.messages.pop()
             break
+
+        # Arguments can arrive as JSON null, a double-encoded string or a list
+        # from open-weight models; everything below calls .get() on them.
+        for tc in assistant_turn.tool_calls or []:
+            tc["input"] = _coerce_tool_input(tc.get("input"))
 
         # Record assistant turn in neutral format
         _reply_text = sanitize_text(assistant_turn.text)
@@ -534,6 +568,22 @@ def run(
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+def _coerce_tool_input(raw) -> dict:
+    """Tool-call arguments as a dict, whatever shape the provider handed back."""
+    if isinstance(raw, dict):
+        return raw
+    if raw is None:
+        return {}
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, dict):
+            return parsed
+    return {"_raw": raw}
+
 
 def _check_permission(tc: dict, config: dict) -> bool:
     """Return True if operation is auto-approved (no need to ask user)."""
