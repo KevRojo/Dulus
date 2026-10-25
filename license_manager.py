@@ -33,7 +33,7 @@ _LICENSE_SECRET = os.environ.get("DULUS_LICENSE_SECRET", "")
 if not _LICENSE_SECRET:
     _secret_path = Path.home() / ".dulus" / ".license_secret"
     if _secret_path.exists():
-        _LICENSE_SECRET = _secret_path.read_text().strip()
+        _LICENSE_SECRET = _secret_path.read_text(encoding="utf-8", errors="replace").strip()
     else:
         _LICENSE_SECRET = "dulus-dev-secret-do-not-distribute"
         import warnings
@@ -77,6 +77,8 @@ class LicenseManager:
             payload_sig = base64.urlsafe_b64decode(b64 + "==")
             payload_json, sig_hex = payload_sig.rsplit(b":", 1)
             data = json.loads(payload_json)
+            if not isinstance(data, dict):
+                raise ValueError("payload is not a JSON object")
         except Exception as exc:
             self.error = f"Malformed key: {exc}"
             return
@@ -88,7 +90,10 @@ class LicenseManager:
             hashlib.sha256,
         ).hexdigest()[:24]
 
-        if not hmac.compare_digest(sig_hex.decode(), expected_sig):
+        # Compare bytes: a typo in the signature can decode to non-ASCII bytes,
+        # and sig_hex.decode() raised out of __init__ — Dulus would not start
+        # with such a key in config.json.
+        if not hmac.compare_digest(sig_hex, expected_sig.encode()):
             self.error = "Invalid signature (tampered or wrong secret)"
             return
 

@@ -90,6 +90,11 @@ def _run_summarizer(system: str, summary_prompt: str, config: dict,
             ):
                 if isinstance(event, providers.TextChunk):
                     chunks.append(event.text)
+                elif isinstance(event, providers.AssistantTurn) and event.error:
+                    # Adapters stream their error text as a TextChunk too;
+                    # it must not become the "summary" of the conversation.
+                    chunks.clear()
+                    err_box.append(event.text or "provider error")
         except Exception as exc:  # noqa: BLE001 — any provider error → fallback
             err_box.append(str(exc))
         finally:
@@ -171,7 +176,7 @@ def _char_stats(messages: list) -> tuple[int, int]:
                         if isinstance(v, str):
                             total_chars += len(v)
         # Also count tool_calls if present
-        for tc in m.get("tool_calls", []):
+        for tc in m.get("tool_calls") or []:
             if isinstance(tc, dict):
                 for v in tc.values():
                     if isinstance(v, str):
@@ -736,10 +741,11 @@ def compact_messages(messages: list, config: dict, focus: str = "") -> list:
         config,
     )
     if timed_out and not summary_text:
-        # Summarizer stalled/failed. Rather than hang /compact forever, keep the
-        # messages we were going to summarize verbatim — no data loss, just no
-        # compression this round.
-        summary_text = "(summary skipped — model was slow or unreachable; recent history preserved below)"
+        # Summarizer stalled/failed. Keep the messages we were going to
+        # summarize verbatim — no data loss, just no compression this round.
+        # A placeholder card used to replace them, silently dropping all the
+        # older history whenever the model was slow or the network was down.
+        return messages
 
     summary_msg = {
         "role": "system",
@@ -799,9 +805,19 @@ def maybe_compact(state, config: dict) -> bool:
     if estimate_tokens(state.messages, model=model, config=config) <= threshold:
         return True
 
-    # Layer 2: auto-compact behind a restorable checkpoint
+    # Layer 2: auto-compact behind a restorable checkpoint. When nothing could
+    # be compacted (summarizer down, nothing old enough), don't retry on every
+    # tool call — only once the history has grown (or was replaced, /clear).
+    failed_at = config.get("_compact_failed_at")
+    if failed_at is not None and failed_at <= len(state.messages) < failed_at + 10:
+        return False
     _save_precompact_checkpoint(state, config)
-    state.messages = compact_messages(state.messages, config)
+    compacted = compact_messages(state.messages, config)
+    if compacted is state.messages:
+        config["_compact_failed_at"] = len(state.messages)
+        return False
+    config.pop("_compact_failed_at", None)
+    state.messages = compacted
 
     # No fat memory reinject; restore plan context only
     has_plan = any(
@@ -936,7 +952,11 @@ def manual_compact(state, config: dict, focus: str = "") -> tuple[bool, str]:
     # Critical: drop stacked memory/plan reinjections from previous /compacts.
     strip_compact_reinjections(state.messages)
 
-    state.messages = compact_messages(state.messages, config, focus=focus)
+    compacted = compact_messages(state.messages, config, focus=focus)
+    if compacted is state.messages:
+        return False, ("Nothing was compacted — the summarizer was unavailable or "
+                       "there was nothing old enough to summarize. History kept as is.")
+    state.messages = compacted
 
     has_plan = any(
         isinstance(m.get("content"), str)

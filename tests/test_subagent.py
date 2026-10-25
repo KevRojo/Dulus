@@ -134,3 +134,49 @@ class TestExtractFinalText:
 class TestWaitUnknown:
     def test_wait_unknown_returns_none(self, manager):
         assert manager.wait("nonexistent") is None
+
+
+# ── Worktree cleanup must not destroy the sub-agent's work ───────────────
+
+class _Ran:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def _fake_git(monkeypatch, results):
+    import multi_agent.subagent as sa
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        return _Ran(results.pop(0))
+
+    monkeypatch.setattr(sa.subprocess, "run", run)
+    return calls
+
+
+def test_worktree_cleanup_never_forces(monkeypatch):
+    from multi_agent.subagent import _remove_worktree
+    calls = _fake_git(monkeypatch, [0, 0])
+
+    assert _remove_worktree("/tmp/wt", "nano-agent-x", "/repo") == ""
+    assert ["git", "worktree", "remove", "/tmp/wt"] in calls
+    assert ["git", "branch", "-d", "nano-agent-x"] in calls
+    assert not any("--force" in c or "-D" in c for c in calls)
+
+
+def test_dirty_worktree_is_kept_and_reported(monkeypatch):
+    from multi_agent.subagent import _remove_worktree
+    calls = _fake_git(monkeypatch, [1])   # git refuses: uncommitted changes
+
+    note = _remove_worktree("/tmp/wt", "nano-agent-x", "/repo")
+
+    assert "Kept worktree /tmp/wt" in note
+    assert len(calls) == 1, "must not delete the branch of a kept worktree"
+
+
+def test_unmerged_branch_is_kept_and_reported(monkeypatch):
+    from multi_agent.subagent import _remove_worktree
+    _fake_git(monkeypatch, [0, 1])        # branch -d refuses: unmerged commits
+
+    assert "Kept branch nano-agent-x" in _remove_worktree("/tmp/wt", "nano-agent-x", "/repo")

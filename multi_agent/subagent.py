@@ -239,22 +239,37 @@ def _create_worktree(base_dir: str) -> tuple:
     return wt_path, branch
 
 
-def _remove_worktree(wt_path: str, branch: str, base_dir: str) -> None:
-    """Remove a git worktree and delete its branch (best-effort)."""
+def _remove_worktree(wt_path: str, branch: str, base_dir: str) -> str:
+    """Clean up a finished sub-agent's worktree and branch — unless that would
+    destroy its work (best-effort).
+
+    The Agent tool promises the changes "stay on a separate branch and can be
+    reviewed/merged after completion", yet this ran `worktree remove --force`
+    and `branch -D`: uncommitted and committed work alike was deleted. Plain
+    `remove` refuses a dirty worktree and `-d` refuses an unmerged branch.
+
+    Returns a note for the task result when something was kept.
+    """
     try:
-        subprocess.run(
-            ["git", "worktree", "remove", "--force", wt_path],
+        r = subprocess.run(
+            ["git", "worktree", "remove", wt_path],
             cwd=base_dir, capture_output=True,
         )
+        if r.returncode != 0:
+            return (f"Kept worktree {wt_path} (branch {branch}): it has uncommitted "
+                    "changes. Review them, then `git worktree remove --force` it.")
     except Exception:
-        pass
+        return ""
     try:
-        subprocess.run(
-            ["git", "branch", "-D", branch],
+        r = subprocess.run(
+            ["git", "branch", "-d", branch],
             cwd=base_dir, capture_output=True,
         )
+        if r.returncode != 0:
+            return f"Kept branch {branch}: it has commits to review or merge."
     except Exception:
         pass
+    return ""
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -413,7 +428,9 @@ class SubAgentManager:
             finally:
                 if worktree_path:
                     os.chdir(old_cwd)
-                    _remove_worktree(worktree_path, worktree_branch, old_cwd)
+                    note = _remove_worktree(worktree_path, worktree_branch, old_cwd)
+                    if note:
+                        task.result = f"{task.result or ''}\n\n[{note}]".strip()
 
         task._future = self._pool.submit(_run)
         return task

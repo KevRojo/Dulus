@@ -6,6 +6,9 @@ and dispatch with output truncation.
 from __future__ import annotations
 
 import json
+import sys
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -75,7 +78,7 @@ def unregister_origin(origin: str) -> int:
     must disappear from the registry, otherwise the model is told about tools
     whose plugin is no longer part of the active agent.
     """
-    names = [n for n, o in _registry_origin.items() if o == origin]
+    names = [n for n, o in list(_registry_origin.items()) if o == origin]
     for n in names:
         _registry.pop(n, None)
         _registry_origin.pop(n, None)
@@ -89,7 +92,7 @@ def unregister_origins_except(keep: "set[str] | frozenset[str]") -> int:
     first, then call this with the set of origins that survived, so there is
     never a window where the agent has zero tools.
     """
-    names = [n for n, o in _registry_origin.items() if o not in keep]
+    names = [n for n, o in list(_registry_origin.items()) if o not in keep]
     for n in names:
         _registry.pop(n, None)
         _registry_origin.pop(n, None)
@@ -113,7 +116,9 @@ def get_all_tools() -> List[ToolDef]:
 
 def get_tool_schemas() -> List[Dict[str, Any]]:
     """Return the schemas of all registered tools (for API tool parameter)."""
-    return [t.schema for t in _registry.values()]
+    # Snapshot first: MCP registers tools from a background thread, and
+    # iterating the live dict raised "dictionary changed size during iteration".
+    return [t.schema for t in list(_registry.values())]
 
 
 def is_display_only(name: str) -> bool:
@@ -124,6 +129,73 @@ def is_display_only(name: str) -> bool:
     """
     tool = get_tool(name)
     return tool.display_only if tool else False
+
+
+# --------------- per-thread output capture ---------------
+# contextlib.redirect_stdout swaps sys.stdout for the whole process, but tools
+# run concurrently (background sub-agents, webchat). Overlapping captures
+# restored each other's buffers out of order: the REPL's own output landed in
+# a sub-agent's tool result, or sys.stdout was left on a dead StringIO and
+# every later print vanished. While any tool captures, sys.stdout/stderr are
+# replaced by a router that sends each thread's writes to its own buffer.
+
+class _ThreadRoutedStream:
+    def __init__(self, fallback, slot: int):
+        self._fallback = fallback
+        self._slot = slot
+
+    def _target(self):
+        stack = _capture_stacks.get(threading.get_ident())
+        return stack[-1][self._slot] if stack else self._fallback
+
+    def write(self, s):
+        return self._target().write(s)
+
+    def writelines(self, lines):
+        return self._target().writelines(lines)
+
+    def flush(self):
+        return self._target().flush()
+
+    def __getattr__(self, name):
+        return getattr(self._target(), name)
+
+
+_capture_lock = threading.Lock()
+_capture_stacks: Dict[int, list] = {}      # thread id → [(stdout_buf, stderr_buf), ...]
+_capture_streams: Optional[tuple] = None   # (routed_out, routed_err, real_out, real_err)
+
+
+@contextmanager
+def _capture_output(out_buf, err_buf):
+    """Collect this thread's prints into the buffers; other threads print as usual."""
+    global _capture_streams
+    tid = threading.get_ident()
+    with _capture_lock:
+        if _capture_streams is None:
+            real_out, real_err = sys.stdout, sys.stderr
+            routed_out = _ThreadRoutedStream(real_out, 0)
+            routed_err = _ThreadRoutedStream(real_err, 1)
+            sys.stdout, sys.stderr = routed_out, routed_err
+            _capture_streams = (routed_out, routed_err, real_out, real_err)
+        _capture_stacks.setdefault(tid, []).append((out_buf, err_buf))
+    try:
+        yield
+    finally:
+        with _capture_lock:
+            stack = _capture_stacks.get(tid)
+            if stack:
+                stack.pop()
+            if not stack:
+                _capture_stacks.pop(tid, None)
+            if not _capture_stacks and _capture_streams is not None:
+                routed_out, routed_err, real_out, real_err = _capture_streams
+                # Undo only our own swap; someone may have replaced it since.
+                if sys.stdout is routed_out:
+                    sys.stdout = real_out
+                if sys.stderr is routed_err:
+                    sys.stderr = real_err
+                _capture_streams = None
 
 
 def execute_tool(
@@ -152,15 +224,14 @@ def execute_tool(
         return f"Error: tool '{name}' not found."
 
     import io
-    from contextlib import redirect_stdout, redirect_stderr
 
     f_stdout = io.StringIO()
     f_stderr = io.StringIO()
 
     try:
-        with redirect_stdout(f_stdout), redirect_stderr(f_stderr):
+        with _capture_output(f_stdout, f_stderr):
             result = tool.func(params, config)
-    except Exception as e:
+    except (Exception, SystemExit) as e:  # a plugin's sys.exit()/argparse must not exit Dulus
         out = f_stdout.getvalue()
         err = f_stderr.getvalue()
         msg = f"Error executing {name}: {e}"
@@ -216,7 +287,7 @@ def execute_tool(
     _read_only_tools = ("Read", "LineCount", "SearchLastOutput")
     is_exploring_persistence = (
         name == "Grep"
-        and "last_tool_output.txt" in params.get("path", "")
+        and "last_tool_output.txt" in str(params.get("path") or "")
     )
 
     if name not in _read_only_tools and not is_exploring_persistence and not tool.display_only:

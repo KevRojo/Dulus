@@ -38,6 +38,7 @@ import subprocess
 import platform
 import os
 import uuid
+from types import SimpleNamespace
 from typing import Generator, Any, Callable, Iterable, cast
 
 
@@ -780,6 +781,19 @@ PROVIDERS: dict[str, dict] = {
             # Dulus Edge Bridge APK (on-device Android) — WIP.
             "gemma-4-e4b", "gemma-4-e2b", "gemini-nano",
         ],
+    },
+    "custom": {
+        # Any OpenAI-compatible server you run yourself (vLLM, TGI, a GPU box):
+        #   /config custom_base_url=http://your-gpu-box:8000/v1
+        #   /model custom/your-model
+        # Without this entry "custom/…" fell through to the OpenAI default and
+        # every prompt went to api.openai.com instead of the configured server.
+        # Optional key: /config custom_api_key=…
+        "type":        "openai",
+        "api_key_env": None,
+        "base_url":    "",  # resolved at call time from custom_base_url / CUSTOM_BASE_URL
+        "context_limit": 128000,
+        "models":      [],  # whatever the server is serving
     },
     "nvidia-web": {
         "type":       "openai",
@@ -3982,7 +3996,9 @@ def friendly_api_error(exc: Exception) -> str:
     if "invalid_request" in s or "400" in s or etype == "BadRequestError":
         return f"API rejected the request: {exc}. Check tool schemas, message format, or model name."
     # Network / DNS
-    if "connection" in s or "timeout" in s or "dns" in s or etype in ("APIConnectionError", "ConnectTimeout"):
+    if ("connection" in s or "timeout" in s or "timed out" in s or "dns" in s
+            or etype in ("APIConnectionError", "ConnectTimeout", "ReadTimeout", "ReadError",
+                         "RemoteProtocolError", "ConnectError")):
         return "Network problem reaching the API. Check connection, VPN, or provider status."
     # Permission / model access
     if "permission" in s or "model_not_found" in s or "404" in s:
@@ -4263,13 +4279,19 @@ def stream_anthropic(
                             thinking_signature=thinking_signature, error=False)
         return
     except Exception as _e:
-        # Filter out cancellation/cleanup exceptions that masquerade as auth
-        # errors. httpx ReadError / RemoteProtocolError / CancelledError raised
-        # during stream teardown after a Ctrl+C are NOT auth failures.
+        # httpx ReadError / RemoteProtocolError / CloseError here are real
+        # network drops: the stream runs on agent._interruptible_stream's worker
+        # thread, so a Ctrl+C never lands in this handler. They used to end
+        # the turn as a success, saving a cut-off reply as the final answer.
+        # Still keep them away from friendly_api_error's string matching — the
+        # teardown noise can contain "401" and read as a bad API key.
         _etype = type(_e).__name__
         if _etype in ("CancelledError", "ReadError", "RemoteProtocolError", "CloseError"):
-            yield AssistantTurn(text, tool_calls, 0, 0, thinking=thinking,
-                                thinking_signature=thinking_signature, error=False)
+            msg = ("The connection dropped mid-reply, so the answer is incomplete. "
+                   "Re-send to try again." if text else
+                   "Network problem reaching the API. Check connection, VPN, or provider status.")
+            yield TextChunk(("\n" if text else "") + msg)
+            yield AssistantTurn(msg, [], 0, 0, error=True)
             return
         msg = friendly_api_error(_e)
         yield TextChunk(msg)
@@ -4724,6 +4746,10 @@ def _get_modelstudio_fallback_chain(config: dict) -> list[str]:
     return list(chain or [])
 
 
+# Stand-in for a chunk choice that carries no delta.
+_EMPTY_DELTA: Any = SimpleNamespace(content=None, tool_calls=None)
+
+
 def stream_openai_compat(
     api_key: str,
     base_url: str,
@@ -4964,11 +4990,15 @@ def stream_openai_compat(
             break
         except Exception as e:
             _partial = bool(text or thinking or tool_buf)
-            # Transient mid-stream failures (connection reset, 5xx) keep the
-            # old behavior: propagate so _ProviderRetry can retry the request.
-            if _ProviderRetry.is_retryable(e):
+            # Transient mid-stream failures (connection reset, 5xx) propagate so
+            # _ProviderRetry can retry the request — but only when it actually
+            # will. With retries off, or once text has streamed, a raw httpx
+            # error escaped stream() and killed the turn on every
+            # OpenAI-compatible provider whenever the connection dropped.
+            _transient = _ProviderRetry.is_retryable(e)
+            if _transient and not _partial and _ProviderRetry.MAX_RETRIES > 0:
                 raise
-            if _is_nvidia:
+            if _is_nvidia and not _transient:
                 import sys
                 print(f"[nvidia-web RAW ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
                 # Fall back only when nothing streamed yet — otherwise the
@@ -4987,7 +5017,7 @@ def stream_openai_compat(
                         fallback_config = {**config, "_nvidia_fallback_active": True}
                         yield from stream_openai_compat(api_key, base_url, full, system, messages, tool_schemas, fallback_config)
                         return
-            if _is_modelstudio and _ms_remaining and not _partial:
+            if _is_modelstudio and _ms_remaining and not _partial and not _transient:
                 _nm = _ms_remaining[0]
                 yield TextChunk(f"\n⚡ Model Studio: '{model}' failed mid-stream ({type(e).__name__}) — switching to {_nm}…\n")
                 yield from stream_openai_compat(
@@ -5009,7 +5039,8 @@ def stream_openai_compat(
             continue
 
         choice = chunk.choices[0]
-        delta  = choice.delta
+        # Azure's content-filter chunks and some proxies send no delta at all.
+        delta  = getattr(choice, "delta", None) or _EMPTY_DELTA
 
         content = delta.content
         if content:
@@ -5706,6 +5737,14 @@ def stream_ollama(
                 data = json.loads(line)
             except Exception: continue
 
+            if isinstance(data, dict) and data.get("error"):
+                # Mid-stream failure (runner crashed, out of memory). Skipping
+                # it ended the turn as a silent, empty "answer".
+                _m = f"[ollama] {data['error']}"
+                yield TextChunk(("\n" if text else "") + _m)
+                yield AssistantTurn(_m, [], 0, 0, error=True)
+                return
+
             msg = data.get("message", {})
             reasoning = None
             for r_key in ["thinking", "reasoning", "thought", "reasoning_content"]:
@@ -6195,10 +6234,11 @@ def stream(
                 base_url = (config.get("custom_base_url")
                             or _os.environ.get("CUSTOM_BASE_URL", ""))
                 if not base_url:
-                    raise ValueError(
+                    yield from _config_error_turn(
                         "custom provider requires a base_url. "
                         "Set CUSTOM_BASE_URL env var or run: /config custom_base_url=http://..."
                     )
+                    return
             elif provider_name == "azure":
                 # Azure OpenAI endpoint is per-resource — read it from the user's
                 # env/config instead of hardcoding one. Accept either the bare
@@ -6206,10 +6246,11 @@ def stream(
                 base_url = (config.get("azure_base_url")
                             or _os.environ.get("AZURE_OPENAI_ENDPOINT", "")).rstrip("/")
                 if not base_url:
-                    raise ValueError(
+                    yield from _config_error_turn(
                         "azure provider requires an endpoint. Set AZURE_OPENAI_ENDPOINT "
                         "env var or run: /config azure_base_url=https://<resource>.cognitiveservices.azure.com"
                     )
+                    return
                 if not base_url.endswith("/openai/v1"):
                     base_url = base_url + "/openai/v1"
                 base_url = base_url + "/"
@@ -6237,11 +6278,12 @@ def stream(
                 base_url = (config.get("amd_base_url")
                             or _os.environ.get("AMD_BASE_URL", "")).rstrip("/")
                 if not base_url:
-                    raise ValueError(
+                    yield from _config_error_turn(
                         "amd provider requires your AMD Dev Cloud endpoint. "
                         "Set AMD_BASE_URL env var or run: "
                         "/config amd_base_url=http://<instance-ip>:8000/v1"
                     )
+                    return
                 # vLLM accepts any key; send a placeholder if none configured.
                 if not api_key:
                     api_key = "amd-dev-cloud"
@@ -6261,8 +6303,34 @@ def stream(
                 api_key, base_url, model_name, system, messages, tool_schemas, config
             )
 
-    # Wrap with retry on transient failures
-    yield from _ProviderRetry.wrap_generator(_inner_stream)
+    # Wrap with retry on transient failures. A network failure that still
+    # escapes an adapter (connection dropped mid-reply, a local server reset)
+    # ends the turn with a friendly error turn: none of the callers — REPL,
+    # webchat, daemon, sub-agents, compaction — expect a raw transport error.
+    try:
+        yield from _ProviderRetry.wrap_generator(_inner_stream)
+    except _transport_errors() as e:
+        msg = friendly_api_error(e)
+        yield TextChunk("\n" + msg)
+        yield AssistantTurn(msg, [], 0, 0, error=True)
+
+
+def _transport_errors() -> tuple:
+    """Network-level failures (not API errors) that adapters may let escape."""
+    import http.client
+    errors: list = [OSError, http.client.HTTPException]
+    try:
+        import httpx
+        errors.append(httpx.TransportError)
+    except Exception:
+        pass
+    return tuple(errors)
+
+
+def _config_error_turn(msg: str) -> Generator:
+    """End the turn with a setup problem the user has to fix (not a crash)."""
+    yield TextChunk(msg)
+    yield AssistantTurn(msg, [], 0, 0, error=True)
 
 
 def list_ollama_models(base_url: str) -> list[str]:
