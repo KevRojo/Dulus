@@ -2,6 +2,7 @@
 import os
 import sys
 import tempfile
+import time
 from typing import Any
 import json
 from pathlib import Path
@@ -16,12 +17,77 @@ def _dir_is_writable(path: Path) -> bool:
     """
     try:
         path.mkdir(parents=True, exist_ok=True)
-        probe = path / ".dulus_write_test"
-        probe.write_text("ok", encoding="utf-8")
-        probe.unlink()
+        # A unique probe: with one fixed name, two Dulus processes starting
+        # together deleted each other's probe, and the loser silently moved
+        # to the fallback dir (empty config, no keys, the wizard again).
+        fd, probe = tempfile.mkstemp(dir=path, prefix=".dulus_write_test.")
+        os.close(fd)
+        os.unlink(probe)
         return True
     except OSError:
         return False
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Replace `path` with `text` in one step: a crash mid-write (Ctrl+C, full
+    disk, killed process) can no longer leave a truncated file behind.
+
+    The temp file is unique, so concurrent writers — the REPL, the webchat
+    daemon, Telegram threads — don't race on a shared ``.tmp`` name.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+        for attempt in range(5):
+            try:
+                os.replace(tmp, path)
+                break
+            except PermissionError:
+                # Windows: a reader (antivirus, another Dulus) holds it open.
+                if attempt == 4:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def load_session_history(path: Path) -> "dict | None":
+    """Read history.json for an update. Never returns something that would
+    overwrite sessions it failed to read.
+
+    Returns the history dict, a fresh one when the file is missing or was
+    unreadable and has been set aside for recovery, or None when it could not
+    be read nor set aside (skip the update this time). Resetting it on any
+    parse error used to throw away every saved session after one bad write.
+    """
+    fresh = {"total_turns": 0, "sessions": []}
+    if not path.exists():
+        return fresh
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        hist = json.loads(raw)
+        if isinstance(hist, dict) and isinstance(hist.get("sessions"), list):
+            return hist
+    except ValueError:
+        pass
+    aside = path.with_name(f"{path.stem}.corrupt-{int(time.time())}{path.suffix}")
+    try:
+        path.replace(aside)
+    except OSError:
+        return None
+    print(f"[dulus] WARNING: {path.name} was unreadable - kept it as {aside.name}",
+          file=sys.stderr)
+    return fresh
 
 
 def _resolve_config_dir() -> Path:
@@ -276,6 +342,35 @@ def _ensure_config_dirs() -> None:
             print(f"[dulus] WARNING: could not create {d}: {e}", file=sys.stderr)
 
 
+def as_whole_number(value) -> int:
+    """`value` as an int ("8000", 8000.0, "-1"); ValueError for "8k" and the like."""
+    if isinstance(value, bool):
+        raise ValueError(f"{value!r} is not a number")
+    if isinstance(value, int):
+        return value
+    num = float(str(value).strip())
+    if not num.is_integer():
+        raise ValueError(f"{value!r} is not a whole number")
+    return int(num)
+
+
+def _coerce_numeric_settings(cfg: dict) -> None:
+    """Numeric settings feed arithmetic in every provider call, so a stored
+    "max_tokens": "8k" failed every single message, on every launch. Fix the
+    shape here, or fall back to the default with a warning."""
+    for key, default in DEFAULTS.items():
+        if not isinstance(default, int) or isinstance(default, bool):
+            continue
+        val = cfg.get(key)
+        if val is None or isinstance(val, (bool, int)):
+            continue
+        try:
+            cfg[key] = as_whole_number(val)
+        except (TypeError, ValueError):
+            print(f"[dulus] WARNING: config {key}={val!r} is not a whole number - using {default}")
+            cfg[key] = default
+
+
 def load_config() -> dict:
     _ensure_config_dirs()
     cfg = dict(DEFAULTS)
@@ -290,24 +385,34 @@ def load_config() -> dict:
             # clobber it with bare defaults.
             recovered = False
             backup = CONFIG_FILE.with_suffix(".json.bak")
+            backup_text = ""
             if backup.exists():
                 try:
-                    cfg.update(json.loads(backup.read_text(encoding="utf-8")))
+                    backup_text = backup.read_text(encoding="utf-8")
+                    cfg.update(json.loads(backup_text))
                     recovered = True
                     print(f"[dulus] WARNING: config.json was corrupt - recovered from {backup.name}")
                 except Exception:
                     pass
             try:
-                import time as _time
                 quarantine = CONFIG_FILE.with_name(
-                    f"config.corrupt-{int(_time.time())}.json")
+                    f"config.corrupt-{int(time.time())}.json")
                 CONFIG_FILE.replace(quarantine)
                 print(f"[dulus] Corrupt config preserved at: {quarantine}")
             except Exception:
                 pass
+            if recovered:
+                # Put the recovered config back on disk. Leaving config.json
+                # missing made the next launch a "first run": the wizard saved
+                # bare defaults, and the next save copied those over .bak too.
+                try:
+                    atomic_write_text(CONFIG_FILE, backup_text)
+                except OSError:
+                    pass
             if not recovered:
                 print("[dulus] WARNING: config.json was corrupt and no backup was found - "
                       "starting with defaults. Your old config was preserved (see above).")
+    _coerce_numeric_settings(cfg)
     # Decrypt secured keys
     cfg = _unsecure_keys(cfg)
     # Backward-compat: legacy single api_key → anthropic_api_key
@@ -371,22 +476,21 @@ def save_config(cfg: dict):
     # Encrypt API keys before saving
     data = _secure_keys(dict(data))
     payload = json.dumps(data, indent=2)
-    # Atomic write: dump to a temp file in the same dir, then replace.
-    # A crash mid-write can no longer truncate/corrupt config.json.
-    tmp = CONFIG_FILE.with_suffix(".json.tmp")
-    tmp.write_text(payload, encoding="utf-8")
     # Keep a rolling backup of the last-known-good config so load_config()
     # can auto-recover if the main file ever goes bad.
     if CONFIG_FILE.exists():
         try:
-            backup = CONFIG_FILE.with_suffix(".json.bak")
+            current = CONFIG_FILE.read_text(encoding="utf-8")
             # Only back up if current file is valid JSON (don't overwrite a
             # good backup with a corrupt file).
-            json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-            backup.write_text(CONFIG_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+            json.loads(current)
+            atomic_write_text(CONFIG_FILE.with_suffix(".json.bak"), current)
         except Exception:
             pass
-    tmp.replace(CONFIG_FILE)
+    # Atomic write: a crash mid-write can no longer truncate config.json, and
+    # the unique temp name keeps concurrent saves (REPL + Telegram/webchat
+    # threads, a daemon process) from failing on each other's rename.
+    atomic_write_text(CONFIG_FILE, payload)
 
 
 def current_provider(cfg: dict) -> str:

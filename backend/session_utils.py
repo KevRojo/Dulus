@@ -3,7 +3,7 @@ import json
 import datetime
 import uuid
 from pathlib import Path
-from config import SESSIONS_DIR, DAILY_DIR, SESSION_HIST_FILE
+from config import SESSIONS_DIR, DAILY_DIR, SESSION_HIST_FILE, atomic_write_text, load_session_history
 
 # File-mtime cache: path -> (mtime, result) to avoid re-reading unchanged files
 _scan_cache: dict[str, tuple[float, dict]] = {}
@@ -129,31 +129,26 @@ def save_session(state, config: dict, session_id: str | None = None) -> str:
     payload = json.dumps(data, indent=2, default=str)
 
     # 2. Save latest for /resume
-    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-    (SESSIONS_DIR / "session_latest.json").write_text(payload, encoding="utf-8")
+    atomic_write_text(SESSIONS_DIR / "session_latest.json", payload)
 
-    # 3. Save to daily folder
+    # 3. Save to daily folder (new copy first, then drop the older ones)
     day_dir = DAILY_DIR / date_str
-    day_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Prune old copies for this session ID
+    daily_path = day_dir / f"session_{ts}_{sid}.json"
+    atomic_write_text(daily_path, payload)
     for old_copy in day_dir.glob(f"session_*_{sid}.json"):
+        if old_copy == daily_path:
+            continue
         try:
             old_copy.unlink()
         except: pass
 
-    daily_path = day_dir / f"session_{ts}_{sid}.json"
-    daily_path.write_text(payload, encoding="utf-8")
-
-    # 4. Update history.json
+    # 4. Update history.json. This runs after every WebChat reply: resetting
+    # it on a parse error (a save cut short) wiped every stored session.
     try:
-        hist = {"total_turns": 0, "sessions": []}
-        if SESSION_HIST_FILE.exists():
-            try:
-                hist = json.loads(SESSION_HIST_FILE.read_text())
-            except Exception:
-                pass
-        
+        hist = load_session_history(SESSION_HIST_FILE)
+        if hist is None:
+            return sid
+
         # Update or append
         existing_idx = -1
         for i, s in enumerate(hist.get("sessions", [])):
@@ -171,7 +166,7 @@ def save_session(state, config: dict, session_id: str | None = None) -> str:
         if len(hist["sessions"]) > limit:
             hist["sessions"] = hist["sessions"][-limit:]
             
-        SESSION_HIST_FILE.write_text(json.dumps(hist, indent=2, default=str), encoding="utf-8")
+        atomic_write_text(SESSION_HIST_FILE, json.dumps(hist, indent=2, default=str))
     except Exception:
         pass # Don't crash UI if history.json fails
 
