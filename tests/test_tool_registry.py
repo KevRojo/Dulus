@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from tool_registry import (
@@ -122,8 +124,13 @@ def test_output_truncation():
     register_tool(tool)
 
     result = execute_tool("big", {}, config={}, max_output=40)
-    # first_chunk = 40//3 = 13, last_chunk = 40//6 = 6, plus long marker
-    assert len(result) < 200
+    # first_chunk = 40//3 = 13, last_chunk = 40//6 = 6, plus long marker.
+    # The marker embeds an ABSOLUTE path to ~/.dulus/last_tool_output.txt, and that
+    # path is far longer on Windows runners than on Linux/macOS, so a hard-coded
+    # length bound breaks there. Bound it against the real path instead.
+    lo_path = str(Path.home() / ".dulus" / "last_tool_output.txt")
+    assert lo_path in result
+    assert len(result) <= 40 + len(lo_path) + 200
     assert "truncated" in result.lower() or "TRUNCATED" in result
     # The kept portion: first 13 + last 6 should be present
     assert result.startswith("x" * 13)
