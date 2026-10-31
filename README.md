@@ -2,29 +2,8 @@
 
 # Dulus
 
-<p align="center">
-  <img width="1179" height="761" alt="image" src="https://github.com/user-attachments/assets/95c8a306-88e6-4f9d-a1aa-009ac38ebeaf" />
-</p>
+<img width="1183" height="854" alt="image" src="https://github.com/user-attachments/assets/907f4dd2-476f-4715-86d0-6cf4a9576339" />
 
-<p align="center">
-  <a href="#fuel--reload-wallet-qr-ready"><strong>⛽ /fuel walkthrough →</strong></a>
-  ·
-  <a href="#get-your-dulus-api-key-no-website-required"><strong>🔑 API key from pip →</strong></a>
-  ·
-  <a href="https://dulus.online"><strong>🚀 dulus.online</strong></a>
-</p>
-
-<p align="center">
-  <strong>🖥️ Prefer a desktop app?</strong> Get the signed, auto-updating desktop build — no Python setup needed.<br>
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
-</p>
-
-<p align="center">
-  <strong>📄 Dulus AI Whitepaper:</strong>
-  <a href="docs/Dulus_AI_Whitepaper_EN.pdf">English</a>
-  ·
-  <a href="docs/Dulus_AI_Whitepaper_ES.pdf">Español</a>
-</p>
 
 <p align="center">
   <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="PyPI version"></a>
@@ -60,15 +39,24 @@
   <a href="docs/README_AR.md">العربية</a>
 </p>
 
-<img width="1183" height="854" alt="image" src="https://github.com/user-attachments/assets/907f4dd2-476f-4715-86d0-6cf4a9576339" />
-
-
+<p align="center">
+  <a href="#fuel--reload-wallet-qr-ready"><strong>⛽ /fuel walkthrough →</strong></a>
+  ·
+  <a href="#get-your-dulus-api-key-no-website-required"><strong>🔑 API key from pip →</strong></a>
+  ·
+  <a href="https://dulus.online"><strong>🚀 dulus.online</strong></a>
+</p>
 
 <p align="center">
-  Dulus is an open-source agent runtime that hands you a real AI agent the moment you install it —<br>
-  talking to Gemini, Claude and GPT through their own web sessions, so you owe no one a key or a cent.<br>
-  One runtime. Every model. Your machine. The whole world invited.
+  <strong>🖥️ Prefer a desktop app?</strong> Get the signed, auto-updating desktop build — no Python setup needed.<br>
+  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
+</p>
 
+<p align="center">
+  <strong>📄 Dulus AI Whitepaper:</strong>
+  <a href="docs/Dulus_AI_Whitepaper_EN.pdf">English</a>
+  ·
+  <a href="docs/Dulus_AI_Whitepaper_ES.pdf">Español</a>
 </p>
 
 <p align="center">
