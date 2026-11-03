@@ -9042,7 +9042,7 @@ def _print_news_broadcast(
     # Station ident. This is the first thing a new install ever reads, so it
     # says who is broadcasting and what the board is actually for.
     print(
-        clr("    Interant", "white", "bold")
+        clr("    Dulus", "white", "bold")
         + clr("  ·  Santo Domingo 🇩🇴  ·  ", "dim")
         + clr("what shipped while you were away", "cyan", "dim")
     )
@@ -11241,7 +11241,7 @@ def repl(config: dict, initial_prompt: str | None = None):
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⢾⣯⣧⣬⣭⣤⡶⠖⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
         ]
         _DULUS_LOGO.append("     " + clr("v" + VERSION, "green", "bold"))
-        _DULUS_LOGO.append("     " + clr("📡 Dulus Radio  ·  by Interant  ·  ON AIR at boot", "cyan", "dim"))
+        _DULUS_LOGO.append("     " + clr("📡 Dulus Radio  ·  ON AIR at boot", "cyan", "dim"))
         _DULUS_LOGO.append("                                                                 ")
 
         # Shared Dulus animation language for the short boot beat. Redirected
