@@ -48,8 +48,11 @@
 </p>
 
 <p align="center">
-  <strong>🖥️ Prefer a desktop app?</strong> Get the signed, auto-updating desktop build — no Python setup needed.<br>
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Download the latest binaries → github.com/Dulus-Ai/dulus-updates</strong></a>
+  <strong>⚠️ Heads up: this repository is a mirror, not the live line.</strong><br>
+  The signed binaries are <strong>2.2× the commits</strong> and <strong>4.3× the code</strong> of what you see here —<br>
+  sandbox, screen control, agent swarms and the self-improvement loop live there first.<br>
+  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Get the signed build → github.com/Dulus-Ai/dulus-updates</strong></a>
+  · <a href="#this-repo-is-a-snapshot-the-binaries-are-the-live-line"><strong>See the real gap →</strong></a>
 </p>
 
 <p align="center">
@@ -252,18 +255,58 @@ Real run: **101,619 files** scanned into a variable, then queried three ways acr
 
 ---
 
-## New — Signed binaries, maintained by me
+## This repo is a snapshot. The binaries are the live line.
 
-> 📢 The fastest way to run Dulus is the prebuilt app — I keep it updated myself.
+> 📢 **Read this before you decide `pip install` is enough.**
 
-The public `pip install dulus` gives you the full open-source runtime. But if you want the **smoothest experience** — auto-updating, code-signed, zero Python setup — grab the **prebuilt binaries** for Windows, macOS and Linux. I maintain those builds personally so they always ship the latest fixes first.
+`pip install dulus` gives you a complete, readable, forkable runtime — every module in this repository is real and it works. What it is **not** is current.
+
+This repository is a **periodic mirror**. The line I actually build on is private, and it moves several times faster. Here is the honest gap, measured straight from both trees on **2026-11-03**:
+
+| | This repo (public mirror) | Signed binaries (private line) | Gap |
+|---|---:|---:|---:|
+| Commits | **669** | **1,483** | **2.2×** |
+| First-party Python | **68,159** lines | **294,475** lines | **4.3×** |
+| Runtime modules | **170** | **794** | **4.7×** |
+| Tests | **904** | **5,333** | **5.9×** |
+| Files tracked | **380** | **2,968** | **7.8×** |
+| Commits, last 30 days | **27** | **358** | **13.3×** |
+| Commits, last 90 days | **181** | **1,239** | **6.8×** |
+| Last commit | 2026-10-31 | 2026-11-02 | — |
+
+<sub>Counts are `git rev-list --count`, `git ls-files` and line counts over tracked `.py` files. The private line is a monorepo: it carries the Dulus core plus the services, dashboards and experiments that feed it, which is why the file ratio runs higher than the commit ratio. Every number above is reproducible by anyone who has both trees.</sub>
+
+### What is behind that gap
+
+The private line is not "the same thing with a coat of paint". These are working systems that have never been published in this repo:
+
+- **A sandbox — a mini-OS in your browser.** A real virtual desktop with its own filesystem and a live Dulus terminal inside it, so an agent can be let loose without ever touching your machine.
+- **Native screen control.** OCR-grounded clicks, typing, app automation — the agent drives the *actual* desktop, not a headless fantasy of it.
+- **Agent swarms and fleets.** Many agents on one board, with seats that argue, assign work to each other and converge — instead of one model wearing three hats.
+- **A self-improvement loop.** Analysts read the most recent code, generate patches, run the test gate, and only safe patches land. The repo improves while I sleep.
+- **Channels and connectors.** The same runtime reaching you through chat apps, mail, repos and tickets, with hundreds of toolkits behind it.
+- **Extra surfaces.** Android, a GUI shell, and a hub that ties them together.
+- **Benchmarks and a security suite.** Because "it feels fast" is not a measurement.
+
+And the pace is the point: **358 commits in the last 30 days on the private line versus 27 here.** If you only ever run the mirror, you are perpetually reading last month's newspaper.
+
+### Why not just publish it?
+
+Two reasons, both boring and both true.
+
+**The license gate.** The desktop core has to survive being copied, so that part stays closed. That is the honest business answer.
+
+**The pace.** I move fast and I break things on purpose. Publishing every intermediate state would mean writing release notes for experiments that die in an hour. The mirror is what has *settled*; the binaries are what is *moving*.
+
+So: **open where it counts, protected where it matters.** The runtime you can read, fork and audit is right here, under GPLv3, forever. The fastest, most complete, auto-updating build — the one I actually run — is the signed binary.
 
 <p align="center">
-  <a href="https://dulus.ai/"><strong>⬇️ Download the binaries → dulus.ai</strong></a> ·
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>GitHub Releases ↗</strong></a>
+  <strong>⬇️ Windows · macOS · Linux — signed, auto-updating, zero Python setup</strong><br>
+  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>github.com/Dulus-Ai/dulus-updates/releases/latest ↗</strong></a>
+  · <a href="https://dulus.ai/"><strong>dulus.ai ↗</strong></a>
 </p>
 
-The **premium/desktop core is closed-source on purpose** — that code stays private so it can't be leaked, cloned, or stripped of its license gate. This public repo is the real runtime you can read, fork and build on; the signed binaries are the same runtime plus the private polish, kept safe on my side. Best of both: **open where it counts, protected where it matters.**
+> **If you fork this repo, you are forking a snapshot from 2026-10-31.** That is fine — it is real, working software. Just don't mistake it for the frontier.
 
 ---
 
@@ -304,9 +347,11 @@ That changes what the product is:
 
 ### The proof is in the repository
 
-At the time of this release, Dulus contains approximately **56K lines of first-party Python**, **143 Python runtime modules**, **780+ tests**, **58 tagged releases**, and more than **400 commits shipped in the previous 90 days**.
+This public mirror alone contains **68,159 lines of first-party Python**, **170 runtime modules**, **904 tests**, **125 tagged releases** and **669 commits** — **181 of them in the previous 90 days**.
 
-Those numbers are not a vanity dashboard. They explain the product: Dulus is being built in public at production velocity. Read the [release notes](docs/news.md), inspect the [architecture](docs/architecture.md), or open the [interactive dependency graph](docs/api.html).
+Those numbers are not a vanity dashboard. They explain the product: Dulus is built at production velocity. Read the [release notes](docs/news.md), inspect the [architecture](docs/architecture.md), or open the [interactive dependency graph](docs/api.html).
+
+> And remember what this is: a **mirror**. The line behind the signed binaries carries **1,483 commits, 294,475 lines, 794 modules and 5,333 tests** — with **358 commits in the last 30 days** against 27 here. [See the full comparison ↑](#this-repo-is-a-snapshot-the-binaries-are-the-live-line)
 
 > **Hunt. Patch. Ship.** The loop is the product.
 
@@ -798,8 +843,9 @@ Documentation:
 
 Dulus does not hide behind a quarterly roadmap. Features, fixes, experiments, reversals, and lessons ship in the open.
 
-- More than **400 commits in 90 days** at this snapshot.
-- **58 tagged versions** across the public history.
+- **181 commits in the last 90 days** in this mirror alone — and **1,239** on the private line the binaries are cut from.
+- **125 tagged versions** across the public history.
+- **358 commits in the last 30 days** behind the signed build, against **27** here.
 - Provider failures, packaging problems, installer issues, and community bug reports routinely become releases within the same day.
 - The first Hacker News community bug report was diagnosed, fixed, tested, and released to PyPI the day it arrived.
 
