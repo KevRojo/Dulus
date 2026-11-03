@@ -37,6 +37,24 @@
 
 ---
 
+> ### ⚠️ This repository is a mirror, not the live line
+>
+> `pip install dulus` gives you a complete, auditable runtime — but **it is not the most recent version**. The line I actually develop on is private and moves several times faster:
+>
+> | | This repo (public mirror) | Signed binaries | Gap |
+> |---|---:|---:|---:|
+> | Commits | **669** | **1,483** | **2.2×** |
+> | First-party Python | **68,159** lines | **294,475** lines | **4.3×** |
+> | Runtime modules | **170** | **794** | **4.7×** |
+> | Tests | **904** | **5,333** | **5.9×** |
+> | Commits, last 30 days | **27** | **358** | **13.3×** |
+>
+> What sits behind that gap: a **sandbox** (a mini-OS inside the browser), **native screen control**, **agent swarms and fleets**, the **self-improvement loop**, and **channels and connectors**.
+>
+> **⬇️ [Download the signed build](https://github.com/Dulus-Ai/dulus-updates/releases/latest)** — Windows, macOS, Linux. Full comparison in the [main README](../README.md#this-repo-is-a-snapshot-the-binaries-are-the-live-line).
+
+---
+
 ## Why Dulus?
 
 | | Locked Ecosystems | Complex Frameworks | **Dulus** |

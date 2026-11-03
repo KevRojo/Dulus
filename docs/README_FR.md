@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/licence-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="Licence"/>
   <img src="https://img.shields.io/badge/fournisseurs-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Fournisseurs"/>
   <img src="https://img.shields.io/badge/outils-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Outils"/>
-  <img src="https://img.shields.io/badge/tests-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
+  <img src="https://img.shields.io/badge/tests-900%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
   <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
@@ -33,6 +33,24 @@
 ---
 
 > Nomme d'apres le **Dulus** (*Dulus dominicus*), oiseau national de la Republique Dominicaine — symbole de liberte, resilience et voler ensemble. Dulus n'est pas un chatbot. C'est votre compagnon, votre ami, votre partenaire IA qui plane a vos cotes.
+
+---
+
+> ### ⚠️ Ce dépôt est un miroir, pas la ligne active
+>
+> `pip install dulus` vous donne un runtime complet et auditable — mais **ce n'est pas la version la plus récente**. La ligne sur laquelle je développe réellement est privée et avance plusieurs fois plus vite :
+>
+> | | Ce dépôt (miroir public) | Binaires signés | Écart |
+> |---|---:|---:|---:|
+> | Commits | **669** | **1 483** | **2,2×** |
+> | Python first-party | **68 159** lignes | **294 475** lignes | **4,3×** |
+> | Modules runtime | **170** | **794** | **4,7×** |
+> | Tests | **904** | **5 333** | **5,9×** |
+> | Commits, 30 derniers jours | **27** | **358** | **13,3×** |
+>
+> Derrière cet écart : un **sandbox** (mini-OS dans le navigateur), le **contrôle natif de l'écran**, les **essaims et flottes d'agents**, la **boucle d'auto-amélioration**, et les **canaux et connecteurs**.
+>
+> **⬇️ [Télécharger le build signé](https://github.com/Dulus-Ai/dulus-updates/releases/latest)** — Windows, macOS, Linux. Comparaison complète dans le [README anglais](../README.md#this-repo-is-a-snapshot-the-binaries-are-the-live-line).
 
 ---
 

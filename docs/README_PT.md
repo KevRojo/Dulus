@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/licenca-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="Licenca"/>
   <img src="https://img.shields.io/badge/provedores-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Provedores"/>
   <img src="https://img.shields.io/badge/ferramentas-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Ferramentas"/>
-  <img src="https://img.shields.io/badge/tests-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
+  <img src="https://img.shields.io/badge/tests-900%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
   <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
@@ -33,6 +33,24 @@
 ---
 
 > Nomeado em homenagem ao **Guacpanche** (*Dulus dominicus*), ave nacional da Republica Dominicana — simbolo de liberdade, resiliencia e voar juntos. Dulus nao e um chatbot. E seu companheiro, seu amigo, seu parceiro de IA que voa ao seu lado.
+
+---
+
+> ### ⚠️ Este repositório é um espelho, não a linha ativa
+>
+> `pip install dulus` entrega um runtime completo e auditável — mas **não é a versão mais recente**. A linha em que eu realmente desenvolvo é privada e avança várias vezes mais rápido:
+>
+> | | Este repo (espelho público) | Binários assinados | Diferença |
+> |---|---:|---:|---:|
+> | Commits | **669** | **1.483** | **2,2×** |
+> | Python de primeira linha | **68.159** linhas | **294.475** linhas | **4,3×** |
+> | Módulos de runtime | **170** | **794** | **4,7×** |
+> | Testes | **904** | **5.333** | **5,9×** |
+> | Commits, últimos 30 dias | **27** | **358** | **13,3×** |
+>
+> Por trás dessa diferença: **sandbox** (um mini-SO no navegador), **controle nativo de tela**, **enxames e frotas de agentes**, o **loop de autoaperfeiçoamento**, e **canais e conectores**.
+>
+> **⬇️ [Baixe o build assinado](https://github.com/Dulus-Ai/dulus-updates/releases/latest)** — Windows, macOS, Linux. Comparação completa no [README em inglês](../README.md#this-repo-is-a-snapshot-the-binaries-are-the-live-line).
 
 ---
 

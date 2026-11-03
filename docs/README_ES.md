@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/licencia-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="Licencia"/>
   <img src="https://img.shields.io/badge/proveedores-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Proveedores"/>
   <img src="https://img.shields.io/badge/herramientas-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Herramientas"/>
-  <img src="https://img.shields.io/badge/tests-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
+  <img src="https://img.shields.io/badge/tests-900%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
   <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
@@ -34,6 +34,24 @@
 ---
 
 > Nombrado en honor a la **Cigua Palmera** (*Dulus dominicus*), ave nacional de la Republica Dominicana — simbolo de libertad, resiliencia y volar juntos. Dulus no es un chatbot. Es tu companero, tu amigo, tu socio de IA que vuela a tu lado.
+
+---
+
+> ### ⚠️ Este repositorio es un espejo, no la línea viva
+>
+> `pip install dulus` te da un runtime completo y auditable — pero **no es la versión más reciente**. La línea en la que realmente desarrollo es privada y avanza varias veces más rápido:
+>
+> | | Este repo (espejo público) | Binarios firmados | Diferencia |
+> |---|---:|---:|---:|
+> | Commits | **669** | **1,483** | **2.2×** |
+> | Python de primera mano | **68,159** líneas | **294,475** líneas | **4.3×** |
+> | Módulos runtime | **170** | **794** | **4.7×** |
+> | Tests | **904** | **5,333** | **5.9×** |
+> | Commits, últimos 30 días | **27** | **358** | **13.3×** |
+>
+> Lo que está detrás de esa diferencia: **sandbox** (un mini-SO dentro del navegador), **control nativo de pantalla**, **swarms y flotas de agentes**, el **loop de auto-mejora**, y **canales y conectores**.
+>
+> **⬇️ [Descarga el build firmado](https://github.com/Dulus-Ai/dulus-updates/releases/latest)** — Windows, macOS, Linux. Comparación completa en el [README en inglés](../README.md#this-repo-is-a-snapshot-the-binaries-are-the-live-line).
 
 ---
 

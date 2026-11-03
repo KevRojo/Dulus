@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="License"/>
   <img src="https://img.shields.io/badge/providers-100%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Providers"/>
   <img src="https://img.shields.io/badge/tools-30%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tools"/>
-  <img src="https://img.shields.io/badge/tests-263%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
+  <img src="https://img.shields.io/badge/tests-900%2B-ff6b1f?style=flat-square&labelColor=07070a" alt="Tests"/>
   <a href="https://x.com/KevRojo"><img src="https://img.shields.io/badge/x-%40KevRojo-ff6b1f?style=flat-square&labelColor=07070a&logo=x" alt="X"/></a>
 </p>
 
@@ -33,6 +33,24 @@
 ---
 
 > **パームチャット**（*Dulus dominicus*）にちなんで命名 —— ドミニカ共和国の国鳥、自由と韧性と共に飛ぶ象徴。Dulus はチャットボットではありません。そばを飛ぶ仲間、友達、AI パートナーです。
+
+---
+
+> ### ⚠️ このリポジトリはミラーであり、開発中の本流ではありません
+>
+> `pip install dulus` で完全で監査可能なランタイムが手に入ります —— ただし**最新版ではありません**。私が実際に開発しているラインは非公開で、数倍の速さで進んでいます：
+>
+> | | このリポジトリ（公開ミラー） | 署名済みバイナリ | 差 |
+> |---|---:|---:|---:|
+> | コミット数 | **669** | **1,483** | **2.2×** |
+> | 自前の Python コード | **68,159** 行 | **294,475** 行 | **4.3×** |
+> | ランタイムモジュール | **170** | **794** | **4.7×** |
+> | テスト | **904** | **5,333** | **5.9×** |
+> | 直近 30 日のコミット | **27** | **358** | **13.3×** |
+>
+> その差の正体：**サンドボックス**（ブラウザ内のミニ OS）、**ネイティブな画面操作**、**エージェントの群れと艦隊**、**自己改善ループ**、そして**チャネルとコネクタ**。
+>
+> **⬇️ [署名済みビルドをダウンロード](https://github.com/Dulus-Ai/dulus-updates/releases/latest)** — Windows・macOS・Linux。詳細な比較は[英語 README](../README.md#this-repo-is-a-snapshot-the-binaries-are-the-live-line) に。
 
 ---
 
