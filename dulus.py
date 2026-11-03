@@ -8954,6 +8954,24 @@ def _news_parse_entry(entry: str) -> tuple[str, str, str, str]:
             parts = re.split(r"(?<=[.!?])\s+", rest, maxsplit=1)
             headline = parts[0].strip().rstrip(".")
             body = parts[1].strip() if len(parts) > 1 else ""
+        # A dispatch headline is a billboard, not a paragraph. Long ones used
+        # to run the full width of the radio board and wrap into a wall of
+        # text, so cap it here and push the overflow into the body — the
+        # detail is preserved, the layout survives.
+        if len(headline) > 68:
+            window = headline[:68]
+            for sep in (". ", " — ", "; "):
+                i = window.rfind(sep)
+                if i > 32:
+                    window = window[:i]
+                    break
+            else:
+                i = window.rfind(" ")
+                if i > 32:
+                    window = window[:i]
+            overflow = headline[len(window):].lstrip(" .,;:—-")
+            headline = window.rstrip(" .,;:—-") + "…"
+            body = (overflow + (" " + body if body else "")).strip()
     else:
         headline = text[:80]
         body = text[80:]
@@ -9021,6 +9039,13 @@ def _print_news_broadcast(
         + clr("   ·  ON AIR", "green", "bold")
         + clr(f"   ·  {len(picked)}/{total}", "dim")
     )
+    # Station ident. This is the first thing a new install ever reads, so it
+    # says who is broadcasting and what the board is actually for.
+    print(
+        clr("    Interant", "white", "bold")
+        + clr("  ·  Santo Domingo 🇩🇴  ·  ", "dim")
+        + clr("what shipped while you were away", "cyan", "dim")
+    )
     print(clr(f"  ◆{rule}◆", "cyan", "dim"))
     print()
 
@@ -9044,13 +9069,19 @@ def _print_news_broadcast(
     print(clr(f"  ◆{rule}◆", "cyan", "dim"))
     if not quiet_footer:
         if boot:
+            # Honest sign-off: the mirror you just pip-installed trails the
+            # signed build. Say it here, once, without shouting.
             print(
-                clr("    stay tuned", "dim")
+                clr("    this repo is a mirror", "dim")
+                + clr("  ·  the signed build runs ahead of it", "cyan", "dim")
+            )
+            print(
+                clr("    /news", "cyan")
+                + clr(" more", "dim")
                 + clr("  ·  ", "dim")
-                + clr("/news", "cyan")
-                + clr(" more  ·  humans only  ·  ", "dim")
                 + clr("pip install -U dulus", "cyan")
-                + clr("  🦅", "dim")
+                + clr("  ·  humans only  ", "dim")
+                + clr("🦅", "dim")
             )
         else:
             print(
@@ -11210,7 +11241,7 @@ def repl(config: dict, initial_prompt: str | None = None):
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠻⢾⣯⣧⣬⣭⣤⡶⠖⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
         ]
         _DULUS_LOGO.append("     " + clr("v" + VERSION, "green", "bold"))
-        _DULUS_LOGO.append("     " + clr("📡 Dulus Radio is ON AIR at boot", "cyan", "dim"))
+        _DULUS_LOGO.append("     " + clr("📡 Dulus Radio  ·  by Interant  ·  ON AIR at boot", "cyan", "dim"))
         _DULUS_LOGO.append("                                                                 ")
 
         # Shared Dulus animation language for the short boot beat. Redirected
