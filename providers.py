@@ -3801,7 +3801,11 @@ def messages_to_anthropic(messages: list) -> list:
                     "name":  tc["name"],
                     "input": tc["input"],
                 })
-            result.append({"role": "assistant", "content": blocks})
+            # An empty assistant turn (reasoning-only stall) has no blocks, and
+            # Anthropic rejects empty content. Skip it — the API merges the
+            # surrounding consecutive user turns.
+            if blocks:
+                result.append({"role": "assistant", "content": blocks})
             i += 1
 
         elif role == "tool":
@@ -3890,11 +3894,15 @@ def messages_to_openai(messages: list, ollama_native_images: bool = False, model
             result.append(msg_out)
 
         elif role == "assistant":
-            msg: dict = {"role": "assistant", "content": m.get("content") or None}
+            tcs = m.get("tool_calls", [])
+            # null content is only legal next to tool_calls. A reasoning-only
+            # stall leaves an empty assistant turn in history; sending it as
+            # null 400s every later request in the session.
+            msg: dict = {"role": "assistant",
+                         "content": m.get("content") or (None if tcs else "")}
             if "thinking" in m and m["thinking"]:
                 msg["reasoning_content"] = m["thinking"]
             
-            tcs = m.get("tool_calls", [])
             if tcs:
                 msg["tool_calls"] = []
                 for tc in tcs:
