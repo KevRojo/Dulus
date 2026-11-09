@@ -145,6 +145,9 @@ def test_repl_survives_a_crashing_turn_and_command(tmp_path) -> None:
         DULUS_NO_ANIMATIONS="1",
         DULUS_BAR="0",
         PYTHONUTF8="1",
+        # The launch gate wants a Dulus account; this test is about the REPL
+        # surviving crashes, so give the child a CI key instead of a sign-in.
+        DULUS_API_KEY="dulus_sk_" + "0" * 32,
     )
     proc = subprocess.run(
         [sys.executable, str(driver)],

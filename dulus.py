@@ -13143,7 +13143,15 @@ def _require_dulus_login(args) -> None:
 
     protocol = _protocol_enabled()
     can_prompt = not protocol and _login_gate_can_prompt()
-    status = dulus_account.session_status(renew=can_prompt and not args.exec_cmd)
+    try:
+        status = dulus_account.session_status(renew=can_prompt and not args.exec_cmd)
+    except Exception as exc:  # noqa: BLE001 - a broken check must never block the launch
+        # Fail open: a missing optional dependency, a proxy that eats the
+        # response or a bug in the check itself is not a reason to refuse to
+        # start. The person still gets a warning instead of a traceback.
+        print(clr(f"[dulus] Couldn't check your Dulus sign-in ({type(exc).__name__}: {exc}) "
+                  "— carrying on.", "gray"), file=sys.stderr)
+        return
     if status == "active":
         return
     if status == "offline":

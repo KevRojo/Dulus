@@ -155,6 +155,20 @@ def test_gate_offline_carries_on(gate):
     dulus._require_dulus_login(_args())
 
 
+def test_gate_survives_a_broken_session_check(monkeypatch, capsys):
+    """A missing optional dependency or a bug in the check must not block launch."""
+    def boom(renew=True):
+        raise ModuleNotFoundError("No module named 'requests'")
+
+    monkeypatch.setattr(dulus_account, "session_status", boom)
+    monkeypatch.setattr(dulus, "_protocol_enabled", lambda: False)
+    monkeypatch.setattr(dulus, "_login_gate_can_prompt", lambda: True)
+
+    dulus._require_dulus_login(_args())  # must not raise
+
+    assert "carrying on" in capsys.readouterr().err
+
+
 def test_gate_signs_you_in(gate):
     dulus._require_dulus_login(_args())
     assert gate["login"] == "token"
