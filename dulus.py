@@ -13075,6 +13075,110 @@ def repl(config: dict, initial_prompt: str | None = None):
 
 # ── Entry point ────────────────────────────────────────────────────────────
 
+def _attached_to_msys_pty(stream) -> bool:
+    """Is this stream a mintty terminal (Git Bash, MSYS2, Cygwin)?
+
+    mintty hands Windows programs a named pipe instead of a console, so
+    isatty() says nobody is there even with a person typing. The pipe's name
+    gives the terminal away, and ordinary pipes (`| tail`, a subprocess
+    capture) never carry it. MSYSTEM can't be trusted for this: every child
+    of such a shell inherits it, scripts and scheduled jobs included.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        class _FileNameInfo(ctypes.Structure):
+            _fields_ = [("FileNameLength", wintypes.DWORD), ("FileName", wintypes.WCHAR * 260)]
+
+        info = _FileNameInfo()
+        handle = wintypes.HANDLE(msvcrt.get_osfhandle(stream.fileno()))
+        file_name_info = 2  # FILE_INFO_BY_HANDLE_CLASS.FileNameInfo
+        if not ctypes.windll.kernel32.GetFileInformationByHandleEx(
+                handle, file_name_info, ctypes.byref(info), ctypes.sizeof(info)):
+            return False
+        name = info.FileName[: info.FileNameLength // 2]
+    except Exception:
+        return False
+    return re.match(r"\\(cygwin|msys)-[0-9a-fA-F]+-pty\d+-(from|to)-master", name) is not None
+
+
+def _login_gate_can_prompt() -> bool:
+    """Is a person there to see a sign-in link? CI never counts."""
+    if os.environ.get("CI"):
+        return False
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None:
+            continue
+        try:
+            if stream.isatty() or _attached_to_msys_pty(stream):
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _require_dulus_login(args) -> None:
+    """Dulus runs on a free Dulus account: no account, no Dulus.
+
+    Checked once per launch, after --version/--help (those stay open to
+    everyone). Background job runners are spawned by a session that already
+    passed here, and `dulus -c "login dulus"` / `-c logout` stay reachable so
+    a broken sign-in can always be fixed from the command line. Renewal only
+    happens when a person launched Dulus; background children and `-c` runs
+    take the stored session at its word so parallel launches never race to
+    rotate the same refresh token.
+    """
+    if args.run_tool or args.job_id or args.job_path:
+        return
+    if args.exec_cmd:
+        verb = " ".join(args.exec_cmd).strip().strip("\"'").lstrip("/").split(" ", 1)[0].lower()
+        if verb in ("login", "logout"):
+            return
+
+    import dulus_account
+
+    protocol = _protocol_enabled()
+    can_prompt = not protocol and _login_gate_can_prompt()
+    status = dulus_account.session_status(renew=can_prompt and not args.exec_cmd)
+    if status == "active":
+        return
+    if status == "offline":
+        print(clr("[dulus] Couldn't reach Dulus to renew your sign-in — carrying on offline.", "gray"),
+              file=sys.stderr)
+        return
+
+    if status == "invalid_key":
+        message = ("DULUS_API_KEY is set but isn't a Dulus key (those start with dulus_sk_). Replace "
+                   "it with one minted by `/login dulus key`, or unset it to use your sign-in.")
+    elif not can_prompt:
+        message = ("Dulus needs a free Dulus account. Sign in once with `dulus -c \"login dulus\"` "
+                   "(or just run `dulus` in a terminal). For CI, scripts and servers, set "
+                   "DULUS_API_KEY to a dulus_sk_* key minted with `/login dulus key`.")
+    else:
+        message = ""
+    if message:
+        if protocol:
+            _emit_error(message)
+        else:
+            print(f"[dulus] {message}", file=sys.stderr)
+        sys.exit(2)
+
+    print(clr("\n  Dulus runs on a free Dulus account — sign in once and you're in.\n", "cyan"))
+    try:
+        token = dulus_account.login(notify=lambda m: print(clr(m, "cyan")))
+    except KeyboardInterrupt:
+        token = None
+    if not token:
+        print(clr("[dulus] Sign-in didn't finish. Run `dulus` again whenever you're ready.", "yellow"),
+              file=sys.stderr)
+        sys.exit(1)
+    ok("Signed in — welcome aboard. 🦅")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="dulus",
@@ -13138,6 +13242,9 @@ def main():
 
     from config import load_config, save_config, has_api_key
     from providers import detect_provider, PROVIDERS
+
+    # No account, no Dulus: sign in (or learn how) before anything else runs.
+    _require_dulus_login(args)
 
     # ── First-run welcome wizard ──────────────────────────────────────────
     # Runs BEFORE load_config() so we detect the absence of config.json.

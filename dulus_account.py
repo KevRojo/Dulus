@@ -43,6 +43,7 @@ _AUTH0_SCOPES = "openid profile email"
 # Refresh slightly early so a request never leaves with a token that expires
 # while it is in flight.
 _EXPIRY_BUFFER_SECONDS = 60
+API_KEY_PREFIX = "dulus_sk_"  # what `/login dulus key` mints
 
 
 def _is_text_browser(name: str) -> bool:
@@ -157,12 +158,13 @@ def _persist_tokens(payload: dict) -> dict:
     return store
 
 
-def refresh(refresh_token: str) -> dict | None:
-    """Exchange a refresh token for a fresh access token.
+def _renew(refresh_token: str, timeout: float = 30) -> tuple[str, dict | None]:
+    """One refresh round-trip against ``/v1/oauth/token``.
 
-    The server rotates refresh tokens, so the response carries a new one that
-    replaces the old. A failure here means the token was revoked or replayed
-    and the user has to sign in again.
+    Returns ``("ok", store)`` once the new tokens are saved, ``("refused", None)``
+    when Dulus said no (revoked, expired for good, account gone) and
+    ``("unreachable", None)`` when it could not answer — no network, a timeout,
+    or a 5xx/429 on our side.
     """
     import requests
 
@@ -174,13 +176,37 @@ def refresh(refresh_token: str) -> dict | None:
                 "client_id": DULUS_OAUTH_CLIENT_ID,
                 "refresh_token": refresh_token,
             },
-            timeout=30,
+            timeout=timeout,
         )
-        if response.status_code != 200:
-            return None
-        return _persist_tokens(response.json())
     except Exception:
-        return None
+        return "unreachable", None
+    if response.status_code in (400, 401, 403):
+        return "refused", None
+    if response.status_code != 200:
+        return "unreachable", None
+    try:
+        payload = dict(response.json())
+    except Exception:
+        return "unreachable", None
+    if not payload.get("access_token"):
+        return "unreachable", None
+    if not payload.get("refresh_token"):
+        # RFC 6749 §6: no new refresh token issued means the old one stays valid.
+        payload["refresh_token"] = refresh_token
+    try:
+        return "ok", _persist_tokens(payload)
+    except Exception:
+        return "unreachable", None
+
+
+def refresh(refresh_token: str) -> dict | None:
+    """Exchange a refresh token for a fresh access token.
+
+    The server rotates refresh tokens, so the response carries a new one that
+    replaces the old. A failure here means the token was revoked or replayed
+    and the user has to sign in again.
+    """
+    return _renew(refresh_token)[1]
 
 
 def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> str | None:
@@ -377,6 +403,37 @@ def access_token(notify: Callable[[str], Any] = print) -> str:
         if refreshed and refreshed.get("access_token"):
             return refreshed["access_token"]
     return ""
+
+
+def session_status(renew: bool = True) -> str:
+    """Is this machine signed in to a Dulus account? Never prompts.
+
+    ``"active"``      a live session, or a ``dulus_sk_*`` key in DULUS_API_KEY
+    ``"offline"``     a session exists but its renewal couldn't reach Dulus —
+                      let the person keep working
+    ``"invalid_key"`` DULUS_API_KEY is set but isn't a Dulus key
+    ``"none"``        never signed in, signed out, or Dulus refused the renewal
+
+    With ``renew`` it talks to Dulus only when the access token has expired —
+    the same renewal :func:`access_token` runs on first use anyway. Without it
+    (background children, scripts) a stored refresh token is taken at its word
+    and renewed lazily, so parallel launches never race to rotate it.
+    """
+    explicit = (os.environ.get("DULUS_API_KEY") or "").strip()
+    if explicit:
+        looks_right = explicit.startswith(API_KEY_PREFIX) and len(explicit) >= len(API_KEY_PREFIX) + 16
+        return "active" if looks_right else "invalid_key"
+
+    store = load_store()
+    if store.get("access_token") and not _token_expired(store):
+        return "active"
+    refresh_token = store.get("refresh_token")
+    if not refresh_token:
+        return "none"
+    if not renew:
+        return "active"
+    state, _ = _renew(refresh_token, timeout=10)
+    return {"ok": "active", "refused": "none"}.get(state, "offline")
 
 
 def auth_headers(notify: Callable[[str], Any] = print) -> dict:
