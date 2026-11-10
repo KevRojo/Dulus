@@ -101,7 +101,8 @@ Slash commands in REPL:
   /update status    Show installed version, latest, and auto-check setting
   /login dulus      Sign in to your Dulus account (OAuth PKCE — no API key; unlocks Fuel-metered Dulus models)
   /login dulus key  Mint a dulus_sk_* API key for CI/servers
-  /login dulus --headless  Also try opening a browser locally (default just shows a URL + code)
+  /login dulus --headless  Never open a browser: link, code + QR to approve from your phone
+  /login dulus --browser   Open a browser even over SSH (default: only on a local desktop)
   /fuel             $DULUS Fuel balance + reload wallet QR (console-scannable)
   /fuel deposit     Show reload wallet address + QR only
   /login claude     Claude Pro/Max subscription OAuth (no API key)
@@ -8415,10 +8416,16 @@ def cmd_login(args: str, _state, config) -> bool:
 
         rest = (args or "").strip().split()
         force = "force" in rest
-        # --headless: opt back into the old "just try to open a browser"
-        # behaviour. The default is safe (only opens a real GUI browser, never
-        # hijacks an SSH/headless terminal); this flag is the escape hatch.
-        headless = any(t in ("--headless", "headless") for t in rest)
+        # A browser opens only with a desktop in front of you (not over SSH,
+        # not on a box with no display). --headless never opens one, just the
+        # link, code and QR to approve from any device; --browser also tries
+        # over SSH.
+        if any(t in ("--headless", "headless", "--no-browser") for t in rest):
+            browser = "never"
+        elif "--browser" in rest:
+            browser = "always"
+        else:
+            browser = "auto"
         if len(rest) > 1 and rest[1] in ("key", "apikey", "api-key"):
             name = rest[2] if len(rest) > 2 else "cli"
             dulus_account.create_api_key(name, notify=lambda m: print(clr(m, "cyan")))
@@ -8440,12 +8447,12 @@ def cmd_login(args: str, _state, config) -> bool:
 
         if force:
             dulus_account.clear_store()
-        print(clr("Starting Dulus sign-in (OAuth 2.0 + PKCE)…", "cyan"))
-        if not headless:
-            print(clr("  tip: default shows a URL + code to approve from any device. "
-                      "Add --headless to also try opening a browser here.", "gray"))
+        print(clr("Starting Dulus sign-in (OAuth 2.0 + PKCE)…", "cyan"), flush=True)
         try:
-            token = dulus_account.login(notify=lambda m: print(clr(m, "cyan")), force_browser=headless)
+            # Flushed: Git Bash hands Dulus a pipe, which would hold the link
+            # back until the sign-in it's needed for is over.
+            token = dulus_account.login(notify=lambda m: print(clr(m, "cyan"), flush=True),
+                                        browser=browser, out=sys.stdout)
         except Exception as e:
             token = None
             print(clr(f"Sign-in error: {e}", "red"))
@@ -10658,7 +10665,7 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "task":        ("Manage tasks (alias)",               ["create", "delete", "get", "clear",
                                                            "todo", "in-progress", "done", "blocked"]),
     "proactive":   ("Manage proactive background watcher", ["off"]),
-    "login":       ("Sign in to Dulus or a provider (OAuth, no API key)", ["dulus", "claude", "chatgpt", "kimi", "grok", "zai", "key", "force"]),
+    "login":       ("Sign in to Dulus or a provider (OAuth, no API key)", ["dulus", "claude", "chatgpt", "kimi", "grok", "zai", "key", "force", "--headless", "--browser"]),
     "fuel":        ("$DULUS Fuel balance + reload wallet QR", ["deposit", "balance", "reload"]),
     "reload":      ("Alias of /fuel deposit — reload wallet QR", []),
     "daemon":      ("Toggle daemon — allow external triggers (Telegram) to spawn Dulus", ["on", "off"]),
@@ -13106,19 +13113,28 @@ def _attached_to_msys_pty(stream) -> bool:
     return re.match(r"\\(cygwin|msys)-[0-9a-fA-F]+-pty\d+-(from|to)-master", name) is not None
 
 
-def _login_gate_can_prompt() -> bool:
-    """Is a person there to see a sign-in link? CI never counts."""
+def _login_gate_stream():
+    """The terminal a person is watching, where a sign-in link has to go — or None.
+
+    stdout when that's the terminal, else stderr: `dulus -p … > out.txt` still
+    has someone looking at stderr. CI never counts.
+    """
     if os.environ.get("CI"):
-        return False
+        return None
     for stream in (sys.stdout, sys.stderr):
         if stream is None:
             continue
         try:
             if stream.isatty() or _attached_to_msys_pty(stream):
-                return True
+                return stream
         except Exception:
             pass
-    return False
+    return None
+
+
+def _login_gate_can_prompt() -> bool:
+    """Is a person there to see a sign-in link? CI never counts."""
+    return _login_gate_stream() is not None
 
 
 def _require_dulus_login(args) -> None:
@@ -13175,16 +13191,29 @@ def _require_dulus_login(args) -> None:
             print(f"[dulus] {message}", file=sys.stderr)
         sys.exit(2)
 
-    print(clr("\n  Dulus runs on a free Dulus account — sign in once and you're in.\n", "cyan"))
+    # Every line goes to the terminal the person is watching, flushed: with
+    # stdout redirected the link would land in the file, and Git Bash's pipe
+    # would hold it back until the sign-in it is needed for was over.
+    screen = _login_gate_stream() or sys.stdout
+
+    def say(message: str, color: str = "cyan") -> None:
+        print(clr(message, color), file=screen, flush=True)
+
+    say("\n  Dulus runs on a free Dulus account — sign in once and you're in.\n")
     try:
-        token = dulus_account.login(notify=lambda m: print(clr(m, "cyan")))
+        token = dulus_account.login(notify=say, out=screen)
     except KeyboardInterrupt:
         token = None
+    except Exception as exc:  # noqa: BLE001 - a crash in the sign-in reads as a failed sign-in
+        say(f"[dulus] Sign-in failed ({type(exc).__name__}: {exc}).", "yellow")
+        token = None
     if not token:
-        print(clr("[dulus] Sign-in didn't finish. Run `dulus` again whenever you're ready.", "yellow"),
-              file=sys.stderr)
+        say("[dulus] Sign-in didn't finish. Run `dulus` again whenever you're ready.", "yellow")
         sys.exit(1)
-    ok("Signed in — welcome aboard. 🦅")
+    if screen is sys.stdout:
+        ok("Signed in — welcome aboard. 🦅")
+    else:
+        say("Signed in — welcome aboard. 🦅", "green")
 
 
 def main():
