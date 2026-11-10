@@ -1,9 +1,18 @@
-> **🔥 v6.4.1 is live (Oct 29, 2026).** Signed Windows and macOS (Apple Silicon) desktop builds are out; Linux is coming soon. This repo is the open-source home of the Python runtime — desktop builds get new features first. [Download v6.4.1 →](https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.4.1) 🦅🇩🇴
+<p align="center">
+  🔥 <strong>v6.4.1 is live (Oct 29, 2026).</strong> Signed Windows and macOS (Apple Silicon) desktop builds are out; Linux is coming soon. This repo is the open-source home of the Python runtime — desktop builds get new features first.<br>
+  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.4.1"><strong>Download v6.4.1 →</strong></a> 🦅🇩🇴
+</p>
 
-# Dulus
+<h1 align="center">Dulus</h1>
 
-<img width="1183" height="854" alt="image" src="https://github.com/user-attachments/assets/907f4dd2-476f-4715-86d0-6cf4a9576339" />
+<p align="center">
+  <b>One runtime. Every provider. Your machine.</b><br>
+  The open-source AI agent for your terminal — and the core of the <a href="https://dulus.ai/download/">Dulus desktop app</a>.
+</p>
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/907f4dd2-476f-4715-86d0-6cf4a9576339" width="880" alt="Dulus — one agent, every model, your machine">
+</p>
 
 <p align="center">
   <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="PyPI version"></a>
@@ -14,7 +23,6 @@
   <img src="https://img.shields.io/badge/python-3.10%2B-ff6b1f?style=flat-square&labelColor=07070a&logo=python" alt="Python 3.10+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="GPLv3 license"></a>
 </p>
-
 <p align="center">
   <a href="#install-in-30-seconds"><strong>Install</strong></a> ·
   <a href="#get-your-dulus-api-key-no-website-required"><strong>API key</strong></a> ·
