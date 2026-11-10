@@ -1,6 +1,6 @@
 <p align="center">
-  🔥 <strong>v6.4.1 is live (Oct 29, 2026).</strong> Signed Windows and macOS (Apple Silicon) desktop builds are out; Linux is coming soon. This repo is the open-source home of the Python runtime — desktop builds get new features first.<br>
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.4.1"><strong>Download v6.4.1 →</strong></a> 🦅🇩🇴
+  🔥 <strong>v6.4.4 is live (Nov 10, 2026).</strong> Signed Windows and macOS (Apple Silicon) desktop builds are out; Linux is coming soon. This repo is the open-source home of the Python runtime — desktop builds get new features first.<br>
+  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.4.4"><strong>Download v6.4.4 →</strong></a> 🦅🇩🇴
 </p>
 
 <h1 align="center">Dulus</h1>
