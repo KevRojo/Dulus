@@ -371,7 +371,7 @@ Those numbers are not a vanity dashboard. They explain the product: Dulus is bui
 
 ## Install in 30 seconds
 
-> **Dulus runs on a free Dulus account.** The first `dulus` opens your browser to sign in; after that the session is remembered. CI, scripts and servers: set `DULUS_API_KEY` to a `dulus_sk_*` key from `/login dulus key`. `--version` and `--help` never ask.
+> **Dulus runs on a free Dulus account.** The first `dulus` opens your browser to sign in — over SSH or on a box with no desktop it shows a link, a code and a QR to approve from your phone or laptop instead; after that the session is remembered. CI, scripts and servers: set `DULUS_API_KEY` to a `dulus_sk_*` key from `/login dulus key`. `--version` and `--help` never ask.
 
 If Python 3.11 or newer is already installed:
 
