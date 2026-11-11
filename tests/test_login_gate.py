@@ -120,6 +120,142 @@ def test_refresh_returns_none_when_refused(store, monkeypatch):
     assert dulus_account.refresh("r1") is None
 
 
+# ── sign_in over a long or filtered route ───────────────────────────────────
+
+_DEVICE = f"https://{dulus_account._AUTH0_DOMAIN}/oauth/device/code"
+_POLL = f"https://{dulus_account._AUTH0_DOMAIN}/oauth/token"
+_LEASE = f"{dulus_account.DULUS_API_BASE}/api/entitlements"
+_AUTHORIZE = f"{dulus_account.DULUS_API_BASE}/v1/oauth/authorize"
+_EXCHANGE = f"{dulus_account.DULUS_API_BASE}/v1/oauth/token"
+
+
+class _Page(_Resp):
+    """What a Wi-Fi login page or a filtering proxy sends back: not JSON."""
+
+    def json(self):
+        raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+
+class _Clock:
+    """Virtual time, so retries and polling cost the suite nothing."""
+
+    def __init__(self):
+        self.now = 1_000_000.0
+
+    def time(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+@pytest.fixture()
+def network(store, monkeypatch):
+    """Answer each sign-in URL from its own script of replies; the last one repeats."""
+    import requests
+
+    script: dict = {}
+    calls: list = []
+
+    def request(method, url, **_):
+        calls.append(url)
+        replies = script[url]
+        reply = replies.pop(0) if len(replies) > 1 else replies[0]
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(dulus_account, "time", _Clock())
+    monkeypatch.setattr(dulus_account, "_open_url_gui", lambda url: False)
+    return script, calls
+
+
+def _a_clean_sign_in():
+    return {
+        _DEVICE: [_Resp(200, {"device_code": "dc", "user_code": "ABCD-EFGH",
+                              "verification_uri": "https://login.test/activate"})],
+        _POLL: [_Resp(400, {"error": "authorization_pending"}), _Resp(200, {"access_token": "a0"})],
+        _LEASE: [_Resp(200, {"leaseToken": "lease"})],
+        _AUTHORIZE: [_Resp(200, {"code": "c0"})],
+        _EXCHANGE: [_Resp(200, {"access_token": "cli", "refresh_token": "r0", "expires_in": 3600})],
+    }
+
+
+def test_sign_in_rides_out_a_lossy_route(network):
+    """Every step can lose a request on the way and the sign-in still lands."""
+    import requests
+
+    script, calls = network
+    script.update(_a_clean_sign_in())
+    script[_DEVICE].insert(0, requests.ConnectionError("connection reset by peer"))
+    script[_POLL].insert(0, requests.ReadTimeout("read timed out"))
+    script[_LEASE].insert(0, _Resp(503))
+    script[_AUTHORIZE].insert(0, requests.ConnectTimeout("connect timed out"))
+    script[_EXCHANGE].insert(0, _Resp(502))
+
+    assert dulus_account.sign_in(notify=lambda m: None) == ("ok", "cli")
+    assert calls.count(_DEVICE) == 2
+    assert dulus_account.load_store()["lease_token"] == "lease"
+
+
+def test_login_still_hands_back_just_the_token(network):
+    script, _ = network
+    script.update(_a_clean_sign_in())
+    assert dulus_account.login(notify=lambda m: None) == "cli"
+
+
+def test_a_login_server_that_never_answers_is_unreachable(network):
+    import requests
+
+    script, calls = network
+    script[_DEVICE] = [requests.ConnectionError("connection reset by peer")]
+    said: list = []
+
+    assert dulus_account.sign_in(notify=said.append) == ("unreachable", None)
+    assert calls == [_DEVICE] * dulus_account._SIGN_IN_ATTEMPTS
+    # Name what didn't answer, then the two ways through: a proxy, or a key
+    # minted on a machine that can reach Dulus.
+    text = "\n".join(said)
+    assert dulus_account._AUTH0_DOMAIN in text
+    assert "HTTPS_PROXY" in text and "DULUS_API_KEY" in text
+
+
+def test_a_wifi_login_page_is_not_an_answer(network):
+    script, _ = network
+    script[_DEVICE] = [_Page(200)]
+    assert dulus_account.sign_in(notify=lambda m: None) == ("unreachable", None)
+
+
+def test_polls_that_never_get_through_are_unreachable(network):
+    import requests
+
+    script, _ = network
+    script.update(_a_clean_sign_in())
+    script[_POLL] = [requests.ConnectTimeout("connect timed out")]
+    assert dulus_account.sign_in(notify=lambda m: None) == ("unreachable", None)
+
+
+def test_dulus_api_out_of_reach_after_approval_is_unreachable(network):
+    script, _ = network
+    script.update(_a_clean_sign_in())
+    script[_LEASE] = [_Resp(503)]
+    assert dulus_account.sign_in(notify=lambda m: None) == ("unreachable", None)
+
+
+@pytest.mark.parametrize("url, reply", [
+    (_POLL, _Resp(403, {"error": "access_denied"})),
+    (_POLL, _Resp(400, {"error": "authorization_pending"})),  # the code ran out unapproved
+    (_LEASE, _Resp(401, {"detail": "invalid token"})),
+])
+def test_a_real_no_is_refused_not_unreachable(network, url, reply):
+    """Only a network that can't get an answer opens the gate; a "no" keeps it shut."""
+    script, _ = network
+    script.update(_a_clean_sign_in())
+    script[url] = [reply]
+    assert dulus_account.sign_in(notify=lambda m: None) == ("refused", None)
+
+
 # ── the launch gate ─────────────────────────────────────────────────────────
 
 def _args(**over):
@@ -136,9 +272,11 @@ def gate(monkeypatch):
         seen["renew"] = renew
         return seen.get("answer", "none")
 
+    def sign_in(notify=print, force_browser=False):
+        return seen.setdefault("sign_in", ("ok", "token"))
+
     monkeypatch.setattr(dulus_account, "session_status", status)
-    monkeypatch.setattr(dulus_account, "login",
-                        lambda notify=print, force_browser=False: seen.setdefault("login", "token"))
+    monkeypatch.setattr(dulus_account, "sign_in", sign_in)
     monkeypatch.setattr(dulus, "_protocol_enabled", lambda: False)
     monkeypatch.setattr(dulus, "_login_gate_can_prompt", lambda: True)
     return seen
@@ -171,14 +309,40 @@ def test_gate_survives_a_broken_session_check(monkeypatch, capsys):
 
 def test_gate_signs_you_in(gate):
     dulus._require_dulus_login(_args())
-    assert gate["login"] == "token"
+    assert gate["sign_in"] == ("ok", "token")
 
 
 def test_gate_stops_when_sign_in_does_not_finish(gate):
-    gate["login"] = None
+    gate["sign_in"] = ("refused", None)
     with pytest.raises(SystemExit) as exc:
         dulus._require_dulus_login(_args())
     assert exc.value.code == 1
+
+
+def test_gate_stops_on_ctrl_c_during_sign_in(gate, monkeypatch):
+    def interrupted(notify=print, force_browser=False):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(dulus_account, "sign_in", interrupted)
+    with pytest.raises(SystemExit) as exc:
+        dulus._require_dulus_login(_args())
+    assert exc.value.code == 1
+
+
+def test_gate_carries_on_when_the_sign_in_servers_are_unreachable(gate, capsys):
+    """A network that filters the sign-in servers (mainland China…) must not lock anyone out."""
+    gate["sign_in"] = ("unreachable", None)
+    dulus._require_dulus_login(_args())  # must not exit
+    assert "carrying on" in capsys.readouterr().err.lower()
+
+
+def test_gate_survives_a_broken_sign_in(gate, monkeypatch, capsys):
+    def boom(notify=print, force_browser=False):
+        raise AttributeError("'list' object has no attribute 'get'")
+
+    monkeypatch.setattr(dulus_account, "sign_in", boom)
+    dulus._require_dulus_login(_args())  # must not raise
+    assert "carrying on" in capsys.readouterr().err
 
 
 def test_gate_without_a_person_explains_and_exits(gate, monkeypatch, capsys):
@@ -188,7 +352,7 @@ def test_gate_without_a_person_explains_and_exits(gate, monkeypatch, capsys):
     assert exc.value.code == 2
     assert "DULUS_API_KEY" in capsys.readouterr().err
     assert gate["renew"] is False
-    assert "login" not in gate
+    assert "sign_in" not in gate
 
 
 def test_gate_names_a_bad_key(gate, capsys):
@@ -205,7 +369,7 @@ def test_gate_protocol_mode_reports_through_the_protocol(gate, monkeypatch):
     with pytest.raises(SystemExit):
         dulus._require_dulus_login(_args())
     assert sent and "DULUS_API_KEY" in sent[0]
-    assert "login" not in gate
+    assert "sign_in" not in gate
 
 
 def test_gate_scripts_never_renew(gate):

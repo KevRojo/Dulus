@@ -13130,7 +13130,8 @@ def _require_dulus_login(args) -> None:
     a broken sign-in can always be fixed from the command line. Renewal only
     happens when a person launched Dulus; background children and `-c` runs
     take the stored session at its word so parallel launches never race to
-    rotate the same refresh token.
+    rotate the same refresh token. A network that can't reach the sign-in
+    servers gets what an offline renewal gets: a warning, not a lockout.
     """
     if args.run_tool or args.job_id or args.job_path:
         return
@@ -13177,9 +13178,21 @@ def _require_dulus_login(args) -> None:
 
     print(clr("\n  Dulus runs on a free Dulus account — sign in once and you're in.\n", "cyan"))
     try:
-        token = dulus_account.login(notify=lambda m: print(clr(m, "cyan")))
+        outcome, token = dulus_account.sign_in(notify=lambda m: print(clr(m, "cyan")))
     except KeyboardInterrupt:
-        token = None
+        outcome, token = "refused", None
+    except Exception as exc:  # noqa: BLE001 - same rule as the session check above
+        print(clr(f"[dulus] Couldn't run the sign-in ({type(exc).__name__}: {exc}) "
+                  "— carrying on.", "gray"), file=sys.stderr)
+        return
+    if outcome == "unreachable":
+        # A network that can't reach the sign-in servers (mainland China, some
+        # offices and hotels) is no reason to lock anyone out of their own
+        # terminal: same call as an offline renewal. sign_in() has already
+        # said how to get through, and the next launch asks again.
+        print(clr("[dulus] Carrying on without a sign-in for now — the next launch asks again, "
+                  "or run `/login dulus` any time.", "gray"), file=sys.stderr)
+        return
     if not token:
         print(clr("[dulus] Sign-in didn't finish. Run `dulus` again whenever you're ready.", "yellow"),
               file=sys.stderr)

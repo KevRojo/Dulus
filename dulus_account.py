@@ -26,6 +26,7 @@ import pathlib
 import secrets
 import time
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 
 DULUS_API_BASE = os.environ.get("DULUS_API_BASE", "https://control.dulus.ai").rstrip("/")
@@ -33,6 +34,11 @@ DULUS_OAUTH_CLIENT_ID = "dulus-cli"
 DULUS_OAUTH_SCOPE = "inference balance:read"
 _REDIRECT_PATH = "/callback"
 _LOGIN_TIMEOUT_SECONDS = 300
+# Sign-in requests cross long and sometimes filtered routes (mainland China, a
+# hotel network, a weak mobile link). A dropped connection gets a few more
+# tries before Dulus calls the server unreachable.
+_SIGN_IN_ATTEMPTS = 3
+_SIGN_IN_TIMEOUT = (10, 30)  # (connect, read) seconds
 # Locked Auth0 tenant constants — same tenant the private build uses. A public
 # client must not be able to repoint auth at its own tenant to dodge the plan
 # gate. The device flow is what identifies the human; the Dulus OAuth code
@@ -209,8 +215,83 @@ def refresh(refresh_token: str) -> dict | None:
     return _renew(refresh_token)[1]
 
 
+class _Unreachable(Exception):
+    """A sign-in server gave this network no answer."""
+
+    def __init__(self, host: str, reason: str):
+        super().__init__(f"{host}: {reason}")
+        self.host = host
+        self.reason = reason
+
+
+def _call(method: str, url: str, **kwargs: Any) -> tuple[Any, dict]:
+    """One sign-in request: ``(response, its JSON body)``.
+
+    Connection errors, timeouts and 429/5xx get a few more tries, since a
+    second try often gets through on a lossy route; :class:`_Unreachable`
+    means none did. A reply that isn't JSON is no answer either: Auth0 and the
+    Dulus API answer in JSON even when they say no, so a web page came from
+    something in between (a Wi-Fi login page, a filtering proxy).
+    """
+    import requests
+
+    host = urlsplit(url).hostname or url
+    reason = ""
+    for attempt in range(_SIGN_IN_ATTEMPTS):
+        if attempt:
+            time.sleep(attempt)  # 1s, then 2s
+        try:
+            response = requests.request(method, url, timeout=_SIGN_IN_TIMEOUT, **kwargs)
+        except requests.RequestException as exc:
+            reason = type(exc).__name__
+            continue
+        if response.status_code == 429 or response.status_code >= 500:
+            reason = f"HTTP {response.status_code}"
+            continue
+        try:
+            body = response.json()
+        except ValueError:
+            raise _Unreachable(host, f"HTTP {response.status_code} but not JSON — "
+                                     "a Wi-Fi login page or a filtering proxy?") from None
+        return response, body if isinstance(body, dict) else {}
+    raise _Unreachable(host, reason)
+
+
+def sign_in(notify: Callable[[str], Any] = print,
+            force_browser: bool = False) -> tuple[str, str | None]:
+    """Sign in via the device flow and say how it went.
+
+    Returns ``("ok", token)`` once signed in, ``("refused", None)`` when the
+    sign-in was denied, abandoned or turned down by Dulus, and
+    ``("unreachable", None)`` when this network never got an answer from the
+    sign-in servers — the same split :func:`_renew` makes for renewals. An
+    unreachable sign-in also explains how to get through from such a network.
+    """
+    try:
+        token = _device_flow(notify, force_browser)
+    except _Unreachable as exc:
+        notify(f"[dulus] Couldn't reach {exc.host} from this network ({exc.reason}).")
+        notify("[dulus] Behind a firewall? Sign-in uses the standard proxy settings: set "
+               "HTTPS_PROXY (e.g. http://127.0.0.1:7890) and start Dulus again.")
+        notify("[dulus] Or sign in on any machine that can reach Dulus, mint a key there with "
+               "`/login dulus key`, and set DULUS_API_KEY to it on this one.")
+        return "unreachable", None
+    return ("ok", token) if token else ("refused", None)
+
+
 def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> str | None:
     """Sign in via the device flow. Returns an access token, or None.
+
+    :func:`sign_in` does the work and also tells a refusal apart from a
+    network that can't reach the sign-in servers.
+    """
+    return sign_in(notify, force_browser)[1]
+
+
+def _device_flow(notify: Callable[[str], Any], force_browser: bool) -> str | None:
+    """The sign-in chain. Returns an access token, or None.
+
+    Raises :class:`_Unreachable` when a step never gets an answer.
 
     ``force_browser`` (the ``/login dulus --headless`` opt-in) tries the raw
     ``webbrowser.open`` like the old behaviour, for boxes with a graphical
@@ -226,19 +307,13 @@ def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> 
       3. POST /v1/oauth/authorize with the lease → authorization code.
       4. POST /v1/oauth/token (code + PKCE verifier) → CLI tokens.
     """
-    import requests
-
     # ── 1. Auth0 device code ────────────────────────────────────────────
-    try:
-        start = requests.post(
-            f"https://{_AUTH0_DOMAIN}/oauth/device/code",
-            data={"client_id": _AUTH0_CLIENT_ID, "scope": _AUTH0_SCOPES},
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            timeout=30,
-        ).json()
-    except Exception as exc:
-        notify(f"[dulus] Could not reach the login server: {exc}")
-        return None
+    _, start = _call(
+        "POST",
+        f"https://{_AUTH0_DOMAIN}/oauth/device/code",
+        data={"client_id": _AUTH0_CLIENT_ID, "scope": _AUTH0_SCOPES},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
 
     device_code = start.get("device_code")
     user_code = start.get("user_code")
@@ -264,10 +339,12 @@ def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> 
     interval = max(1, int(start.get("interval") or 5))
     deadline = time.time() + min(int(start.get("expires_in") or 300), _LOGIN_TIMEOUT_SECONDS)
     auth0_token = None
+    heard_back = False  # did any poll get a real answer from Auth0?
     while time.time() < deadline:
         time.sleep(interval)
         try:
-            poll = requests.post(
+            poll, answer = _call(
+                "POST",
                 f"https://{_AUTH0_DOMAIN}/oauth/token",
                 data={
                     "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
@@ -275,14 +352,14 @@ def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> 
                     "client_id": _AUTH0_CLIENT_ID,
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
-                timeout=30,
             )
-        except Exception:
-            continue
+        except _Unreachable:
+            continue  # this poll never got through; the next one may
+        heard_back = True
         if poll.status_code == 200:
-            auth0_token = poll.json().get("access_token")
+            auth0_token = answer.get("access_token")
             break
-        err = (poll.json() or {}).get("error", "")
+        err = answer.get("error", "")
         if err == "authorization_pending":
             continue
         if err == "slow_down":
@@ -298,23 +375,21 @@ def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> 
         return None
 
     if not auth0_token:
+        if not heard_back:
+            raise _Unreachable(_AUTH0_DOMAIN, "no reply while waiting for your approval")
         notify("[dulus] Sign-in timed out before it was approved.")
+        notify("[dulus] If the page wouldn't load, open the link on another device or network.")
         return None
 
     # ── 2. Account lease ────────────────────────────────────────────────
-    try:
-        ent = requests.get(
-            f"{DULUS_API_BASE}/api/entitlements",
-            headers={"Authorization": f"Bearer {auth0_token}"},
-            timeout=30,
-        )
-    except Exception as exc:
-        notify(f"[dulus] Could not reach the Dulus API: {exc}")
-        return None
+    ent, ent_data = _call(
+        "GET",
+        f"{DULUS_API_BASE}/api/entitlements",
+        headers={"Authorization": f"Bearer {auth0_token}"},
+    )
     if ent.status_code != 200:
         notify(f"[dulus] Account lookup failed ({ent.status_code}).")
         return None
-    ent_data = ent.json() or {}
     lease = ent_data.get("leaseToken")
     if not lease:
         notify("[dulus] This account has no active Dulus plan — sign up at dulus.ai first.")
@@ -324,53 +399,44 @@ def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> 
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(24)
     redirect_uri = f"http://127.0.0.1{_REDIRECT_PATH}"
-    try:
-        authz = requests.post(
-            f"{DULUS_API_BASE}/v1/oauth/authorize",
-            params={
-                "client_id": DULUS_OAUTH_CLIENT_ID,
-                "redirect_uri": redirect_uri,
-                "code_challenge": challenge,
-                "code_challenge_method": "S256",
-                "state": state,
-                "scope": DULUS_OAUTH_SCOPE,
-            },
-            headers={"X-Dulus-Lease": lease},
-            timeout=30,
-        )
-    except Exception as exc:
-        notify(f"[dulus] Authorization request failed: {exc}")
-        return None
+    authz, authz_data = _call(
+        "POST",
+        f"{DULUS_API_BASE}/v1/oauth/authorize",
+        params={
+            "client_id": DULUS_OAUTH_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "state": state,
+            "scope": DULUS_OAUTH_SCOPE,
+        },
+        headers={"X-Dulus-Lease": lease},
+    )
     if authz.status_code != 200:
         notify(f"[dulus] Authorization rejected ({authz.status_code}): {authz.text[:200]}")
         return None
-    code = (authz.json() or {}).get("code")
+    code = authz_data.get("code")
     if not code:
         notify("[dulus] Server returned no authorization code.")
         return None
 
     # ── 4. Code exchange ────────────────────────────────────────────────
-    try:
-        response = requests.post(
-            f"{DULUS_API_BASE}/v1/oauth/token",
-            json={
-                "grant_type": "authorization_code",
-                "client_id": DULUS_OAUTH_CLIENT_ID,
-                "code": code,
-                "redirect_uri": redirect_uri,
-                "code_verifier": verifier,
-            },
-            timeout=30,
-        )
-    except Exception as exc:
-        notify(f"[dulus] Token exchange failed: {exc}")
-        return None
-
+    response, tokens = _call(
+        "POST",
+        f"{DULUS_API_BASE}/v1/oauth/token",
+        json={
+            "grant_type": "authorization_code",
+            "client_id": DULUS_OAUTH_CLIENT_ID,
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "code_verifier": verifier,
+        },
+    )
     if response.status_code != 200:
         notify(f"[dulus] Token exchange rejected ({response.status_code}).")
         return None
 
-    store = _persist_tokens(response.json())
+    store = _persist_tokens(tokens)
     # Keep the account lease too: balance/usage endpoints authenticate with
     # X-Dulus-Lease, not with the OAuth token, so without this the toolbar
     # balance has nothing to present.
