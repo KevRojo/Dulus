@@ -1,44 +1,46 @@
 """Sign in to a Dulus account from the CLI.
 
 Dulus issues its own credentials rather than delegating identity to a third
-party, so this talks to the Dulus API directly: an OAuth 2.0
-Authorization-Code + PKCE flow for interactive login, and long-lived
-``dulus_sk_*`` API keys for servers and CI.
+party, so this talks to the Dulus API directly: a device-code sign-in for
+people, and long-lived ``dulus_sk_*`` API keys for servers and CI.
 
-The flow is the same one already used for the other providers -- open the
-system browser, capture the code on a loopback redirect, exchange it for
-tokens -- with two differences that matter:
+The sign-in has to work wherever Dulus runs, so nothing in it depends on this
+machine having a screen: Dulus shows a link and a code, and the person
+approves from any device — this one, a phone, a laptop. A browser is opened
+for them only when there's a desktop in front of them, and never in a way
+that can take over the terminal.
 
-  * The loopback port is chosen by the OS instead of being hard-coded, so two
-    logins can run at once and a busy port never blocks sign-in.
-  * The client is public, so it holds no secret. PKCE is what proves the code
-    is being redeemed by the same program that requested it.
+The client is public, so it holds no secret. PKCE is what proves the code is
+being redeemed by the same program that requested it.
 
 Tokens land in ``~/.dulus/account.json`` with owner-only permissions.
 """
 from __future__ import annotations
 
 import base64
+import functools
 import hashlib
+import io
 import json
 import os
 import pathlib
 import secrets
+import shlex
+import shutil
+import subprocess
+import sys
+import threading
 import time
-from typing import Any, Callable
-from urllib.parse import urlsplit
+from typing import Any, Callable, NoReturn, TextIO
 
 
 DULUS_API_BASE = os.environ.get("DULUS_API_BASE", "https://control.dulus.ai").rstrip("/")
 DULUS_OAUTH_CLIENT_ID = "dulus-cli"
 DULUS_OAUTH_SCOPE = "inference balance:read"
 _REDIRECT_PATH = "/callback"
-_LOGIN_TIMEOUT_SECONDS = 300
-# Sign-in requests cross long and sometimes filtered routes (mainland China, a
-# hotel network, a weak mobile link). A dropped connection gets a few more
-# tries before Dulus calls the server unreachable.
-_SIGN_IN_ATTEMPTS = 3
-_SIGN_IN_TIMEOUT = (10, 30)  # (connect, read) seconds
+# Device codes live 15 minutes. Someone on a server may need all of it: find
+# their phone, create the account, confirm the e-mail.
+_LOGIN_TIMEOUT_SECONDS = 900
 # Locked Auth0 tenant constants — same tenant the private build uses. A public
 # client must not be able to repoint auth at its own tenant to dodge the plan
 # gate. The device flow is what identifies the human; the Dulus OAuth code
@@ -51,51 +53,144 @@ _AUTH0_SCOPES = "openid profile email"
 _EXPIRY_BUFFER_SECONDS = 60
 API_KEY_PREFIX = "dulus_sk_"  # what `/login dulus key` mints
 
+# Terminal browsers. Started from here they would take over the very terminal
+# that is showing the sign-in link.
+_TEXT_BROWSERS = frozenset({
+    "www-browser", "w3m", "lynx", "elinks", "links", "links2", "elvis", "browsh",
+})
+# How long a browser opener (xdg-open, open, wslview…) gets to report failure.
+# One still running after this is the browser itself, so it counts as opened.
+_BROWSER_WAIT_SECONDS = 4.0
 
-def _is_text_browser(name: str) -> bool:
+
+def _is_text_browser(command: str) -> bool:
     """True for terminal browsers that hijack the TTY (w3m, lynx, links…)."""
-    n = (name or "").lower()
-    return any(t in n for t in (
-        "www-browser", "w3m", "lynx", "elinks", "links2", "links", "elvis",
-    ))
+    program = os.path.basename((command or "").strip().split(" ", 1)[0]).lower()
+    return program.removesuffix(".exe") in _TEXT_BROWSERS
 
 
-def _open_url_gui(url: str) -> bool:
-    """Open *url* in a GRAPHICAL browser only — never hijack the terminal.
+def _over_ssh() -> bool:
+    """A browser opened from an SSH session lands on the far machine's screen, or nowhere."""
+    return any(os.environ.get(name) for name in ("SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"))
 
-    On a headless box, over SSH, or when the only registered browser is a
-    text-mode one (e.g. a Raspberry Pi where ``webbrowser`` falls back to
-    ``www-browser``/``w3m``), this does nothing and returns False. The caller
-    has already printed the URL + code, so the human just approves it from any
-    device — nothing has to reach this machine's display.
+
+def _spawn_detached(argv: list[str]) -> bool:
+    """Run one browser opener cut off from the terminal. False only when it plainly failed.
+
+    No stdin, stdout or stderr and a session of its own: whatever it ends up
+    starting — even a text browser it falls back to — can't draw over the CLI,
+    read its keystrokes or hold up the sign-in.
     """
-    import sys
-    import threading
-    import webbrowser
-
-    # Linux/BSD: require a display server and refuse pure SSH sessions.
-    # macOS ("darwin") and Windows ("win32") always hand off to a real GUI.
-    if sys.platform not in ("darwin", "win32"):
-        has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
-        is_ssh = bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
-        if not has_display or is_ssh:
-            return False
-
     try:
-        try:
-            ctrl = webbrowser.get()
-        except Exception:
-            ctrl = None
-        name = getattr(ctrl, "name", "") or getattr(ctrl, "basename", "")
-        if _is_text_browser(name) or _is_text_browser(os.environ.get("BROWSER", "")):
-            return False
-        # Daemon thread: a slow or hanging launcher can never block the CLI.
-        threading.Thread(
-            target=lambda: webbrowser.open(url, new=2), daemon=True
-        ).start()
-        return True
-    except Exception:
+        proc = subprocess.Popen(
+            argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except (OSError, ValueError):
         return False
+    try:
+        return proc.wait(timeout=_BROWSER_WAIT_SECONDS) == 0
+    except subprocess.TimeoutExpired:
+        return True  # still running: that's the browser itself, not a failure
+
+
+def _start_file(url: str) -> bool:
+    """Windows: hand *url* to the default browser, the way ``webbrowser`` does."""
+    if sys.platform != "win32":
+        return False
+    try:
+        os.startfile(url)
+    except OSError:
+        return False
+    return True
+
+
+def _browser_openers(url: str, mode: str = "auto") -> list[Callable[[], bool]]:
+    """Ways to show *url* in a graphical browser on this machine, best first.
+
+    ``mode`` is ``"auto"`` (only with a desktop in front of the person),
+    ``"always"`` (over SSH too) or ``"never"``. No openers means headless:
+    the person approves from another device. Unlike ``webbrowser.open`` this
+    never falls back to a text browser.
+    """
+    if mode == "never":
+        return []
+    desktop = mode == "always" or not _over_ssh()
+    if sys.platform == "win32":
+        return [functools.partial(_start_file, url)] if desktop else []
+    commands: list[list[str]] = []
+    # An explicit $BROWSER says how links open here. VS Code points it at a
+    # helper that opens them on the person's own machine from a remote or
+    # container terminal, so it counts even with no desktop of our own.
+    for entry in os.environ.get("BROWSER", "").split(os.pathsep):
+        try:
+            argv = shlex.split(entry)
+        except ValueError:
+            continue
+        if argv and not _is_text_browser(argv[0]):
+            commands.append([a.replace("%s", url) for a in argv] if "%s" in entry else argv + [url])
+    if desktop:
+        if sys.platform == "darwin":
+            commands.append(["open", url])
+        else:
+            commands.append(["wslview", url])  # WSL: the Windows default browser
+            # Without a display xdg-open can only fall back to a text browser.
+            if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+                commands += [["xdg-open", url], ["gio", "open", url], ["x-www-browser", url]]
+    return [functools.partial(_spawn_detached, argv) for argv in commands if shutil.which(argv[0])]
+
+
+def _show_qr(data: str, out: Any, spare_lines: int) -> bool:
+    """Draw *data* on *out* as a QR for a phone to scan. False when it didn't.
+
+    Only whole, with *spare_lines* of text still on screen under it, and only
+    with segno installed.
+    """
+    try:
+        import segno
+    except ImportError:
+        return False
+    buf = io.StringIO()
+    segno.make_qr(data, error="m").terminal(out=buf, compact=True)
+    rows = buf.getvalue().splitlines()
+    try:
+        size = os.get_terminal_size(out.fileno())
+    except (AttributeError, OSError, ValueError):
+        size = shutil.get_terminal_size()
+    if len(rows) + spare_lines > size.lines or max(map(len, rows), default=0) > size.columns:
+        return False
+    # White on black, set explicitly: in the terminal's own colors the QR
+    # comes out inverted on a light theme, which many phone scanners can't
+    # read. 256-color 231 and 16 are pure white and black; themes leave them be.
+    if not (os.environ.get("NO_COLOR") or os.environ.get("TERM", "").lower() == "dumb"):
+        rows = [f"\033[38;5;231;48;5;16m{row}\033[0m" for row in rows]
+    out.write("\n".join(rows) + "\n")
+    out.flush()
+    return True
+
+
+def _json_body(response: Any) -> dict:
+    """A reply's JSON object, or {} for an empty, HTML or otherwise unusable body."""
+    try:
+        body = response.json()
+    except Exception:  # noqa: BLE001 - a proxy's error page is not JSON
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
+def _transient(status: int) -> bool:
+    """Rate-limited or failing on the server's side: worth asking again."""
+    return status == 429 or status >= 500
+
+
+def _seconds(value: Any, default: int) -> int:
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def _store_path() -> pathlib.Path:
@@ -215,88 +310,121 @@ def refresh(refresh_token: str) -> dict | None:
     return _renew(refresh_token)[1]
 
 
-class _Unreachable(Exception):
-    """A sign-in server gave this network no answer."""
+def _poll_device_flow(device_code: str) -> tuple[str, str]:
+    """Ask Auth0 once whether the person approved. Returns ``(outcome, detail)``.
 
-    def __init__(self, host: str, reason: str):
-        super().__init__(f"{host}: {reason}")
-        self.host = host
-        self.reason = reason
-
-
-def _call(method: str, url: str, **kwargs: Any) -> tuple[Any, dict]:
-    """One sign-in request: ``(response, its JSON body)``.
-
-    Connection errors, timeouts and 429/5xx get a few more tries, since a
-    second try often gets through on a lossy route; :class:`_Unreachable`
-    means none did. A reply that isn't JSON is no answer either: Auth0 and the
-    Dulus API answer in JSON even when they say no, so a web page came from
-    something in between (a Wi-Fi login page, a filtering proxy).
+    ``"token"`` carries the Auth0 access token; ``"pending"`` and
+    ``"slow_down"`` are the RFC 8628 waits; ``"retry"`` is no usable answer at
+    all (no network, a 5xx, a proxy's HTML page); ``"denied"``, ``"expired"``
+    and ``"failed"`` end the sign-in.
     """
     import requests
 
-    host = urlsplit(url).hostname or url
-    reason = ""
-    for attempt in range(_SIGN_IN_ATTEMPTS):
+    try:
+        reply = requests.post(
+            f"https://{_AUTH0_DOMAIN}/oauth/token",
+            data={
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                "device_code": device_code,
+                "client_id": _AUTH0_CLIENT_ID,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=30,
+        )
+    except Exception as exc:  # noqa: BLE001 - offline for a moment: ask again
+        return "retry", type(exc).__name__
+    body = _json_body(reply)
+    if reply.status_code == 200 and body.get("access_token"):
+        return "token", str(body["access_token"])
+    error = str(body.get("error") or "")
+    if error == "authorization_pending":
+        return "pending", ""
+    if error == "slow_down":
+        return "slow_down", ""
+    if error == "access_denied":
+        return "denied", ""
+    if error in ("expired_token", "expired"):
+        return "expired", ""
+    if error and not _transient(reply.status_code):
+        return "failed", str(body.get("error_description") or error)
+    return "retry", f"HTTP {reply.status_code}"
+
+
+class _Unreachable(Exception):
+    """The sign-in servers gave this network no answer — which is not a refusal."""
+
+
+def _unreachable(notify: Callable[[str], Any], what: str, url: str) -> NoReturn:
+    """Say what didn't answer and how to get through, then end the sign-in."""
+    notify(f"[dulus] {what}")
+    notify(f"[dulus] Check this machine can reach {url} — behind a proxy, set HTTPS_PROXY.")
+    raise _Unreachable(what)
+
+
+def _ask_dulus(notify: Callable[[str], Any], send: Callable[..., Any], url: str,
+               **kwargs: Any) -> Any:
+    """One Dulus API call after approval, with the tries the start of the sign-in gets.
+
+    By then the person has approved, often from a phone: one connection lost on
+    a long route (mainland China, a hotel network) shouldn't throw that away.
+    """
+    problem = ""
+    for attempt in range(3):
         if attempt:
-            time.sleep(attempt)  # 1s, then 2s
+            time.sleep(2 * attempt)
         try:
-            response = requests.request(method, url, timeout=_SIGN_IN_TIMEOUT, **kwargs)
-        except requests.RequestException as exc:
-            reason = type(exc).__name__
+            reply = send(url, timeout=30, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - no network for a moment: try again
+            problem = type(exc).__name__
             continue
-        if response.status_code == 429 or response.status_code >= 500:
-            reason = f"HTTP {response.status_code}"
-            continue
-        try:
-            body = response.json()
-        except ValueError:
-            raise _Unreachable(host, f"HTTP {response.status_code} but not JSON — "
-                                     "a Wi-Fi login page or a filtering proxy?") from None
-        return response, body if isinstance(body, dict) else {}
-    raise _Unreachable(host, reason)
+        if not _transient(reply.status_code):
+            return reply
+        problem = f"HTTP {reply.status_code}"
+    _unreachable(notify, f"Could not reach the Dulus API ({problem}).", DULUS_API_BASE)
 
 
-def sign_in(notify: Callable[[str], Any] = print,
-            force_browser: bool = False) -> tuple[str, str | None]:
-    """Sign in via the device flow and say how it went.
+def sign_in(
+    notify: Callable[[str], Any] = functools.partial(print, flush=True),
+    browser: str = "auto",
+    out: TextIO | None = None,
+) -> tuple[str, str | None]:
+    """:func:`login`, also saying how it went.
 
     Returns ``("ok", token)`` once signed in, ``("refused", None)`` when the
-    sign-in was denied, abandoned or turned down by Dulus, and
-    ``("unreachable", None)`` when this network never got an answer from the
-    sign-in servers — the same split :func:`_renew` makes for renewals. An
-    unreachable sign-in also explains how to get through from such a network.
+    sign-in was denied, abandoned or turned down, and ``("unreachable", None)``
+    when this network never got an answer from the sign-in servers — the same
+    split :func:`_renew` makes for renewals.
     """
     try:
-        token = _device_flow(notify, force_browser)
-    except _Unreachable as exc:
-        notify(f"[dulus] Couldn't reach {exc.host} from this network ({exc.reason}).")
-        notify("[dulus] Behind a firewall? Sign-in uses the standard proxy settings: set "
-               "HTTPS_PROXY (e.g. http://127.0.0.1:7890) and start Dulus again.")
+        token = _device_flow(notify, browser, out)
+    except _Unreachable:
+        # A filtered network (mainland China, a locked-down office) can still
+        # run on an account: a key minted wherever Dulus answers works here.
         notify("[dulus] Or sign in on any machine that can reach Dulus, mint a key there with "
                "`/login dulus key`, and set DULUS_API_KEY to it on this one.")
         return "unreachable", None
     return ("ok", token) if token else ("refused", None)
 
 
-def login(notify: Callable[[str], Any] = print, force_browser: bool = False) -> str | None:
+def login(
+    notify: Callable[[str], Any] = functools.partial(print, flush=True),
+    browser: str = "auto",
+    out: TextIO | None = None,
+) -> str | None:
     """Sign in via the device flow. Returns an access token, or None.
 
-    :func:`sign_in` does the work and also tells a refusal apart from a
-    network that can't reach the sign-in servers.
-    """
-    return sign_in(notify, force_browser)[1]
+    Works the same on a desktop, over SSH and on a box with no screen:
 
-
-def _device_flow(notify: Callable[[str], Any], force_browser: bool) -> str | None:
-    """The sign-in chain. Returns an access token, or None.
-
-    Raises :class:`_Unreachable` when a step never gets an answer.
-
-    ``force_browser`` (the ``/login dulus --headless`` opt-in) tries the raw
-    ``webbrowser.open`` like the old behaviour, for boxes with a graphical
-    browser that our headless/SSH guard would otherwise skip. Off by default:
-    the safe path only opens a real GUI browser and never hijacks the terminal.
+      * The link and code are shown before anything else is tried, so the
+        sign-in can always be approved from another device.
+      * ``browser="auto"`` opens one only with a desktop in front of the
+        person, and says so when it couldn't; ``"never"`` (``/login dulus
+        --headless``) opens none; ``"always"`` (``--browser``) tries over SSH
+        too. Openers run cut off from the terminal, so none can take it over.
+      * With no browser, ``out`` (the stream the person is watching) also gets
+        a QR of the link to scan with a phone, when it fits on screen.
+      * Waiting for approval rides out a flaky network or proxy until the code
+        expires.
 
     The server has no browser consent page for the CLI: /v1/oauth/authorize
     is a POST-only API that expects an account lease. So the chain is:
@@ -306,90 +434,136 @@ def _device_flow(notify: Callable[[str], Any], force_browser: bool) -> str | Non
       2. GET /api/entitlements with the Auth0 token → account lease.
       3. POST /v1/oauth/authorize with the lease → authorization code.
       4. POST /v1/oauth/token (code + PKCE verifier) → CLI tokens.
-    """
-    # ── 1. Auth0 device code ────────────────────────────────────────────
-    _, start = _call(
-        "POST",
-        f"https://{_AUTH0_DOMAIN}/oauth/device/code",
-        data={"client_id": _AUTH0_CLIENT_ID, "scope": _AUTH0_SCOPES},
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
 
-    device_code = start.get("device_code")
-    user_code = start.get("user_code")
-    verify_full = start.get("verification_uri_complete") or start.get("verification_uri")
-    if not device_code or not user_code or not verify_full:
-        notify("[dulus] Login server returned no device code.")
+    :func:`sign_in` does the work and also tells a refusal apart from a
+    network that can't reach the sign-in servers.
+    """
+    return sign_in(notify, browser, out)[1]
+
+
+def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None) -> str | None:
+    """The chain :func:`login` describes.
+
+    Raises :class:`_Unreachable` when a step gets no answer.
+    """
+    import requests
+
+    # ── 1. Auth0 device code ────────────────────────────────────────────
+    start: dict = {}
+    problem = ""
+    for attempt in range(3):
+        if attempt:
+            notify(f"[dulus] No answer from the login server yet ({problem}) — trying again…")
+            time.sleep(2 * attempt)
+        start = {}
+        try:
+            reply = requests.post(
+                f"https://{_AUTH0_DOMAIN}/oauth/device/code",
+                data={"client_id": _AUTH0_CLIENT_ID, "scope": _AUTH0_SCOPES},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=15,
+            )
+        except Exception as exc:  # noqa: BLE001 - no network yet: try again
+            problem = type(exc).__name__
+            continue
+        start = _json_body(reply)
+        problem = f"HTTP {reply.status_code}"
+        if not _transient(reply.status_code):
+            break
+
+    device_code = str(start.get("device_code") or "")
+    user_code = str(start.get("user_code") or "")
+    short_link = str(start.get("verification_uri") or "")
+    link = str(start.get("verification_uri_complete") or short_link)
+    if not (device_code and user_code and link):
+        refusal = start.get("error_description") or start.get("error")
+        if not refusal:
+            _unreachable(notify, f"Couldn't get a sign-in code from the login server ({problem}).",
+                         f"https://{_AUTH0_DOMAIN}")
+        notify(f"[dulus] The login server wouldn't start a sign-in: {refusal}")
         return None
 
-    notify(f"[dulus] Go to {start.get('verification_uri') or verify_full} and enter: {user_code}")
-    notify(f"[dulus] Or open this link on any device (phone, laptop):\n{verify_full}")
-    if force_browser:
-        # --headless opt-in: try the old raw open (may still no-op on a truly
-        # headless box, but we honour the explicit request).
-        try:
-            import webbrowser
-            webbrowser.open(verify_full, new=2)
-            notify("[dulus] Tried to open your browser (--headless).")
-        except Exception:
-            pass
-    elif _open_url_gui(verify_full):
-        notify("[dulus] Opened your browser — approve there, then come back.")
+    interval = _seconds(start.get("interval"), 5)
+    lifetime = min(_seconds(start.get("expires_in"), _LOGIN_TIMEOUT_SECONDS),
+                   _LOGIN_TIMEOUT_SECONDS)
+    # Monotonic: a Raspberry Pi has no clock of its own, and NTP setting it
+    # mid-wait must not end the sign-in on the spot.
+    deadline = time.monotonic() + lifetime
 
-    interval = max(1, int(start.get("interval") or 5))
-    deadline = time.time() + min(int(start.get("expires_in") or 300), _LOGIN_TIMEOUT_SECONDS)
-    auth0_token = None
-    heard_back = False  # did any poll get a real answer from Auth0?
-    while time.time() < deadline:
+    # The link goes up first: whatever happens with a browser, the person can
+    # always finish from another device.
+    openers = _browser_openers(link, browser)
+    if openers:
+        notify("[dulus] To sign in, open this link on any device (phone, laptop):")
+    else:
+        notify("[dulus] Not opening a browser here — sign in from your phone or laptop:")
+        if out is not None:
+            _show_qr(link, out, spare_lines=7)  # keeps the link below it on screen
+    notify(f"\n    {link}\n")
+    if short_link and short_link != link:
+        notify(f"[dulus] Or go to {short_link} and enter {user_code}")
+    else:
+        notify(f"[dulus] Then enter the code {user_code}")
+
+    if openers:
+        # In a daemon thread with a deadline, so even a launcher that hangs
+        # (Windows' shell can) never holds up the sign-in.
+        launched: list[bool] = []
+        worker = threading.Thread(
+            target=lambda: launched.append(any(open_it() for open_it in openers)), daemon=True,
+        )
+        worker.start()
+        worker.join(2 * _BROWSER_WAIT_SECONDS)
+        if launched and not launched[0]:
+            # Most often a desktop that isn't really there (a tmux pane that
+            # kept an old DISPLAY), so the phone route gets its QR as well.
+            notify("[dulus] Couldn't open a browser here — use the link above on any device.")
+            if out is not None:
+                _show_qr(link, out, spare_lines=8)
+        else:
+            notify(f"[dulus] Opening your browser — check it shows {user_code}, then approve.")
+    notify(f"[dulus] Waiting for approval — the code expires in {max(1, lifetime // 60)} min. "
+           "Ctrl+C to cancel.")
+
+    auth0_token = ""
+    stalled = False
+    answered = False  # did Auth0 answer even one poll?
+    while time.monotonic() < deadline:
         time.sleep(interval)
-        try:
-            poll, answer = _call(
-                "POST",
-                f"https://{_AUTH0_DOMAIN}/oauth/token",
-                data={
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code,
-                    "client_id": _AUTH0_CLIENT_ID,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-        except _Unreachable:
-            continue  # this poll never got through; the next one may
-        heard_back = True
-        if poll.status_code == 200:
-            auth0_token = answer.get("access_token")
+        outcome, detail = _poll_device_flow(device_code)
+        answered = answered or outcome != "retry"
+        if outcome == "token":
+            auth0_token = detail
             break
-        err = answer.get("error", "")
-        if err == "authorization_pending":
-            continue
-        if err == "slow_down":
+        if outcome == "slow_down":
             interval += 5
-            continue
-        if err == "access_denied":
+        elif outcome == "retry" and not stalled:
+            stalled = True
+            notify(f"[dulus] Can't reach the login server ({detail}) — still trying…")
+        elif outcome == "denied":
             notify("[dulus] Sign-in denied.")
             return None
-        if err in ("expired_token", "expired"):
+        elif outcome == "expired":
             notify("[dulus] The login code expired. Run /login dulus again.")
             return None
-        notify(f"[dulus] Login failed: {err or poll.status_code}")
-        return None
+        elif outcome == "failed":
+            notify(f"[dulus] Login failed: {detail}")
+            return None
 
     if not auth0_token:
-        if not heard_back:
-            raise _Unreachable(_AUTH0_DOMAIN, "no reply while waiting for your approval")
+        if not answered:
+            _unreachable(notify, "The login server never answered while waiting for approval.",
+                         f"https://{_AUTH0_DOMAIN}")
         notify("[dulus] Sign-in timed out before it was approved.")
-        notify("[dulus] If the page wouldn't load, open the link on another device or network.")
         return None
 
     # ── 2. Account lease ────────────────────────────────────────────────
-    ent, ent_data = _call(
-        "GET",
-        f"{DULUS_API_BASE}/api/entitlements",
-        headers={"Authorization": f"Bearer {auth0_token}"},
-    )
+    ent = _ask_dulus(notify, requests.get, f"{DULUS_API_BASE}/api/entitlements",
+                     headers={"Authorization": f"Bearer {auth0_token}"})
     if ent.status_code != 200:
         notify(f"[dulus] Account lookup failed ({ent.status_code}).")
         return None
+    ent_data = _json_body(ent)
     lease = ent_data.get("leaseToken")
     if not lease:
         notify("[dulus] This account has no active Dulus plan — sign up at dulus.ai first.")
@@ -399,8 +573,9 @@ def _device_flow(notify: Callable[[str], Any], force_browser: bool) -> str | Non
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(24)
     redirect_uri = f"http://127.0.0.1{_REDIRECT_PATH}"
-    authz, authz_data = _call(
-        "POST",
+    authz = _ask_dulus(
+        notify,
+        requests.post,
         f"{DULUS_API_BASE}/v1/oauth/authorize",
         params={
             "client_id": DULUS_OAUTH_CLIENT_ID,
@@ -415,14 +590,15 @@ def _device_flow(notify: Callable[[str], Any], force_browser: bool) -> str | Non
     if authz.status_code != 200:
         notify(f"[dulus] Authorization rejected ({authz.status_code}): {authz.text[:200]}")
         return None
-    code = authz_data.get("code")
+    code = _json_body(authz).get("code")
     if not code:
         notify("[dulus] Server returned no authorization code.")
         return None
 
     # ── 4. Code exchange ────────────────────────────────────────────────
-    response, tokens = _call(
-        "POST",
+    response = _ask_dulus(
+        notify,
+        requests.post,
         f"{DULUS_API_BASE}/v1/oauth/token",
         json={
             "grant_type": "authorization_code",
@@ -432,11 +608,12 @@ def _device_flow(notify: Callable[[str], Any], force_browser: bool) -> str | Non
             "code_verifier": verifier,
         },
     )
-    if response.status_code != 200:
+    payload = _json_body(response)
+    if response.status_code != 200 or not payload.get("access_token"):
         notify(f"[dulus] Token exchange rejected ({response.status_code}).")
         return None
 
-    store = _persist_tokens(tokens)
+    store = _persist_tokens(payload)
     # Keep the account lease too: balance/usage endpoints authenticate with
     # X-Dulus-Lease, not with the OAuth token, so without this the toolbar
     # balance has nothing to present.

@@ -659,10 +659,15 @@ def _setup_dulus_account(config: dict, default_model: str) -> None:
     """
     config["model"] = f"dulus/{default_model}"
     print("\n  🦅 Dulus hosted models — no provider API key needed.")
-    print("  Sign in now to activate them (opens your browser).")
     try:
         import dulus_account
-        if dulus_account.login() is None:
+        # The launch gate has normally just signed this person in; a second
+        # sign-in would mean approving twice (from a phone, on a server).
+        if dulus_account.session_status(renew=False) == "active":
+            print("  You're signed in to your Dulus account — they're ready to use.")
+            return
+        print("  Sign in now to activate them.")
+        if dulus_account.login(out=sys.stdout) is None:
             print("  Sign-in incomplete. Run  /login dulus  any time to finish.")
     except Exception as e:
         print(f"  (Sign-in skipped: {e})")

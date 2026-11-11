@@ -137,12 +137,15 @@ class _Page(_Resp):
 
 
 class _Clock:
-    """Virtual time, so retries and polling cost the suite nothing."""
+    """Virtual time, so retries and the wait for approval cost the suite nothing."""
 
     def __init__(self):
         self.now = 1_000_000.0
 
     def time(self):
+        return self.now
+
+    def monotonic(self):
         return self.now
 
     def sleep(self, seconds):
@@ -157,7 +160,7 @@ def network(store, monkeypatch):
     script: dict = {}
     calls: list = []
 
-    def request(method, url, **_):
+    def send(url, **_):
         calls.append(url)
         replies = script[url]
         reply = replies.pop(0) if len(replies) > 1 else replies[0]
@@ -165,9 +168,10 @@ def network(store, monkeypatch):
             raise reply
         return reply
 
-    monkeypatch.setattr(requests, "request", request)
+    monkeypatch.setattr(requests, "post", send)
+    monkeypatch.setattr(requests, "get", send)
     monkeypatch.setattr(dulus_account, "time", _Clock())
-    monkeypatch.setattr(dulus_account, "_open_url_gui", lambda url: False)
+    monkeypatch.setattr(dulus_account, "_browser_openers", lambda url, mode="auto": [])
     return script, calls
 
 
@@ -195,7 +199,7 @@ def test_sign_in_rides_out_a_lossy_route(network):
     script[_EXCHANGE].insert(0, _Resp(502))
 
     assert dulus_account.sign_in(notify=lambda m: None) == ("ok", "cli")
-    assert calls.count(_DEVICE) == 2
+    assert calls.count(_DEVICE) == 2 and calls.count(_LEASE) == 2
     assert dulus_account.load_store()["lease_token"] == "lease"
 
 
@@ -213,7 +217,7 @@ def test_a_login_server_that_never_answers_is_unreachable(network):
     said: list = []
 
     assert dulus_account.sign_in(notify=said.append) == ("unreachable", None)
-    assert calls == [_DEVICE] * dulus_account._SIGN_IN_ATTEMPTS
+    assert calls == [_DEVICE] * 3
     # Name what didn't answer, then the two ways through: a proxy, or a key
     # minted on a machine that can reach Dulus.
     text = "\n".join(said)
@@ -244,6 +248,7 @@ def test_dulus_api_out_of_reach_after_approval_is_unreachable(network):
 
 
 @pytest.mark.parametrize("url, reply", [
+    (_DEVICE, _Resp(403, {"error": "unauthorized_client"})),
     (_POLL, _Resp(403, {"error": "access_denied"})),
     (_POLL, _Resp(400, {"error": "authorization_pending"})),  # the code ran out unapproved
     (_LEASE, _Resp(401, {"detail": "invalid token"})),
@@ -272,8 +277,9 @@ def gate(monkeypatch):
         seen["renew"] = renew
         return seen.get("answer", "none")
 
-    def sign_in(notify=print, force_browser=False):
-        return seen.setdefault("sign_in", ("ok", "token"))
+    def sign_in(notify=print, **options):
+        seen["login_options"] = options
+        return seen.setdefault("login", ("ok", "token"))
 
     monkeypatch.setattr(dulus_account, "session_status", status)
     monkeypatch.setattr(dulus_account, "sign_in", sign_in)
@@ -309,18 +315,18 @@ def test_gate_survives_a_broken_session_check(monkeypatch, capsys):
 
 def test_gate_signs_you_in(gate):
     dulus._require_dulus_login(_args())
-    assert gate["sign_in"] == ("ok", "token")
+    assert gate["login"] == ("ok", "token")
 
 
 def test_gate_stops_when_sign_in_does_not_finish(gate):
-    gate["sign_in"] = ("refused", None)
+    gate["login"] = ("refused", None)
     with pytest.raises(SystemExit) as exc:
         dulus._require_dulus_login(_args())
     assert exc.value.code == 1
 
 
 def test_gate_stops_on_ctrl_c_during_sign_in(gate, monkeypatch):
-    def interrupted(notify=print, force_browser=False):
+    def interrupted(notify=print, **options):
         raise KeyboardInterrupt
 
     monkeypatch.setattr(dulus_account, "sign_in", interrupted)
@@ -331,18 +337,86 @@ def test_gate_stops_on_ctrl_c_during_sign_in(gate, monkeypatch):
 
 def test_gate_carries_on_when_the_sign_in_servers_are_unreachable(gate, capsys):
     """A network that filters the sign-in servers (mainland China…) must not lock anyone out."""
-    gate["sign_in"] = ("unreachable", None)
+    gate["login"] = ("unreachable", None)
     dulus._require_dulus_login(_args())  # must not exit
-    assert "carrying on" in capsys.readouterr().err.lower()
+    assert "carrying on" in capsys.readouterr().out.lower()
 
 
-def test_gate_survives_a_broken_sign_in(gate, monkeypatch, capsys):
-    def boom(notify=print, force_browser=False):
-        raise AttributeError("'list' object has no attribute 'get'")
+class _Screen:
+    """A terminal stand-in that records what reached the person, and when it was flushed."""
 
-    monkeypatch.setattr(dulus_account, "sign_in", boom)
-    dulus._require_dulus_login(_args())  # must not raise
-    assert "carrying on" in capsys.readouterr().err
+    def __init__(self, tty: bool):
+        self.tty = tty
+        self.text = ""
+        self.flushed = ""
+
+    def isatty(self):
+        return self.tty
+
+    def write(self, data):
+        self.text += data
+        return len(data)
+
+    def flush(self):
+        self.flushed = self.text
+
+
+def test_the_sign_in_link_goes_to_the_terminal_even_with_stdout_redirected(gate, monkeypatch):
+    # `dulus -p … > out.txt` on a server: the person only sees stderr. The link
+    # used to land in out.txt while Dulus sat waiting for an approval that
+    # could never come.
+    stdout, stderr = _Screen(tty=False), _Screen(tty=True)
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr(dulus, "_login_gate_can_prompt", lambda: True)
+    shown_while_waiting = []
+
+    def sign_in(notify=print, **options):
+        notify("https://dulus.us.auth0.com/activate?user_code=ABCD-EFGH")
+        shown_while_waiting.append(stderr.flushed)  # what's on screen while polling
+        assert options["out"] is stderr  # the QR goes there too
+        return "ok", "token"
+
+    monkeypatch.setattr(dulus_account, "sign_in", sign_in)
+    dulus._require_dulus_login(_args())
+
+    assert "user_code=ABCD-EFGH" in shown_while_waiting[0]
+    assert "user_code" not in stdout.text and "free Dulus account" not in stdout.text
+    assert "welcome aboard" in stderr.text
+
+
+def test_the_sign_in_link_is_flushed_through_a_git_bash_pipe(gate, monkeypatch):
+    # mintty hands Dulus a pipe, which Python buffers: unflushed, the link only
+    # showed up after the sign-in it was needed for had finished.
+    pipe = _Screen(tty=False)
+    monkeypatch.setattr(sys, "stdout", pipe)
+    monkeypatch.setattr(sys, "stderr", _Screen(tty=False))
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr(dulus, "_attached_to_msys_pty", lambda stream: stream is pipe)
+    shown_while_waiting = []
+
+    def sign_in(notify=print, **options):
+        notify("https://dulus.us.auth0.com/activate?user_code=ABCD-EFGH")
+        shown_while_waiting.append(pipe.flushed)
+        return "ok", "token"
+
+    monkeypatch.setattr(dulus_account, "sign_in", sign_in)
+    dulus._require_dulus_login(_args())
+
+    assert "user_code=ABCD-EFGH" in shown_while_waiting[0]
+
+
+def test_a_crash_inside_the_sign_in_is_a_failed_sign_in_not_a_traceback(gate, monkeypatch, capsys):
+    def sign_in(notify=print, **options):
+        raise RuntimeError("proxy ate the reply")
+
+    monkeypatch.setattr(dulus_account, "sign_in", sign_in)
+    with pytest.raises(SystemExit) as exc:
+        dulus._require_dulus_login(_args())
+
+    assert exc.value.code == 1
+    assert "Sign-in failed (RuntimeError: proxy ate the reply)" in capsys.readouterr().out
 
 
 def test_gate_without_a_person_explains_and_exits(gate, monkeypatch, capsys):
@@ -352,7 +426,7 @@ def test_gate_without_a_person_explains_and_exits(gate, monkeypatch, capsys):
     assert exc.value.code == 2
     assert "DULUS_API_KEY" in capsys.readouterr().err
     assert gate["renew"] is False
-    assert "sign_in" not in gate
+    assert "login" not in gate
 
 
 def test_gate_names_a_bad_key(gate, capsys):
@@ -369,7 +443,7 @@ def test_gate_protocol_mode_reports_through_the_protocol(gate, monkeypatch):
     with pytest.raises(SystemExit):
         dulus._require_dulus_login(_args())
     assert sent and "DULUS_API_KEY" in sent[0]
-    assert "sign_in" not in gate
+    assert "login" not in gate
 
 
 def test_gate_scripts_never_renew(gate):
@@ -394,6 +468,15 @@ def test_gate_leaves_its_own_escape_hatches_open(gate, over):
 def test_ci_never_prompts(monkeypatch):
     monkeypatch.setenv("CI", "true")
     assert dulus._login_gate_can_prompt() is False
+
+
+def test_the_person_is_on_stderr_when_stdout_is_redirected(monkeypatch):
+    monkeypatch.delenv("CI", raising=False)
+    stderr = _Screen(tty=True)
+    monkeypatch.setattr(sys, "stdout", _Pipe())
+    monkeypatch.setattr(sys, "stderr", stderr)
+    assert dulus._login_gate_stream() is stderr
+    assert dulus._login_gate_can_prompt() is True
 
 
 def test_plain_pipes_are_nobody_even_under_git_bash(monkeypatch):
