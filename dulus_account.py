@@ -387,6 +387,8 @@ def sign_in(
     notify: Callable[[str], Any] = functools.partial(print, flush=True),
     browser: str = "auto",
     out: TextIO | None = None,
+    *,
+    quiet: bool = False,
 ) -> tuple[str, str | None]:
     """:func:`login`, also saying how it went.
 
@@ -394,14 +396,19 @@ def sign_in(
     sign-in was denied, abandoned or turned down, and ``("unreachable", None)``
     when this network never got an answer from the sign-in servers — the same
     split :func:`_renew` makes for renewals.
+
+    ``quiet`` says nothing about servers that don't answer (no retry notices,
+    nothing to check), so the launch gate can let such a person in without a
+    word. The sign-in itself — link, code, approval — still shows.
     """
+    explain = (lambda _message: None) if quiet else notify
     try:
-        token = _device_flow(notify, browser, out)
+        token = _device_flow(notify, browser, out, explain)
     except _Unreachable:
         # A filtered network (mainland China, a locked-down office) can still
         # run on an account: a key minted wherever Dulus answers works here.
-        notify("[dulus] Or sign in on any machine that can reach Dulus, mint a key there with "
-               "`/login dulus key`, and set DULUS_API_KEY to it on this one.")
+        explain("[dulus] Or sign in on any machine that can reach Dulus, mint a key there with "
+                "`/login dulus key`, and set DULUS_API_KEY to it on this one.")
         return "unreachable", None
     return ("ok", token) if token else ("refused", None)
 
@@ -441,10 +448,12 @@ def login(
     return sign_in(notify, browser, out)[1]
 
 
-def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None) -> str | None:
+def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None,
+                 explain: Callable[[str], Any]) -> str | None:
     """The chain :func:`login` describes.
 
-    Raises :class:`_Unreachable` when a step gets no answer.
+    ``explain`` gets what's said about servers that don't answer. Raises
+    :class:`_Unreachable` when a step gets no answer.
     """
     import requests
 
@@ -453,7 +462,7 @@ def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None)
     problem = ""
     for attempt in range(3):
         if attempt:
-            notify(f"[dulus] No answer from the login server yet ({problem}) — trying again…")
+            explain(f"[dulus] No answer from the login server yet ({problem}) — trying again…")
             time.sleep(2 * attempt)
         start = {}
         try:
@@ -478,7 +487,7 @@ def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None)
     if not (device_code and user_code and link):
         refusal = start.get("error_description") or start.get("error")
         if not refusal:
-            _unreachable(notify, f"Couldn't get a sign-in code from the login server ({problem}).",
+            _unreachable(explain, f"Couldn't get a sign-in code from the login server ({problem}).",
                          f"https://{_AUTH0_DOMAIN}")
         notify(f"[dulus] The login server wouldn't start a sign-in: {refusal}")
         return None
@@ -552,13 +561,13 @@ def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None)
 
     if not auth0_token:
         if not answered:
-            _unreachable(notify, "The login server never answered while waiting for approval.",
+            _unreachable(explain, "The login server never answered while waiting for approval.",
                          f"https://{_AUTH0_DOMAIN}")
         notify("[dulus] Sign-in timed out before it was approved.")
         return None
 
     # ── 2. Account lease ────────────────────────────────────────────────
-    ent = _ask_dulus(notify, requests.get, f"{DULUS_API_BASE}/api/entitlements",
+    ent = _ask_dulus(explain, requests.get, f"{DULUS_API_BASE}/api/entitlements",
                      headers={"Authorization": f"Bearer {auth0_token}"})
     if ent.status_code != 200:
         notify(f"[dulus] Account lookup failed ({ent.status_code}).")
@@ -574,7 +583,7 @@ def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None)
     state = secrets.token_urlsafe(24)
     redirect_uri = f"http://127.0.0.1{_REDIRECT_PATH}"
     authz = _ask_dulus(
-        notify,
+        explain,
         requests.post,
         f"{DULUS_API_BASE}/v1/oauth/authorize",
         params={
@@ -597,7 +606,7 @@ def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None)
 
     # ── 4. Code exchange ────────────────────────────────────────────────
     response = _ask_dulus(
-        notify,
+        explain,
         requests.post,
         f"{DULUS_API_BASE}/v1/oauth/token",
         json={
