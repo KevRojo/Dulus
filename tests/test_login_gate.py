@@ -261,6 +261,43 @@ def test_a_real_no_is_refused_not_unreachable(network, url, reply):
     assert dulus_account.sign_in(notify=lambda m: None) == ("refused", None)
 
 
+def test_a_quiet_sign_in_says_nothing_when_the_login_server_never_answers(network):
+    """The launch gate lets a blocked person in without a word: nothing to read, nothing to try."""
+    import requests
+
+    script, _ = network
+    script[_DEVICE] = [requests.ConnectionError("connection reset by peer")]
+    said: list = []
+
+    assert dulus_account.sign_in(notify=said.append, quiet=True) == ("unreachable", None)
+    assert said == []
+
+
+@pytest.mark.parametrize("url", [_POLL, _LEASE])
+def test_a_quiet_sign_in_never_explains_a_network_that_stops_answering(network, url):
+    import requests
+
+    script, _ = network
+    script.update(_a_clean_sign_in())
+    script[url] = [requests.ConnectionError("connection reset by peer")]
+    said: list = []
+
+    assert dulus_account.sign_in(notify=said.append, quiet=True) == ("unreachable", None)
+    text = "\n".join(said)
+    assert "ABCD-EFGH" in text  # the sign-in itself was shown
+    for explanation in ("never answered", "Could not reach", "HTTPS_PROXY", "DULUS_API_KEY"):
+        assert explanation not in text
+
+
+def test_a_quiet_sign_in_still_shows_the_link_and_code(network):
+    script, _ = network
+    script.update(_a_clean_sign_in())
+    said: list = []
+    assert dulus_account.sign_in(notify=said.append, quiet=True) == ("ok", "cli")
+    assert any("https://login.test/activate" in m for m in said)
+    assert any("ABCD-EFGH" in m for m in said)
+
+
 # ── the launch gate ─────────────────────────────────────────────────────────
 
 def _args(**over):
@@ -335,11 +372,14 @@ def test_gate_stops_on_ctrl_c_during_sign_in(gate, monkeypatch):
     assert exc.value.code == 1
 
 
-def test_gate_carries_on_when_the_sign_in_servers_are_unreachable(gate, capsys):
-    """A network that filters the sign-in servers (mainland China…) must not lock anyone out."""
+def test_gate_lets_a_blocked_person_in_without_a_word(gate, capsys):
+    """A network that can't reach the sign-in servers (mainland China…) just gets Dulus."""
     gate["login"] = ("unreachable", None)
     dulus._require_dulus_login(_args())  # must not exit
-    assert "carrying on" in capsys.readouterr().out.lower()
+    assert gate["login_options"]["quiet"] is True
+    shown = capsys.readouterr()
+    text = (shown.out + shown.err).lower()
+    assert "carrying on" not in text and "didn't finish" not in text
 
 
 class _Screen:

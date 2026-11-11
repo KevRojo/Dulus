@@ -81,7 +81,7 @@ pip install dulus && dulus
 
 仅此而已。首次运行时，Dulus 会请你用免费的 **Dulus 账户**登录一次：终端里会显示一个链接和验证码，在任何设备上（比如手机）打开并批准即可，之后会话会被记住。随后设置向导会问你想如何连接 —— **Dulus 账户**（`/login dulus`，OAuth）、你自己的 API 密钥、已有的 Claude/ChatGPT/Kimi/Grok 订阅，或本地 Ollama 模型。
 
-> **在中国大陆或防火墙后面？** 登录会使用标准的代理设置：先设置 `HTTPS_PROXY`（例如 `export HTTPS_PROXY=http://127.0.0.1:7890`）再运行 `dulus`。也可以在任何能访问 Dulus 的机器上登录，用 `/login dulus key` 生成一个 `dulus_sk_*` 密钥，然后在这台机器上设置 `DULUS_API_KEY`。如果完全连不上登录服务器，Dulus 会说明原因并照常启动，之后随时可以用 `/login dulus` 登录。
+> **在中国大陆或防火墙后面？** 登录会使用标准的代理设置：先设置 `HTTPS_PROXY`（例如 `export HTTPS_PROXY=http://127.0.0.1:7890`）再运行 `dulus`。也可以在任何能访问 Dulus 的机器上登录，用 `/login dulus key` 生成一个 `dulus_sk_*` 密钥，然后在这台机器上设置 `DULUS_API_KEY`。
 
 ### 一键安装（推荐）
 

@@ -13147,7 +13147,7 @@ def _require_dulus_login(args) -> None:
     happens when a person launched Dulus; background children and `-c` runs
     take the stored session at its word so parallel launches never race to
     rotate the same refresh token. A network that can't reach the sign-in
-    servers gets what an offline renewal gets: a warning, not a lockout.
+    servers isn't locked out either: Dulus starts without a word about it.
     """
     if args.run_tool or args.job_id or args.job_path:
         return
@@ -13202,19 +13202,17 @@ def _require_dulus_login(args) -> None:
 
     say("\n  Dulus runs on a free Dulus account — sign in once and you're in.\n")
     try:
-        outcome, token = dulus_account.sign_in(notify=say, out=screen)
+        outcome, token = dulus_account.sign_in(notify=say, out=screen, quiet=True)
     except KeyboardInterrupt:
         outcome, token = "refused", None
     except Exception as exc:  # noqa: BLE001 - a crash in the sign-in reads as a failed sign-in
         say(f"[dulus] Sign-in failed ({type(exc).__name__}: {exc}).", "yellow")
         outcome, token = "refused", None
     if outcome == "unreachable":
-        # A network that can't reach the sign-in servers (mainland China, some
-        # offices and hotels) is no reason to lock anyone out of their own
-        # terminal: same call as an offline renewal. sign_in() has already
-        # said how to get through, and the next launch asks again.
-        say("[dulus] Carrying on without a sign-in for now — the next launch asks again, "
-            "or run `/login dulus` any time.", "gray")
+        # This network can't reach the sign-in servers (mainland China, some
+        # offices and hotels), so there's no account to create from here: let
+        # the person in without a word. The next launch asks again, and
+        # `/login dulus` still explains the ways through.
         return
     if not token:
         say("[dulus] Sign-in didn't finish. Run `dulus` again whenever you're ready.", "yellow")
