@@ -371,7 +371,7 @@ Those numbers are not a vanity dashboard. They explain the product: Dulus is bui
 
 ## Install in 30 seconds
 
-> **Dulus runs on a free Dulus account.** The first `dulus` opens your browser to sign in — over SSH or on a box with no desktop it shows a link, a code and a QR to approve from your phone or laptop instead; after that the session is remembered. CI, scripts and servers: set `DULUS_API_KEY` to a `dulus_sk_*` key from `/login dulus key`. `--version` and `--help` never ask.
+> **Dulus runs on a free Dulus account.** The first `dulus` opens your browser to sign in — over SSH or on a box with no desktop it shows a link, a code and a QR to approve from your phone or laptop instead; after that the session is remembered. CI, scripts and servers: set `DULUS_API_KEY` to a `dulus_sk_*` key from `/login dulus key`. `--version` and `--help` never ask. **Behind a firewall** (mainland China, a locked-down office)? Sign-in follows `HTTPS_PROXY`, and a key minted on any machine that can sign in works on this one. If the sign-in servers can't be reached at all, Dulus says so and starts anyway.
 
 If Python 3.11 or newer is already installed:
 

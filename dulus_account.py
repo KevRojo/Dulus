@@ -31,7 +31,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Any, Callable, TextIO
+from typing import Any, Callable, NoReturn, TextIO
 
 
 DULUS_API_BASE = os.environ.get("DULUS_API_BASE", "https://control.dulus.ai").rstrip("/")
@@ -350,6 +350,62 @@ def _poll_device_flow(device_code: str) -> tuple[str, str]:
     return "retry", f"HTTP {reply.status_code}"
 
 
+class _Unreachable(Exception):
+    """The sign-in servers gave this network no answer — which is not a refusal."""
+
+
+def _unreachable(notify: Callable[[str], Any], what: str, url: str) -> NoReturn:
+    """Say what didn't answer and how to get through, then end the sign-in."""
+    notify(f"[dulus] {what}")
+    notify(f"[dulus] Check this machine can reach {url} — behind a proxy, set HTTPS_PROXY.")
+    raise _Unreachable(what)
+
+
+def _ask_dulus(notify: Callable[[str], Any], send: Callable[..., Any], url: str,
+               **kwargs: Any) -> Any:
+    """One Dulus API call after approval, with the tries the start of the sign-in gets.
+
+    By then the person has approved, often from a phone: one connection lost on
+    a long route (mainland China, a hotel network) shouldn't throw that away.
+    """
+    problem = ""
+    for attempt in range(3):
+        if attempt:
+            time.sleep(2 * attempt)
+        try:
+            reply = send(url, timeout=30, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - no network for a moment: try again
+            problem = type(exc).__name__
+            continue
+        if not _transient(reply.status_code):
+            return reply
+        problem = f"HTTP {reply.status_code}"
+    _unreachable(notify, f"Could not reach the Dulus API ({problem}).", DULUS_API_BASE)
+
+
+def sign_in(
+    notify: Callable[[str], Any] = functools.partial(print, flush=True),
+    browser: str = "auto",
+    out: TextIO | None = None,
+) -> tuple[str, str | None]:
+    """:func:`login`, also saying how it went.
+
+    Returns ``("ok", token)`` once signed in, ``("refused", None)`` when the
+    sign-in was denied, abandoned or turned down, and ``("unreachable", None)``
+    when this network never got an answer from the sign-in servers — the same
+    split :func:`_renew` makes for renewals.
+    """
+    try:
+        token = _device_flow(notify, browser, out)
+    except _Unreachable:
+        # A filtered network (mainland China, a locked-down office) can still
+        # run on an account: a key minted wherever Dulus answers works here.
+        notify("[dulus] Or sign in on any machine that can reach Dulus, mint a key there with "
+               "`/login dulus key`, and set DULUS_API_KEY to it on this one.")
+        return "unreachable", None
+    return ("ok", token) if token else ("refused", None)
+
+
 def login(
     notify: Callable[[str], Any] = functools.partial(print, flush=True),
     browser: str = "auto",
@@ -378,6 +434,17 @@ def login(
       2. GET /api/entitlements with the Auth0 token → account lease.
       3. POST /v1/oauth/authorize with the lease → authorization code.
       4. POST /v1/oauth/token (code + PKCE verifier) → CLI tokens.
+
+    :func:`sign_in` does the work and also tells a refusal apart from a
+    network that can't reach the sign-in servers.
+    """
+    return sign_in(notify, browser, out)[1]
+
+
+def _device_flow(notify: Callable[[str], Any], browser: str, out: TextIO | None) -> str | None:
+    """The chain :func:`login` describes.
+
+    Raises :class:`_Unreachable` when a step gets no answer.
     """
     import requests
 
@@ -410,12 +477,10 @@ def login(
     link = str(start.get("verification_uri_complete") or short_link)
     if not (device_code and user_code and link):
         refusal = start.get("error_description") or start.get("error")
-        if refusal:
-            notify(f"[dulus] The login server wouldn't start a sign-in: {refusal}")
-        else:
-            notify(f"[dulus] Couldn't get a sign-in code from the login server ({problem}).")
-            notify(f"[dulus] Check this machine can reach https://{_AUTH0_DOMAIN} — "
-                   "behind a proxy, set HTTPS_PROXY.")
+        if not refusal:
+            _unreachable(notify, f"Couldn't get a sign-in code from the login server ({problem}).",
+                         f"https://{_AUTH0_DOMAIN}")
+        notify(f"[dulus] The login server wouldn't start a sign-in: {refusal}")
         return None
 
     interval = _seconds(start.get("interval"), 5)
@@ -462,9 +527,11 @@ def login(
 
     auth0_token = ""
     stalled = False
+    answered = False  # did Auth0 answer even one poll?
     while time.monotonic() < deadline:
         time.sleep(interval)
         outcome, detail = _poll_device_flow(device_code)
+        answered = answered or outcome != "retry"
         if outcome == "token":
             auth0_token = detail
             break
@@ -484,19 +551,15 @@ def login(
             return None
 
     if not auth0_token:
+        if not answered:
+            _unreachable(notify, "The login server never answered while waiting for approval.",
+                         f"https://{_AUTH0_DOMAIN}")
         notify("[dulus] Sign-in timed out before it was approved.")
         return None
 
     # ── 2. Account lease ────────────────────────────────────────────────
-    try:
-        ent = requests.get(
-            f"{DULUS_API_BASE}/api/entitlements",
-            headers={"Authorization": f"Bearer {auth0_token}"},
-            timeout=30,
-        )
-    except Exception as exc:
-        notify(f"[dulus] Could not reach the Dulus API: {exc}")
-        return None
+    ent = _ask_dulus(notify, requests.get, f"{DULUS_API_BASE}/api/entitlements",
+                     headers={"Authorization": f"Bearer {auth0_token}"})
     if ent.status_code != 200:
         notify(f"[dulus] Account lookup failed ({ent.status_code}).")
         return None
@@ -510,23 +573,20 @@ def login(
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(24)
     redirect_uri = f"http://127.0.0.1{_REDIRECT_PATH}"
-    try:
-        authz = requests.post(
-            f"{DULUS_API_BASE}/v1/oauth/authorize",
-            params={
-                "client_id": DULUS_OAUTH_CLIENT_ID,
-                "redirect_uri": redirect_uri,
-                "code_challenge": challenge,
-                "code_challenge_method": "S256",
-                "state": state,
-                "scope": DULUS_OAUTH_SCOPE,
-            },
-            headers={"X-Dulus-Lease": lease},
-            timeout=30,
-        )
-    except Exception as exc:
-        notify(f"[dulus] Authorization request failed: {exc}")
-        return None
+    authz = _ask_dulus(
+        notify,
+        requests.post,
+        f"{DULUS_API_BASE}/v1/oauth/authorize",
+        params={
+            "client_id": DULUS_OAUTH_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "state": state,
+            "scope": DULUS_OAUTH_SCOPE,
+        },
+        headers={"X-Dulus-Lease": lease},
+    )
     if authz.status_code != 200:
         notify(f"[dulus] Authorization rejected ({authz.status_code}): {authz.text[:200]}")
         return None
@@ -536,22 +596,18 @@ def login(
         return None
 
     # ── 4. Code exchange ────────────────────────────────────────────────
-    try:
-        response = requests.post(
-            f"{DULUS_API_BASE}/v1/oauth/token",
-            json={
-                "grant_type": "authorization_code",
-                "client_id": DULUS_OAUTH_CLIENT_ID,
-                "code": code,
-                "redirect_uri": redirect_uri,
-                "code_verifier": verifier,
-            },
-            timeout=30,
-        )
-    except Exception as exc:
-        notify(f"[dulus] Token exchange failed: {exc}")
-        return None
-
+    response = _ask_dulus(
+        notify,
+        requests.post,
+        f"{DULUS_API_BASE}/v1/oauth/token",
+        json={
+            "grant_type": "authorization_code",
+            "client_id": DULUS_OAUTH_CLIENT_ID,
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "code_verifier": verifier,
+        },
+    )
     payload = _json_body(response)
     if response.status_code != 200 or not payload.get("access_token"):
         notify(f"[dulus] Token exchange rejected ({response.status_code}).")
