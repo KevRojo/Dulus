@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="132" viewBox="0 0 880 132" role="img" aria-labelledby="t d">
-<title id="t">Interant at a glance</title>
+<title id="t">Dulus at a glance</title>
 <desc id="d">7,402 automated tests (99.7% passing); 1,527 commits (in 140 days); 358 pull requests merged (every one by a human); 114 built-in tools (plus MCP &amp; plugins); 26 Round Table seats (any mix of models), as of 2026-11-08.</desc>
 <style>text{font-family:system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;} .num{font-variant-numeric:tabular-nums;}</style>
 <rect x="0.5" y="0.5" width="879" height="131" rx="12" fill="#1a1a19" stroke="rgba(255,255,255,0.10)"/>
