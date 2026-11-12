@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="132" viewBox="0 0 880 132" role="img" aria-labelledby="t d">
+<title id="t">Interant at a glance</title>
+<desc id="d">7,402 automated tests (99.7% passing); 1,527 commits (in 140 days); 358 pull requests merged (every one by a human); 114 built-in tools (plus MCP &amp; plugins); 26 Round Table seats (any mix of models), as of 2026-11-08.</desc>
+<style>text{font-family:system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;} .num{font-variant-numeric:tabular-nums;}</style>
+<rect x="0.5" y="0.5" width="879" height="131" rx="12" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
+<text x="32.0" y="62" fill="#0b0b0b" font-size="34" font-weight="650">7,402</text>
+<text x="32.0" y="87" fill="#52514e" font-size="13">automated tests</text>
+<text x="32.0" y="105" fill="#898781" font-size="12">99.7% passing</text>
+<line x1="186.8" y1="26" x2="186.8" y2="106" stroke="#e1e0d9"/>
+<text x="200.8" y="62" fill="#0b0b0b" font-size="34" font-weight="650">1,527</text>
+<text x="200.8" y="87" fill="#52514e" font-size="13">commits</text>
+<text x="200.8" y="105" fill="#898781" font-size="12">in 140 days</text>
+<line x1="355.6" y1="26" x2="355.6" y2="106" stroke="#e1e0d9"/>
+<text x="369.6" y="62" fill="#0b0b0b" font-size="34" font-weight="650">358</text>
+<text x="369.6" y="87" fill="#52514e" font-size="13">pull requests merged</text>
+<text x="369.6" y="105" fill="#898781" font-size="12">every one by a human</text>
+<line x1="524.4" y1="26" x2="524.4" y2="106" stroke="#e1e0d9"/>
+<text x="538.4" y="62" fill="#0b0b0b" font-size="34" font-weight="650">114</text>
+<text x="538.4" y="87" fill="#52514e" font-size="13">built-in tools</text>
+<text x="538.4" y="105" fill="#898781" font-size="12">plus MCP &amp; plugins</text>
+<line x1="693.2" y1="26" x2="693.2" y2="106" stroke="#e1e0d9"/>
+<text x="707.2" y="62" fill="#0b0b0b" font-size="34" font-weight="650">26</text>
+<text x="707.2" y="87" fill="#52514e" font-size="13">Round Table seats</text>
+<text x="707.2" y="105" fill="#898781" font-size="12">any mix of models</text>
+</svg>

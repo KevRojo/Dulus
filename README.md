@@ -1,1015 +1,121 @@
 <p align="center">
-  🔥 <strong>v6.4.4 is live (Nov 10, 2026).</strong> Signed Windows and macOS (Apple Silicon) desktop builds are out; Linux is coming soon. This repo is the open-source home of the Python runtime — desktop builds get new features first.<br>
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/tag/v6.4.4"><strong>Download v6.4.4 →</strong></a> 🦅
+  <img src="assets/bird.png" width="128" alt="The Dulus bird, a golden palmchat in flight">
 </p>
 
 <h1 align="center">Dulus</h1>
 
 <p align="center">
-  <b>One runtime. Every provider. Your machine.</b><br>
-  The open-source AI agent for your terminal — and the core of the <a href="https://dulus.ai/download/">Dulus desktop app</a>.
+  <b>One agent, made of many.</b><br>
+  The open-source core behind the Dulus desktop app.
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/907f4dd2-476f-4715-86d0-6cf4a9576339" width="760" alt="Dulus — one agent, every model, your machine">
+  <a href="https://dulus.ai/download/"><b>Download the app</b></a>
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/dulus/"><img src="https://img.shields.io/pypi/v/dulus.svg?style=flat-square&color=ff6b1f&labelColor=07070a&label=pypi" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/dulus/"><img src="https://static.pepy.tech/badge/dulus?style=flat-square" alt="PyPI downloads"></a>
-  <a href="https://github.com/KevRojo/Dulus/releases"><img src="https://img.shields.io/github/v/release/KevRojo/Dulus?style=flat-square&color=ff6b1f&labelColor=07070a" alt="Latest release"></a>
-  <a href="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml"><img src="https://github.com/KevRojo/Dulus/actions/workflows/ci.yml/badge.svg" alt="Quality checks"></a>
-  <a href="https://github.com/KevRojo/Dulus/pkgs/container/dulus"><img src="https://img.shields.io/badge/docker-ghcr.io%2Fkevrojo%2Fdulus-ff6b1f?style=flat-square&labelColor=07070a&logo=docker" alt="Docker image"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-ff6b1f?style=flat-square&labelColor=07070a&logo=python" alt="Python 3.10+">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-ff6b1f?style=flat-square&labelColor=07070a" alt="GPLv3 license"></a>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/at-a-glance-dark.svg">
+    <img src="assets/at-a-glance-light.svg" width="880" alt="7,402 automated tests, 99.7% passing · 1,527 commits in 140 days · 358 pull requests, every one merged by a human · 114 built-in tools · 26 Round Table seats">
+  </picture>
 </p>
-
-<p align="center">
-  <a href="#install-in-30-seconds"><strong>Install</strong></a> ·
-  <a href="#get-your-dulus-api-key-no-website-required"><strong>API key</strong></a> ·
-  <a href="#fuel--reload-wallet-qr-ready"><strong>Fuel / QR</strong></a> ·
-  <a href="#why-dulus"><strong>Why Dulus</strong></a> ·
-  <a href="#one-runtime-every-model"><strong>Models</strong></a> ·
-  <a href="#turn-any-python-repo-into-tools"><strong>Extensions</strong></a> ·
-  <a href="#agents-that-can-work-without-disappearing"><strong>Agents</strong></a> ·
-  <a href="#one-engine-four-surfaces"><strong>Surfaces</strong></a> ·
-  <a href="#command-map"><strong>Commands</strong></a> ·
-  <a href="https://kevrojo.github.io/Dulus/"><strong>Live tour ↗</strong></a>
-</p>
-
-<p align="center">
-  <a href="docs/README_ES.md">Español</a> ·
-  <a href="docs/README_FR.md">Français</a> ·
-  <a href="docs/README_ZH.md">中文</a> ·
-  <a href="docs/README_JA.md">日本語</a> ·
-  <a href="docs/README_KO.md">한국어</a> ·
-  <a href="docs/README_PT.md">Português</a> ·
-  <a href="docs/README_RU.md">Русский</a> ·
-  <a href="docs/README_AR.md">العربية</a>
-</p>
-
-<p align="center">
-  <strong>⚠️ Heads up: this repository is a mirror, not the live line.</strong><br>
-  The signed binaries are <strong>2.2× the commits</strong> and <strong>4.3× the code</strong> of what you see here —<br>
-  sandbox, screen control, agent swarms and the self-improvement loop live there first.<br>
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>⬇️ Get the signed build → github.com/Dulus-Ai/dulus-updates</strong></a>
-  · <a href="#this-repo-is-a-snapshot-the-binaries-are-the-live-line"><strong>See the real gap →</strong></a>
-</p>
-
-<p align="center">
-  <strong>📄 Dulus AI Whitepaper:</strong>
-  <a href="docs/Dulus_AI_Whitepaper_EN.pdf">English</a>
-  ·
-  <a href="docs/Dulus_AI_Whitepaper_ES.pdf">Español</a>
-</p>
-
-<p align="center">
-  <strong>⚡ Outgrew local? <a href="https://dulus.online">Dulus AI</a> is the hosted platform.</strong><br>
-  <strong>12 models behind one OpenAI-compatible router</strong> — from a nimble 9B to a 397B heavyweight,
-  including a <strong>Qwen-based uncensored flagship</strong> that answers straight, self-hosted, no gatekeeping.<br>
-  Fuel it with <strong><a href="https://dulus.online">$DULUS</a></strong> — the utility token that <em>is</em> your AI credit:
-  on-chain, transferable, spent by the token. No plan approvals, no frozen accounts.<br>
-  Point your OpenAI SDK at <code>https://control.dulus.ai/v1</code> and go.
-</p>
-
-
-<details>
-<summary><strong>🔑 Get your API key from pip</strong></summary>
-
-<p align="center">
-  <strong>🔑 Need an API key?</strong> Stop waiting on the website.<br>
-  It has been in <strong>dulus-public (pip)</strong> forever — mint it from the CLI:
-</p>
-
-```bash
-pip install -U dulus
-dulus
-# inside the REPL:
-/login dulus        # sign in (OAuth — browser opens)
-/login dulus key    # mint a dulus_sk_* key (shown once)
-```
-
-```bash
-# then point anything OpenAI-compatible at the router
-export OPENAI_API_KEY='dulus_sk_...'          # the key you just minted
-export OPENAI_BASE_URL='https://control.dulus.ai/v1'
-# or:  openai.base_url = "https://control.dulus.ai/v1"
-```
-
-<p align="center">
-  <em>Damn brother… are you really waiting for the website update to get your API key?</em><br>
-  That’s on Dulus-public since years. Have fun. It was a surprise u,u — <strong>$DULUS</strong>
-</p>
-
-<p align="center">
-  <a href="#get-your-dulus-api-key-no-website-required"><strong>🔑 Get your API key from pip →</strong></a>
-  ·
-  <a href="https://dulus.online"><strong>🚀 Platform → dulus.online</strong></a>
-</p>
-
-</details>
-
-
-<details>
-<summary><strong>⛽ Fuel walkthrough — reload wallet QR</strong></summary>
-
-<p align="center">
-  <strong>⛽ $DULUS Fuel is LIVE in the CLI — <code>/fuel</code> is ready.</strong><br>
-  Sign in, get your <strong>reload wallet as a console QR</strong>, scan with Phantom / Solflare,<br>
-  send <strong>$DULUS</strong>, and Fuel credits hit your account. Utility coin that actually powers AI.
-</p>
-
-```bash
-pip install -U dulus
-dulus
-# inside the REPL:
-/login dulus     # sign in
-/fuel            # balance + scannable reload-wallet QR
-/fuel deposit    # QR only
-```
-
-<p align="center">
-  <em>Tested. Reloaded. Fuel credited.</em> We’re not playing points — this is on-chain gas for inference.<br>
-  <strong>$DULUS</strong> · <code>control.dulus.ai/v1</code> · 12+ models · spent by the token 🦅
-</p>
-
-</details>
-
 
 ---
 
-## One runtime, every provider.
+## "That's it?"
 
-Dulus is a single agent runtime that speaks to every major model provider, so
-you are not locked into one vendor's CLI.
+If you installed Dulus from GitHub and thought *that's it?* — you met the core, not the app.
 
-```bash
-pip install dulus
-dulus
-```
+Dulus started as this: an open-source terminal agent — still free, still a fine place to hack. The **Dulus desktop app** is everything that grew on top of it, built on a private codebase and downloaded from [dulus.ai](https://dulus.ai/download/). This page is the public face of that app — what it does, how it's tested — while the open core below stays open.
 
-On first run the setup wizard asks how you want to connect:
+> Dulus is an AI agent for your desktop and terminal. It works in your files, your shell, your browser and your screen — on any model you choose. And when one mind isn't enough, it calls the flock.
 
-- **Dulus account** — `/login dulus`, OAuth, no provider API key. Hosted models
-  metered in Fuel on the Dulus control plane. Sign up at [dulus.ai](https://dulus.ai).
-- **Bring your own key** — Anthropic, OpenAI, Gemini, Kimi, DeepSeek, Qwen,
-  Zhipu, MiniMax, NVIDIA NIM, Azure, and more.
-- **Your own subscription** — `/login claude`, `/login chatgpt`, `/login kimi`,
-  `/login grok` put your existing plan behind the agent via OAuth.
-- **Local & offline** — Ollama, LM Studio, or the on-device `edge` runtime.
-  No key, no account, no network.
+## One agent. Made of many.
 
----
+### The Round Table
+Seat up to **26 AI agents** — any mix of models — at one table with a shared task board. They split the work, call on each other by name, and bring you the decisions only you can make as cards with options and a recommended pick. Open the live view to watch the table work, drawn from real events, never invented — then take a photo or record it.
 
----
+### Hands on your computer
+Dulus sees the screen, clicks and types in any app, in any language — accents, ñ and emoji included. A small live overlay follows along over full-screen apps, so you can watch, approve or stop it with one click.
 
-## Fuel + reload wallet QR (READY)
+### Astral Voice
+Talk to it. It starts answering out loud while it's still writing, lets you cut in, and keeps the whole conversation in a transcript beside the orb.
 
-**`/fuel` is ready.** Top up AI compute with **$DULUS** — the utility token that *is* your credit.
+### Your phone, same conversation
+Pair Telegram with a QR code and keep going from anywhere: text, voice notes, photos and files, live progress with a stop button, approvals as buttons.
 
-```text
-/login dulus      # OAuth — browser opens
-/fuel             # ⛽ balance + console QR of YOUR reload wallet
-/fuel deposit     # address + QR only
-/fuel balance     # balance only
-```
+### Memory that doesn't lie to you
+Memories stay with the profile and project they came from. Stale facts get flagged instead of trusted, newer facts replace older ones, and old ones are archived, never silently deleted. Long conversations stay searchable even after they're compacted.
 
-1. Run `/fuel` — Dulus prints your unique Solana deposit address **and a terminal QR** (segno, scannable).
-2. Open **Phantom / Solflare** → scan the QR → send **$DULUS**.
-3. Control plane credits **Fuel** to your account.
-4. Burn it on `dulus-*` models via the CLI or `https://control.dulus.ai/v1`.
+### Any model
+**40+ provider integrations** — the major APIs, local runtimes, and Dulus's own hosted models — with one reasoning dial for all of them, context windows up to a million tokens where the provider offers them, and requests shaped to stay cached so long sessions cost less.
 
-No website form. No waiting on a dashboard refresh to *see* the wallet. The QR is in your terminal the second you login.
+### Make things
+Images and video with your own keys: FLUX.2, GPT Image, Gemini and Imagen, Meta Muse, Veo, Sora 2 and more. Drag a result back in as a reference and keep going. Documents and mini apps the agent builds land in a versioned **Artifacts** library.
 
-```bash
-pip install -U dulus   # includes segno for console QR
-dulus
-```
+### Grows with you
+A market of **~1,800 MCP servers** that install from inside the app, runtimes included. Skills. Plugins that reload live. And **AutoAdapter**: point it at a GitHub repo and get tools that are verified before they're switched on.
 
-| Command | What you get |
-|---|---|
-| `/login dulus` | Sign in + reload QR on success |
-| `/fuel` | Balance + reload wallet QR |
-| `/fuel deposit` | QR / address only |
-| `/login dulus key` | Mint `dulus_sk_*` for OpenAI SDK → same Fuel pool |
+### And everything around it
+A real browser pane, a live terminal panel, a steer bubble to talk to Dulus mid-task without stopping it, a Stop that really stops, checkpoints with undo and fork, HTML reports, a Tasks board, Dulus OS, a desktop pet, 14 themes and 34 languages.
 
-**$DULUS** = on-chain gas for inference. Transferable. Spent by the token. Tested end-to-end — reload lands, Fuel credits. 🦅
+## Measured. Not claimed.
 
----
-
-## Get your Dulus API key (no website required)
-
-Damn brother… are you really waiting for the website update to get your API key?
-
-**You don’t need the website.** Minting a `dulus_sk_*` key has been in **dulus-public** (`pip install dulus`) for ages. The CLI talks straight to the control plane.
-
-```bash
-pip install -U dulus
-dulus
-```
-
-Inside the REPL:
-
-```text
-/login dulus        # sign in (OAuth PKCE — browser opens, no API key pasted by hand)
-/login dulus key    # mint a dulus_sk_* key for CI, SDKs, servers (shown once — copy it)
-```
-
-Then point **any** OpenAI-compatible client at the router and burn **$DULUS** fuel by the token:
-
-```bash
-export OPENAI_API_KEY='dulus_sk_...' 
-export OPENAI_BASE_URL='https://control.dulus.ai/v1'
-```
-
-```python
-from openai import OpenAI
-client = OpenAI(
-    api_key="dulus_sk_...",                 # from /login dulus key
-    base_url="https://control.dulus.ai/v1",
-)
-r = client.chat.completions.create(
-    model="dulus-a-9b",  # or dulus-b-27b, dulus-x-397b, …
-    messages=[{"role": "user", "content": "hola desde el router"}],
-)
-print(r.choices[0].message.content)
-```
-
-Or stay inside Dulus and use the built-in provider (same login, Fuel-metered):
-
-```text
-/login dulus
-/model dulus-a-9b
-```
-
-| Want | Do this |
-|---|---|
-| Interactive agent on Dulus models | `/login dulus` then `/model dulus-*` |
-| API key for scripts / CI / other tools | `/login dulus key` → `dulus_sk_*` |
-| OpenAI SDK / anything compatible | `base_url=https://control.dulus.ai/v1` + that key |
-| Fuel (`$DULUS`) | Spent per token on the control plane — utility coin, not a wallpaper ticker |
-
-It was a surprise u,u — have fun. 🦅 **$DULUS**
-
----
-
-## New — Python console: a live heap that costs no tokens
-
-> 🧪 Fresh out of the private build. Try it and tell me how it feels.
-
-When an agent explores a big thing — a directory tree, a parsed file, an API dump — the result normally lands in the conversation and gets **re-sent every turn** for the rest of the session. The new **`Python` console** is a persistent REPL whose variables *survive across calls*: scan once into a variable, then filter and aggregate it across turns while the model only ever prints the small slice it needs. The data lives in the kernel's heap, not the chat — so you never pay tokens to re-read or re-transmit it. **Working memory outside the context window.**
+Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), and a crew of AI coding agents. The agents write code and open pull requests. Kevin directs, decides and merges — all 358 of them. Every agent reads a shared log before touching anything, and signs an entry when it's done: what it did, what's missing, what broke, and what it did **not** verify.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/pyc_heap.svg" alt="The data lives in the kernel heap; only a thin slice reaches the model" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/tests-growth-dark.svg">
+    <img src="assets/tests-growth-light.svg" width="880" alt="Test functions in the suite grew week by week from 882 on June 21, 2026 to 5,734 on November 8, 2026; 7,402 test cases are collected today.">
+  </picture>
 </p>
 
-Real run: **101,619 files** scanned into a variable, then queried three ways across separate calls — the context only ever saw a number, an 8-line slice, and a one-line summary. Roughly **1.5–2M tokens that never touched the conversation.** It runs in an isolated subprocess kernel (an infinite loop kills the kernel, never Dulus) and caps output at the *source* so one giant line can't flood the context. **Full write-up → [The model's second brain](docs/python-console.md).**
+- **7,402 automated tests.** The latest full run (Nov 8, 2026) passed 7,362; the 24 failures are known and tracked.
+- **Every fix ships with a test that fails without it** — and we break each fix on purpose to prove a test catches it.
+- **1,527 commits in 140 days.** About 80% of them pushed by AI agents, including Dulus working on itself.
 
----
+## Two editions, one bird
 
-## This repo is a snapshot. The binaries are the live line.
-
-> 📢 **Read this before you decide `pip install` is enough.**
-
-`pip install dulus` gives you a complete, readable, forkable runtime — every module in this repository is real and it works. What it is **not** is current.
-
-This repository is a **periodic mirror**. The line I actually build on is private, and it moves several times faster. Here is the honest gap, measured straight from both trees on **2026-11-03**:
-
-| | This repo (public mirror) | Signed binaries (private line) | Gap |
-|---|---:|---:|---:|
-| Commits | **669** | **1,483** | **2.2×** |
-| First-party Python | **68,159** lines | **294,475** lines | **4.3×** |
-| Runtime modules | **170** | **794** | **4.7×** |
-| Tests | **904** | **5,333** | **5.9×** |
-| Files tracked | **380** | **2,968** | **7.8×** |
-| Commits, last 30 days | **27** | **358** | **13.3×** |
-| Commits, last 90 days | **181** | **1,239** | **6.8×** |
-| Last commit | 2026-10-31 | 2026-11-02 | — |
-
-<sub>Counts are `git rev-list --count`, `git ls-files` and line counts over tracked `.py` files. The private line is a monorepo: it carries the Dulus core plus the services, dashboards and experiments that feed it, which is why the file ratio runs higher than the commit ratio. Every number above is reproducible by anyone who has both trees.</sub>
-
-### What is behind that gap
-
-The private line is not "the same thing with a coat of paint". These are working systems that have never been published in this repo:
-
-- **A sandbox — a mini-OS in your browser.** A real virtual desktop with its own filesystem and a live Dulus terminal inside it, so an agent can be let loose without ever touching your machine.
-- **Native screen control.** OCR-grounded clicks, typing, app automation — the agent drives the *actual* desktop, not a headless fantasy of it.
-- **Agent swarms and fleets.** Many agents on one board, with seats that argue, assign work to each other and converge — instead of one model wearing three hats.
-- **A self-improvement loop.** Analysts read the most recent code, generate patches, run the test gate, and only safe patches land. The repo improves while I sleep.
-- **Channels and connectors.** The same runtime reaching you through chat apps, mail, repos and tickets, with hundreds of toolkits behind it.
-- **Extra surfaces.** Android, a GUI shell, and a hub that ties them together.
-- **Benchmarks and a security suite.** Because "it feels fast" is not a measurement.
-
-And the pace is the point: **358 commits in the last 30 days on the private line versus 27 here.** If you only ever run the mirror, you are perpetually reading last month's newspaper.
-
-### Why not just publish it?
-
-Two reasons, both boring and both true.
-
-**The license gate.** The desktop core has to survive being copied, so that part stays closed. That is the honest business answer.
-
-**The pace.** I move fast and I break things on purpose. Publishing every intermediate state would mean writing release notes for experiments that die in an hour. The mirror is what has *settled*; the binaries are what is *moving*.
-
-So: **open where it counts, protected where it matters.** The runtime you can read, fork and audit is right here, under GPLv3, forever. The fastest, most complete, auto-updating build — the one I actually run — is the signed binary.
-
-<p align="center">
-  <strong>⬇️ Windows · macOS · Linux — signed, auto-updating, zero Python setup</strong><br>
-  <a href="https://github.com/Dulus-Ai/dulus-updates/releases/latest"><strong>github.com/Dulus-Ai/dulus-updates/releases/latest ↗</strong></a>
-  · <a href="https://dulus.ai/"><strong>dulus.ai ↗</strong></a>
-</p>
-
-> **If you fork this repo, you are forking a snapshot from 2026-10-31.** That is fine — it is real, working software. Just don't mistake it for the frontier.
-
----
-
-## A note from the builder
-
-I'm one developer. No team, no funding, no VC deck — just me, a laptop, and a stubborn little bird from the Dominican Republic. 🇩🇴
-
-I've poured months into Dulus. Some days it feels like building the loudest thing in an empty room — like nobody's paying attention. And the honest truth: I've spent so long *building* the features that could genuinely rattle this industry that I've barely *shown* them. That changes now.
-
-Because this isn't a toy demo. Dulus already does things the funded wrappers can't:
-
-- **frontier AI with no keys** (the web-session engine above),
-- **2,186+ MCP tools**, **100,000 skills**, memory, voice, sub-agents,
-- one runtime driving a terminal, a browser, and a local web UI.
-
-My goal is simple and stubborn: **put a real agentic AI in the hands of anyone with a terminal — for free — while the door is still open.** If that mission means something to you, star the repo, run one command, tell one person. Help the Cigua fly. 🦅
-
-— Kevin ([@KevRojo](https://x.com/KevRojo)) · Santo Domingo 🇩🇴
-
----
-
-## Why Dulus
-
-Most coding agents begin with a model and bolt tools around it. Dulus starts with the runtime.
-
-The model can change mid-session. The tools can come from the core, MCP, a skill, or a Python repository that had never heard of Dulus five minutes earlier. Memory survives the session. Checkpoints cover both conversation and files. Long-running work moves into background jobs. The same engine can be operated from a terminal, browser, desktop app, or Telegram.
-
-That changes what the product is:
-
-| Dulus is | Dulus is not |
-|---|---|
-| A provider-independent agent runtime | A skin over one model vendor |
-| A readable Python codebase you can fork | A black box that only works in somebody else's cloud |
-| A tool system with MCP, skills, plugins, and hot reload | A fixed list of commands chosen by the vendor |
-| Local-first, with Ollama and LM Studio support | API-key-or-nothing software |
-| Stateful: memory, tasks, checkpoints, background jobs | A disposable chat transcript |
-| One engine with multiple interfaces | A terminal demo pretending to be a platform |
-
-### The proof is in the repository
-
-This public mirror alone contains **68,159 lines of first-party Python**, **170 runtime modules**, **904 tests**, **125 tagged releases** and **669 commits** — **181 of them in the previous 90 days**.
-
-Those numbers are not a vanity dashboard. They explain the product: Dulus is built at production velocity. Read the [release notes](docs/news.md), inspect the [architecture](docs/architecture.md), or open the [interactive dependency graph](docs/api.html).
-
-> And remember what this is: a **mirror**. The line behind the signed binaries carries **1,483 commits, 294,475 lines, 794 modules and 5,333 tests** — with **358 commits in the last 30 days** against 27 here. [See the full comparison ↑](#this-repo-is-a-snapshot-the-binaries-are-the-live-line)
-
-> **Hunt. Patch. Ship.** The loop is the product.
-
----
-
-## Install in 30 seconds
-
-> **Dulus runs on a free Dulus account.** The first `dulus` opens your browser to sign in — over SSH or on a box with no desktop it shows a link, a code and a QR to approve from your phone or laptop instead; after that the session is remembered. CI, scripts and servers: set `DULUS_API_KEY` to a `dulus_sk_*` key from `/login dulus key`. `--version` and `--help` never ask. **Behind a firewall** (mainland China, a locked-down office)? Sign-in follows `HTTPS_PROXY`, and a key minted on any machine that can sign in works on this one.
-
-If Python 3.11 or newer is already installed:
-
-```bash
-pip install dulus
-dulus
-```
-
-The first-run wizard inspects the machine, recommends a right-sized local model, and can install Ollama for a zero-key, fully local start.
-
-### Automatic installer
-
-Linux, macOS, WSL, and Termux:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/KevRojo/Dulus/main/install.sh | bash
-```
-
-Windows PowerShell:
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/KevRojo/Dulus/main/install.ps1 | iex
-```
-
-Windows users who do not want Python or a terminal can download the self-contained MSI from [GitHub Releases](https://github.com/KevRojo/Dulus/releases).
-
-### Dulus for Windows — desktop app (alpha/beta trial)
-
-The full **Dulus desktop app** for Windows is now in open trial. No Python, no terminal, no API key — download, install, sign in, and go.
-
-**[⬇️ Dulus Windows Trial setup (alpha/beta)](https://drive.google.com/file/d/1Nxz_coVpXRwKQB7baI_0nG12-p1cLznZ/view)**
-
-It is early — expect rough edges, and tell us about them in [Issues](https://github.com/KevRojo/Dulus/issues). The CLI in this repository stays free and open source; the desktop app is the same engine with a face.
-
-### Docker
-
-```bash
-docker run --rm -it \
-  -v "${PWD}:/workspace" \
-  -w /workspace \
-  ghcr.io/kevrojo/dulus:latest
-```
-
-### From source
-
-```bash
-git clone https://github.com/KevRojo/Dulus
-cd Dulus
-python -m pip install -e .
-dulus
-```
-
-### Pick any brain
-
-```bash
-# Dulus router (Fuel / $DULUS) — no website key form
-dulus
-# /login dulus
-# /login dulus key          # mint dulus_sk_* for SDKs
-# /model dulus-a-9b
-
-# Cloud provider key
-export ANTHROPIC_API_KEY=sk-ant-...
-dulus --model claude-sonnet-4-6
-
-# Local and offline
-ollama pull qwen2.5-coder
-dulus --model ollama/qwen2.5-coder
-
-# Unix pipeline
-git diff | dulus -p "review this diff and find the dangerous parts"
-```
-
-No third-party key yet? Use **`/login dulus`** for the hosted router, or start with Ollama locally.
-
----
-
-## The runtime, not just the prompt
-
-```mermaid
-flowchart LR
-    U["You<br/>CLI · Web · GUI · Telegram"] --> A["Agent loop"]
-    A --> P["Provider router<br/>cloud · web · local"]
-    A --> C["Context engine<br/>project · soul · memory"]
-    A --> R["Tool registry"]
-    R --> T["Core tools"]
-    R --> M["MCP servers"]
-    R --> X["Auto-adapted plugins"]
-    R --> S["Skills"]
-    A --> J["Tasks · checkpoints · background jobs"]
-    J --> A
-```
-
-| Layer | What it does |
-|---|---|
-| **Provider router** | Streams from Anthropic, OpenAI, Gemini, DeepSeek, Kimi, Qwen, NVIDIA, Ollama, LM Studio, LiteLLM, and OpenAI-compatible endpoints |
-| **Agent loop** | Chooses tools, executes them, reads the results, compacts context, and continues until the work is done |
-| **Context engine** | Combines project instructions, conversation state, persistent memory, skills, and the active persona |
-| **Tool registry** | Makes core tools, MCP tools, plugin tools, and skills look like one coherent capability surface |
-| **Durable state** | Stores tasks, sessions, costs, memories, checkpoints, background jobs, and audit records |
-| **Interfaces** | Exposes the same runtime through CLI, WebChat, Telegram, and Dulus OS |
-
-The core stays readable on purpose. There is no TypeScript monorepo hiding the agent loop behind six packages. Start with [`dulus.py`](dulus.py), [`agent.py`](agent.py), [`providers.py`](providers.py), [`tools.py`](tools.py), and [`tool_registry.py`](tool_registry.py).
-
----
-
-## One runtime, every model
-
-Dulus does not make model choice an architectural decision. Switch providers during the same session with `/model`; tools, memory, tasks, and project context remain in place.
-
-| Route | Providers |
-|---|---|
-| **Direct cloud APIs** | Anthropic · OpenAI · Gemini · DeepSeek · Kimi · Qwen · Zhipu · MiniMax · NVIDIA |
-| **Unified gateway** | 100+ LiteLLM backends including OpenRouter, Groq, Together, Bedrock, Vertex AI, xAI, and Mistral |
-| **Local** | Ollama · LM Studio · vLLM · any OpenAI-compatible endpoint |
-| **Edge / on-device** | `edge/*` — small models on your phone or in Termux via llama.cpp / Ollama |
-| **Dulus router (`$DULUS` Fuel)** | `dulus-*` models on `https://control.dulus.ai/v1` — `/login dulus` or `dulus_sk_*` from `/login dulus key` |
-| **Free tier** | 14 models through NVIDIA NIM with automatic fallback |
-
-```text
-/model
-/login dulus
-/model dulus-a-9b
-/model dulus-b-27b
-/model dulus-x-397b
-/model claude-sonnet-4-6
-/model nvidia-web/deepseek-r1
-/model ollama/qwen2.5-coder
-/config custom_base_url=http://your-gpu-box:8000/v1
-/model custom/your-model
-```
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/nvidia-models.svg" alt="NVIDIA NIM models available through Dulus" width="100%">
-</p>
-
-When one NVIDIA model reaches its free-tier ceiling, the provider can fall through the configured chain instead of killing the session.
-
-### On the edge — your phone, Termux, on-device
-
-The `edge` provider runs a small model **locally**, with no per-token cost and no cloud round-trip. It's backend-agnostic: point it at any OpenAI-compatible server on `127.0.0.1` and it just works.
-
-```bash
-# The path that works today — llama.cpp on a laptop, a VM, or Termux on Android
-llama-server -m gemma-3-1b-it-Q4_K_M.gguf --port 8080
-dulus --model edge/gemma-3-1b
-
-# Already running Ollama? Point edge at it instead
-dulus --config edge_base_url=http://127.0.0.1:11434/v1
-```
-
-Override the host/port for a phone on your LAN with `DULUS_EDGE_BASE_URL` or `/config edge_base_url=...`. A full **Termux install walkthrough** lives in [`docs/termux-edge.md`](docs/termux-edge.md).
-
-> **Gemma Nano on-device (APK) — work in progress.** A native Android bridge that runs Gemma directly on the phone's NPU via AICore (zero download, hardware-accelerated) is being built and will take time to ship. Until then, `edge/*` gets you fully local models on the same phone through llama.cpp in Termux — no APK required.
-
----
-
-## Extending the tool surface
-
-MCP is supported natively, and any Python repository that ships a plugin
-manifest installs straight into the running session.
-
-```text
-/plugin install name@https://github.com/user/repo
-/plugin reload
-```
-
-Dulus reads the repository's `plugin.json` (or `PLUGIN.md`), installs the
-dependencies it declares, validates the exports, and registers the resulting
-tools in the current session.
-
-### Three extension paths
-
-| Path | Best for | How it becomes available |
+| | **Dulus** — open source | **Dulus desktop app** — the full product |
 |---|---|---|
-| **MCP** | Standard servers and remote integrations | Drop in `.mcp.json` or use `/mcp install` |
-| **Manifest plugins** | Python repositories that ship a `plugin.json` | `/plugin install name@https://repo` |
-| **Skills** | Reusable workflows, instructions, and tool bundles | `/skills` or install into the skill directory |
+| **What it is** | The terminal agent where it all started | The full product: desktop app, terminal and phone |
+| **Get it** | This repo · `pip install dulus` | [dulus.ai/download](https://dulus.ai/download/) |
+| **Source** | Open | Private. The app shows the work, not the code |
+| **Price** | Free | Free app. Dulus-hosted models are paid by the token, in Fuel |
 
-The MCP marketplace indexes more than **2,000 servers**. Composio exposes **800+ ready-made skills and app integrations**.
+Everything on this page lives in the desktop app.
 
-```json
-{
-  "mcpServers": {
-    "git": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["mcp-server-git"]
-    },
-    "playwright": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp"]
-    }
-  }
-}
-```
+## Get it
 
-```text
-/mcp search postgres
-/mcp install <name>
-/mcp installed
-/mcp reload
-/plugin recommend
-/plugin list
-/skills
-```
+**[Download Dulus](https://dulus.ai/download/)** for Windows 10/11 (x64). macOS (Apple Silicon) and Linux builds appear on the same page as they're published.
 
----
-
-## Agents that can work without disappearing
-
-Dulus can run typed sub-agents in isolated git worktrees, coordinate them through messages, and keep their work visible. A coder can implement while a reviewer inspects and a tester runs the suite.
-
-```text
-Agent(type="coder", task="implement the auth refactor")
-Agent(type="reviewer", task="review the auth refactor")
-Agent(type="tester", task="run focused and integration tests")
-
-/agents
-/brainstorm "rewrite in Rust or keep Python?"
-```
-
-### Long work belongs in the background
-
-`TmuxOffload` moves a long-running tool into a detached tmux session, records the job under `~/.dulus/jobs/`, and returns control immediately. `ReadJob` retrieves the result, while the tmux session cleans itself up when finished.
-
-This is the difference between “the UI did not freeze” and an actual background execution model.
-
----
-
-## Memory you can inspect. Checkpoints you can trust.
-
-Dulus stores memory as Markdown, not an opaque vendor profile.
-
-| Scope | Location | Purpose |
-|---|---|---|
-| **User** | `~/.dulus/memory/` | Preferences, durable facts, recurring workflows |
-| **Project** | `.dulus/memory/` | Architecture decisions, conventions, project context |
-
-Memories are ranked by confidence and recency. Important entries can be marked gold. The directory can be opened directly as an Obsidian vault.
-
-```text
-/remember "use anyio for new async work"
-/memory search async
-/memory consolidate
-```
-
-Checkpoints snapshot both the conversation and touched files:
-
-```text
-/checkpoint
-/checkpoint 042
-/checkpoint clear
-```
-
-Rewinding means the files and the reasoning context return together.
-
----
-
-## One engine, four surfaces
-
-Dulus is terminal-native, not terminal-limited.
-
-| Surface | Start it | What it is for |
-|---|---|---|
-| **CLI** | `dulus` | Fastest path to the full agent runtime |
-| **WebChat** | `/webchat` | Streaming local web UI, mobile/LAN access, personas, and task manager |
-| **Dulus OS** | `/os` or `dulus --os` | Browser desktop with windows, launcher, terminal, apps, memory, and agent controls |
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/dulus-os.png" alt="Dulus OS lock screen and boot sequence" width="100%">
-</p>
-
-### WebChat and the task system
-
-The browser is not a separate demo backend. It drives the same agent, registry, memory, and tasks as the CLI.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/webchat.png" alt="Dulus WebChat streaming interface" width="49%">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/readme/task-board.png" alt="Dulus task board with assigned agents" width="49%">
-</p>
-
-Tasks can be created in the REPL, assigned to agents, and viewed or completed in WebChat:
-
-```text
-/task create "refactor auth"
-/task assign 1 coder
-/task list
-/task done 1
-```
-
-### Voice and bridges
-
-- Offline speech-to-text through Whisper.
-- Offline wake words such as “hey dulus” and “oye dulus”.
-- Text-to-speech with local and hosted engines.
-- Telegram bridge with streaming responses, files, vision, voice, and per-chat routing.
-- Local WebChat address for opening Dulus from another device on the same network.
-
-```text
-/voice
-/wake set "hey dulus"
-/tts
-/telegram <bot_token> <chat_id>
-```
-
----
-
-## Permission model
-
-Autonomy should be selectable, visible, and reversible.
-
-| Mode | Behavior |
-|---|---|
-| `auto` | Read operations and known-safe shell commands run freely; writes and unsafe shell commands request approval |
-| `manual` | Strict interactive approval mode for sensitive work |
-| `accept-all` | Run without approval prompts; intended for trusted sandboxes and automation |
-| `plan` | Read-only analysis; only the plan artifact is writable |
-
-Switch with `/permissions <mode>` or start a non-interactive run with `--accept-all` when the environment is intentionally disposable.
-
-Additional safety mechanisms include:
-
-- Tool argument validation and centralized dispatch.
-- Output truncation with full results persisted for explicit retrieval.
-- Audit logging for mutating operations.
-- Isolated worktrees for sub-agents.
-- Checkpoints before risky work.
-- WebChat authentication required when binding beyond loopback.
-
-### Privacy
-
-Telemetry is opt-in. Dulus asks once and sends nothing unless permission is granted.
-
-If enabled, telemetry covers operational events such as `session_start`, `tool_used`, the Dulus version, OS, Python version, and provider/model name. It does **not** include prompts, responses, file contents, paths, API keys, emails, or usernames.
-
-```text
-/config telemetry=off
-```
-
-See [`analytics.py`](analytics.py) and the [security notes](docs/SECURITY.md) for the implementation.
-
----
-
-## Command map
-
-Type `/` and press Tab inside the REPL to explore the live command list.
-
-| Area | Commands |
-|---|---|
-| Account / Fuel | `/login dulus` · `/login dulus key` (mint `dulus_sk_*`) |
-| Models | `/model` · `/ollama` · `dulus-*` on the router |
-| Sessions | `/save` · `/load` · `/resume` · `/compact` |
-| Memory | `/remember` · `/memory` |
-| Work | `/task` · `/agents` · `/worker` · `/checkpoint` |
-| Extensions | `/mcp` · `/plugin` · `/skills` |
-| Interfaces | `/webchat` · `/os` · `/telegram` |
-| Voice | `/voice` · `/wake` · `/tts` |
-| Control | `/permissions` · `/plan` · `/ssj` |
-| Insight | `/status` · `/doctor` · `/cost` · `/tokens` · `/news` |
-| Output | `/export` · `/copy` · `/verbose` |
-
-<details>
-<summary><strong>Core tool families</strong></summary>
-
-| Family | Examples |
-|---|---|
-| Files and code | `Read` · `Write` · `Edit` · `Glob` · `Grep` · diagnostics |
-| Execution | `Bash` · background tasks · `TmuxOffload` · `ReadJob` |
-| Web | `WebFetch` · `WebSearch` |
-| Memory | save · search · list · delete · consolidate |
-| Agents | spawn · message · inspect · collect result |
-| Tasks | create · update · assign · list |
-| Skills and plugins | discover · install · execute · reload |
-| MCP | configure · connect · register remote tools |
-
-</details>
-
-<details>
-<summary><strong>Useful launch patterns</strong></summary>
-
-```bash
-dulus
-dulus --model ollama/qwen2.5-coder
-dulus -p "explain this repository"
-dulus --accept-all -p "implement every TODO and run tests"
-git diff | dulus -p "write a precise commit message"
-```
-
-</details>
-
----
-
-## Build with Dulus
-
-### Project instructions
-
-Place a `CLAUDE.md` in the project root. Dulus injects it into the system context so the agent starts with the repository's stack, conventions, commands, and constraints.
-
-### Run Dulus from another program
-
-`--output json` turns a one-shot run into a machine-readable stream, so Dulus can be embedded as the agent runtime behind another tool, an IDE bridge, or a CI job.
-
-```bash
-dulus -p --accept-all --output json -- "explain this repository"
-```
-
-The contract:
-
-| Channel | Carries |
-| --- | --- |
-| **stdout** | JSONL protocol frames, and nothing else |
-| **stderr** | Banner, spinners, tool status, warnings — every human-facing byte |
-
-Frames use the OpenCode event-stream dialect, so a consumer that already parses that format needs no new adapter:
-
-| Frame | Payload |
-| --- | --- |
-| `step_start` | `sessionID` |
-| `text` | `part.text` — the assistant's answer |
-| `step_finish` | `part.tokens.input` · `.output` · `.cache.read` · `.cache.write` · `part.cost` |
-| `error` | `message` |
-
-Exit code is `0` on success, `130` on Ctrl+C, and non-zero on any failure — a missing credential, a provider error, an unhandled exception, or a turn that produced no answer at all — always alongside an `error` frame. A run that streams partial text and then fails is a failure, not a partial success. Pass the prompt after `--`: it is a positional argument, so without the terminator a prompt starting with a hyphen is parsed as a flag.
-
-`--version` and `--help` always answer on stdout, in every mode.
-
-### Development setup
-
-```bash
-git clone https://github.com/KevRojo/Dulus
-cd Dulus
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# Linux / macOS
-source .venv/bin/activate
-
-python -m pip install -e ".[dev]"
-python -m pytest -q
-pyright
-```
-
-### Repository map
-
-```text
-dulus/
-├── dulus.py             entry point, REPL, commands, bridges
-├── agent.py             streaming agent loop and tool dispatch
-├── providers.py         cloud, OAuth, gateway, local providers
-├── tools.py             built-in tools and registry wiring
-├── tool_registry.py     registration, validation, execution, persistence
-├── context.py           system and project context assembly
-├── compaction.py        long-session context compression
-├── memory/              persistent memory and offloaded jobs
-├── multi_agent/         sub-agents, messaging, worktrees
-├── dulus_mcp/           MCP transports, config, marketplace
-├── plugin/              plugin loader and registry
-├── skill/               skill discovery and execution
-├── checkpoint/          file and conversation rewind
-├── task/                durable task tracking
-├── voice/               STT, TTS, wake words
-├── webchat_ui/          local browser interface
-└── tests/               unit and integration coverage
-```
-
-Documentation:
-
-- [Getting started](docs/GETTING_STARTED.md)
-- [Architecture](docs/architecture.md)
-- [API guide](docs/API.md)
-- [Interactive dependency graph](docs/api.html)
-- [Deployment](docs/DEPLOYMENT.md)
-- [Contributing](docs/CONTRIBUTING.md)
-- [Security](docs/SECURITY.md)
-- [Release notes](docs/news.md)
----
-
-## Shipping in public
-
-Dulus does not hide behind a quarterly roadmap. Features, fixes, experiments, reversals, and lessons ship in the open.
-
-- **181 commits in the last 90 days** in this mirror alone — and **1,239** on the private line the binaries are cut from.
-- **125 tagged versions** across the public history.
-- **358 commits in the last 30 days** behind the signed build, against **27** here.
-- Provider failures, packaging problems, installer issues, and community bug reports routinely become releases within the same day.
-- The first Hacker News community bug report was diagnosed, fixed, tested, and released to PyPI the day it arrived.
-
-Follow the evidence:
-
-- [`docs/news.md`](docs/news.md) — human-readable release journal.
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — structured changes.
-- [GitHub Releases](https://github.com/KevRojo/Dulus/releases) — installable versions.
-- [Commit history](https://github.com/KevRojo/Dulus/commits/main/) — the actual shipping rate.
-
-This project is ambitious by design. If Dulus is not yet the best open agent CLI for your workflow, the repository is structured so you can help make it so.
-
----
-
-## Ecosystem
-
-| Surface | Role |
-|---|---|
-| [dulus.ai](https://dulus.ai/) | Product front door, cloud agent, and full ecosystem tour |
-| [dulus.online](https://dulus.online/) | Synthetic Operations: deploy and govern persistent agent fleets |
-| [dulus.work](https://dulus.work/) | Network and shared intelligence layer |
-| [GitHub Pages](https://kevrojo.github.io/Dulus/) | Interactive open-source product demo |
-| [Telegram](https://t.me/dulusx) | Community and release channel |
-| [X / Twitter](https://x.com/KevRojo) | Builder updates |
-
-Dulus has received support through startup programs from Cloudflare, AWS Activate, Datadog, Sentry, Anthropic, MongoDB, DigitalOcean, Notion, Zendesk, Deepgram, Mixpanel, and Amplitude.
-
----
-
-My commits in the last 3 days for our private Dulus Build... this is my last time showing my creativity...
-
-I will code it.
-
-🚀 Dulus v6.0.6 ➡️ v6.0.7 Changelog 🚀 
-
-✨ Nuevas Features & Core
-• 👁️ Control de Pantalla Nativo: Agregadas las herramientas ScreenGround y ScreenClick para uso nativo de la computadora. 
-
-• ♾️ Lookback Auto-Recall: Nuevo sistema push-RAG que le da contexto virtualmente "infinito" a los modelos locales pequeños. 
-
-• 🔒 Modo Isolate: El toggle /isolate ahora bloquea todas las herramientas de escritura, edición y Bash para que no salgan de tu workspace. 
-
-• ⏳ Waits Inteligentes: Ahora la IA prefiere usar Reminder en lugar de Bash('sleep N') para esperar, evitando bloquear el chat.
-
-🧠 Razonamiento y Memoria
-
-• 💭 Streaming Real: El comando /thinking vuelve a ser el control principal para el razonamiento, ahora con verdadero streaming. 
-
-• 🛡️ Memoria Robusta: Timeout guard implementado para mempalace y protección para evitar que el archivo de memoria se encoja. El baseline de gold/soul ahora va directo al system prompt. 
-
-• 🗣️ Verbose Thinking: Restaurado para proveedores como LiteLLM, DeepSeek y Qwen.
-
-🖥️ Interfaz y Experiencia (GUI)
-
-• 📁 Mejoras en el Workspace: Panel de contexto con auto-apertura y subidas de hasta 25MB directamente al workspace. 
-
-• 🖱️ El menú de /load ahora es clickeable y se eliminó el molesto bug del ícono duplicado en el Dock. 
-
-• 🔤 ¡Adiós acentos rotos (mojibake)! Decodificación UTF-8 estricta para el SSE de Meta y ChatGPT. 
-
-• ❄️ Solucionado el problema del escritorio congelado al arrancar (seeding correcto de memoria a corto plazo).
-
-🌐 Modelos y Proveedores
-
-• 🦙 Soporte añadido para Meta AI Muse Spark (http://api.meta.ai/v1/responses). • ✖️ Nuevo alias de proveedor x ➡️ xai-oauth (para Grok-4.5). 
-
-• 🤖 Configuración predeterminada actualizada: ahora por defecto usa el modelo dulus/dulus-a-9b, permission_mode=auto y webdrive_embed=always. 
-
-• 🪪 Ahora enviamos la identidad de Dulus en los headers al comunicarnos con los LLMs.
-
-🛠️ Infraestructura, DevOps & Fixes
-
-• 🛑 Fail Fast: Eliminados los reintentos silenciosos. 
-
-Si un modelo falla, lo hace rápido para evitar que el agente "se congele de la nada". 
-
-• ☁️ Migración Cloud: El provisionador de entornos para clientes ha sido portado de Azure a OVH MKS. 
-
-• 📊 Arena de Benchmarks: Nueva arena para comparar modelos con un sistema de evaluación basado en evidencias. 
-
-• ⚙️ Protocolo de salida en JSON (--output json) y flujo de early-cut mejorado (welcome/doctor).
-🔐 Seguridad & Agentes (Datadog-bits)
-
-• Parcheados múltiples vectores críticos: mitigada la inyección de prompts en el bucle de herramientas del Army worker. • Fix de Path Traversal de tenants vía X-Tenant-ID. • Prevención de filtrado de datos (leaks) en el endpoint de búsqueda de memoria y en el marketplace. • Validación estricta del código autogenerado para plugins antes de escribir en el sistema.
-
-⚡️ That's some homework for the industry!
-
-Building binaries!
-
+**Free to fly. Pay only for the fuel.** The app is free, and you sign in with a free Dulus account. Your own keys and local models cost nothing from Dulus; Dulus-hosted models are paid by the token in [Fuel](https://dulus.ai/fuel/). See [pricing](https://dulus.ai/pricing/).
 
 ## FAQ
 
-<details>
-<summary><strong>Does Dulus require an API key?</strong></summary>
+### Is the desktop app open source?
+No. Dulus, the open-source core you're looking at, is — and stays that way. The desktop app's source isn't published; this page shows what it does, how it's built and how it's tested.
 
-Not necessarily. Ollama and LM Studio run locally with no key. `/login dulus` signs you into the hosted router with OAuth. `/login claude`, `/login chatgpt`, `/login kimi`, and `/login grok` reuse a subscription you already pay for. Cloud API keys remain available for direct paid access.
+### Why keep it private?
+Because a lot of what's on this page exists nowhere else, and we'd rather show the work than hand over the blueprint.
 
-</details>
+### Where do the numbers come from?
+From the repository itself — git history, line counts and a full test run — measured on November 8, 2026, with the same method every time so the numbers stay comparable.
 
-<details>
-<summary><strong>Which local models work best with tools?</strong></summary>
+### Is $DULUS an investment?
+No. $DULUS is a utility and community token used to pay for Fuel on Dulus. Nothing here is financial advice.
 
-Use a model trained for function calling, such as Qwen2.5-Coder, Llama 3.3, Mistral, or Phi-4. Base models without tool-use training may produce valid text but unreliable tool calls.
+### Where do I report a bug?
+[Open an issue](../../issues/new/choose) here, or write to hello@dulus.ai. Security reports go privately to security@dulus.ai.
 
-</details>
+## Built by one. Backed by many.
 
-<details>
-<summary><strong>Can Dulus use a remote GPU?</strong></summary>
+Made by Kevin Rojo, a solo developer in Santo Domingo, with a crew of AI agents. Supported by **Datadog**, **Cloudflare**, **Sentry**, **Mixpanel**, **Amplitude**, **AWS Activate**, **Claude for Startups**, **DigitalOcean Hatch**, **Notion** and **Zendesk**.
 
-Yes. Point `custom_base_url` at any OpenAI-compatible server:
+## Why a bird?
 
-```text
-/config custom_base_url=http://your-server:8000/v1
-/model custom/your-model
-```
+Dulus is named after the palmchat — the *cigua palmera*, national bird of the Dominican Republic. It lives on Hispaniola and nowhere else on Earth, and it's the only species in its family.
 
-</details>
+Palmchats live in flocks. Together they build one great nest of twigs, high in the royal palms, and inside it every pair keeps its own chamber with its own entrance. One roof, many rooms. Dulus is made the same way: one human, Kevin Rojo, sets the direction; a flock of agents does the work.
 
-<details>
-<summary><strong>Is <code>--accept-all</code> safe for production repositories?</strong></summary>
-
-It deliberately removes approval prompts. Use it in trusted sandboxes or controlled automation. Use the default `auto` mode or read-only `plan` mode for sensitive environments.
-
-</details>
-
-<details>
-<summary><strong>Can I use Dulus as a library?</strong></summary>
-
-Yes. The agent loop, provider layer, registry, memory system, MCP client, and task system are regular Python modules. The [API guide](docs/API.md) and [dependency graph](docs/api.html) are the best entry points.
-
-</details>
-
----
-
-## License
-
-Dulus is licensed under [GPLv3](LICENSE). You can use it, study it, modify it, and redistribute it. Derivative distributions must preserve the same open-source freedoms.
-
-If Dulus saves you tokens, time, or sanity:
-
-```text
-
-```
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KevRojo/Dulus/main/docs/divider.svg" alt="" width="100%">
-</p>
-
-<p align="center">
-  <strong>Built by <a href="https://github.com/KevRojo">KevRojo</a> in the Dominican Republic.</strong><br>
-  Named after the Cigua Palmera, not the rocket.<br>
-  <a href="https://x.com/KevRojo">@KevRojox</a> · <a href="https://t.me/dulusx">t.me/dulusx</a>
-</p>
+<p align="center"><sub>Named after the bird, not the rocket. Built in Santo Domingo 🇩🇴 · We keep flying.</sub></p>

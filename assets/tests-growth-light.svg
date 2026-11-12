@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="380" viewBox="0 0 880 380" role="img" aria-labelledby="t d">
+<title id="t">Test functions in the suite, week by week</title>
+<desc id="d">Test functions written in both test suites, week by week from Jun 21, 2026 to Nov 08, 2026: from 882 to 5,734.</desc>
+<style>text{font-family:system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;} .num{font-variant-numeric:tabular-nums;}</style>
+<rect x="0.5" y="0.5" width="879" height="379" rx="12" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
+<text x="28" y="36" fill="#0b0b0b" font-size="17" font-weight="600">Test functions in the suite, week by week</text>
+<text x="28" y="58" fill="#52514e" font-size="13">Both suites, static count · 882 → 5,734 since Jun 21, 2026 · 7,402 test cases collected today</text>
+<line x1="64" y1="330.0" x2="840" y2="330.0" stroke="#c3c2b7"/>
+<text class="num" x="54" y="334.0" fill="#898781" font-size="12" text-anchor="end">0</text>
+<line x1="64" y1="252.0" x2="840" y2="252.0" stroke="#e1e0d9"/>
+<text class="num" x="54" y="256.0" fill="#898781" font-size="12" text-anchor="end">2K</text>
+<line x1="64" y1="174.0" x2="840" y2="174.0" stroke="#e1e0d9"/>
+<text class="num" x="54" y="178.0" fill="#898781" font-size="12" text-anchor="end">4K</text>
+<line x1="64" y1="96.0" x2="840" y2="96.0" stroke="#e1e0d9"/>
+<text class="num" x="54" y="100.0" fill="#898781" font-size="12" text-anchor="end">6K</text>
+<line x1="119.4" y1="330" x2="119.4" y2="335" stroke="#c3c2b7"/>
+<text x="119.4" y="352" fill="#898781" font-size="12" text-anchor="middle">Jul</text>
+<line x1="291.3" y1="330" x2="291.3" y2="335" stroke="#c3c2b7"/>
+<text x="291.3" y="352" fill="#898781" font-size="12" text-anchor="middle">Aug</text>
+<line x1="463.1" y1="330" x2="463.1" y2="335" stroke="#c3c2b7"/>
+<text x="463.1" y="352" fill="#898781" font-size="12" text-anchor="middle">Sep</text>
+<line x1="629.4" y1="330" x2="629.4" y2="335" stroke="#c3c2b7"/>
+<text x="629.4" y="352" fill="#898781" font-size="12" text-anchor="middle">Oct</text>
+<line x1="801.2" y1="330" x2="801.2" y2="335" stroke="#c3c2b7"/>
+<text x="801.2" y="352" fill="#898781" font-size="12" text-anchor="middle">Nov</text>
+<path d="M64.0,330 L64.0,295.6 L102.8,294.6 L141.6,294.5 L180.4,294.5 L219.2,292.0 L258.0,290.2 L296.8,289.4 L335.6,289.2 L374.4,281.6 L413.2,277.6 L452.0,259.1 L490.8,251.1 L529.6,233.4 L568.4,217.7 L607.2,203.0 L646.0,187.8 L684.8,187.8 L723.6,162.3 L762.4,137.3 L801.2,120.5 L840.0,106.4 L840.0,330 Z" fill="#2a78d6" fill-opacity="0.10"/>
+<polyline points="64.0,295.6 102.8,294.6 141.6,294.5 180.4,294.5 219.2,292.0 258.0,290.2 296.8,289.4 335.6,289.2 374.4,281.6 413.2,277.6 452.0,259.1 490.8,251.1 529.6,233.4 568.4,217.7 607.2,203.0 646.0,187.8 684.8,187.8 723.6,162.3 762.4,137.3 801.2,120.5 840.0,106.4" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="64.0" cy="295.6" r="9" fill="transparent"><title>Week ending Jun 21: 882 test functions</title></circle>
+<circle cx="102.8" cy="294.6" r="9" fill="transparent"><title>Week ending Jun 28: 907 test functions</title></circle>
+<circle cx="141.6" cy="294.5" r="9" fill="transparent"><title>Week ending Jul 5: 909 test functions</title></circle>
+<circle cx="180.4" cy="294.5" r="9" fill="transparent"><title>Week ending Jul 12: 909 test functions</title></circle>
+<circle cx="219.2" cy="292.0" r="9" fill="transparent"><title>Week ending Jul 19: 975 test functions</title></circle>
+<circle cx="258.0" cy="290.2" r="9" fill="transparent"><title>Week ending Jul 26: 1,021 test functions</title></circle>
+<circle cx="296.8" cy="289.4" r="9" fill="transparent"><title>Week ending Aug 2: 1,041 test functions</title></circle>
+<circle cx="335.6" cy="289.2" r="9" fill="transparent"><title>Week ending Aug 9: 1,047 test functions</title></circle>
+<circle cx="374.4" cy="281.6" r="9" fill="transparent"><title>Week ending Aug 16: 1,242 test functions</title></circle>
+<circle cx="413.2" cy="277.6" r="9" fill="transparent"><title>Week ending Aug 23: 1,343 test functions</title></circle>
+<circle cx="452.0" cy="259.1" r="9" fill="transparent"><title>Week ending Aug 30: 1,817 test functions</title></circle>
+<circle cx="490.8" cy="251.1" r="9" fill="transparent"><title>Week ending Sep 6: 2,022 test functions</title></circle>
+<circle cx="529.6" cy="233.4" r="9" fill="transparent"><title>Week ending Sep 13: 2,477 test functions</title></circle>
+<circle cx="568.4" cy="217.7" r="9" fill="transparent"><title>Week ending Sep 20: 2,879 test functions</title></circle>
+<circle cx="607.2" cy="203.0" r="9" fill="transparent"><title>Week ending Sep 27: 3,256 test functions</title></circle>
+<circle cx="646.0" cy="187.8" r="9" fill="transparent"><title>Week ending Oct 4: 3,645 test functions</title></circle>
+<circle cx="684.8" cy="187.8" r="9" fill="transparent"><title>Week ending Oct 11: 3,645 test functions</title></circle>
+<circle cx="723.6" cy="162.3" r="9" fill="transparent"><title>Week ending Oct 18: 4,301 test functions</title></circle>
+<circle cx="762.4" cy="137.3" r="9" fill="transparent"><title>Week ending Oct 25: 4,942 test functions</title></circle>
+<circle cx="801.2" cy="120.5" r="9" fill="transparent"><title>Week ending Nov 1: 5,372 test functions</title></circle>
+<circle cx="840.0" cy="106.4" r="9" fill="transparent"><title>Week ending Nov 8: 5,734 test functions</title></circle>
+<circle cx="64.0" cy="295.6" r="4.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text class="num" x="64.0" y="280.6" fill="#0b0b0b" font-size="13" font-weight="600" text-anchor="start">882</text>
+<circle cx="840.0" cy="106.4" r="4.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text class="num" x="840.0" y="91.4" fill="#0b0b0b" font-size="13" font-weight="600" text-anchor="end">5,734</text>
+</svg>
