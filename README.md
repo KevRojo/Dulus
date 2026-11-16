@@ -10,7 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://dulus.ai/download/"><b>Download the app</b></a>
+  <a href="https://dulus.ai/download/"><b>Download the desktop app (Free)</b></a> ·
+  <a href="https://dulus.ai/pricing/"><b>Plans &amp; 3× Fuel from $49</b></a> ·
+  <a href="https://dulus.online/"><b>Dulus Online</b></a>
 </p>
 
 <p align="center">
@@ -67,11 +69,11 @@ Images and video with your own keys: FLUX.2, GPT Image, Gemini and Imagen, Meta 
 A market of **~1,800 MCP servers** that install from inside the app, runtimes included. Skills. Plugins that reload live. And **AutoAdapter**: point it at a GitHub repo and get tools that are verified before they're switched on.
 
 ### And everything around it
-A real browser pane, a live terminal panel, a steer bubble to talk to Dulus mid-task without stopping it, a Stop that really stops, checkpoints with undo and fork, HTML reports, a Tasks board, Dulus OS, a desktop pet, 14 themes and 34 languages.
+A real browser pane, a live terminal panel, a steer bubble to talk to Dulus mid-task without stopping it, a Stop that really stops, checkpoints with undo and fork, HTML reports, a Tasks board, **Dulus OS** (the desktop in your browser), a desktop pet, **17 GUI themes** and **34 languages**.
 
 ## Measured. Not claimed.
 
-Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), and a crew of AI coding agents. The agents write code and open pull requests. Kevin directs, decides and merges — all 358 of them. Every agent reads a shared log before touching anything, and signs an entry when it's done: what it did, what's missing, what broke, and what it did **not** verify.
+Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), and a crew of AI coding agents. The agents write code and open pull requests. Kevin directs, decides and merges — **429 pull requests** and counting. Every agent reads a shared log before touching anything, and signs an entry when it's done: what it did, what's missing, what broke, and what it did **not** verify.
 
 <p align="center">
   <picture>
@@ -80,26 +82,41 @@ Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), and a crew
   </picture>
 </p>
 
+- **1,783.8M input tokens** processed Nov 1–15, 2026 — **91.9% served from cache** (cached tokens are free in Fuel).
 - **7,402 automated tests.** The latest full run (Nov 8, 2026) passed 7,362; the 24 failures are known and tracked.
 - **Every fix ships with a test that fails without it** — and we break each fix on purpose to prove a test catches it.
-- **1,527 commits in 140 days.** About 80% of them pushed by AI agents, including Dulus working on itself.
+- **1,527+ commits in 140+ days.** About 80% of them pushed by AI agents, including Dulus working on itself.
 
 ## Two editions, one bird
 
-| | **Dulus** — open source | **Dulus desktop app** — the full product |
+| | **Dulus** — open source CLI | **Dulus desktop app** — the full product |
 |---|---|---|
-| **What it is** | The terminal agent where it all started | The full product: desktop app, terminal and phone |
+| **What it is** | The open-source terminal agent where it all started | The full product: desktop app, CLI, browser, voice & phone |
 | **Get it** | This repo · `pip install dulus` | [dulus.ai/download](https://dulus.ai/download/) |
-| **Source** | Open | Private. The app shows the work, not the code |
-| **Price** | Free | Free app. Dulus-hosted models are paid by the token, in Fuel |
+| **Source** | Open (GPLv3) | Private. The app shows the work, not the code |
+| **Price** | Free | **Free app** on your own keys/local models — or **3× Fuel** plans from **$49/mo** |
 
 Everything on this page lives in the desktop app.
 
+## Free to fly. 3× Fuel when you want hosted power.
+
+The desktop app and CLI are **100% free** with your own API keys or local models (Ollama, LM Studio, llama.cpp). When you want Dulus-hosted models (`dulus-a-9b` to `dulus-x-397b`), the OpenAI-compatible API, and **Dulus OS** in your browser without juggling keys, every plan pays you back **3× its price in Fuel** every month:
+
+| Plan | You pay | You get in Fuel (3×) | What's included |
+|---|---|---|---|
+| **Free** | **$0** | Bring your own keys / local | Full desktop app + CLI, all built-in tools, Mesa Redonda, MemPalace, MCPs & plugins |
+| **Operator** | **$49 / mo** | **$147 / mo in Fuel** | Everything in Free + all hosted models + API (`dulus_sk_live_…`) + Dulus OS |
+| **Company** | **$99 / mo** | **$297 / mo in Fuel** | Everything in Operator + more than twice the monthly Fuel for heavier daily workloads |
+
+- **Cached tokens are free** and **failed calls are refunded**.
+- **Pay as you go:** Top up [Fuel](https://dulus.ai/fuel/) anytime with SOL or `$DULUS` on Solana (`1 Fuel = 1 $DULUS`), or keep **1,000,000 `$DULUS`** in your Fuel balance for **40 free messages/day** on the free models (held, never spent).
+- 👉 **[Compare plans & get 3× Fuel](https://dulus.ai/pricing/)** · **[Manage account on Dulus Online](https://dulus.online/account/#plans)**
+
 ## Get it
 
-**[Download Dulus](https://dulus.ai/download/)** for Windows 10/11 (x64). macOS (Apple Silicon) and Linux builds appear on the same page as they're published.
+**[Download Dulus](https://dulus.ai/download/)** — Windows 10/11 (64-bit, **v6.4.4** per-user installer with embedded Python, zero setup). macOS and Linux builds publish on the same page; until your OS card turns into an installer, the open-source CLI runs in any terminal via `pip install dulus` (macOS, Linux, WSL, Termux, Windows).
 
-**Free to fly. Pay only for the fuel.** The app is free, and you sign in with a free Dulus account. Your own keys and local models cost nothing from Dulus; Dulus-hosted models are paid by the token in [Fuel](https://dulus.ai/fuel/). See [pricing](https://dulus.ai/pricing/).
+Sign in with a free Dulus account to unlock **Fuel**, **Dulus Online**, and **Dulus OS**. See [pricing](https://dulus.ai/pricing/).
 
 ## FAQ
 
@@ -110,7 +127,7 @@ No. Dulus, the open-source core you're looking at, is — and stays that way. Th
 Because a lot of what's on this page exists nowhere else, and we'd rather show the work than hand over the blueprint.
 
 ### Where do the numbers come from?
-From the repository itself — git history, line counts and a full test run — measured on November 8, 2026, with the same method every time so the numbers stay comparable.
+The repository snapshot (7,402 tests, 1,527 commits) was measured on November 8, 2026; PR counts (429+) and provider cache telemetry (1,783.8M input tokens, 91.9% cached, Nov 1–15, 2026) come directly from the repo and live provider dashboard.
 
 ### Is $DULUS an investment?
 No. $DULUS is a utility and community token used to pay for Fuel on Dulus. Nothing here is financial advice.
@@ -120,7 +137,7 @@ No. $DULUS is a utility and community token used to pay for Fuel on Dulus. Nothi
 
 ## Built by one. Backed by many.
 
-Made by Kevin Rojo, a solo developer in Santo Domingo, with a crew of AI agents. Supported by **Datadog**, **Cloudflare**, **Sentry**, **Mixpanel**, **Amplitude**, **AWS Activate**, **Claude for Startups**, **DigitalOcean Hatch**, **Notion** and **Zendesk**.
+Made by Kevin Rojo, a solo developer in Santo Domingo, with a crew of AI agents. Supported by **15 startup programs**: **Datadog**, **Cloudflare**, **OVHcloud**, **AWS Activate**, **Microsoft for Startups**, **Google for Startups**, **DigitalOcean Hatch**, **Deepgram**, **Claude for Startups**, **Sentry**, **Mixpanel**, **Amplitude**, **PostHog**, **Notion** and **Zendesk** — see the full wall at [dulus.ai/sponsors](https://dulus.ai/sponsors/).
 
 ## Why a bird?
 
