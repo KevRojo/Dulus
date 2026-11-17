@@ -65,6 +65,10 @@ Memories stay with the profile and project they came from. Stale facts get flagg
 ### Make things
 Images and video with your own keys: FLUX.2, GPT Image, Gemini and Imagen, Meta Muse, Veo, Sora 2 and more. Drag a result back in as a reference and keep going. Documents and mini apps the agent builds land in a versioned **Artifacts** library.
 
+<p align="center">
+  <img src="assets/astral-images.png" width="880" alt="Dulus desktop app — Astral Images generating and iterating with reference images across Meta Muse and FLUX">
+</p>
+
 ### Grows with you
 A market of **~1,800 MCP servers** that install from inside the app, runtimes included. Skills. Plugins that reload live. And **AutoAdapter**: point it at a GitHub repo and get tools that are verified before they're switched on.
 
