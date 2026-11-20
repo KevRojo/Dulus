@@ -1,0 +1,301 @@
+{
+  "measured_at": "2026-11-16",
+  "head": "251cb00",
+  "repo": {
+    "first_commit": "2026-06-21",
+    "days": 148,
+    "commits": 1778,
+    "non_merge_commits": 1191,
+    "merged_prs": 424,
+    "prs_merged_by_human": 424,
+    "first_pr_merged": "2026-08-26",
+    "shared_log": {
+      "entries": 219,
+      "first_entry": "2026-08-15"
+    }
+  },
+  "tests": {
+    "functions_weekly": [
+      [
+        "2026-06-21",
+        882
+      ],
+      [
+        "2026-06-28",
+        907
+      ],
+      [
+        "2026-07-05",
+        909
+      ],
+      [
+        "2026-07-12",
+        909
+      ],
+      [
+        "2026-07-19",
+        975
+      ],
+      [
+        "2026-07-26",
+        1021
+      ],
+      [
+        "2026-08-02",
+        1041
+      ],
+      [
+        "2026-08-09",
+        1047
+      ],
+      [
+        "2026-08-16",
+        1242
+      ],
+      [
+        "2026-08-23",
+        1343
+      ],
+      [
+        "2026-08-30",
+        1817
+      ],
+      [
+        "2026-09-06",
+        2022
+      ],
+      [
+        "2026-09-13",
+        2477
+      ],
+      [
+        "2026-09-20",
+        2879
+      ],
+      [
+        "2026-09-27",
+        3256
+      ],
+      [
+        "2026-10-04",
+        3645
+      ],
+      [
+        "2026-10-11",
+        3645
+      ],
+      [
+        "2026-10-18",
+        4301
+      ],
+      [
+        "2026-10-25",
+        4942
+      ],
+      [
+        "2026-11-01",
+        5372
+      ],
+      [
+        "2026-11-08",
+        5734
+      ],
+      [
+        "2026-11-15",
+        6678
+      ],
+      [
+        "2026-11-16",
+        6905
+      ]
+    ],
+    "files": 395,
+    "lines": 124297,
+    "collected": {
+      "app": 8319,
+      "accounts_fuel": 923
+    },
+    "last_run": {
+      "date": "2026-11-16",
+      "where": "Linux, Python 3.12, 3 pytest workers, empty home directory",
+      "app": {
+        "passed": 8262,
+        "failed": 26,
+        "skipped": 31,
+        "seconds": 995
+      },
+      "accounts_fuel": {
+        "passed": 916,
+        "failed": 0,
+        "skipped": 7,
+        "seconds": 21
+      },
+      "round_table_scripts": "both green",
+      "against_base": "24 of the 26 failures also fail on an untouched copy of the main branch in the same environment; the other 2 pass on their own, 5 runs of 5. 21 of the 26 fail on their own."
+    }
+  },
+  "commits_weekly": [
+    [
+      "2026-W25",
+      6
+    ],
+    [
+      "2026-W26",
+      37
+    ],
+    [
+      "2026-W27",
+      27
+    ],
+    [
+      "2026-W28",
+      6
+    ],
+    [
+      "2026-W29",
+      80
+    ],
+    [
+      "2026-W30",
+      50
+    ],
+    [
+      "2026-W31",
+      33
+    ],
+    [
+      "2026-W32",
+      28
+    ],
+    [
+      "2026-W33",
+      103
+    ],
+    [
+      "2026-W34",
+      73
+    ],
+    [
+      "2026-W35",
+      171
+    ],
+    [
+      "2026-W36",
+      109
+    ],
+    [
+      "2026-W37",
+      158
+    ],
+    [
+      "2026-W38",
+      70
+    ],
+    [
+      "2026-W39",
+      68
+    ],
+    [
+      "2026-W40",
+      106
+    ],
+    [
+      "2026-W41",
+      0
+    ],
+    [
+      "2026-W42",
+      146
+    ],
+    [
+      "2026-W43",
+      124
+    ],
+    [
+      "2026-W44",
+      80
+    ],
+    [
+      "2026-W45",
+      57
+    ],
+    [
+      "2026-W46",
+      192
+    ],
+    [
+      "2026-W47",
+      54
+    ]
+  ],
+  "areas": [
+    {
+      "name": "Tests & benchmarks",
+      "lines": 133858,
+      "in_app": false
+    },
+    {
+      "name": "Agent engine — loop, tools, memory, Round Table",
+      "lines": 81160,
+      "in_app": true
+    },
+    {
+      "name": "Desktop app & chat UI",
+      "lines": 59484,
+      "in_app": true
+    },
+    {
+      "name": "Dulus OS — the web desktop inside the app",
+      "lines": 44024,
+      "in_app": true
+    },
+    {
+      "name": "CLI",
+      "lines": 27561,
+      "in_app": true
+    },
+    {
+      "name": "Extensions — plugins, skills, MCP",
+      "lines": 25355,
+      "in_app": true
+    },
+    {
+      "name": "Services — accounts, Fuel, telemetry",
+      "lines": 21186,
+      "in_app": false
+    },
+    {
+      "name": "Senses — screen, browser, voice, images, phone",
+      "lines": 20277,
+      "in_app": true
+    },
+    {
+      "name": "Model layer — providers, reasoning, routing",
+      "lines": 17627,
+      "in_app": true
+    },
+    {
+      "name": "Build, install & update",
+      "lines": 16155,
+      "in_app": false
+    }
+  ],
+  "product": {
+    "edition": "Dulus desktop app (the edition customers download)",
+    "tools": 117,
+    "core_tools": 79,
+    "pack_tools": 38,
+    "tools_with_multiplexer": 128,
+    "slash_commands": 123,
+    "provider_integrations": 26,
+    "provider_registry_entries": 42,
+    "round_table_seats": 26,
+    "themes": 17,
+    "reply_languages": 22,
+    "reply_language_settings": 34,
+    "mcp_catalog": 1800,
+    "shipped_skills": 8,
+    "media_providers": 6,
+    "audited": "2026-11-16, see AUDIT.md"
+  }
+}

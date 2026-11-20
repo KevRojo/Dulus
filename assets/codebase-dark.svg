@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="444" viewBox="0 0 880 444" role="img" aria-labelledby="t d">
+<title id="t">Where the lines live</title>
+<desc id="d">Lines of source by area: Tests &amp; benchmarks 133,858; Agent engine — loop, tools, memory, Round Table 81,160; Desktop app &amp; chat UI 59,484; Dulus OS — the web desktop inside the app 44,024; CLI 27,561; Extensions — plugins, skills, MCP 25,355; Services — accounts, Fuel, telemetry 21,186; Senses — screen, browser, voice, images, phone 20,277; Model layer — providers, reasoning, routing 17,627; Build, install &amp; update 16,155.</desc>
+<style>text{font-family:system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;} .num{font-variant-numeric:tabular-nums;}</style>
+<rect x="0.5" y="0.5" width="879" height="443" rx="12" fill="#1a1a19" stroke="rgba(255,255,255,0.10)"/>
+<text x="28" y="36" fill="#f0efec" font-size="17" font-weight="600">Where the lines live</text>
+<text x="28" y="58" fill="#c3c2b7" font-size="13">446,687 lines of source by area, Nov 16, 2026 · largest single area: tests &amp; benchmarks</text>
+<text x="346" y="119.5" fill="#c3c2b7" font-size="13" text-anchor="end">Tests &amp; benchmarks</text>
+<path d="M358.0,108.0 H767.0 Q771.0,108.0 771.0,112.0 V118.0 Q771.0,122.0 767.0,122.0 H358.0 Z" fill="#3987e5"><title>Tests &amp; benchmarks: 133,858 lines</title></path>
+<text class="num" x="779.0" y="119.5" fill="#f0efec" font-size="12.5" font-weight="600">133.9K</text>
+<text x="346" y="149.5" fill="#c3c2b7" font-size="13" text-anchor="end">Agent engine — loop, tools, memory, Round Table</text>
+<path d="M358.0,138.0 H604.4 Q608.4,138.0 608.4,142.0 V148.0 Q608.4,152.0 604.4,152.0 H358.0 Z" fill="#5f5e5a"><title>Agent engine — loop, tools, memory, Round Table: 81,160 lines</title></path>
+<text class="num" x="616.4" y="149.5" fill="#f0efec" font-size="12.5" font-weight="400">81.2K</text>
+<text x="346" y="179.5" fill="#c3c2b7" font-size="13" text-anchor="end">Desktop app &amp; chat UI</text>
+<path d="M358.0,168.0 H537.6 Q541.6,168.0 541.6,172.0 V178.0 Q541.6,182.0 537.6,182.0 H358.0 Z" fill="#5f5e5a"><title>Desktop app &amp; chat UI: 59,484 lines</title></path>
+<text class="num" x="549.6" y="179.5" fill="#f0efec" font-size="12.5" font-weight="400">59.5K</text>
+<text x="346" y="209.5" fill="#c3c2b7" font-size="13" text-anchor="end">Dulus OS — the web desktop inside the app</text>
+<path d="M358.0,198.0 H489.8 Q493.8,198.0 493.8,202.0 V208.0 Q493.8,212.0 489.8,212.0 H358.0 Z" fill="#5f5e5a"><title>Dulus OS — the web desktop inside the app: 44,024 lines</title></path>
+<text class="num" x="501.8" y="209.5" fill="#f0efec" font-size="12.5" font-weight="400">44K</text>
+<text x="346" y="239.5" fill="#c3c2b7" font-size="13" text-anchor="end">CLI</text>
+<path d="M358.0,228.0 H439.0 Q443.0,228.0 443.0,232.0 V238.0 Q443.0,242.0 439.0,242.0 H358.0 Z" fill="#5f5e5a"><title>CLI: 27,561 lines</title></path>
+<text class="num" x="451.0" y="239.5" fill="#f0efec" font-size="12.5" font-weight="400">27.6K</text>
+<text x="346" y="269.5" fill="#c3c2b7" font-size="13" text-anchor="end">Extensions — plugins, skills, MCP</text>
+<path d="M358.0,258.0 H432.2 Q436.2,258.0 436.2,262.0 V268.0 Q436.2,272.0 432.2,272.0 H358.0 Z" fill="#5f5e5a"><title>Extensions — plugins, skills, MCP: 25,355 lines</title></path>
+<text class="num" x="444.2" y="269.5" fill="#f0efec" font-size="12.5" font-weight="400">25.4K</text>
+<text x="346" y="299.5" fill="#c3c2b7" font-size="13" text-anchor="end">Services — accounts, Fuel, telemetry</text>
+<path d="M358.0,288.0 H419.4 Q423.4,288.0 423.4,292.0 V298.0 Q423.4,302.0 419.4,302.0 H358.0 Z" fill="#5f5e5a"><title>Services — accounts, Fuel, telemetry: 21,186 lines</title></path>
+<text class="num" x="431.4" y="299.5" fill="#f0efec" font-size="12.5" font-weight="400">21.2K</text>
+<text x="346" y="329.5" fill="#c3c2b7" font-size="13" text-anchor="end">Senses — screen, browser, voice, images, phone</text>
+<path d="M358.0,318.0 H416.6 Q420.6,318.0 420.6,322.0 V328.0 Q420.6,332.0 416.6,332.0 H358.0 Z" fill="#5f5e5a"><title>Senses — screen, browser, voice, images, phone: 20,277 lines</title></path>
+<text class="num" x="428.6" y="329.5" fill="#f0efec" font-size="12.5" font-weight="400">20.3K</text>
+<text x="346" y="359.5" fill="#c3c2b7" font-size="13" text-anchor="end">Model layer — providers, reasoning, routing</text>
+<path d="M358.0,348.0 H408.4 Q412.4,348.0 412.4,352.0 V358.0 Q412.4,362.0 408.4,362.0 H358.0 Z" fill="#5f5e5a"><title>Model layer — providers, reasoning, routing: 17,627 lines</title></path>
+<text class="num" x="420.4" y="359.5" fill="#f0efec" font-size="12.5" font-weight="400">17.6K</text>
+<text x="346" y="389.5" fill="#c3c2b7" font-size="13" text-anchor="end">Build, install &amp; update</text>
+<path d="M358.0,378.0 H403.8 Q407.8,378.0 407.8,382.0 V388.0 Q407.8,392.0 403.8,392.0 H358.0 Z" fill="#5f5e5a"><title>Build, install &amp; update: 16,155 lines</title></path>
+<text class="num" x="415.8" y="389.5" fill="#f0efec" font-size="12.5" font-weight="400">16.2K</text>
+<line x1="358" y1="94" x2="358" y2="402" stroke="#383835"/>
+<text x="28" y="426" fill="#898781" font-size="12">Tracked source files; built bundles, websites and other products in the same tree are not counted.</text>
+</svg>
