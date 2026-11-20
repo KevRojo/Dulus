@@ -42,6 +42,87 @@ Dulus started as this: an open-source terminal agent — still free, still a fin
 
 > Dulus is an AI agent for your desktop and terminal. It works in your files, your shell, your browser and your screen — on any model you choose. And when one mind isn't enough, it calls the flock.
 
+<p align="center"><img src="assets/gifs/agent.gif" width="880" alt="Dulus fixing a failing test: it searches, reads and runs the test, takes a steer mid-task, fixes the cause and runs the suite again"></p>
+
+## See it work
+
+Every clip is the desktop app's own interface playing a demo run: demo data, the real interface. What you see is what the app draws.
+
+### Mesa Redonda
+Seat different models at one table. They argue it out, call on each other by name, and Dulus brings back one answer.
+
+<p align="center"><img src="assets/gifs/roundtable.gif" width="880" alt="Dulus seats three models at a round table; each works the question with its own tools, and Dulus sums up one recommendation"></p>
+
+### Any model, mid-conversation
+Switch with <code>/model</code> and the next answer comes from the new one: your own keys, a model on your machine or the Dulus-hosted lineup.
+
+<p align="center"><img src="assets/gifs/models.gif" width="880" alt="Typing /model lists models from many providers; picking one switches the conversation, and the next answer comes from it"></p>
+
+### Nothing risky without your OK
+A command that can't be undone asks first, right in the chat: approve it once, or always.
+
+<p align="center"><img src="assets/gifs/control.gif" width="880" alt="Dulus asks before deleting a build folder; the user clicks Always allow and the command runs"></p>
+
+### A real browser it drives
+It browses for you in WebDrive, a real browser inside the app, and reads the page back.
+
+<p align="center"><img src="assets/gifs/webdrive.gif" width="880" alt="Dulus opens a status page in the WebDrive pane, follows the incident link and answers in the chat with what it read"></p>
+
+### Decisions stay yours
+What only you can decide waits for you here. Answer it, and the work waiting on it can start.
+
+<p align="center"><img src="assets/gifs/tasks.gif" width="880" alt="The Tasks board with a decision card; the user picks the recommended option and the blocked tasks are ready to start"></p>
+
+### ~1,800 MCP servers, installed as connections
+Pick one from the market, install it, sign in, and its tools are ready.
+
+<p align="center"><img src="assets/gifs/mcp.gif" width="880" alt="Installing an MCP server from the market: Connect, Install, Sign in, then the connection with its tools"></p>
+
+### An open catalog of plugins
+1,508 open plugins, A to Z: search, filter, read one, and Auto-adapt turns it into native tools.
+
+<p align="center"><img src="assets/gifs/plugins.gif" width="880" alt="The Plugins Market searched and filtered by a tag, a plugin's drawer, and Auto-adapt handing it to the pet"></p>
+
+### Skill packs
+Curated skills for one kind of work, installed in a workspace and profile of their own.
+
+<p align="center"><img src="assets/gifs/skills.gif" width="880" alt="Installing the Design skill pack into a new workspace and profile of its own"></p>
+
+### Astral Images
+On your own keys: a prompt makes a picture, and the picture becomes the reference for the next one.
+
+<p align="center"><img src="assets/gifs/images.gif" width="880" alt="Astral Images making a picture from a prompt, then using it as the reference for the next"></p>
+
+### Astral Video
+Kling, Veo or Sora on your own keys. Describe the shot, and it renders while you keep working.
+
+<p align="center"><img src="assets/gifs/video.gif" width="880" alt="Astral Video rendering a clip as a job, then playing it"></p>
+
+### 17 themes
+And an accent of your own. Each one repaints the whole app as you point at it.
+
+<p align="center"><img src="assets/gifs/themes.gif" width="880" alt="Settings, Appearance: pointing at a theme repaints the whole app live"></p>
+
+### A live terminal
+Open the terminal and watch Dulus run its commands in a real shell, line by line.
+
+<p align="center"><img src="assets/gifs/terminal.gif" width="880" alt="The terminal panel beside the chat, showing the commands Dulus runs as they run"></p>
+
+### Every command, one keystroke away
+Type / for every command: a few letters find one, Tab picks its option, Enter runs it.
+
+<p align="center"><img src="assets/gifs/palette.gif" width="880" alt="Typing /perm in the composer, picking accept-all with Tab and running it"></p>
+
+### The API, one click away
+API keys take the Dulus models into your own code: an OpenAI-compatible endpoint, paid with your Fuel.
+
+<p align="center"><img src="assets/gifs/apikeys.gif" width="880" alt="The API Keys view creating a key and showing its Python, curl and Node snippets"></p>
+
+### Fuel, by card first
+Fuel pays for the Dulus-hosted models, and your plan fills it every month. Every movement lands in the ledger.
+
+<p align="center"><img src="assets/gifs/fuel.gif" width="880" alt="The Fuel view with the plan that fills it, the balance and the ledger"></p>
+
 ## One agent. Made of many.
 
 ### The Round Table
