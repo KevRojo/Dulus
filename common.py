@@ -179,7 +179,7 @@ def clear_last_error() -> None:
     _LAST_ERROR = ""
 
 
-def err(msg: str):
+def err(msg: str, *, report: bool = True):
     # Last message passed to err(), from any module. A caller that has to report
     # a failure machine-readably (dulus.py's `--output json` protocol mode) needs
     # the reason, but almost every failure in an interactive agent is *handled*
@@ -196,8 +196,12 @@ def err(msg: str):
     # with no exception in flight (validation, intentional messages) send
     # nothing. No-op if sentry-sdk is absent or was never initialised (no bound
     # client), so DULUS_NO_SENTRY / missing DSN are honoured automatically.
+    # Pass report=False for a message about the user's own input printed from
+    # an except block (`except ValueError: err("... must be a number")`): the
+    # exception in flight is their typo, not a bug, yet each one used to open a
+    # Sentry issue ("could not convert string to float: '8k'" from /config).
     try:
-        if sys.exc_info()[0] is not None:
+        if report and sys.exc_info()[0] is not None:
             import sentry_sdk as _sentry
             _sentry.capture_exception()
     except Exception:

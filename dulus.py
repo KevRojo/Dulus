@@ -300,6 +300,15 @@ try:
 except Exception:
     pass  # truststore not installed or injection failed — proceed with certifi
 
+# Single source of truth: pyproject.toml. Falls back to a hardcoded value
+# only when the package isn't installed (e.g. running dulus.py from source
+# without a `pip install -e .`).
+try:
+    from importlib.metadata import version as _pkg_version
+    VERSION = _pkg_version("dulus")
+except Exception:
+    VERSION = "3.15.3"  # dev fallback — keep in sync with pyproject.toml
+
 # ── Sentry error tracking (optional — graceful degradation if not installed) ─
 # Off-switch for demos/privacy: set DULUS_NO_SENTRY=1 (or SENTRY_DSN="") to skip.
 try:
@@ -340,6 +349,9 @@ try:
         pass
     _sentry_sdk.init(
         dsn=_sentry_dsn,
+        # Without a release the SDK runs `git rev-parse HEAD` in the cwd, so an
+        # event carried the commit of whatever repo the user was working in.
+        release=_sentry_os.getenv("SENTRY_RELEASE") or f"dulus@{VERSION}",
         send_default_pii=True,
         traces_sample_rate=0.0,    # no transaction events → no flush noise on exit
         profiles_sample_rate=0.0,  # no profiling overhead
@@ -368,15 +380,6 @@ try:
 except ImportError:
     _HAS_BUBBLES = False
     _bubbles = None
-
-# Single source of truth: pyproject.toml. Falls back to a hardcoded value
-# only when the package isn't installed (e.g. running dulus.py from source
-# without a `pip install -e .`).
-try:
-    from importlib.metadata import version as _pkg_version
-    VERSION = _pkg_version("dulus")
-except Exception:
-    VERSION = "3.15.3"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Machine-readable protocol output (`--output json`) ─────────────────────
 # Dulus is increasingly run as a child process by another agent runtime (an
@@ -1797,7 +1800,7 @@ def cmd_config(args: str, _state, config) -> bool:
             try:
                 val = as_whole_number(val)
             except ValueError:
-                err(f"{key} must be a whole number, e.g. /config {key}={_default}")
+                err(f"{key} must be a whole number, e.g. /config {key}={_default}", report=False)
                 return True
         config[key] = val
         if key == "telemetry":
@@ -2687,7 +2690,7 @@ def cmd_bg(args: str, _state, config) -> bool:
             try:
                 web_port = int(parts[parts.index("--web-port") + 1])
             except (IndexError, ValueError):
-                err("--web-port needs a number")
+                err("--web-port needs a number", report=False)
                 return True
         config["_webchat_port"] = web_port
         from config import save_config
@@ -5787,7 +5790,7 @@ def cmd_ssj(args: str, state, config) -> "bool | tuple":
             try:
                 _nagents = max(2, int(_nagents_raw)) if _nagents_raw else 2
             except ValueError:
-                err("Invalid number, using 2.")
+                err("Invalid number, using 2.", report=False)
                 _nagents = 2
             _rounds = max(1, (_nagents * 2 - 1))
             # Derive output path: same dir as debated file, stem + _debate_HHMMSS.md
@@ -5997,7 +6000,7 @@ def cmd_worker(args: str, state, config) -> "bool | tuple":
                     return True
             pending = selected
         except ValueError:
-            err(f"Invalid task number(s): '{task_nums_str}'. Use e.g. 1,4,6")
+            err(f"Invalid task number(s): '{task_nums_str}'. Use e.g. 1,4,6", report=False)
             return True
 
     # ── Apply worker batch limit ──────────────────────────────────────────
@@ -6006,7 +6009,8 @@ def cmd_worker(args: str, state, config) -> "bool | tuple":
         try:
             worker_count = max(1, int(max_workers))
         except ValueError:
-            err(f"Invalid --workers value: '{max_workers}'. Must be a positive integer.")
+            err(f"Invalid --workers value: '{max_workers}'. Must be a positive integer.",
+                report=False)
             return True
     if worker_count < len(pending):
         info(f"Workers: {worker_count} — running first {worker_count} of {len(pending)} pending task(s) this session.")
@@ -6989,7 +6993,7 @@ def cmd_proactive(args: str, state, config) -> bool:
         val = int(val_str)
         config["_proactive_interval"] = val * multiplier
     except ValueError:
-        err(f"Invalid duration: '{args}'. Use '5m', '30s', '1h', or 'off'.")
+        err(f"Invalid duration: '{args}'. Use '5m', '30s', '1h', or 'off'.", report=False)
         return True
 
     config["_proactive_enabled"] = True
@@ -7394,7 +7398,7 @@ def cmd_wake(args: str, state, config) -> bool:
             except Exception as e:
                 warn(f"Could not save config: {e}")
         except ValueError:
-            err("Threshold must be a number between 0.001 and 1.0")
+            err("Threshold must be a number between 0.001 and 1.0", report=False)
         return True
 
     # ── /wake phrases ──
@@ -7869,7 +7873,7 @@ def cmd_budget(args: str, state, config) -> bool:
             if not (0 < w <= 1):
                 raise ValueError
         except ValueError:
-            err("warn must be a fraction in (0, 1], e.g. /budget warn 0.8")
+            err("warn must be a fraction in (0, 1], e.g. /budget warn 0.8", report=False)
             return True
         gov_cfg["warn_at"] = w
         config.pop("_governance_obj", None)  # rebuild next turn
@@ -7883,7 +7887,7 @@ def cmd_budget(args: str, state, config) -> bool:
         try:
             amount = int(parts[1])
         except ValueError:
-            err(f"Amount must be an integer: /budget {dim} 200000")
+            err(f"Amount must be an integer: /budget {dim} 200000", report=False)
             return True
         limits[dim] = amount
         gov = config.get("_governance_obj")
@@ -8114,7 +8118,7 @@ def cmd_checkpoint(args: str, state, config) -> bool:
     try:
         snap_id = int(arg)
     except ValueError:
-        err(f"Unknown subcommand: {arg}")
+        err(f"Unknown subcommand: {arg}", report=False)
         return True
 
     snap = ckpt.get_snapshot(session_id, snap_id)
@@ -9264,7 +9268,7 @@ def cmd_fork(args: str, state, config) -> bool:
         try:
             turn_index = int(arg)
         except ValueError:
-            err(f"Invalid turn index: {arg}")
+            err(f"Invalid turn index: {arg}", report=False)
             return True
         if turn_index < 0 or turn_index >= len(turns):
             err(f"Turn index {turn_index} out of range (0-{len(turns) - 1}).")
@@ -9277,7 +9281,7 @@ def cmd_fork(args: str, state, config) -> bool:
             choice = input("  Fork at turn: ").strip()
             turn_index = int(choice)
         except (ValueError, EOFError):
-            err("Invalid selection.")
+            err("Invalid selection.", report=False)
             return True
         if turn_index < 0 or turn_index >= len(turns):
             err(f"Turn index {turn_index} out of range.")

@@ -130,7 +130,7 @@ def test_err_records_the_reason_for_every_module() -> None:
     assert "_LAST_ERROR: str = \"\"" in common_src
     assert "def last_error() -> str:" in common_src
     assert "def clear_last_error() -> None:" in common_src
-    err_body = common_src[common_src.index("def err(msg: str):"):common_src.index("def pip_install_cmd")]
+    err_body = common_src[common_src.index("def err("):common_src.index("def pip_install_cmd")]
     assert "_LAST_ERROR = str(msg).strip()" in err_body
 
 
