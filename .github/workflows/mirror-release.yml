@@ -1,0 +1,69 @@
+name: Mirror release from dulus-updates
+
+# Copies a release (notes + installers) from Dulus-Ai/dulus-updates into this repo,
+# skipping assets that are already here, and carries the Android alpha APK forward
+# from the newest earlier release that has one. Runs on GitHub, so nothing is
+# downloaded or uploaded from a developer machine.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to mirror (e.g. v7.0.3)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mirror-${{ inputs.tag }}
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SRC: Dulus-Ai/dulus-updates
+      DST: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      APK_NAME: Dulus-android-app-alpha.apk
+    steps:
+      - name: Create the release here if it does not exist
+        run: |
+          if gh release view "$TAG" -R "$DST" >/dev/null 2>&1; then
+            echo "release $TAG already exists in $DST"
+          else
+            gh release view "$TAG" -R "$SRC" --json body -q .body > notes.md
+            target=$(gh api "repos/$DST" -q .default_branch)
+            gh release create "$TAG" -R "$DST" --title "$TAG" --notes-file notes.md --target "$target" --latest
+          fi
+
+      - name: Copy missing installers
+        run: |
+          mkdir -p assets
+          have=$(gh release view "$TAG" -R "$DST" --json assets -q '.assets[].name')
+          gh release view "$TAG" -R "$SRC" --json assets -q '.assets[].name' | while read -r name; do
+            case "$name" in *.apk) continue ;; esac
+            if grep -qxF "$name" <<<"$have"; then echo "skip $name"; continue; fi
+            echo "copy $name"
+            gh release download "$TAG" -R "$SRC" -p "$name" -D assets --clobber
+            gh release upload "$TAG" -R "$DST" "assets/$name" --clobber
+            rm -f "assets/$name"
+          done
+
+      - name: Carry the Android alpha APK forward
+        run: |
+          if gh release view "$TAG" -R "$DST" --json assets -q '.assets[].name' | grep -q '\.apk$'; then
+            echo "APK already attached"; exit 0
+          fi
+          from=$(gh api "repos/$DST/releases?per_page=30" \
+            -q '[.[] | select(.tag_name != env.TAG) | select(any(.assets[]; .name | endswith(".apk")))][0].tag_name')
+          if [ -z "$from" ]; then echo "no earlier release with an APK"; exit 0; fi
+          apk=$(gh release view "$from" -R "$DST" --json assets -q '[.assets[].name | select(endswith(".apk"))][0]')
+          echo "carrying $apk from $from"
+          gh release download "$from" -R "$DST" -p "$apk" -D assets --clobber
+          mv "assets/$apk" "assets/$APK_NAME" 2>/dev/null || true
+          gh release upload "$TAG" -R "$DST" "assets/$APK_NAME" --clobber
+
+      - name: Summary
+        run: gh release view "$TAG" -R "$DST" --json assets -q '.assets[] | "\(.name)  \(.size)"'
