@@ -35,7 +35,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/at-a-glance-dark.svg">
-    <img src="assets/at-a-glance-light.svg" width="880" alt="7,402 automated tests, 99.7% passing · 1,527 commits in 140 days · 358 pull requests, every one merged by a human · 114 built-in tools · 26 Round Table seats">
+    <img src="assets/at-a-glance-light.svg" width="880" alt="9,242 automated tests, 99.7% passing · 1,778 commits in 148 days · 424 pull requests, every one merged by a human · 117 built-in tools · 26 Round Table seats">
   </picture>
 </p>
 
@@ -178,20 +178,20 @@ A real browser pane, a live terminal panel, a steer bubble to talk to Dulus mid-
 
 ## Measured. Not claimed.
 
-Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), using AI coding tools. Every change lands as a pull request that Kevin reviews and merges — all 358 of them. Every working session ends with a signed entry in a shared log: what was done, what's missing, what broke, and what was **not** verified.
+Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), using AI coding tools. Every change lands as a pull request that Kevin reviews and merges — all 424 of them. Every working session ends with a signed entry in a shared log: what was done, what's missing, what broke, and what was **not** verified.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/tests-growth-dark.svg">
-    <img src="assets/tests-growth-light.svg" width="880" alt="Test functions in the suite grew week by week from 882 on June 21, 2026 to 5,734 on November 8, 2026; 7,402 test cases are collected today.">
+    <img src="assets/tests-growth-light.svg" width="880" alt="Test functions in the suite grew week by week from 882 on June 21, 2026 to 6,905 on November 16, 2026; 9,242 test cases are collected today.">
   </picture>
 </p>
 
-- **7,402 automated tests.** The latest full run (Nov 8, 2026) passed 7,362; the 24 failures are known, and broken down in [ENGINEERING.md](ENGINEERING.md#latest-full-run).
+- **9,242 automated tests.** The latest full run (Nov 16, 2026) passed 9,178; the 26 failures were all there before it, and are broken down in [ENGINEERING.md](ENGINEERING.md#latest-full-run).
 - **Every fix ships with a test that fails without it** — and we break each fix on purpose to prove a test catches it.
-- **1,527 commits in 140 days.**
-- **The biggest single area of the codebase is the test suite** — about 109,000 lines, next to roughly 242,000 that ship in the app.
-- **149 signed entries** in the shared log since August 15. A cleaned-up version is the [build log](DEVLOG.md).
+- **1,778 commits in 148 days.**
+- **The biggest single area of the codebase is the test suite** — about 134,000 lines, next to roughly 275,000 that ship in the app.
+- **219 signed entries** in the shared log since August 15. A cleaned-up version is the [build log](DEVLOG.md).
 
 **→ [How Dulus is built](ENGINEERING.md)**
 
@@ -202,7 +202,7 @@ The commit history behind the product, shown week by week.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/commits-weekly-dark.svg">
-    <img src="assets/commits-weekly-light.svg" width="880" alt="Weekly commit activity, measured on November 8, 2026">
+    <img src="assets/commits-weekly-light.svg" width="880" alt="Weekly commit activity, measured on November 16, 2026">
   </picture>
 </p>
 
@@ -224,7 +224,7 @@ The measured distribution of the project by area, including its test suite.
 | **What the app does** | [Full feature catalog](FEATURES.md) |
 | **How the work is checked** | [Engineering, measurement methods and known test failures](ENGINEERING.md) |
 | **What has shipped** | [Dated product build log](DEVLOG.md) |
-| **The figures behind the charts** | [Measurement snapshot: November 8, 2026](assets/stats.json) |
+| **The figures behind the charts** | [Measurement snapshot: November 16, 2026](assets/stats.json) |
 | **Security reports** | [Security policy](SECURITY.md) |
 | **Showcase content** | [Content license](LICENSE) |
 
@@ -257,7 +257,7 @@ No. Dulus, the open-source core, is — and stays that way. The desktop app's so
 Because a lot of what's on this page exists nowhere else, and we'd rather show the work than hand over the blueprint.
 
 ### Where do the numbers come from?
-From the repository itself, measured on November 8, 2026: git history, line counts and a full test run. The raw data is in [`assets/stats.json`](assets/stats.json) and the method is in [ENGINEERING.md](ENGINEERING.md).
+From the repository itself, measured on November 16, 2026: git history, line counts and a full test run. The raw data is in [`assets/stats.json`](assets/stats.json) and the method is in [ENGINEERING.md](ENGINEERING.md).
 
 ### Is $DULUS an investment?
 No. $DULUS is a utility and community token used to pay for Fuel on Dulus. Nothing here is financial advice.
