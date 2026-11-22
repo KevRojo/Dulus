@@ -36,6 +36,8 @@
   </picture>
 </p>
 
+<p align="center"><b>70,000+ open capabilities, one click away.</b><br>~69,000 skills · ~1,900 MCP servers · 1,946 plugins from the Anthropic and Hermes ecosystems. Every one open-licensed, and Auto-adapt turns them into native Dulus tools.</p>
+
 ---
 
 ## "That's it?"
@@ -75,18 +77,18 @@ What only you can decide waits for you here. Answer it, and the work waiting on 
 
 <p align="center"><img src="assets/gifs/tasks.gif" width="880" alt="The Tasks board with a decision card; the user picks the recommended option and the blocked tasks are ready to start"></p>
 
-### ~1,800 MCP servers, installed as connections
+### ~1,900 MCP servers, installed as connections
 Pick one from the market, install it, sign in, and its tools are ready.
 
 <p align="center"><img src="assets/gifs/mcp.gif" width="880" alt="Installing an MCP server from the market: Connect, Install, Sign in, then the connection with its tools"></p>
 
 ### An open catalog of plugins
-1,508 open plugins, A to Z: search, filter, read one, and Auto-adapt turns it into native tools.
+1,946 open plugins, A to Z, including the official Anthropic plugins and the Hermes community catalog: search, filter, read one, and Auto-adapt turns it into native tools.
 
 <p align="center"><img src="assets/gifs/plugins.gif" width="880" alt="The Plugins Market searched and filtered by a tag, a plugin's drawer, and Auto-adapt handing it to the pet"></p>
 
 ### Skill packs
-Curated skills for one kind of work, installed in a workspace and profile of their own.
+A catalog of ~69,000 open skills, plus curated packs for one kind of work, installed in a workspace and profile of their own.
 
 <p align="center"><img src="assets/gifs/skills.gif" width="880" alt="Installing the Design skill pack into a new workspace and profile of its own"></p>
 
@@ -166,7 +168,7 @@ Memories stay with the profile and project they came from. Stale facts get flagg
 Images and video with your own keys: FLUX.2, GPT Image, Gemini and Imagen, Meta Muse, Veo, Sora 2 and more. Drag a result back in as a reference and keep going. Documents and mini apps the agent builds land in a versioned **Artifacts** library.
 
 ### Grows with you
-A market of **~1,800 MCP servers** that install from inside the app, runtimes included. Skills. Plugins that reload live. And **AutoAdapter**: point it at a GitHub repo and get tools that are verified before they're switched on.
+A market of **~1,900 MCP servers** that install from inside the app, runtimes included. **~69,000 skills.** **1,946 plugins** that reload live. And **AutoAdapter**: point it at a GitHub repo and get tools that are verified before they're switched on.
 
 ### And everything around it
 A real browser pane, a live terminal panel, a steer bubble to talk to Dulus mid-task without stopping it, a Stop that really stops, checkpoints with undo and fork, HTML reports, a Tasks board, Dulus OS, a desktop pet, 14 themes and 34 languages.

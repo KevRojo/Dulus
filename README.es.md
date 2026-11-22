@@ -28,6 +28,8 @@
   </picture>
 </p>
 
+<p align="center"><b>Más de 70,000 capacidades abiertas, a un clic.</b><br>~69,000 skills · ~1,900 servidores MCP · 1,946 plugins de los ecosistemas de Anthropic y Hermes. Todos con licencia abierta, y Auto-adapt los convierte en herramientas nativas de Dulus.</p>
+
 ---
 
 ## "¿Eso es todo?"
@@ -67,18 +69,18 @@ Lo que solo tú puedes decidir te espera aquí. Contéstalo, y el trabajo que es
 
 <p align="center"><img src="assets/gifs/tasks.gif" width="880" alt="El tablero de tareas con una tarjeta de decisión; el usuario escoge la opción recomendada y las tareas bloqueadas quedan listas"></p>
 
-### ~1,800 servidores MCP, instalados como conexiones
+### ~1,900 servidores MCP, instalados como conexiones
 Escoges uno del market, lo instalas, inicias sesión y sus herramientas quedan listas.
 
 <p align="center"><img src="assets/gifs/mcp.gif" width="880" alt="Instalando un servidor MCP desde el market: Connect, Install, Sign in y la conexión con sus herramientas"></p>
 
 ### Un catálogo abierto de plugins
-1,508 plugins abiertos, de la A a la Z: busca, filtra, lee uno y Auto-adapt lo convierte en herramientas nativas.
+1,946 plugins abiertos, de la A a la Z, incluidos los plugins oficiales de Anthropic y el catálogo de la comunidad de Hermes: busca, filtra, lee uno y Auto-adapt lo convierte en herramientas nativas.
 
 <p align="center"><img src="assets/gifs/plugins.gif" width="880" alt="El Plugins Market con una búsqueda y un tag, la ficha de un plugin y Auto-adapt pasándoselo al pet"></p>
 
 ### Packs de skills
-Skills curados para un tipo de trabajo, instalados en su propio workspace y perfil.
+Un catálogo de ~69,000 skills abiertos, más packs curados para un tipo de trabajo, instalados en su propio workspace y perfil.
 
 <p align="center"><img src="assets/gifs/skills.gif" width="880" alt="Instalando el pack de skills de diseño en un workspace y un perfil propios"></p>
 
@@ -158,7 +160,7 @@ Los recuerdos se quedan con el perfil de donde salieron. Los datos viejos se mar
 Imágenes y video con tus propias claves: FLUX.2, GPT Image, Gemini e Imagen, Meta Muse, Veo, Sora 2 y más. Arrastra un resultado de vuelta como referencia y sigue. Los documentos y mini apps que construye el agente quedan en una biblioteca de **Artifacts** con versiones.
 
 ### Crece contigo
-Un mercado de **~1,800 servidores MCP** que se instalan desde la misma app, con sus runtimes incluidos. Skills. Plugins que se recargan en vivo. Y **AutoAdapter**: dale un repo de GitHub y te devuelve herramientas que se verifican antes de encenderse.
+Un mercado de **~1,900 servidores MCP** que se instalan desde la misma app, con sus runtimes incluidos. **~69,000 skills.** **1,946 plugins** que se recargan en vivo. Y **AutoAdapter**: dale un repo de GitHub y te devuelve herramientas que se verifican antes de encenderse.
 
 ### Y todo lo de alrededor
 Un navegador de verdad dentro de la app, un panel de terminal en vivo, un globito para hablarle a Dulus a mitad de tarea sin pararlo, un Stop que de verdad para, checkpoints con deshacer y bifurcar, reportes en HTML, un tablero de tareas, Dulus OS, una mascota de escritorio, 17 temas y respuestas en 22 idiomas.
