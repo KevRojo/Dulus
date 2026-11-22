@@ -1,10 +1,13 @@
-"""Keep the test suite away from the developer's real ~/.dulus.
+"""Keep the test suite away from the developer's real ~/.dulus and from Sentry.
 
 config.py resolves its directory once, at import, from $DULUS_CONFIG_DIR or
 ~/.dulus, and several modules write under ``Path.home() / ".dulus"`` directly.
 Without this, running pytest rewrote the real config.json (test_voice saves
 voice_lang through cmd_voice) and left scratch files next to it. This runs
 before any test module is imported, so every import-time path lands here.
+
+Importing dulus also armed Sentry with the production DSN, so every pytest run,
+CI included, filed the errors tests provoke on purpose as production issues.
 """
 import atexit
 import os
@@ -18,3 +21,4 @@ os.environ["HOME"] = _SANDBOX            # POSIX Path.home()
 os.environ["USERPROFILE"] = _SANDBOX     # Windows Path.home()
 os.environ["DULUS_CONFIG_DIR"] = os.path.join(_SANDBOX, ".dulus")
 os.environ["DULUS_HOME"] = os.path.join(_SANDBOX, ".dulus")
+os.environ["DULUS_NO_SENTRY"] = "1"
