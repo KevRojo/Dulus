@@ -12,9 +12,6 @@
 <p align="center">
   <a href="https://dulus.ai/download/"><b>Download the app</b></a> ·
   <a href="https://dulus.ai/pricing/"><b>Plans</b></a> ·
-  <a href="FEATURES.md">Features</a> ·
-  <a href="ENGINEERING.md">How it's built</a> ·
-  <a href="DEVLOG.md">Build log</a> ·
   <a href="README.es.md">Español</a>
 </p>
 
@@ -174,8 +171,6 @@ A market of **~1,800 MCP servers** that install from inside the app, runtimes in
 ### And everything around it
 A real browser pane, a live terminal panel, a steer bubble to talk to Dulus mid-task without stopping it, a Stop that really stops, checkpoints with undo and fork, HTML reports, a Tasks board, Dulus OS, a desktop pet, 14 themes and 34 languages.
 
-**→ [The full feature list](FEATURES.md)**
-
 ## Measured. Not claimed.
 
 Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), using AI coding tools. Every change lands as a pull request that Kevin reviews and merges — all 424 of them. Every working session ends with a signed entry in a shared log: what was done, what's missing, what broke, and what was **not** verified.
@@ -187,13 +182,11 @@ Dulus is built by one developer, [Kevin Rojo](https://x.com/KevRojo), using AI c
   </picture>
 </p>
 
-- **9,242 automated tests.** The latest full run (Nov 16, 2026) passed 9,178; the 26 failures were all there before it, and are broken down in [ENGINEERING.md](ENGINEERING.md#latest-full-run).
+- **9,242 automated tests.** The latest full run (Nov 16, 2026) passed 9,178; the 26 failures were all there before it.
 - **Every fix ships with a test that fails without it** — and we break each fix on purpose to prove a test catches it.
 - **1,778 commits in 148 days.**
 - **The biggest single area of the codebase is the test suite** — about 134,000 lines, next to roughly 275,000 that ship in the app.
-- **219 signed entries** in the shared log since August 15. A cleaned-up version is the [build log](DEVLOG.md).
-
-**→ [How Dulus is built](ENGINEERING.md)**
+- **219 signed entries** in the shared log since August 15.
 
 ### Shipping, week by week
 
@@ -221,9 +214,6 @@ The measured distribution of the project by area, including its test suite.
 
 | | Read more |
 |---|---|
-| **What the app does** | [Full feature catalog](FEATURES.md) |
-| **How the work is checked** | [Engineering, measurement methods and known test failures](ENGINEERING.md) |
-| **What has shipped** | [Dated product build log](DEVLOG.md) |
 | **The figures behind the charts** | [Measurement snapshot: November 16, 2026](assets/stats.json) |
 | **Security reports** | [Security policy](SECURITY.md) |
 | **Showcase content** | [Content license](LICENSE) |
@@ -251,13 +241,13 @@ Everything on this page lives in the desktop app.
 Because Free runs on your keys and a plan runs on ours. On Free you bring the AI: your own API keys, or a model on your own machine. **Operator** puts $147 of Fuel in your balance every month for $49, for every Dulus-hosted model with nothing to set up, and opens what only a plan has: a cloud PC of your own and Dulus OS. [Get Operator](https://dulus.online/account/?plan=operator#plans).
 
 ### Is the desktop app open source?
-No. Dulus, the open-source core, is — and stays that way. The desktop app's source isn't published; this showcase shows what it does, how it's built and how it's tested.
+No. Dulus, the open-source core, is — and stays that way. The desktop app's source isn't published.
 
 ### Why keep it private?
 Because a lot of what's on this page exists nowhere else, and we'd rather show the work than hand over the blueprint.
 
 ### Where do the numbers come from?
-From the repository itself, measured on November 16, 2026: git history, line counts and a full test run. The raw data is in [`assets/stats.json`](assets/stats.json) and the method is in [ENGINEERING.md](ENGINEERING.md).
+From the repository itself, measured on November 16, 2026: git history, line counts and a full test run. The raw data is in [`assets/stats.json`](assets/stats.json).
 
 ### Is $DULUS an investment?
 No. $DULUS is a utility and community token used to pay for Fuel on Dulus. Nothing here is financial advice.

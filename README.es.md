@@ -12,11 +12,8 @@
 <p align="center">
   <a href="https://dulus.ai/es/download/"><b>Descarga la app</b></a> ·
   <a href="https://dulus.ai/es/pricing/"><b>Planes</b></a> ·
-  <a href="FEATURES.md">Funciones</a> ·
-  <a href="ENGINEERING.md">Cómo se construye</a> ·
   <a href="BENCHMARKS.md">Benchmark</a> ·
   <a href="AUDIT.md">Auditoría</a> ·
-  <a href="DEVLOG.md">Bitácora</a> ·
   <a href="README.md">English</a>
 </p>
 
@@ -166,8 +163,6 @@ Un mercado de **~1,800 servidores MCP** que se instalan desde la misma app, con 
 ### Y todo lo de alrededor
 Un navegador de verdad dentro de la app, un panel de terminal en vivo, un globito para hablarle a Dulus a mitad de tarea sin pararlo, un Stop que de verdad para, checkpoints con deshacer y bifurcar, reportes en HTML, un tablero de tareas, Dulus OS, una mascota de escritorio, 17 temas y respuestas en 22 idiomas.
 
-**→ [La lista completa de funciones](FEATURES.md)** (en inglés)
-
 ## Medido, no prometido.
 
 La app de escritorio la construye un solo desarrollador, [Kevin Rojo](https://x.com/KevRojo), con herramientas de IA para programar. Cada cambio entra como un pull request que Kevin revisa y mergea: los 424. Cada sesión de trabajo termina con una entrada firmada en una bitácora compartida: qué se hizo, qué falta, qué se rompió y qué **no** se verificó.
@@ -179,15 +174,13 @@ La app de escritorio la construye un solo desarrollador, [Kevin Rojo](https://x.
   </picture>
 </p>
 
-- **9,242 pruebas automatizadas.** La última corrida completa (16 de noviembre de 2026) pasó 9,178; los 26 fallos ya estaban antes y están desglosados en [ENGINEERING.md](ENGINEERING.md#latest-full-run).
+- **9,242 pruebas automatizadas.** La última corrida completa (16 de noviembre de 2026) pasó 9,178; los 26 fallos ya estaban antes.
 - **Cada arreglo llega con una prueba que falla sin él**, y rompemos cada arreglo a propósito para comprobar que una prueba lo atrapa.
 - **1,778 commits en 148 días.**
 - **La parte más grande del código es la suite de pruebas**: unas 134,000 líneas, frente a unas 275,000 que van dentro de la app.
-- **219 entradas** en la bitácora compartida desde el 15 de agosto. La versión pública es la [bitácora](DEVLOG.md).
+- **219 entradas** en la bitácora compartida desde el 15 de agosto.
 - **Un benchmark que reporta sus propias derrotas.** Se corrió de nuevo el 16 de noviembre, se corrigió donde nos favorecía y se publicó con lo que tenía mal: **[el benchmark](BENCHMARKS.md)** (en inglés).
 - **Una auditoría.** Claude Opus 5.5 volvió a correr la suite y el benchmark y recontó cada número de estas páginas: **[la auditoría](AUDIT.md)** (en inglés).
-
-**→ [Cómo se construye la app de escritorio](ENGINEERING.md)** (en inglés)
 
 ## Dos ediciones, una sola ave
 
@@ -212,13 +205,13 @@ Todo lo que ves en esta página vive en la app de escritorio.
 Porque Free corre con tus claves y un plan corre con las nuestras. En Free la IA la pones tú: tus propias claves de API o un modelo en tu máquina. **Operator** pone $147 de Fuel en tu saldo cada mes por $49, para todos los modelos alojados por Dulus sin configurar nada, y abre lo que solo un plan tiene: una cloud PC tuya y Dulus OS. [Obtener Operator](https://dulus.online/es/account/?plan=operator#plans).
 
 ### ¿La app de escritorio es de código abierto?
-No. Dulus, el núcleo de código abierto, sí lo es, y lo seguirá siendo. El código de la app de escritorio no se publica; esta página enseña qué hace, cómo se construye y cómo se prueba.
+No. Dulus, el núcleo de código abierto, sí lo es, y lo seguirá siendo. El código de la app de escritorio no se publica.
 
 ### ¿Por qué mantenerlo privado?
 Porque mucho de lo que ves aquí no existe en ningún otro lado, y preferimos enseñar el trabajo antes que regalar los planos.
 
 ### ¿De dónde salen los números?
-Del propio repositorio, medidos el 16 de noviembre de 2026: el historial de git, el conteo de líneas y una corrida completa de las pruebas, revisados por [una auditoría](AUDIT.md). Los datos crudos están en [`assets/stats.json`](assets/stats.json) y el método, en [ENGINEERING.md](ENGINEERING.md).
+Del propio repositorio, medidos el 16 de noviembre de 2026: el historial de git, el conteo de líneas y una corrida completa de las pruebas, revisados por [una auditoría](AUDIT.md). Los datos crudos están en [`assets/stats.json`](assets/stats.json).
 
 ### ¿Dulus es el agente más barato de correr?
 Depende de si haces pausas. En nuestro benchmark Dulus es el único agente que nunca se quedó sin contexto, y el más barato en cuanto uno de cada once turnos vuelve después de una pausa de más de cinco minutos, porque guarda la caché de su prompt durante una hora. En sesiones sin ninguna pausa, cuatro de los seis agentes que modelamos cuestan menos. Los números, y lo que tuvimos mal la primera vez, están en [BENCHMARKS.md](BENCHMARKS.md).
