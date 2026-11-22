@@ -3296,7 +3296,7 @@ def stream_xai_oauth(
                         tool_buf[idx]["id"] = tc["id"]
                     fn = tc.get("function", {}) or {}
                     if fn.get("name"):
-                        tool_buf[idx]["name"] += fn["name"]
+                        tool_buf[idx]["name"] = _merge_tool_name(tool_buf[idx]["name"], fn["name"])
                     if fn.get("arguments"):
                         tool_buf[idx]["args"] += fn["arguments"]
 
@@ -4470,7 +4470,7 @@ def stream_kimi(
                 tool_buf[idx]["id"] = tc["id"]
             fn = tc.get("function", {})
             if fn.get("name"):
-                tool_buf[idx]["name"] += fn["name"]
+                tool_buf[idx]["name"] = _merge_tool_name(tool_buf[idx]["name"], fn["name"])
             if fn.get("arguments"):
                 tool_buf[idx]["args"] += fn["arguments"]
     
@@ -4485,6 +4485,20 @@ def _oai_uses_completion_tokens(model: str) -> bool:
     legacy `max_tokens` parameter and require `max_completion_tokens` instead."""
     m = (model or "").lower().rsplit("/", 1)[-1]
     return m.startswith(("o1", "o3", "o4")) or m.startswith("gpt-5")
+
+
+def _merge_tool_name(current: str, piece: str) -> str:
+    """Fold one streamed ``function.name`` delta into the name built so far.
+
+    OpenAI sends a tool call's name once, on its first delta. Plenty of
+    OpenAI-compatible servers resend the full name on every delta instead, and
+    appending each copy turned ``Bash`` into ``BashBashBash`` — a tool that
+    doesn't exist. A piece that starts with what we already have is a resend
+    (or a cumulative name) and replaces it; anything else is a real fragment.
+    """
+    if not current or piece.startswith(current):
+        return piece
+    return current + piece
 
 
 def _finalize_tool_calls(tool_buf: dict, include_extra: bool = False) -> list:
@@ -5088,7 +5102,8 @@ def stream_openai_compat(
                     tool_buf[idx]["id"] = tc.id
                 if tc.function:
                     if tc.function.name:
-                        tool_buf[idx]["name"] += tc.function.name
+                        tool_buf[idx]["name"] = _merge_tool_name(
+                            tool_buf[idx]["name"], tc.function.name)
                     if tc.function.arguments:
                         tool_buf[idx]["args"] += tc.function.arguments
                 # Capture extra_content (e.g. Gemini thought_signature)

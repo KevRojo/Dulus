@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="360" viewBox="0 0 880 360" role="img" aria-labelledby="t d">
+<title id="t">Commits per week</title>
+<desc id="d">Commits per ISO week since Jun 21, 2026: 1,778 in total; the busiest week had 192 (week of Nov 9).</desc>
+<style>text{font-family:system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;} .num{font-variant-numeric:tabular-nums;}</style>
+<rect x="0.5" y="0.5" width="879" height="359" rx="12" fill="#1a1a19" stroke="rgba(255,255,255,0.10)"/>
+<text x="28" y="36" fill="#f0efec" font-size="17" font-weight="600">Commits per week</text>
+<text x="28" y="58" fill="#c3c2b7" font-size="13">1,778 commits since Jun 21, 2026 · busiest week: 192 (week of Nov 9)</text>
+<line x1="56" y1="304.0" x2="852" y2="304.0" stroke="#383835"/>
+<text class="num" x="46" y="308.0" fill="#898781" font-size="12" text-anchor="end">0</text>
+<line x1="56" y1="252.0" x2="852" y2="252.0" stroke="#2c2c2a"/>
+<text class="num" x="46" y="256.0" fill="#898781" font-size="12" text-anchor="end">50</text>
+<line x1="56" y1="200.0" x2="852" y2="200.0" stroke="#2c2c2a"/>
+<text class="num" x="46" y="204.0" fill="#898781" font-size="12" text-anchor="end">100</text>
+<line x1="56" y1="148.0" x2="852" y2="148.0" stroke="#2c2c2a"/>
+<text class="num" x="46" y="152.0" fill="#898781" font-size="12" text-anchor="end">150</text>
+<line x1="56" y1="96.0" x2="852" y2="96.0" stroke="#2c2c2a"/>
+<text class="num" x="46" y="100.0" fill="#898781" font-size="12" text-anchor="end">200</text>
+<path d="M62.6,304.0 V300.9 Q62.6,297.8 65.7,297.8 H80.9 Q84.0,297.8 84.0,300.9 V304.0 Z" fill="#3987e5"><title>Jun 15–Jun 21: 6 commits</title></path>
+<path d="M97.2,304.0 V269.5 Q97.2,265.5 101.2,265.5 H114.6 Q118.6,265.5 118.6,269.5 V304.0 Z" fill="#3987e5"><title>Jun 22–Jun 28: 37 commits</title></path>
+<path d="M131.8,304.0 V279.9 Q131.8,275.9 135.8,275.9 H149.3 Q153.3,275.9 153.3,279.9 V304.0 Z" fill="#3987e5"><title>Jun 29–Jul 5: 27 commits</title></path>
+<text x="142.5" y="326" fill="#898781" font-size="12" text-anchor="middle">Jul</text>
+<path d="M166.4,304.0 V300.9 Q166.4,297.8 169.5,297.8 H184.7 Q187.9,297.8 187.9,300.9 V304.0 Z" fill="#3987e5"><title>Jul 6–Jul 12: 6 commits</title></path>
+<path d="M201.0,304.0 V224.8 Q201.0,220.8 205.0,220.8 H218.5 Q222.5,220.8 222.5,224.8 V304.0 Z" fill="#3987e5"><title>Jul 13–Jul 19: 80 commits</title></path>
+<path d="M235.6,304.0 V256.0 Q235.6,252.0 239.6,252.0 H253.1 Q257.1,252.0 257.1,256.0 V304.0 Z" fill="#3987e5"><title>Jul 20–Jul 26: 50 commits</title></path>
+<path d="M270.2,304.0 V273.7 Q270.2,269.7 274.2,269.7 H287.7 Q291.7,269.7 291.7,273.7 V304.0 Z" fill="#3987e5"><title>Jul 27–Aug 2: 33 commits</title></path>
+<text x="281.0" y="326" fill="#898781" font-size="12" text-anchor="middle">Aug</text>
+<path d="M304.8,304.0 V278.9 Q304.8,274.9 308.8,274.9 H322.3 Q326.3,274.9 326.3,278.9 V304.0 Z" fill="#3987e5"><title>Aug 3–Aug 9: 28 commits</title></path>
+<path d="M339.4,304.0 V200.9 Q339.4,196.9 343.4,196.9 H356.9 Q360.9,196.9 360.9,200.9 V304.0 Z" fill="#3987e5"><title>Aug 10–Aug 16: 103 commits</title></path>
+<path d="M374.1,304.0 V232.1 Q374.1,228.1 378.1,228.1 H391.5 Q395.5,228.1 395.5,232.1 V304.0 Z" fill="#3987e5"><title>Aug 17–Aug 23: 73 commits</title></path>
+<path d="M408.7,304.0 V130.2 Q408.7,126.2 412.7,126.2 H426.1 Q430.1,126.2 430.1,130.2 V304.0 Z" fill="#3987e5"><title>Aug 24–Aug 30: 171 commits</title></path>
+<path d="M443.3,304.0 V194.6 Q443.3,190.6 447.3,190.6 H460.7 Q464.7,190.6 464.7,194.6 V304.0 Z" fill="#3987e5"><title>Aug 31–Sep 6: 109 commits</title></path>
+<text x="454.0" y="326" fill="#898781" font-size="12" text-anchor="middle">Sep</text>
+<path d="M477.9,304.0 V143.7 Q477.9,139.7 481.9,139.7 H495.3 Q499.3,139.7 499.3,143.7 V304.0 Z" fill="#3987e5"><title>Sep 7–Sep 13: 158 commits</title></path>
+<path d="M512.5,304.0 V235.2 Q512.5,231.2 516.5,231.2 H529.9 Q533.9,231.2 533.9,235.2 V304.0 Z" fill="#3987e5"><title>Sep 14–Sep 20: 70 commits</title></path>
+<path d="M547.1,304.0 V237.3 Q547.1,233.3 551.1,233.3 H564.6 Q568.6,233.3 568.6,237.3 V304.0 Z" fill="#3987e5"><title>Sep 21–Sep 27: 68 commits</title></path>
+<path d="M581.7,304.0 V197.8 Q581.7,193.8 585.7,193.8 H599.2 Q603.2,193.8 603.2,197.8 V304.0 Z" fill="#3987e5"><title>Sep 28–Oct 4: 106 commits</title></path>
+<text x="592.4" y="326" fill="#898781" font-size="12" text-anchor="middle">Oct</text>
+<path d="M650.9,304.0 V156.2 Q650.9,152.2 654.9,152.2 H668.4 Q672.4,152.2 672.4,156.2 V304.0 Z" fill="#3987e5"><title>Oct 12–Oct 18: 146 commits</title></path>
+<path d="M685.5,304.0 V179.0 Q685.5,175.0 689.5,175.0 H703.0 Q707.0,175.0 707.0,179.0 V304.0 Z" fill="#3987e5"><title>Oct 19–Oct 25: 124 commits</title></path>
+<path d="M720.1,304.0 V224.8 Q720.1,220.8 724.1,220.8 H737.6 Q741.6,220.8 741.6,224.8 V304.0 Z" fill="#3987e5"><title>Oct 26–Nov 1: 80 commits</title></path>
+<text x="730.9" y="326" fill="#898781" font-size="12" text-anchor="middle">Nov</text>
+<path d="M754.7,304.0 V248.7 Q754.7,244.7 758.7,244.7 H772.2 Q776.2,244.7 776.2,248.7 V304.0 Z" fill="#3987e5"><title>Nov 2–Nov 8: 57 commits</title></path>
+<path d="M789.4,304.0 V108.3 Q789.4,104.3 793.4,104.3 H806.8 Q810.8,104.3 810.8,108.3 V304.0 Z" fill="#3987e5"><title>Nov 9–Nov 15: 192 commits</title></path>
+<text class="num" x="800.1" y="96.3" fill="#f0efec" font-size="12" font-weight="600" text-anchor="middle">192</text>
+<path d="M824.0,304.0 V251.8 Q824.0,247.8 828.0,247.8 H841.4 Q845.4,247.8 845.4,251.8 V304.0 Z" fill="#3987e5"><title>Nov 16–Nov 22: 54 commits</title></path>
+<text class="num" x="834.7" y="239.8" fill="#f0efec" font-size="12" font-weight="600" text-anchor="middle">54</text>
+</svg>

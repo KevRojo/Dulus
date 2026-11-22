@@ -307,7 +307,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.15.3"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.15.4"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Sentry error tracking (optional — graceful degradation if not installed) ─
 # Off-switch for demos/privacy: set DULUS_NO_SENTRY=1 (or SENTRY_DSN="") to skip.
@@ -8994,7 +8994,21 @@ def _news_parse_entry(entry: str) -> tuple[str, str, str, str]:
     )
 
 
-def _news_wrap(text: str, width: int = 72, max_chars: int = 360) -> list[str]:
+def _news_fit(text: str, width: int) -> str:
+    """One line of at most ``width`` characters, cut at a word with an ellipsis."""
+    text = (text or "").strip()
+    if len(text) <= width:
+        return text
+    cut = text[: width - 1]
+    sp = cut.rfind(" ")
+    if sp > width // 2:
+        cut = cut[:sp]
+    return cut.rstrip(" .,;:—-") + "…"
+
+
+def _news_wrap(
+    text: str, width: int = 72, max_chars: int = 360, max_lines: int = 0,
+) -> list[str]:
     text = (text or "").strip()
     if not text:
         return []
@@ -9016,7 +9030,51 @@ def _news_wrap(text: str, width: int = 72, max_chars: int = 360) -> list[str]:
             cur = trial
     if cur:
         out.append(cur)
+    if max_lines and len(out) > max_lines:
+        out = out[:max_lines]
+        out[-1] = _news_fit(out[-1].rstrip(" .,;:—-…") + "…", width)
     return out
+
+
+def _news_short_date(date: str) -> str:
+    """'November 11, 2026' → 'Nov 11'. Anything else is returned untouched."""
+    m = re.match(r"^([A-Z][a-z]{2})[a-z]*\.?\s+(\d{1,2}),?\s+\d{4}$", (date or "").strip())
+    return f"{m.group(1)} {m.group(2)}" if m else date
+
+
+def _news_is_app(tag: str) -> bool:
+    """Desktop-app dispatches share docs/news.md with the CLI's (v6.x vs v3.x)."""
+    if "desktop" in tag.lower():
+        return True
+    m = re.search(r"\bv(\d+)\.\d", tag)
+    return bool(m) and int(m.group(1)) >= 6
+
+
+# Dulus Radio's commercial break: (title, tagline, blurb). Boot airs one spot at
+# random, /news airs the lineup. Every spot is something this open-source CLI
+# does not do — keep it that way, and keep taglines within 44 characters so the
+# lineup still fits an 80-column terminal.
+_RADIO_APP_SPOTS: tuple[tuple[str, str, str], ...] = (
+    ("The Round Table", "up to 26 agents, any models, one task board",
+     "Seat up to 26 AI agents — any mix of models — at one table with a shared "
+     "task board. They split the work; you make the calls."),
+    ("Hands on your computer", "sees the screen, clicks and types in any app",
+     "Dulus sees the screen, clicks and types in any app, while a live overlay "
+     "lets you watch, approve or stop it with one click."),
+    ("Astral Voice", "answers out loud while it's still writing",
+     "Talk to it. It starts answering out loud while it's still writing, and "
+     "keeps the whole conversation in a transcript beside the orb."),
+    ("Make things", "images & video — FLUX.2, Veo, Sora 2 & more",
+     "Images and video with your own keys — FLUX.2, GPT Image, Imagen, Veo, "
+     "Sora 2 — landing in a versioned Artifacts library."),
+    ("AutoAdapter", "turns a GitHub repo into verified tools",
+     "Point it at a GitHub repo and get tools that are verified before "
+     "they're switched on."),
+    ("A real desktop", "browser pane, terminal panel, 17 themes",
+     "A real browser pane, a live terminal panel, a desktop pet, 17 GUI themes "
+     "and 34 languages — all around the same agent."),
+)
+_RADIO_APP_URL = "https://dulus.ai/download/"
 
 
 def _print_news_broadcast(
@@ -9027,8 +9085,12 @@ def _print_news_broadcast(
 ) -> bool:
     """Radio-format Dulus dispatch board. Used by /news and interactive boot.
 
-    boot=True → slightly tighter body (ON AIR teaser, still 3 tracks).
+    boot=True → the lead dispatch with a two-line teaser, earlier ones as
+    one-line headlines, and one desktop-app spot. /news gives every dispatch
+    its body and airs the whole app lineup.
     """
+    import random
+
     entries = _load_news_entries()
     if not entries:
         if not boot:
@@ -9037,55 +9099,80 @@ def _print_news_broadcast(
 
     limit = max(1, min(30, int(limit or 3)))
     picked = entries[:limit]
-    total = len(entries)
-    # Boot stays punchy; manual /news lets the body breathe a bit more.
-    body_cap = 220 if boot else 420
-    width = 70 if boot else 74
+    # Every line stays inside 76 columns so the board survives an 80-column
+    # terminal: a 4-space gutter, then at most 72 columns of copy.
+    width = 72
+    rule = clr("  ◆" + "━" * width + "◆", "cyan", "dim")
+    try:
+        from cli_animations.ansi import gradient_text, ORANGE, CYAN
+        app_url = gradient_text(_RADIO_APP_URL, ORANGE, CYAN)
+    except Exception:
+        app_url = clr(_RADIO_APP_URL, "cyan", "bold")
 
-    rule = "━" * 48
     print()
-    print(clr(f"  ◆{rule}◆", "cyan", "dim"))
+    print(rule)
     print(
         clr("    📡  DULUS RADIO", "cyan", "bold")
-        + clr("   ·  ON AIR", "green", "bold")
-        + clr(f"   ·  {len(picked)}/{total}", "dim")
+        + clr("   ● ON AIR", "green", "bold")
+        + clr(f"   ·  {len(entries)} dispatches", "dim")
     )
     # Station ident. This is the first thing a new install ever reads, so it
     # says who is broadcasting and what the board is actually for.
     print(
-        clr("    Dulus", "white", "bold")
-        + clr("  ·  Santo Domingo 🇩🇴  ·  ", "dim")
+        clr("    Dulus  ·  Santo Domingo 🇩🇴  ·  ", "dim")
         + clr("what shipped while you were away", "cyan", "dim")
     )
-    print(clr(f"  ◆{rule}◆", "cyan", "dim"))
+    print(rule)
     print()
 
-    for idx, entry in enumerate(picked, 1):
+    for idx, entry in enumerate(picked):
         date, tag, headline, body = _news_parse_entry(entry)
-        label = "NOW" if idx == 1 else "WAS"
-        tag_bit = tag if tag else "dispatch"
-        # ♪  NOW  ·  Aug 31  ·  Community — EU & the world
-        meta = f"  ♪  {label}  ·  {date}"
-        if tag_bit:
-            meta += f"  ·  {tag_bit}"
-        print(clr(meta, "green", "bold"))
-        if headline:
-            print(clr(f"     » {headline}", "white", "bold"))
-        for bl in _news_wrap(body, width=width, max_chars=body_cap):
-            print(clr(f"       {bl}", "dim"))
-        if idx < len(picked):
-            print(clr("     · · · · · · · · · · · · · · · · · · · · · ·", "dim"))
+        when = _news_fit(_news_short_date(date), 12).ljust(6)
+        # The desktop app ships through the same feed; flag its dispatches so
+        # they read as what they are instead of something this CLI just got.
+        chip = "  ·  desktop app" if _news_is_app(tag) else ""
+        mark = "▶ NOW" if idx == 0 else "♪"
+        lead = f"    {mark}  {when}  ·  "
+        title = _news_fit(tag or headline, 4 + width - len(lead) - len(chip))
+        print(
+            clr(lead, "green", "bold")
+            + clr(title, "white", "bold" if idx == 0 else "dim")
+            + clr(chip, "yellow", "bold")
+        )
+        if boot and idx:
+            # Boot airs earlier dispatches as headlines only — /news has the rest.
+            continue
+        if headline and tag:
+            print(clr(f"      » {_news_fit(headline, width - 4)}", "white", "bold"))
+        lines = (_news_wrap(body, width=width - 4, max_lines=2) if boot
+                 else _news_wrap(body, width=width - 4, max_chars=420))
+        for bl in lines:
+            print(clr(f"        {bl}", "dim"))
+        print()
 
-    print()
-    print(clr(f"  ◆{rule}◆", "cyan", "dim"))
+    # Commercial break: what the desktop app does that this CLI doesn't.
+    if boot and len(picked) > 1:
+        print()
+    print(rule)
+    head = "    " + clr("🖥️  ONLY ON THE DESKTOP APP", "yellow", "bold")
+    if boot:
+        name, _, blurb = random.choice(_RADIO_APP_SPOTS)
+        print(head + clr("  ·  ", "dim") + clr(name, "white", "bold"))
+        for bl in _news_wrap(blurb, width=width - 2, max_lines=2):
+            print(clr(f"      {bl}", "dim"))
+    else:
+        print(head)
+        for name, tagline, _ in _RADIO_APP_SPOTS:
+            print(
+                clr("      ◆ ", "yellow")
+                + clr(name.ljust(24), "white", "bold")
+                + clr(tagline, "dim")
+            )
+    print(clr("    You're on the open-source core. The full Dulus is the desktop app —", "white"))
+    print("    " + clr("free with your own keys", "green", "bold") + clr("  →  ", "dim") + app_url)
+    print(rule)
     if not quiet_footer:
         if boot:
-            # Honest sign-off: the mirror you just pip-installed trails the
-            # signed build. Say it here, once, without shouting.
-            print(
-                clr("    this repo is a mirror", "dim")
-                + clr("  ·  the signed build runs ahead of it", "cyan", "dim")
-            )
             print(
                 clr("    /news", "cyan")
                 + clr(" more", "dim")
@@ -9096,9 +9183,7 @@ def _print_news_broadcast(
             )
         else:
             print(
-                clr("    /news", "cyan")
-                + clr("  ·  ", "dim")
-                + clr("/news 5", "cyan")
+                clr("    /news 5", "cyan")
                 + clr("  ·  ", "dim")
                 + clr("/news more", "cyan")
                 + clr("  ·  ", "dim")
