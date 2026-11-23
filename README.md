@@ -8,7 +8,9 @@
   <b>Your AI teammate for the desktop and terminal.</b><br>
   The part of Dulus you can't <code>pip install</code>.
 </p>
-
+<p align="center">
+<a href="https://trendshift.io/repositories/28401?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-28401" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/28401/daily?language=Python" alt="KevRojo%2FDulus | Trendshift" width="250" height="55"/></a>
+</p>
 <p align="center">
   <a href="https://dulus.ai/download/"><b>Download the app</b></a> ·
   <a href="https://dulus.ai/pricing/"><b>Plans</b></a> ·
