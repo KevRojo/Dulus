@@ -74,3 +74,12 @@ def test_boot_plays_one_app_spot_and_news_the_whole_lineup(monkeypatch, capsys) 
     news = "\n".join(_board(monkeypatch, capsys, boot=False))
     assert all(name in news for name in titles)
     assert "https://dulus.ai/download/" in news
+
+
+@pytest.mark.parametrize("boot", [True, False], ids=["boot", "/news"])
+def test_the_board_sends_people_to_app_not_pip(monkeypatch, capsys, boot) -> None:
+    # Updates ship in the app now; the board used to sign off with
+    # `pip install -U dulus`.
+    text = "\n".join(_board(monkeypatch, capsys, boot=boot))
+    assert "/app" in text
+    assert "pip install" not in text

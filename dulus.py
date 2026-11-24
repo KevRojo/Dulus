@@ -95,10 +95,14 @@ Slash commands in REPL:
   /plugin enable/disable name  Toggle plugin
   /plugin update name        Update a plugin
   /plugin recommend [ctx]    Recommend plugins for context
-  /update           Check PyPI and update Dulus if a newer version exists
-  /update now       Force update to the latest release
-  /update on|off    Toggle the automatic update check at startup (default: on)
-  /update status    Show installed version, latest, and auto-check setting
+  /app              Install the Dulus app for this OS — the maintained Dulus
+                    (signed builds from github.com/Dulus-Ai/dulus-updates)
+  /app check        Show the latest build for this machine and its link
+  /app download     Download and verify it; install it yourself
+  /update           Get the latest Dulus — the app (same as /app)
+  /update on|off    Toggle the startup check for a new app build (default: on)
+  /update status    Show this core's version, the latest app, and the check
+  /update pip       Upgrade this pip package in place instead (no app build)
   /login dulus      Sign in to your Dulus account (OAuth PKCE — no API key; unlocks Fuel-metered Dulus models)
   /login dulus key  Mint a dulus_sk_* API key for CI/servers
   /login dulus --headless  Never open a browser: link, code + QR to approve from your phone
@@ -1144,7 +1148,8 @@ _HELP_PAGES = [
         ("/shell [cmd|on|off]", "Shell mode toggle or one-shot command"),
         ("/vim [on|off]", "Toggle VIM keybindings on the input line"),
         ("/edit <path>", "Open a file in your real editor (VIM/nano/$EDITOR)"),
-        ("/update [now|on|off]", "Self-update Dulus from PyPI (auto-check at startup)"),
+        ("/app [check|download]", "Install the Dulus app for this OS — the maintained Dulus"),
+        ("/update [check|on|off|pip]", "Get the latest Dulus (the app); /update pip = this core"),
         ("/exit /quit",  "Exit Dulus"),
     ]),
     ("Session", [
@@ -8827,22 +8832,94 @@ def cmd_profile(args: str, state, config) -> bool:
     return True
 
 
-def cmd_update(args: str, state, config) -> bool:
-    """Self-update Dulus from PyPI — keep every node on the latest release.
+def _app_can_install_here(config) -> bool:
+    """Only this machine's own terminal installs the app.
 
-    /update            — check PyPI and update now if a newer version exists
-    /update now        — force an update to the latest release
-    /update check      — just check, don't install
-    /update on         — enable the automatic startup check (default)
-    /update off        — disable the automatic startup check
-    /update status     — show current version, latest, and the auto-check setting
+    /app from Telegram, the web chat or a pipe would download hundreds of MB
+    and pop an installer on a screen nobody is watching (or wait on a sudo
+    password nobody can type), so those get the link instead.
+    """
+    return (
+        threading.current_thread() is threading.main_thread()
+        and not _is_in_tg_turn(config)
+        and sys.stdin is not None
+        and sys.stdin.isatty()
+    )
+
+
+def cmd_app(args: str, state, config) -> bool:
+    """Install the Dulus app — the maintained Dulus, built for this OS.
+
+    /app            — show the latest build for this machine, then download and install it
+    /app now        — same, without asking first
+    /app check      — just show what's out for this machine, with the direct link
+    /app download   — download and verify it, but leave the installing to you
+
+    Builds come from github.com/Dulus-Ai/dulus-updates. The pip package is the
+    open-source core; this is how its users move to the app.
     """
     try:
-        import updater
+        import app_installer as _app
     except Exception as e:
-        err(f"Updater unavailable: {e}")
+        err(f"App installer unavailable: {e}")
         return True
 
+    sub = (args or "").strip().lower()
+    if sub in ("-y", "--yes", "yes"):
+        sub = "now"
+    if sub not in ("", "install", "now", "check", "download"):
+        info("Usage: /app [check|download|now]")
+        return True
+
+    plat = _app.detect_platform()
+    try:
+        rel = _app.latest_release(timeout=8)
+    except _app.AppInstallError as e:
+        err(f"Couldn't look up the Dulus app: {e}")
+        info(f"Get it from {_app.RELEASES_PAGE}")
+        return True
+    asset = _app.pick_asset(rel, plat)
+    _app.print_card(rel, asset, plat)
+    if asset is None:
+        return True
+
+    if plat.container:
+        info("You're inside a container — install the app on your machine instead:")
+        print(clr(f"     {rel.html_url}", "cyan"))
+        return True
+    # `/app now` is explicit enough to run without a terminal (provisioning a
+    # server as root); everything else needs a person at this machine.
+    assume_yes = sub == "now"
+    here = _app_can_install_here(config) or (
+        assume_yes
+        and threading.current_thread() is threading.main_thread()
+        and not _is_in_tg_turn(config)
+    )
+    if sub == "check" or not here:
+        print(clr("     Direct download: ", "dim") + clr(asset.url, "cyan"))
+        if not here and sub != "check":
+            info("Run /app in a terminal on this machine to install it.")
+        print()
+        return True
+    _app.offer(
+        rel, asset, plat,
+        assume_yes=assume_yes,
+        download_only=sub == "download",
+        interactive=bool(sys.stdin and sys.stdin.isatty()),
+    )
+    return True
+
+
+def cmd_update(args: str, state, config) -> bool:
+    """Updates come from the Dulus app now — github.com/Dulus-Ai/dulus-updates.
+
+    /update            — get the latest Dulus app for this OS (same as /app)
+    /update now        — same, without asking first
+    /update check      — show the latest app build for this OS; download nothing
+    /update status     — this core's version, the latest app, and the startup check
+    /update on|off     — tell me at startup when a new app build is out (default on)
+    /update pip        — upgrade this pip package in place instead (/update pip check|now)
+    """
     sub = (args or "").strip().lower()
 
     # Toggle the automatic startup check
@@ -8853,7 +8930,7 @@ def cmd_update(args: str, state, config) -> bool:
             save_config(config)
         except Exception:
             pass
-        ok("Automatic update check enabled — Dulus will check PyPI at startup.")
+        ok("Startup check enabled — Dulus tells you when a new app build is out.")
         return True
     if sub in ("off", "disable"):
         config["auto_update"] = False
@@ -8862,26 +8939,55 @@ def cmd_update(args: str, state, config) -> bool:
             save_config(config)
         except Exception:
             pass
-        info("Automatic update check disabled. Run /update anytime to check manually.")
+        info("Startup check disabled. Run /update anytime to check by hand.")
         return True
 
     if sub == "status":
-        current = updater.get_installed_version()
-        latest = updater.get_latest_version() or "(unreachable)"
-        auto = config.get("auto_update", True)
-        info(f"Installed: {current}")
-        info(f"Latest on PyPI: {latest}")
-        info(f"Auto-check at startup: {'ON' if auto else 'OFF'}")
+        try:
+            import updater
+            info(f"This core (pip): {updater.get_installed_version()}")
+        except Exception:
+            info(f"This core (pip): {VERSION}")
+        try:
+            import app_installer as _app
+            rel = _app.latest_release(timeout=8, max_age=_app.CACHE_TTL_SEC)
+            asset = _app.pick_asset(rel, _app.detect_platform())
+            info(f"Latest Dulus app: v{rel.version}"
+                 + ("  — /app installs it" if asset else "  — no build for this OS yet"))
+        except Exception as e:
+            info(f"Latest Dulus app: unknown ({e})")
+        info(f"Startup check: {'ON' if config.get('auto_update', True) else 'OFF'}")
         return True
+
+    if sub == "pip" or sub.startswith("pip "):
+        return _update_pip(sub[3:].strip())
+    if sub in ("", "now", "check"):
+        return cmd_app(sub, state, config)
+    info("Usage: /update [check|now|status|on|off|pip]")
+    return True
+
+
+def _update_pip(sub: str) -> bool:
+    """/update pip [check|now] — upgrade this pip package in place from PyPI.
+
+    Kept for machines the app has no build for. Everyone else gets the app.
+    """
+    try:
+        import updater
+    except Exception as e:
+        err(f"Updater unavailable: {e}")
+        return True
+    print(clr("  The pip package is the open-source core — new features land in the app (/app).",
+              "dim"))
 
     if sub == "check":
         available, current, latest = updater.is_update_available()
         if not latest:
             info(f"Couldn't reach PyPI. Installed: {current}")
         elif available:
-            ok(f"Update available: {current} -> {latest}.  Run /update now")
+            ok(f"Core update available: {current} -> {latest}.  Run /update pip now")
         else:
-            ok(f"You're on the latest Dulus ({current}). 🦅")
+            ok(f"This core is up to date ({current}). 🦅")
         return True
 
     # Default (no arg) and "now" → check + install if newer
@@ -8891,7 +8997,7 @@ def cmd_update(args: str, state, config) -> bool:
             info(f"Couldn't reach PyPI. Installed: {current}")
             return True
         if not available:
-            ok(f"You're already on the latest Dulus ({current}). 🦅")
+            ok(f"This core is already up to date ({current}). 🦅")
             return True
         info(f"Updating {current} -> {latest} ...")
 
@@ -9169,7 +9275,8 @@ def _print_news_broadcast(
                 + clr(tagline, "dim")
             )
     print(clr("    You're on the open-source core. The full Dulus is the desktop app —", "white"))
-    print("    " + clr("free with your own keys", "green", "bold") + clr("  →  ", "dim") + app_url)
+    print("    " + clr("free with your own keys", "green", "bold") + clr("  →  ", "dim")
+          + clr("/app", "cyan", "bold") + clr("  or  ", "dim") + app_url)
     print(rule)
     if not quiet_footer:
         if boot:
@@ -9177,7 +9284,8 @@ def _print_news_broadcast(
                 clr("    /news", "cyan")
                 + clr(" more", "dim")
                 + clr("  ·  ", "dim")
-                + clr("pip install -U dulus", "cyan")
+                + clr("/app", "cyan")
+                + clr(" gets the app", "dim")
                 + clr("  ·  humans only  ", "dim")
                 + clr("🦅", "dim")
             )
@@ -10630,6 +10738,9 @@ COMMANDS = {
     "update":      cmd_update,
     "upgrade":     cmd_update,
     "selfupdate":  cmd_update,
+    "app":         cmd_app,
+    "install-app": cmd_app,
+    "get-app":     cmd_app,
     "news":        cmd_news,
     "batch":       cmd_batch,
     "claude_batch": cmd_claude_batch,
@@ -10801,7 +10912,10 @@ _CMD_META: dict[str, tuple[str, list[str]]] = {
     "exit":        ("Exit dulus",              []),
     "quit":        ("Exit (alias for /exit)",             []),
     "resume":      ("Resume last session",                []),
-    "update":      ("Self-update Dulus from PyPI",        ["now", "check", "status", "on", "off"]),
+    "update":      ("Get the latest Dulus — the app (/update pip: this core)", ["check", "now", "status", "on", "off", "pip"]),
+    "app":         ("Install the Dulus app for this OS — the maintained Dulus", ["check", "download", "now"]),
+    "install-app": ("Install the Dulus app (alias of /app)", ["check", "download", "now"]),
+    "get-app":     ("Install the Dulus app (alias of /app)", ["check", "download", "now"]),
     "news":        ("Dulus Radio — latest 3 (also auto on boot)", ["all", "more", "5"]),
     "webchat":       ("Spawn web chat UI",                 ["stop", "lan"]),
     "webbridge":     ("Control WebBridge browser",          ["status", "open", "click", "type", "screenshot", "extract", "scroll", "newtab", "switchtab", "closetab", "listtabs", "close", "help"]),
@@ -11457,33 +11571,46 @@ def repl(config: dict, initial_prompt: str | None = None):
             if config.get("verbose", False):
                 warn(f"Workspace init skipped: {_e}")
 
-        # ── Auto-update check (on by default; /update off to disable) ─────────
-        # Keep every Dulus in the world on the latest release: the organism
-        # heals fastest when fixes propagate instantly. This is intentionally
-        # quiet & fast — cached PyPI check (6h TTL), short timeout, never blocks
-        # or crashes the boot. Set auto_update=False (or /update off) to skip.
+        # ── Update check (on by default; /update off to disable) ─────────────
+        # Updates ship in the Dulus app (github.com/Dulus-Ai/dulus-updates), so
+        # when there is a build for this machine the notice points at /app.
+        # Quiet & fast: the release answer is cached for 6h, a failed ask keeps
+        # quiet for an hour, and nothing here can break the boot.
         if config.get("auto_update", True):
+            _app_notice = None
             try:
-                import updater as _updater
-                _avail, _cur, _latest = _updater.is_update_available()
-                if _avail:
+                import app_installer as _app
+                _app_notice = _app.startup_notice()
+                if _app_notice:
                     print()
-                    info(f"  🆕 A new Dulus is available: {_cur} → {_latest}")
-                    if config.get("auto_update_install", True):
-                        # Kevin's call: force the update at startup so we keep
-                        # the whole fleet in sync. Set auto_update_install=False
-                        # to only notify instead of installing.
-                        print("  ⏳ Updating automatically...")
-                        _ok, _msg = _updater.perform_update(_latest)
-                        if _ok:
-                            ok(f"  {_msg}  Restart to run {_latest}.")
-                        else:
-                            info(f"  Auto-update skipped: {_msg}")
-                            info("  Run /update now to try manually.")
-                    else:
-                        info("  Run /update now to upgrade.")
+                    for _line in _app_notice:
+                        print(_line)
             except Exception:
                 pass  # never let the update check break the boot
+            # No app build for this machine: keep its pip core patched as before
+            # (cached PyPI check, 6h TTL, short timeout).
+            if not _app_notice:
+                try:
+                    import updater as _updater
+                    _avail, _cur, _latest = _updater.is_update_available()
+                    if _avail:
+                        print()
+                        info(f"  🆕 A new Dulus core is available: {_cur} → {_latest}")
+                        if config.get("auto_update_install", True):
+                            # Kevin's call: force the update at startup so we keep
+                            # the whole fleet in sync. Set auto_update_install=False
+                            # to only notify instead of installing.
+                            print("  ⏳ Updating automatically...")
+                            _ok, _msg = _updater.perform_update(_latest)
+                            if _ok:
+                                ok(f"  {_msg}  Restart to run {_latest}.")
+                            else:
+                                info(f"  Auto-update skipped: {_msg}")
+                                info("  Run /update pip now to try manually.")
+                        else:
+                            info("  Run /update pip now to upgrade.")
+                except Exception:
+                    pass  # never let the update check break the boot
 
         # Soft nudge for users with no usable model route configured. If no
         # cloud API key is set and no Dulus account is linked, point at the
