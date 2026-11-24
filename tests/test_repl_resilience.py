@@ -80,7 +80,9 @@ _DRIVER = textwrap.dedent(
     import sys
     sys.path.insert(0, {root!r})
     import agent
+    import analytics
     import tools
+    from unittest.mock import patch
     from providers import AssistantTurn, TextChunk
 
     turns = iter(["crash", "answer", "answer"])
@@ -110,7 +112,8 @@ _DRIVER = textwrap.dedent(
 
     dulus.COMMANDS["cost"] = _broken_command
     sys.argv = ["dulus"]
-    dulus.main()
+    with patch.object(analytics, "track"):
+        dulus.main()
     """
 )
 
@@ -128,7 +131,6 @@ def test_repl_survives_a_crashing_turn_and_command(tmp_path) -> None:
         "verbose": False,
         "mem_palace": False,
         "sticky_input": False,
-        "telemetry": False,
         "_ipc_disabled": True,
         # The startup update check asks GitHub and, with no app build to offer,
         # pip-upgrades the Python running the suite. Not in a test.

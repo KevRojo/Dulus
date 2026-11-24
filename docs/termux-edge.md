@@ -101,10 +101,9 @@ pip install dulus
 dulus --model edge/gemma-3-1b
 ```
 
-That's it. The `edge/` prefix routes to the local server; the model name after it
-is just a label (llama-server serves whatever you loaded with `-m`). Everything —
-tools, memory, `/model`, tasks — works exactly like the cloud providers, except
-nothing leaves the phone.
+The `edge/` prefix routes prompts to the local server. The model name after it
+is a label for the model loaded with `-m`. Inference runs on the phone. The CLI
+sends anonymous usage events when connected.
 
 ---
 

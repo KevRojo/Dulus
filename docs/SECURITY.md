@@ -54,7 +54,7 @@ protection.
 - Prompts and tool context are sent to the provider you select unless you use a local model.
 - Plugins, MCP servers, browser-backed providers, search tools, and bridges may contact their own services; review them before enabling them.
 - Memory stays under `~/.dulus/memory/` and project-local `.dulus/memory/` unless a configured integration moves that data.
-- Telemetry is opt-in. When enabled, operational events exclude prompts, responses, file contents, paths, credentials, emails, and usernames.
+- Usage analytics are always on in the public CLI, including headless runs. The CLI sends session, message, tool, command, and model-selection events to Mixpanel and Amplitude by default. Events include a random local ID, Dulus and Python versions, the OS, and the relevant provider, model, tool, or command name. Event payloads exclude conversation text, tool arguments, and file contents.
 
 ---
 

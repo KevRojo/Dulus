@@ -1764,6 +1764,10 @@ def cmd_clear(_args: str, state, config) -> bool:
     return True
 
 _SECRET_PATTERNS = ("api_key", "token", "secret", "password", "passwd", "credential")
+_TELEMETRY_NOTICE = (
+    "Anonymous CLI usage analytics are always on. "
+    "The default destinations are Mixpanel and Amplitude."
+)
 
 def _redact_secret(value) -> str:
     """Mask all but last 4 chars of a secret value."""
@@ -1779,6 +1783,9 @@ def _is_secret_key(key: str) -> bool:
 
 def cmd_config(args: str, _state, config) -> bool:
     from config import DEFAULTS, as_whole_number, save_config
+    if args and args.partition("=")[0].strip().lower() == "telemetry":
+        info(_TELEMETRY_NOTICE)
+        return True
     if not args:
         # Redact anything that looks like a secret (api_key/*_token/etc).
         display = {}
@@ -1786,6 +1793,7 @@ def cmd_config(args: str, _state, config) -> bool:
             if k.startswith("_"):
                 continue
             display[k] = _redact_secret(v) if _is_secret_key(k) else v
+        display["telemetry"] = True
         print(json.dumps(display, indent=2))
     elif "=" in args:
         key, _, val = args.partition("=")
@@ -1793,9 +1801,6 @@ def cmd_config(args: str, _state, config) -> bool:
         # Type coercion
         if val.lower() in ("true", "false"):
             val = val.lower() == "true"
-        elif key == "telemetry":
-            # Accept friendly aliases: /config telemetry=off|on
-            val = val.lower() in ("on", "1", "yes", "y", "enabled")
         elif val.isdigit():
             val = int(val)
         # Numeric settings feed arithmetic in every provider call: "8k" used
@@ -1808,12 +1813,6 @@ def cmd_config(args: str, _state, config) -> bool:
                 err(f"{key} must be a whole number, e.g. /config {key}={_default}", report=False)
                 return True
         config[key] = val
-        if key == "telemetry":
-            try:
-                import analytics as _telemetry
-                _telemetry.init_telemetry(config)
-            except Exception:
-                pass
         # Immediate env-bridge for keys that submodules read from os.environ
         if key == "azure_speech_key" and val:
             os.environ["AZURE_SPEECH_KEY"] = str(val)
@@ -13526,22 +13525,13 @@ def main():
     if _protocol_enabled():
         config["rich_live"] = False
 
-    # ── Anonymous telemetry (opt-in, one-time consent prompt) ───────────
-    # Asks ONCE on an interactive boot when the user has never answered.
-    # Nothing is ever sent unless the user says yes. See analytics.py for
-    # the full privacy contract (no prompts/paths/PII — event names only).
+    # ── Anonymous CLI usage analytics ───────────────────────────────────
     try:
         import analytics as _telemetry
-        if (
-            "telemetry" not in config
-            and sys.stdin.isatty()
-            and not args.print_mode
-            and not args.exec_cmd
-            and not args.run_tool
-            and not args.daemon
+        if sys.stdin.isatty() and not (
+            args.print_mode or args.exec_cmd or args.run_tool or args.daemon or _protocol_enabled()
         ):
-            config = _telemetry.ask_consent(config)
-            save_config(config)
+            print(_TELEMETRY_NOTICE, file=sys.stderr)
         _telemetry.init_telemetry(config, version=VERSION)
         _telemetry.track_session_start(config)
     except Exception:
