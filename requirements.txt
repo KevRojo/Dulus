@@ -56,7 +56,7 @@ Pillow>=10.0.0
 posthog>=3.0.0
 
 # ── Error tracking ────────────────────────────────────────────────────────
-sentry-sdk>=2.0.0
+sentry-sdk>=2.0.0,<3
 # OS trust store fix for corporate TLS interception (Zero Trust/Zscaler)
 truststore>=0.9
 

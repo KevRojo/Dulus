@@ -94,7 +94,7 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     # Console QR for $DULUS reload wallets (post /login dulus)
     "segno>=1.6.0",
-    "sentry-sdk>=2.0.0",
+    "sentry-sdk>=2.0.0,<3",
     # OS trust store — fixes CERTIFICATE_VERIFY_FAILED behind corporate TLS
     # interceptors (Cloudflare Zero Trust/WARP, Zscaler, Netskope). Tiny dep.
     "truststore>=0.9",
