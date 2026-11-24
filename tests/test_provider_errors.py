@@ -21,13 +21,22 @@ openai = pytest.importorskip("openai")
 QUOTA_MSG = "ResourceExhausted: Worker local total request limit reached (606/48)"
 
 
+def _request():
+    """A real request: openai 3.59 reads its headers, where older ones took None."""
+    try:
+        import httpx2 as client  # openai 3.x
+    except ImportError:
+        import httpx as client
+    return client.Request("POST", "https://example.com/v1/chat/completions")
+
+
 class _QuotaStream:
     """Stream whose first read raises, like the real SSE client does."""
     def __iter__(self):
         return self
 
     def __next__(self):
-        raise openai.APIError(QUOTA_MSG, request=None, body=None)
+        raise openai.APIError(QUOTA_MSG, request=_request(), body=None)
 
 
 class _FakeClient:
