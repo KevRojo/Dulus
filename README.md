@@ -243,6 +243,8 @@ Everything on this page lives in the desktop app.
 
 **[Download Dulus](https://dulus.ai/download/)** for Windows (x64) and macOS (Apple Silicon). Check the download page for current builds, requirements and platform availability.
 
+**Already running Dulus from `pip`?** Type `/app`. It installs the latest build for your OS from [dulus-updates](https://github.com/Dulus-Ai/dulus-updates/releases/latest), where the updates land.
+
 **Free on your keys, or with the AI included.** You sign in with a free Dulus account, and your own keys and local models cost nothing from Dulus. **[Operator](https://dulus.online/account/?plan=operator#plans)** puts $147 of [Fuel](https://dulus.ai/fuel/) in your account every month for $49, by card: every Dulus-hosted model with no keys to manage, a cloud PC of your own and Dulus OS. [Compare the plans](https://dulus.ai/pricing/).
 
 ## FAQ

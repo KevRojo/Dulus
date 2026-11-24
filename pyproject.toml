@@ -196,6 +196,7 @@ py-modules = [
     "clipboard_utils",
     "cloudsave",
     "analytics",
+    "app_installer",
     "common",
     "compaction",
     "config",

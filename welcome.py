@@ -6,6 +6,8 @@ not just a tool. Features:
   - Beautiful ASCII art of the Cigua Palmera
   - First-run vs. returning user detection
   - Animated bird spinner during setup
+  - The Dulus app offered first -- the latest build for the user's OS, from
+    github.com/Dulus-Ai/dulus-updates (app_installer.py does the work)
   - Provider + model selection (Dulus's own router leads the menu)
   - Guided Dulus account sign-in (OAuth -- no API key to paste)
   - API key prompting (when needed)
@@ -90,7 +92,7 @@ _WELCOME_MESSAGES = {
         "tips": [
             "💡 Tip: Type /help anytime to see what I can do!",
             "💡 Tip: I remember our conversations -- just chat naturally!",
-            
+            "💡 Tip: /app installs the Dulus app -- the full Dulus, built for your OS.",
         ],
     },
     "returning": {
@@ -482,10 +484,12 @@ def run_welcome_wizard(config: dict) -> dict:
     Guides new users through a 30-second setup:
       1. Personal greeting with bird art
       2. Name preference
-      3. Provider + model selection
-      4. API key prompting (when needed)
-      5. MemPalace initialization
-      6. Soul seeding with personalized personality
+      3. The Dulus app for their OS (the maintained Dulus) -- if they take
+         it, the app's own setup takes over and the wizard ends here
+      4. Provider + model selection
+      5. API key prompting (when needed)
+      6. MemPalace initialization
+      7. Soul seeding with personalized personality
 
     Args:
         config: The Dulus configuration dictionary to populate.
@@ -514,6 +518,16 @@ def run_welcome_wizard(config: dict) -> dict:
         config["user_name"] = user_name
         print(f"\n  Nice to meet you, {user_name}! 🪶")
         print()
+
+    # pip gets people the open-source core; the maintained Dulus is the app.
+    # Offer it before setting up the core, so nobody configures twice.
+    if _offer_dulus_app():
+        print("  " + "=" * 60)
+        print(f"  🦅 All set, {user_name}! The app takes it from here -- it has its own setup.")
+        print("  This terminal keeps running the open-source core until you switch.")
+        print("  " + "=" * 60)
+        print()
+        return config
 
     # Animated spinner for provider selection
     spinner = BirdSpinner("Preparing your flight...")
@@ -571,10 +585,41 @@ def run_welcome_wizard(config: dict) -> dict:
     print(f"  🦅 All set, {user_name}! Your Dulus is ready to fly!")
     print(f"  {_get_motivational_quote()}")
     print("  Run /doctor to see your health snapshot.")
+    print("  Want the full Dulus? /app installs the app for your OS any time.")
     print("  " + "=" * 60)
     print()
 
     return config
+
+
+def _offer_dulus_app() -> bool:
+    """Offer the Dulus app, built for this OS, before setting up the pip core.
+
+    True once its installer has run (or is open): the app has its own setup,
+    so the wizard can stop. No build for this machine, no answer from GitHub
+    or a "no" all return False, and the wizard carries on with the core.
+    """
+    try:
+        import app_installer as app
+        plat = app.detect_platform()
+    except Exception:
+        return False
+    if plat.container:
+        return False
+    spinner = BirdSpinner("Looking for the Dulus app for your system...")
+    spinner.start()
+    try:
+        rel = app.latest_release(timeout=6)
+        asset = app.pick_asset(rel, plat)
+    except Exception:
+        rel = asset = None
+    finally:
+        spinner.stop()
+        print("\r\033[2K", end="", flush=True)
+    if rel is None or asset is None:
+        return False
+    app.print_card(rel, asset, plat)
+    return app.offer(rel, asset, plat) in ("installed", "launched")
 
 
 def _setup_litellm(config: dict, default_model: str) -> None:

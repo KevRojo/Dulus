@@ -204,6 +204,8 @@ Todo lo que ves en esta página vive en la app de escritorio.
 
 **[Descarga Dulus](https://dulus.ai/es/download/)** para Windows 10/11 (x64). Las versiones para macOS (Apple Silicon) y Linux aparecen en esa misma página a medida que se publican.
 
+**¿Ya usas Dulus instalado con `pip`?** Escribe `/app`. Instala la última versión para tu sistema desde [dulus-updates](https://github.com/Dulus-Ai/dulus-updates/releases/latest), donde llegan las actualizaciones.
+
 **Gratis con tus claves, o con la IA incluida.** Inicias sesión con una cuenta gratis de Dulus, y tus propias claves y modelos locales no te cuestan nada con Dulus. **[Operator](https://dulus.online/es/account/?plan=operator#plans)** pone $147 de [Fuel](https://dulus.ai/es/fuel/) en tu cuenta cada mes por $49, con tarjeta: todos los modelos alojados por Dulus sin claves que administrar, una cloud PC tuya y Dulus OS. [Compara los planes](https://dulus.ai/es/pricing/).
 
 ## Preguntas frecuentes

@@ -130,6 +130,9 @@ def test_repl_survives_a_crashing_turn_and_command(tmp_path) -> None:
         "sticky_input": False,
         "telemetry": False,
         "_ipc_disabled": True,
+        # The startup update check asks GitHub and, with no app build to offer,
+        # pip-upgrades the Python running the suite. Not in a test.
+        "auto_update": False,
     }), encoding="utf-8")
     driver = tmp_path / "driver.py"
     driver.write_text(_DRIVER.format(root=str(ROOT)), encoding="utf-8")

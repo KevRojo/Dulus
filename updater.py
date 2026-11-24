@@ -3,6 +3,10 @@
 The organism heals fastest when every node runs the newest code. This module
 checks PyPI for a newer `dulus` release and (optionally) upgrades in place.
 
+Updates ship in the Dulus app now (app_installer.py, `/app`). This pip path
+stays for machines the app has no build for: `/update pip`, and the startup
+check when there is no app build to offer.
+
 Design goals:
   - Zero friction: on by default, checks quietly at startup.
   - Fast & non-blocking: PyPI JSON API with a short timeout + local cache so we
@@ -174,5 +178,6 @@ def startup_check_line() -> str | None:
     """
     available, current, latest = is_update_available()
     if available:
-        return f"A new Dulus is available: {current} -> {latest}.  Run /update now  (auto: /update on)"
+        return (f"A new Dulus core is available: {current} -> {latest}.  "
+                "Run /update pip now  (auto: /update on)")
     return None

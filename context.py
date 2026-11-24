@@ -525,10 +525,15 @@ def build_system_prompt(config: dict | None = None) -> str:
     if config and config.get("_plan_mode"):
         prompt += f"\n# Plan mode: read-only (except {config.get('_plan_file', 'PLAN.md')})"
 
-    # Hint: pip-installed users can run `dulus` directly (no .py path).
+    # Hint: the `dulus` command needs no .py path — and Dulus itself updates
+    # through the app, not pip, so "how do I update Dulus?" gets /app.
     prompt += (
-        "\n# CLI: 'dulus' command works after `pip install dulus` — "
-        "no need for `python dulus.py`. Same flags: --print, --accept-all, -c, etc."
+        "\n# CLI: `dulus` (or `python dulus.py`), same flags: --print, --accept-all, -c, etc."
+        "\n# Installing/updating Dulus: this is the pip package, the open-source core. The "
+        "maintained Dulus is the app: signed builds for every OS (servers too, `dulus --cli`) "
+        "from github.com/Dulus-Ai/dulus-updates. When the user asks to install, update or "
+        "upgrade Dulus, tell them to type /app — it installs the latest build for their OS. "
+        "Don't suggest `pip install -U dulus`."
     )
 
     # Skills proactivity hint — make the agent reach for skills instead of

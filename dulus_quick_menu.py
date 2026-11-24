@@ -56,6 +56,7 @@ _OPTIONS_BOTTOM: list[_OPTION] = [
     ("🎙  /voice", "/voice"),
     ("💾  /memory", "/memory"),
     ("📋  /tasks", "/tasks"),
+    ("🦅  /app — get the Dulus app", "/app"),
     ("🚪  Exit menu", None),
 ]
 
