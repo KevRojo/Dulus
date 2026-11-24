@@ -118,9 +118,7 @@ dependencies = [
     "uv>=0.4.0",
     "sse-starlette>=2.0.0",
     "starlette>=0.38.0",
-    # Product analytics — usage/telemetry (respects opt-out). Nobody runs
-    # `pip install dulus[full]`, so shipping it here is the only way metrics
-    # actually reach us from real installs.
+    # Web chat product analytics uses the configured PostHog project key.
     "posthog>=3.0.0",
     # Memory Palace — per-turn semantic memory injection. Shipped in core on
     # purpose: it's a first-class Dulus feature (mem_palace is ON by default)

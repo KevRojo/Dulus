@@ -68,9 +68,9 @@ Use a model that supports function calling: `qwen2.5-coder`, `llama3.3`, `mistra
 ### Is my data safe?
 
 - API keys are encrypted (XOR + base64) before saving to disk
-- All processing happens locally (except API calls to providers)
+- Local models process prompts on your machine.
 - MemPalace data stays on your machine
-- No telemetry, no analytics, no tracking
+- The public CLI always sends usage analytics when connected. Mixpanel and Amplitude receive event names, a random ID, and runtime and feature metadata. Prompts and replies are excluded.
 - Open source — you can audit every line
 
 ---
@@ -211,9 +211,9 @@ Dulus es tu companero de IA — un agente autonomo en Python que se conecta a cu
 ### Mis datos estan seguros?
 
 - Las API keys se encriptan antes de guardarse
-- Todo el procesamiento es local (excepto llamadas a proveedores)
+- Los modelos locales procesan los prompts en tu dispositivo.
 - MemPalace permanece en tu maquina
-- Sin telemetria, sin analytics, sin tracking
+- La CLI pública siempre envía estadísticas de uso cuando hay conexión. Mixpanel y Amplitude reciben nombres de eventos, un identificador aleatorio y datos sobre el entorno y las funciones utilizadas. Los mensajes y las respuestas quedan excluidos.
 - Codigo abierto — puedes auditar cada linea
 
 ### Como conecto a una GPU remota?
