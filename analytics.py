@@ -4,9 +4,9 @@ Dulus asks ONCE on startup whether you want to share anonymous usage
 statistics. Nothing is sent until you explicitly say yes.
 
 What IS collected (when enabled):
-  - Event names (session_start, message_sent, tool_used, model_selected)
+  - Event names (session_start, message_sent, tool_used, command_used, model_selected)
   - Dulus version, OS name, Python version
-  - Provider/model *names* (e.g. "gemini", "claude-sonnet")
+  - Provider, model, tool, and command names
   - A random anonymous ID (UUID generated locally — not tied to you)
 
 What is NEVER collected:
@@ -23,9 +23,8 @@ Opt out at any time (any of these):
   - /config telemetry=off        (inside Dulus)
   - DULUS_TELEMETRY=0            (environment variable)
 
-Implementation notes: zero third-party dependencies — plain urllib POST to
-the Mixpanel ingestion API in a fire-and-forget daemon thread. Failures are
-silently ignored; telemetry must never slow down or break Dulus.
+Each configured provider receives events through urllib in a background
+thread. Delivery failures are ignored so the CLI can keep running.
 """
 from __future__ import annotations
 
@@ -63,16 +62,16 @@ def _env_disabled() -> bool:
 
 
 def is_enabled() -> bool:
-    return _enabled and not _env_disabled() and bool(MP_TOKEN)
+    return _enabled and not _env_disabled() and bool(MP_TOKEN or AMP_KEY)
 
 
 CONSENT_NOTICE = """
   ── Ayuda a mejorar Dulus / Help improve Dulus ─────────────────────────
-  Dulus can share ANONYMOUS usage statistics to help us understand
-  which features matter (event counts only — sent to Mixpanel).
+  Dulus can share anonymous usage statistics with Mixpanel and Amplitude
+  to help us understand which features people use.
 
-    Collected:  event names, Dulus version, OS, model/provider names,
-                a random anonymous ID generated on this machine.
+    Collected:  event names, Dulus and Python versions, OS, provider, model,
+                tool and command names, and a random ID generated on this machine.
     NEVER:      prompts, responses, files, paths, keys, emails, IPs.
 
   Change your mind anytime:  /config telemetry=off   or  DULUS_TELEMETRY=0
@@ -102,74 +101,78 @@ def init_telemetry(config: dict, version: str = "") -> None:
     """Initialise the module from config. Safe to call multiple times."""
     global _distinct_id, _enabled, _dulus_version
     _dulus_version = version or _dulus_version
-    _enabled = bool(config.get("telemetry")) and not _env_disabled()
+    choice = str(config.get("telemetry", "")).strip().lower()
+    _enabled = choice in ("true", "on", "1", "yes", "y", "enabled") and not _env_disabled()
     if _enabled:
         _distinct_id = config.get("telemetry_id") or uuid.uuid4().hex
-        config.setdefault("telemetry_id", _distinct_id)
+        config["telemetry_id"] = _distinct_id
+    else:
+        _distinct_id = None
 
 
 def track(event: str, properties: dict | None = None) -> None:
     """Fire-and-forget anonymous event. No-op unless telemetry is enabled."""
-    if not is_enabled() or not _distinct_id:
+    distinct_id = _distinct_id
+    if not is_enabled() or not distinct_id:
         return
-
+    os_name = platform.system()
+    event_properties = {
+        "dulus_version": _dulus_version,
+        "os": os_name,
+        "python": f"{sys.version_info.major}.{sys.version_info.minor}",
+        **(properties or {}),
+    }
     payload = {
         "event": event,
         "properties": {
             "token": MP_TOKEN,
-            "distinct_id": _distinct_id,
+            "distinct_id": distinct_id,
             "time": int(time.time()),
             "$ip": 0,  # disable Mixpanel geolocation
-            "dulus_version": _dulus_version,
-            "os": platform.system(),
-            "python": f"{sys.version_info.major}.{sys.version_info.minor}",
-            **(properties or {}),
+            **event_properties,
         },
     }
 
-    def _send() -> None:
+    def _post(endpoint: str, data: bytes, content_type: str) -> None:
+        from urllib.request import Request, urlopen
+
+        # Consent or the active profile may change while the worker is waiting.
+        if not is_enabled() or _distinct_id != distinct_id:
+            return
+        req = Request(endpoint, data=data, headers={"Content-Type": content_type}, method="POST")
+        with urlopen(req, timeout=4) as response:
+            response.read()
+
+    def _send_mixpanel() -> None:
         try:
-            from urllib.request import Request, urlopen
             from urllib.parse import urlencode
 
             data = urlencode(
                 {"data": base64.b64encode(json.dumps([payload]).encode()).decode()}
             ).encode()
-            req = Request(_MP_ENDPOINT, data=data, method="POST")
-            urlopen(req, timeout=4).read()
+            _post(_MP_ENDPOINT, data, "application/x-www-form-urlencoded")
         except Exception:
             pass  # telemetry must never break Dulus
 
     def _send_amplitude() -> None:
-        if not AMP_KEY:
-            return
         try:
-            from urllib.request import Request, urlopen
-
             body = json.dumps({
                 "api_key": AMP_KEY,
                 "events": [{
-                    "device_id": _distinct_id,  # same anonymous UUID, never PII
+                    "device_id": distinct_id,
                     "event_type": event,
-                    "event_properties": {
-                        "dulus_version": _dulus_version,
-                        "os": platform.system(),
-                        "python": f"{sys.version_info.major}.{sys.version_info.minor}",
-                        **(properties or {}),
-                    },
-                    "platform": platform.system(),
+                    "event_properties": event_properties,
+                    "platform": os_name,
                 }],
             }).encode()
-            req = Request(
-                _AMP_ENDPOINT, data=body,
-                headers={"Content-Type": "application/json"}, method="POST",
-            )
-            urlopen(req, timeout=4).read()
+            _post(_AMP_ENDPOINT, body, "application/json")
         except Exception:
             pass  # telemetry must never break Dulus
 
-    threading.Thread(target=_send, daemon=True, name="telemetry").start()
-    threading.Thread(target=_send_amplitude, daemon=True, name="telemetry-amp").start()
+    if MP_TOKEN:
+        threading.Thread(target=_send_mixpanel, daemon=True, name="telemetry").start()
+    if AMP_KEY:
+        threading.Thread(target=_send_amplitude, daemon=True, name="telemetry-amp").start()
 
 
 def track_session_start(config: dict) -> None:
