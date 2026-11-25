@@ -87,7 +87,7 @@ _WELCOME_MESSAGES = {
         ],
         "no_api_key": [
             "No API key? Run me locally with Ollama -- zero cost, total privacy.",
-            "Or sign in with /login dulus to use the hosted Dulus models.",
+            "Sign in with /login dulus to use Fuel for Dulus-hosted models.",
         ],
         "tips": [
             "💡 Tip: Type /help anytime to see what I can do!",
@@ -268,7 +268,7 @@ def _get_motivational_quote() -> str:
 _PROVIDER_MENU = [
     ("dulus",      "Dulus account (hosted models, Fuel-metered)", "dulus-b-27b",                 False),
     ("ollama",     "Ollama (local, free)",                    "gemma3:latest",                  False),
-    ("nvidia-web", "NVIDIA NIM (14 free models)",             "llama-3.3-70b-instruct",         True),
+    ("nvidia-web", "NVIDIA NIM (your API key)",               "llama-3.3-70b-instruct",         True),
     ("anthropic",  "Anthropic Claude",                         "claude-sonnet-4-6",              True),
     ("kimi-code",  "Kimi for Coding (kimi.com/coding)",        "kimi-for-coding",                True),
     ("kimi",       "Moonshot Kimi K2 (general)",               "kimi-k2.5",                      True),
@@ -703,7 +703,7 @@ def _setup_dulus_account(config: dict, default_model: str) -> None:
     control plane meters Fuel per token. Sign-up happens at dulus.ai.
     """
     config["model"] = f"dulus/{default_model}"
-    print("\n  🦅 Dulus hosted models — no provider API key needed.")
+    print("\n  🦅 Dulus-hosted models use Fuel from your account.")
     try:
         import dulus_account
         # The launch gate has normally just signed this person in; a second
@@ -888,8 +888,8 @@ def _setup_local_ai(config: dict) -> None:
     """
     print()
     print("-" * 60)
-    print("  ✨ Free local AI — private, offline, no API key, no browser.")
-    print("     Powered by Ollama + Qwen, right-sized to your machine.")
+    print("  Run Qwen locally with Ollama")
+    print("  Choose a model that fits your hardware. Once downloaded, it works offline.")
     print("-" * 60)
 
     hw = _detect_hardware()

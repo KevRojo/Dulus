@@ -7,7 +7,7 @@
 <h3>你的 AI 伙伴。不是聊天机器人。一个飞在你身边的朋友。</h3>
 
 <p>
-  <strong>无需 API 密钥即可使用前沿 AI。$0。无需信用卡。无需订阅。</strong>
+  <strong>使用 Fuel 调用 Dulus 托管模型，也可以接入自己的服务商或运行本地模型。</strong>
 </p>
 
 <p>
@@ -105,7 +105,7 @@ docker compose up -d
 | 功能 | 描述 |
 |---|---|
 | 多提供商 | 11 个原生 + 100+ 通过 LiteLLM |
-| 零 API 密钥 | 捕获免费的浏览器会话 |
+| 账户登录 | 通过 `/login dulus` 使用按 Fuel 计费的托管模型 |
 | 30+ 内置工具 | 文件、shell、网页、OCR、语音等 |
 | 自动适配器 | 将任何 Python 仓库安装为插件 |
 | MemPalace | 基于 ChromaDB 的语义记忆 |
@@ -128,12 +128,11 @@ docker compose up -d
 
 ## 提供商
 
-### 免费（无需 API 密钥）
+### Dulus 账户和本地模型
 
 | 提供商 | 模型 | 设置 |
 |---|---|---|
 | **Dulus 路由** | `dulus-*`（12 个档位） | `/login dulus` — OAuth，按 Fuel 计量 |
-| **NVIDIA NIM** | 14 个模型，每个 40 RPM | 在 build.nvidia.com 免费注册 |
 | **Ollama** | 任何本地模型 | `ollama pull qwen2.5-coder` |
 
 ### 云 API（需要 API 密钥）
@@ -143,6 +142,7 @@ docker compose up -d
 | Anthropic | claude-opus-4-6, claude-sonnet-4-6 | `ANTHROPIC_API_KEY` |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini | `OPENAI_API_KEY` |
 | Google | gemini-2.5-pro, gemini-2.0-flash | `GEMINI_API_KEY` |
+| NVIDIA NIM | `meta/llama-3.3-70b-instruct` | `NVIDIA_API_KEY` |
 | DeepSeek | deepseek-chat, deepseek-reasoner | `DEEPSEEK_API_KEY` |
 | Qwen | qwen-max, qwen-plus, qwq-32b | `DASHSCOPE_API_KEY` |
 | Kimi | moonshot-v1-8k/32k/128k, kimi-k2.5 | `MOONSHOT_API_KEY` |

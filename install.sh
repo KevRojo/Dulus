@@ -865,7 +865,7 @@ cat <<EOF
     ${BOLD}dulus -c "bg start"${RESET}      run headless daemon in tmux + webchat
 
   First-run picks:
-    • Pick a model with ${BOLD}/model${RESET} (NVIDIA tier is free — 14 frontier models)
+    • Pick a model with ${BOLD}/model${RESET} (Dulus Fuel, your own provider, or a local model)
     • Set your soul with ${BOLD}/soul${RESET} (English / Spanish / your own)
     • ${BOLD}/help${RESET} inside the REPL shows everything
 

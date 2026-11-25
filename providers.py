@@ -41,6 +41,8 @@ import uuid
 from types import SimpleNamespace
 from typing import Generator, Any, Callable, Iterable, cast
 
+from retired_web import retired_provider_message, retired_web_provider
+
 
 # ── TLS: trust the OS certificate store ──────────────────────────────────
 # Cloudflare WARP / Cloudflare One does TLS inspection with its own root CA,
@@ -1008,6 +1010,8 @@ _PREFIXES = [
 def detect_provider(model: str) -> str:
     """Return provider name for a model string.
     Supports 'provider/model' explicit format, or auto-detect by prefix."""
+    if removed := retired_web_provider(model):
+        return removed
     if "/" in model:
         p = model.split("/", 1)[0]
         if p in PROVIDERS:
@@ -1031,12 +1035,7 @@ XAI_OAUTH_BASE_URL = "https://api.x.ai/v1"
 
 
 def _load_grok_build_session_token() -> str | None:
-    """Load the real session token from the official Grok Build TUI (this Grok you're talking to).
-    Stored in ~/.grok/auth.json after `grok login` (or when you launched this session).
-    This is THE auth the official `grok` / Grok Build CLI uses — same OAuth client_id,
-    same backend. Using it directly is 100x more reliable than Playwright harvest.
-    "grok build y ya".
-    """
+    """Load the official Grok CLI token saved by `grok login`."""
     import json
     import os
     import pathlib
@@ -1050,7 +1049,6 @@ def _load_grok_build_session_token() -> str | None:
     try:
         data = json.loads(auth_path.read_text())
         # The key is usually "https://auth.x.ai::b1a00492-073a-47ea-816f-4c329264a828"
-        # (exact same client_id we had hardcoded for the harvest flow)
         for entry in data.values():
             if isinstance(entry, dict):
                 key = entry.get("key")
@@ -1063,16 +1061,6 @@ def _load_grok_build_session_token() -> str | None:
     except Exception:
         pass
     return None
-
-
-# NOTE: The old Playwright browser harvest for Grok (/login grok with _xai_oauth_login)
-# has been completely removed for cleanliness.
-# The only supported ways to authenticate Grok models are now:
-#   - Official Grok Build TUI (`grok login`) → ~/.grok/auth.json (preferred)
-#   - Direct XAI_API_KEY
-#
-# If you want the old harvest behavior you can keep a copy of the previous providers.py
-# or implement it yourself. We no longer maintain it here.
 
 
 # ── Native OAuth 2.0 + PKCE login (no browser automation, no `grok` binary) ──
@@ -3123,14 +3111,9 @@ def stream_xai_oauth(
     messages: list,
     tool_schemas: list,
     config: dict,
-    _auth_path: str | None = None,  # ignored: we only use official Grok TUI (~/.grok/auth.json) or XAI_API_KEY
+    _auth_path: str | None = None,  # retained for callers using the old signature
 ) -> Generator:
-    """Stream from xAI / Grok using the official Grok Build TUI session (preferred)
-    or a direct XAI_API_KEY.
-
-    The old Playwright browser harvest for Grok has been removed for cleanliness.
-    We source the token exclusively via _load_grok_build_session_token() + XAI_API_KEY.
-    """
+    """Stream from xAI using Grok CLI credentials, Dulus OAuth or XAI_API_KEY."""
     import requests as _req
 
     # Now that Dulus uses the official Grok Build TUI session (grok login),
@@ -3146,7 +3129,6 @@ def stream_xai_oauth(
 
     # Clean session + headers for official Grok Build TUI session token
     # or direct XAI_API_KEY fallback.
-    # The old Playwright harvest flow for xAI/Grok has been removed.
     session = _req.Session()
 
     # Present as the official Grok CLI client. We're reusing the Grok Build TUI
@@ -3411,6 +3393,8 @@ def bare_model(model: str) -> str:
 
 
 def get_api_key(provider_name: str, config: dict) -> str:
+    if retired_web_provider(provider_name):
+        return ""
     # moonshot is an alias for kimi (same API backend and credentials)
     if provider_name == "moonshot":
         provider_name = "kimi"
@@ -6215,8 +6199,11 @@ def stream(
     failures (timeouts, 429 rate-limit, 5xx server errors).
     """
     provider_name = detect_provider(model)
+    prov = PROVIDERS.get(provider_name)
+    if prov is None:
+        yield from _config_error_turn(retired_provider_message(provider_name))
+        return
     model_name    = bare_model(model)
-    prov          = PROVIDERS.get(provider_name, PROVIDERS["openai"])
     api_key       = get_api_key(provider_name, config)
 
     def _inner_stream() -> Generator:
@@ -6230,7 +6217,6 @@ def stream(
             yield from stream_dulus_account(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "xai-oauth":
             # Official Grok Build TUI session (`grok login` → ~/.grok/auth.json) or XAI_API_KEY.
-            # No separate harvest file is used (old Playwright harvest for Grok was removed).
             yield from stream_xai_oauth(model_name, system, messages, tool_schemas, config)
         elif prov["type"] == "chatgpt-oauth":
             # ChatGPT/Codex subscription OAuth (`/login chatgpt` or ~/.codex/auth.json)

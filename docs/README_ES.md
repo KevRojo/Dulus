@@ -7,7 +7,7 @@
 <h3>Tu Compa de IA. No un Chatbot. Un Amigo que Vuela a Tu Lado.</h3>
 
 <p>
-  <strong>Usa IA de frontera sin API key. $0. Sin tarjeta. Sin suscripcion.</strong>
+  <strong>Usa Fuel para los modelos alojados en Dulus, conecta tu propio proveedor o ejecuta un modelo local.</strong>
 </p>
 
 <p>
@@ -80,7 +80,7 @@
 pip install dulus && dulus
 ```
 
-Eso es todo. En el primer arranque, Dulus abre un navegador, captura una **sesion guest de Gemini** (sin login, sin API key, sin tarjeta), y ya estas chateando con IA de frontera en menos de 30 segundos.
+En el primer arranque, elige cómo conectarte. Para usar modelos alojados con Fuel, inicia sesión con `/login dulus`. También puedes configurar tu propia clave de API o un modelo local.
 
 ### Instalador One-liner (recomendado)
 
@@ -110,7 +110,7 @@ docker compose up -d
 | Caracteristica | Descripcion |
 |---|---|
 | Multi-Proveedor | 11 proveedores nativos + 100+ via LiteLLM |
-| Sin API Key | Captura sesiones gratuitas del navegador |
+| Inicio de sesión | Accede al router de Dulus con Fuel mediante `/login dulus` |
 | 30+ Herramientas | Archivos, shell, web, OCR, voz, y mas |
 | MemPalace | Memoria semantica con ChromaDB |
 | Voz I/O | STT offline via Whisper. TTS multi-engine |
@@ -130,12 +130,11 @@ docker compose up -d
 
 ## Proveedores
 
-### Gratuitos (Sin API Key)
+### Cuenta de Dulus y modelos locales
 
 | Proveedor | Modelos | Setup |
 |---|---|---|
 | **Router Dulus** | `dulus-*` (12 niveles) | `/login dulus` — OAuth, medido en Fuel |
-| **NVIDIA NIM** | 14 modelos, 40 RPM cada uno | Registro gratis en build.nvidia.com |
 | **Ollama** | Cualquier modelo local | `ollama pull qwen2.5-coder` |
 
 ### Cloud APIs (Requieren API Key)
@@ -145,6 +144,7 @@ docker compose up -d
 | Anthropic | claude-opus-4-6, claude-sonnet-4-6 | `ANTHROPIC_API_KEY` |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini | `OPENAI_API_KEY` |
 | Google | gemini-2.5-pro, gemini-2.0-flash | `GEMINI_API_KEY` |
+| NVIDIA NIM | `meta/llama-3.3-70b-instruct` | `NVIDIA_API_KEY` |
 | DeepSeek | deepseek-chat, deepseek-reasoner | `DEEPSEEK_API_KEY` |
 | Qwen | qwen-max, qwen-plus, qwq-32b | `DASHSCOPE_API_KEY` |
 | Kimi | moonshot-v1-8k/32k/128k, kimi-k2.5 | `MOONSHOT_API_KEY` |

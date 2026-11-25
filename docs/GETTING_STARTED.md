@@ -124,7 +124,7 @@ How should I call you? [amigo]
 Que proveedor queres usar de entrada?
   1. Dulus account (hosted models, Fuel-metered)
   2. Ollama (local, free)
-  3. NVIDIA NIM (14 free models)
+  3. NVIDIA NIM (your API key)
   4. Anthropic Claude
   5. Kimi for Coding
   6. Moonshot Kimi K2
@@ -184,7 +184,7 @@ cat error.log | dulus -p "what caused this error"
 /model                    # show current
 /model gpt-4o             # switch to OpenAI
 /model ollama/llama3.3    # switch to local
-/model nvidia-web/deepseek-r1  # free NVIDIA tier
+/model nvidia-web/deepseek-ai/deepseek-r1  # uses your NVIDIA_API_KEY
 ```
 
 ### Use Memory

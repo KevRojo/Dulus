@@ -216,6 +216,7 @@ py-modules = [
     "personality_config",
     "profiles",
     "providers",
+    "retired_web",
     "pyconsole",
     "skills",
     "soul",
