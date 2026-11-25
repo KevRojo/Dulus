@@ -32,18 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   option that runs the OAuth sign-in; the returning-user tip now points at
   `/login dulus` or `/config <provider>_api_key=…`.
 - Supported no-API-key routes are now the Dulus router plus subscription OAuth
-  (`/login claude`, `/login chatgpt`, `/login kimi`, `/login grok`), NVIDIA
-  NIM's free tier, and local Ollama / LM Studio / `edge`.
+  (`/login claude`, `/login chatgpt`, `/login kimi`, `/login grok`) and
+  local Ollama / LM Studio / `edge`. NVIDIA NIM uses your `NVIDIA_API_KEY`.
 
 ### Fixed
 - `config.py` declared `license_key` twice in `DEFAULTS`; removed the duplicate.
 - Regenerated `docs/api.html`, which was stale well before this change.
 
 ### Migration
-Configs pinned to a removed provider (e.g. `gemini-web/gemini-latest`) no longer
-resolve to it. `gemini-web/*` now falls through prefix detection to the paid
-`gemini` API and will report a missing `GEMINI_API_KEY`. Run `/login dulus`,
-set a provider key, or `/model ollama/<name>` to pick a supported route.
+After updating public Dulus, a saved browser-session model stops before any
+provider request, even if the old cookies or a valid API key are present.
+You can resume the conversation and choose a supported model with `/model`.
+For Fuel-metered inference, run `/login dulus` and `/model dulus/dulus-b-27b`.
 
 ## 3.13.9 — 2026-09-01
 

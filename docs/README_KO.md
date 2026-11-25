@@ -7,7 +7,7 @@
 <h3>당신의 AI 동반자. 챗봇이 아닙니다. 곁을 나는 친구입니다.</h3>
 
 <p>
-  <strong>API 키 없이 최첨단 AI를 사용하세요. $0. 신용카드 불필요. 구독 불필요.</strong>
+  <strong>Fuel로 Dulus 호스팅 모델을 이용하거나, 자체 API 키를 연결하거나, 로컬 모델을 실행하세요.</strong>
 </p>
 
 <p>
@@ -103,7 +103,7 @@ docker compose up -d
 | 기능 | 설명 |
 |---|---|
 | 멀티 제공자 | 11 네이티브 + LiteLLM 통해 100+ |
-| 제로 API 키 | 묶음 브라우저 세션 캡처 |
+| 계정 로그인 | `/login dulus`로 Fuel이 과금되는 호스팅 모델 이용 |
 | 30+ 내장 도구 | 파일, 셸, 웹, OCR, 음성 등 |
 | 오토 어댑터 | 모든 Python 리포를 플러그인으로 설치 |
 | MemPalace | ChromaDB 기반 시맨틱 메모리 |
@@ -126,12 +126,11 @@ docker compose up -d
 
 ## 제공자
 
-### 묶음 (API 키 불필요)
+### Dulus 계정 및 로컬 모델
 
 | 제공자 | 모델 | 설정 |
 |---|---|---|
 | **Dulus 라우터** | `dulus-*` (12 티어) | `/login dulus` — OAuth, Fuel 과금 |
-| **NVIDIA NIM** | 14 모델, 각 40 RPM | build.nvidia.com 에서 묶음 등록 |
 | **Ollama** | 모든 로컬 모델 | `ollama pull qwen2.5-coder` |
 
 ### Cloud API (API 키 필요)
@@ -141,6 +140,7 @@ docker compose up -d
 | Anthropic | claude-opus-4-6, claude-sonnet-4-6 | `ANTHROPIC_API_KEY` |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini | `OPENAI_API_KEY` |
 | Google | gemini-2.5-pro, gemini-2.0-flash | `GEMINI_API_KEY` |
+| NVIDIA NIM | `meta/llama-3.3-70b-instruct` | `NVIDIA_API_KEY` |
 | DeepSeek | deepseek-chat, deepseek-reasoner | `DEEPSEEK_API_KEY` |
 | Qwen | qwen-max, qwen-plus, qwq-32b | `DASHSCOPE_API_KEY` |
 | Kimi | moonshot-v1-8k/32k/128k, kimi-k2.5 | `MOONSHOT_API_KEY` |

@@ -257,6 +257,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union, Any, Callable
 
+from retired_web import retired_command_error, retired_provider_message, retired_web_provider
+
 if sys.platform == "win32":
     os.system("")  # Enable ANSI escape codes on Windows CMD
     # IDLE wraps stdout/stderr in StdOutputFile which lacks .reconfigure —
@@ -1346,8 +1348,11 @@ def cmd_model(args: str, _state, config) -> bool:
         while len(_seg) >= 2 and _seg[0] == _seg[1] and _seg[0] in PROVIDERS:
             _seg.pop(1)
         m = "/".join(_seg)
-        config["model"] = m
         pname = detect_provider(m)
+        if pname not in PROVIDERS:
+            err(retired_provider_message(pname), report=False)
+            return True
+        config["model"] = m
         ok(f"Model set to {m}  (provider: {pname})")
         from config import save_config
         save_config(config)
@@ -1671,7 +1676,7 @@ def _print_login_nag(config: dict) -> None:
         print("     " + clr("TODAY", "yellow", "bold")
               + ": " + clr("Qwen UNCENSORED", "cyan", "bold")
               + " drops on our endpoint. Stock Fuel now.")
-        print(clr("     Local & web models keep working without it.", "dim"))
+        print(clr("     You can also use your own provider credentials or a local model.", "dim"))
         print()
         print("  Buy $DULUS now:")
         print(f"  {styled_dx_url}")
@@ -1798,6 +1803,9 @@ def cmd_config(args: str, _state, config) -> bool:
     elif "=" in args:
         key, _, val = args.partition("=")
         key, val = key.strip(), val.strip()
+        if key == "model" and (removed := retired_web_provider(val)):
+            err(retired_provider_message(removed), report=False)
+            return True
         # Type coercion
         if val.lower() in ("true", "false"):
             val = val.lower() == "true"
@@ -9903,7 +9911,9 @@ def cmd_doctor(args: str, state, config) -> bool:
     provider = detect_provider(model)
     key = get_api_key(provider, config)
 
-    if key:
+    if provider not in PROVIDERS:
+        fail(retired_provider_message(provider))
+    elif key:
         ok(f"API key for {provider}: set ({key[:4]}...{key[-4:]})")
     elif provider in ("ollama", "lmstudio"):
         ok(f"Provider {provider}: no key needed (local)")
@@ -10800,6 +10810,11 @@ def handle_slash(line: str, state, config, *, raise_errors: bool = False) -> Uni
         # cmd_voice/cmd_image/cmd_brainstorm/cmd_plan return sentinels to ask the REPL to run_query
         if isinstance(result, tuple) and result[0] in ("__voice__", "__image__", "__video__", "__brainstorm__", "__worker__", "__ssj_cmd__", "__ssj_query__", "__ssj_debate__", "__ssj_passthrough__", "__ssj_promote_worker__", "__plan__", "__sage__", "__plugin_main_agent__"):
             return result
+        return True
+
+    # An old trigger stored in a user's skills must not revive a retired command.
+    if reason := retired_command_error(line):
+        err(reason, report=False)
         return True
 
     # Fall through to skill lookup
@@ -13625,7 +13640,10 @@ def main():
         
         print(clr(f"\n  [Dulus Command] Executing: {cmd_str}", "cyan", "bold"))
         
-        # Execute the command (a crash must still exit non-zero for scripts)
+        if reason := retired_command_error(cmd_str):
+            _emit_error(reason)
+            err(reason, report=False)
+            sys.exit(1)
         result = handle_slash(cmd_str, state, config, raise_errors=True)
         
         # Check if command returned a tuple (skill execution request)
@@ -13710,7 +13728,14 @@ def main():
         config["_cli_soul"] = args.soul
 
     # Check API key for active provider (warn only, don't block local providers)
-    if not has_api_key(config):
+    if removed := retired_web_provider(config["model"]):
+        message = retired_provider_message(removed)
+        if args.model or args.prompt or args.print_mode or _protocol_enabled():
+            _emit_error(message)
+            err(message, report=False)
+            sys.exit(1)
+        warn(message)
+    elif not has_api_key(config):
         pname = detect_provider(config["model"])
         prov  = PROVIDERS.get(pname, {})
         env   = prov.get("api_key_env", "")

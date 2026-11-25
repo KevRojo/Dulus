@@ -30,7 +30,7 @@ $DULUS is a utility token on Solana that powers the Dulus business layer (cloud 
 
 - **11 native providers:** Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Kimi, Zhipu, MiniMax, Ollama, LM Studio, Custom
 - **100+ via LiteLLM:** OpenRouter, Groq, Together, Bedrock, Vertex, Mistral, xAI, Fireworks, Azure, and more
-- **No API key:** Dulus router (`/login dulus`), Claude / ChatGPT / Kimi / Grok subscriptions via OAuth, NVIDIA NIM free tier (14 models, 40 RPM), local Ollama
+- The Dulus router uses Fuel. Claude, ChatGPT, Kimi and Grok use your subscription via OAuth. Ollama runs locally. NVIDIA NIM requires your own `NVIDIA_API_KEY`.
 
 ### Does Dulus work offline?
 
@@ -129,7 +129,7 @@ The token is the fuel layer for the Dulus business layer. The open-source REPL s
 
 ### Is the token required to use Dulus?
 
-**No.** The open-source REPL, all tools, the free model tier — everything stays free forever. $DULUS is only for the optional business layer.
+You can use the open-source REPL with your own provider credentials or a local model. Dulus-hosted inference is metered in Fuel.
 
 ### Contract address?
 
@@ -202,7 +202,7 @@ Dulus es tu companero de IA — un agente autonomo en Python que se conecta a cu
 
 - **11 proveedores nativos:** Anthropic, OpenAI, Gemini, DeepSeek, Qwen, Kimi, Zhipu, MiniMax, Ollama, LM Studio, Custom
 - **100+ via LiteLLM:** OpenRouter, Groq, Together, Bedrock, Vertex, Mistral, xAI, y mas
-- **Sin API key:** router Dulus (`/login dulus`), suscripciones Claude / ChatGPT / Kimi / Grok via OAuth, tier gratuito de NVIDIA NIM (14 modelos), Ollama local
+- El router de Dulus consume Fuel. Claude, ChatGPT, Kimi y Grok usan tu suscripción mediante OAuth. Ollama funciona en tu equipo. NVIDIA NIM requiere tu propia `NVIDIA_API_KEY`.
 
 ### Como funciona el login por suscripcion?
 

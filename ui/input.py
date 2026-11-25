@@ -15,12 +15,12 @@ from typing import Any, Callable, Optional
 
 try:
     from prompt_toolkit import PromptSession
-    from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
     from prompt_toolkit.completion import Completer, Completion
     from prompt_toolkit.formatted_text import ANSI
     from prompt_toolkit.history import FileHistory, InMemoryHistory
     from prompt_toolkit.patch_stdout import patch_stdout
     from prompt_toolkit.styles import Style
+    from ui.history import DulusHistorySuggest
     HAS_PROMPT_TOOLKIT = True
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
@@ -162,7 +162,7 @@ def _build_session(history_path: Optional[Path]):
     return PromptSession(
         history=history,
         completer=completer,  # type: ignore[arg-type]
-        auto_suggest=AutoSuggestFromHistory(),
+        auto_suggest=DulusHistorySuggest(),
         complete_while_typing=True,
         enable_history_search=False,
         mouse_support=False,
@@ -291,7 +291,7 @@ def read_line_split(prompt: str = "> ", history_path: Optional[Path] = None) -> 
     _split_buffer = Buffer(
         history=history,
         completer=completer,  # type: ignore[arg-type]
-        auto_suggest=AutoSuggestFromHistory(),
+        auto_suggest=DulusHistorySuggest(),
         complete_while_typing=True,
         enable_history_search=False,
         multiline=False,

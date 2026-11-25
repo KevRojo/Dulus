@@ -7,7 +7,7 @@
 <h3>Your AI Companion. Not a Chatbot. A Friend That Flies Beside You.</h3>
 
 <p>
-  <strong>Use frontier AI without an API key. $0. No credit card. No subscription.</strong>
+  <strong>Run Dulus-hosted models with Fuel, connect your own provider, or run a model locally.</strong>
 </p>
 
 <p>
@@ -130,7 +130,7 @@ docker compose up -d
 
 ## Providers
 
-### No API Key Required
+### Account sign-in and local models
 
 | Provider | Models | Setup |
 |---|---|---|
@@ -139,7 +139,6 @@ docker compose up -d
 | **ChatGPT subscription** | gpt-5.6, codex-* | `/login chatgpt` |
 | **Kimi membership** | kimi-for-coding | `/login kimi` |
 | **Grok** | grok-* | `/login grok` |
-| **NVIDIA NIM** | 14 models, 40 RPM each | Free signup at build.nvidia.com |
 | **Ollama** | Any local model | `ollama pull qwen2.5-coder` |
 
 ### Cloud APIs (API Key Required)
@@ -149,6 +148,7 @@ docker compose up -d
 | Anthropic | claude-opus-4-6, claude-sonnet-4-6 | `ANTHROPIC_API_KEY` |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini | `OPENAI_API_KEY` |
 | Google | gemini-2.5-pro, gemini-2.0-flash | `GEMINI_API_KEY` |
+| NVIDIA NIM | `meta/llama-3.3-70b-instruct` | `NVIDIA_API_KEY` |
 | DeepSeek | deepseek-chat, deepseek-reasoner | `DEEPSEEK_API_KEY` |
 | Qwen | qwen-max, qwen-plus, qwq-32b | `DASHSCOPE_API_KEY` |
 | Kimi | moonshot-v1-8k/32k/128k, kimi-k2.5 | `MOONSHOT_API_KEY` |
@@ -162,7 +162,7 @@ docker compose up -d
 /model                    # show current model
 /model gpt-4o             # switch to OpenAI
 /model ollama/llama3.3    # switch to local Ollama
-/model nvidia-web/deepseek-r1  # free NVIDIA tier
+/model nvidia-web/deepseek-ai/deepseek-r1  # uses your NVIDIA_API_KEY
 ```
 
 ---

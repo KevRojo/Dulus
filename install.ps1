@@ -565,7 +565,7 @@ Header "All set"
     dulus -c "bg start"      run headless daemon in tmux + webchat
 
   First-run picks:
-    * Pick a model with /model (NVIDIA tier is free - 14 frontier models)
+    * Pick a model with /model (Dulus Fuel, your own provider, or a local model)
     * Set your soul with /soul (English / Spanish / your own)
     * /help inside the REPL shows everything
 

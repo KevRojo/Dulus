@@ -7,7 +7,7 @@
 <h3>Votre Compagnon IA. Pas un Chatbot. Un Ami qui Vole a Vos Cotes.</h3>
 
 <p>
-  <strong>Utilisez l'IA de pointe sans cle API. 0 $. Sans carte. Sans abonnement.</strong>
+  <strong>Utilisez les modèles hébergés par Dulus avec Fuel, connectez votre fournisseur ou exécutez un modèle local.</strong>
 </p>
 
 <p>
@@ -67,7 +67,7 @@
 
 **Le probleme :** Les agents IA aujourd'hui sont verrouilles sur un seul fournisseur ou necessitent un doctorat en ML pour les configurer. Et ils veulent tous votre carte de credit avant que vous puissiez les essayer.
 
-**La solution :** Dulus. Un agent autonome Python qui se connecte a n'importe quel modele — des sessions navigateur gratuites a 100+ fournisseurs via LiteLLM et aux modeles locaux sur votre propre materiel. ~56K lignes de Python proprietaire. Pas d'etape de build. Pas de gatekeeping.
+**La solution :** Dulus. Un agent autonome Python qui se connecte a n'importe quel modele — du routeur Dulus facturé en Fuel a 100+ fournisseurs via LiteLLM et aux modeles locaux sur votre propre materiel. ~56K lignes de Python proprietaire. Pas d'etape de build. Pas de gatekeeping.
 
 ---
 
@@ -79,7 +79,7 @@
 pip install dulus && dulus
 ```
 
-C'est tout. Au premier lancement, Dulus ouvre un navigateur, capture une **session guest Gemini** (sans login, sans cle API, sans carte), et vous discutez avec une IA de pointe en moins de 30 secondes.
+Au premier lancement, choisissez votre connexion. Utilisez `/login dulus` pour les modèles hébergés facturés en Fuel, configurez votre propre clé API ou choisissez un modèle local.
 
 ### Installeur One-liner (recommande)
 
@@ -103,7 +103,7 @@ docker compose up -d
 | Fonctionnalite | Description |
 |---|---|
 | Multi-Fournisseur | 11 natifs + 100+ via LiteLLM |
-| Sans Cle API | Capture des sessions navigateur gratuites |
+| Connexion | `/login dulus` donne accès aux modèles hébergés facturés en Fuel |
 | 30+ Outils Integres | Fichiers, shell, web, OCR, voix, et plus |
 | Plugins | Installe un plugin depuis un repo Git via son manifeste |
 | MemPalace | Memoire semantique avec ChromaDB |
@@ -125,12 +125,11 @@ docker compose up -d
 
 ## Fournisseurs
 
-### Gratuits (Sans Cle API)
+### Compte Dulus et modèles locaux
 
 | Fournisseur | Modeles | Configuration |
 |---|---|---|
 | **Routeur Dulus** | `dulus-*` (12 niveaux) | `/login dulus` — OAuth, facture en Fuel |
-| **NVIDIA NIM** | 14 modeles, 40 RPM chacun | Inscription gratuite |
 | **Ollama** | Tout modele local | `ollama pull qwen2.5-coder` |
 
 ### Cloud APIs (Cle API Requise)
@@ -140,6 +139,7 @@ docker compose up -d
 | Anthropic | claude-opus-4-6, claude-sonnet-4-6 | `ANTHROPIC_API_KEY` |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini | `OPENAI_API_KEY` |
 | Google | gemini-2.5-pro, gemini-2.0-flash | `GEMINI_API_KEY` |
+| NVIDIA NIM | `meta/llama-3.3-70b-instruct` | `NVIDIA_API_KEY` |
 | DeepSeek | deepseek-chat, deepseek-reasoner | `DEEPSEEK_API_KEY` |
 | Qwen | qwen-max, qwen-plus, qwq-32b | `DASHSCOPE_API_KEY` |
 | Kimi | moonshot-v1-8k/32k/128k, kimi-k2.5 | `MOONSHOT_API_KEY` |

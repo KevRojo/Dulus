@@ -7,7 +7,7 @@
 <h3>あなたの AI コンパニオン。チャットボットじゃない。そばを飛ぶ友達。</h3>
 
 <p>
-  <strong>API キーなしで最先端 AI を使用。$0。クレカ不要。サブスク不要。</strong>
+  <strong>Dulus のホスト型モデルは Fuel で利用できます。自分の API キーやローカルモデルも使えます。</strong>
 </p>
 
 <p>
@@ -103,7 +103,7 @@ docker compose up -d
 | 機能 | 説明 |
 |---|---|
 | マルチプロバイダ | 11 ネイティブ + LiteLLM 経由 100+ |
-| ゼロ API キー | 無料ブラウザセッションをキャプチャ |
+| アカウント認証 | `/login dulus` で Fuel 従量課金のホスト型モデルを利用 |
 | 30+ 内蔵ツール | ファイル、シェル、Web、OCR、音声など |
 | オートアダプター | 任意の Python リポをプラグインとしてインストール |
 | MemPalace | ChromaDB によるセマンティックメモリ |
@@ -126,12 +126,11 @@ docker compose up -d
 
 ## プロバイダ
 
-### 無料（API キー不要）
+### Dulus アカウントとローカルモデル
 
 | プロバイダ | モデル | セットアップ |
 |---|---|---|
 | **Dulus ルーター** | `dulus-*`（12 ティア） | `/login dulus` — OAuth、Fuel 従量課金 |
-| **NVIDIA NIM** | 14 モデル、各 40 RPM | build.nvidia.com で無料登録 |
 | **Ollama** | 任意のローカルモデル | `ollama pull qwen2.5-coder` |
 
 ### Cloud API（API キー必要）
@@ -141,6 +140,7 @@ docker compose up -d
 | Anthropic | claude-opus-4-6, claude-sonnet-4-6 | `ANTHROPIC_API_KEY` |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini | `OPENAI_API_KEY` |
 | Google | gemini-2.5-pro, gemini-2.0-flash | `GEMINI_API_KEY` |
+| NVIDIA NIM | `meta/llama-3.3-70b-instruct` | `NVIDIA_API_KEY` |
 | DeepSeek | deepseek-chat, deepseek-reasoner | `DEEPSEEK_API_KEY` |
 | Qwen | qwen-max, qwen-plus, qwq-32b | `DASHSCOPE_API_KEY` |
 | Kimi | moonshot-v1-8k/32k/128k, kimi-k2.5 | `MOONSHOT_API_KEY` |
