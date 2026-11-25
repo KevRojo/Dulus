@@ -313,7 +313,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("dulus")
 except Exception:
-    VERSION = "3.15.7"  # dev fallback — keep in sync with pyproject.toml
+    VERSION = "3.15.8"  # dev fallback — keep in sync with pyproject.toml
 
 # ── Sentry error tracking (optional — graceful degradation if not installed) ─
 # Off-switch for demos/privacy: set DULUS_NO_SENTRY=1 (or SENTRY_DSN="") to skip.
